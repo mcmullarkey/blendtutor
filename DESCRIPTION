@@ -1,0 +1,24 @@
+Package: blendtutor
+Title: Interactive Coding Lessons with AI Feedback
+Version: 0.1.0
+Authors@R:
+    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
+Description: Learn software engineering concepts through interactive lessons
+    with AI-powered feedback using Fireworks AI for code evaluation.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    cli (>= 3.6.0),
+    yaml (>= 2.3.0),
+    glue (>= 1.6.0),
+    httr2 (>= 1.0.0),
+    jsonlite (>= 1.8.0)
+Suggests:
+    testthat (>= 3.0.0),
+    usethis,
+    withr,
+    vitals,
+    ellmer
+Config/testthat/edition: 3

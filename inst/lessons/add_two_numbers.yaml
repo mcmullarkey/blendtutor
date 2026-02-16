@@ -1,0 +1,41 @@
+lesson_name: "Writing Your First Function"
+description: "Learn to write a simple function that adds two numbers"
+textbook_reference: "Just Enough Software Engineering - Chapter 2: Functions"
+
+exercise:
+  type: "function_writing"
+  code_template: |
+    # Write a function called 'add_two' that adds two numbers
+    # Function should take parameters x and y
+    # Function should return their sum
+
+    add_two <- function(x, y) {
+      # Your code here
+
+    }
+  prompt: |
+    Write a function called 'add_two' that takes two numeric arguments
+    (x and y) and returns their sum.
+
+  example_usage: |
+    add_two(3, 5)  # should return 8
+    add_two(10, -2)  # should return 8
+
+  success_criteria: |
+    - Function is named 'add_two'
+    - Takes exactly 2 parameters
+    - Returns the sum of the parameters
+    - Handles numeric inputs correctly
+
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: Write a function called 'add_two' that takes two numeric
+    arguments and returns their sum.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.

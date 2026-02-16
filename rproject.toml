@@ -1,0 +1,22 @@
+[project]
+name = "blendtutor"
+r_version = "4.5"
+
+repositories = [
+    { alias = "CRAN", url = "https://cloud.r-project.org/" },
+]
+
+dependencies = [
+    "yaml",
+    "glue",
+    "httr2",
+    "jsonlite",
+    "testthat",
+    "usethis",
+    "withr",
+    "vitals",
+    "ellmer",
+    "devtools",
+    "roxygen2",
+    "cli"
+]

@@ -35,8 +35,7 @@
 #' # Submit your code
 #' submit_code("add_two <- function(x, y) { x + y }")
 #' }
-start_lesson <- function(lesson_name = "add_two_numbers",
-                         model = NULL) {
+start_lesson <- function(lesson_name = "add_two_numbers", model = NULL) {
   lesson <- load_lesson(lesson_name)
   code_file <- create_lesson_code_file(lesson)
   initialize_lesson_state(lesson, model, code_file)
@@ -123,7 +122,10 @@ submit_code <- function(code_string = NULL) {
 #' @export
 reset_lesson <- function() {
   # Clean up temp file
-  if (!is.null(.blendtutor_env$code_file) && file.exists(.blendtutor_env$code_file)) {
+  if (
+    !is.null(.blendtutor_env$code_file) &&
+      file.exists(.blendtutor_env$code_file)
+  ) {
     unlink(.blendtutor_env$code_file)
   }
 

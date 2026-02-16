@@ -18,7 +18,9 @@ find_lesson_packages <- function() {
   # Find packages that reference blendtutor in Depends/Imports/Suggests
   dep_fields <- c("Depends", "Imports", "Suggests")
   for (field in dep_fields) {
-    if (!(field %in% colnames(pkgs))) next
+    if (!(field %in% colnames(pkgs))) {
+      next
+    }
     has_blendtutor <- grep("\\bblendtutor\\b", pkgs[, field])
     blendtutor_deps <- union(blendtutor_deps, pkgs[has_blendtutor, "Package"])
   }
@@ -27,7 +29,9 @@ find_lesson_packages <- function() {
   packages_with_lessons <- character(0)
   for (pkg in blendtutor_deps) {
     lessons_dir <- system.file("lessons", package = pkg)
-    if (lessons_dir == "" || !dir.exists(lessons_dir)) next
+    if (lessons_dir == "" || !dir.exists(lessons_dir)) {
+      next
+    }
     yaml_files <- list.files(lessons_dir, pattern = "\\.yaml$")
     if (length(yaml_files) > 0) {
       packages_with_lessons <- c(packages_with_lessons, pkg)
@@ -55,8 +59,14 @@ build_lesson_index <- function() {
   rows <- list()
   for (pkg in packages) {
     lessons_dir <- system.file("lessons", package = pkg)
-    yaml_files <- list.files(lessons_dir, pattern = "\\.yaml$", full.names = TRUE)
-    if (length(yaml_files) == 0) next
+    yaml_files <- list.files(
+      lessons_dir,
+      pattern = "\\.yaml$",
+      full.names = TRUE
+    )
+    if (length(yaml_files) == 0) {
+      next
+    }
 
     lesson_ids <- sub("\\.yaml$", "", basename(yaml_files))
     rows[[length(rows) + 1]] <- data.frame(
@@ -175,7 +185,7 @@ resolve_bare_name <- function(lesson_ref) {
 #' @return A list with `path`, `package`, and `lesson_id`
 #' @keywords internal
 resolve_lesson <- function(lesson_ref) {
-  if (grepl("/", lesson_ref) || grepl("\\.yaml$", lesson_ref)) {
+  if (grepl("/", lesson_ref, fixed = TRUE) || grepl("\\.yaml$", lesson_ref)) {
     return(resolve_file_path(lesson_ref))
   }
 
@@ -195,6 +205,9 @@ resolve_lesson <- function(lesson_ref) {
 #' @return Invisible NULL
 #' @export
 invalidate_lesson_cache <- function() {
-  rm(list = ls(.blendtutor_discovery_cache), envir = .blendtutor_discovery_cache)
+  rm(
+    list = ls(.blendtutor_discovery_cache),
+    envir = .blendtutor_discovery_cache
+  )
   invisible(NULL)
 }

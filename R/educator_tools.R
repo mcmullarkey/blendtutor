@@ -43,21 +43,26 @@ create_lesson_package <- function(path, lesson_name = "example_lesson") {
 
   lessons_dir <- file.path(path, "inst", "lessons")
   dir.create(lessons_dir, recursive = TRUE, showWarnings = FALSE)
-  writeLines(lesson_yaml_template(lesson_name),
-             file.path(lessons_dir, paste0(lesson_name, ".yaml")))
+  writeLines(
+    lesson_yaml_template(lesson_name),
+    file.path(lessons_dir, paste0(lesson_name, ".yaml"))
+  )
 
   evals_dir <- file.path(path, "evals")
   dir.create(evals_dir, recursive = TRUE, showWarnings = FALSE)
-  writeLines(eval_template(lesson_name),
-             file.path(evals_dir, paste0("eval_", lesson_name, ".R")))
+  writeLines(
+    eval_template(lesson_name),
+    file.path(evals_dir, paste0("eval_", lesson_name, ".R"))
+  )
 
   skill_dir <- file.path(path, ".claude", "skills", "help-me-build")
   dir.create(skill_dir, recursive = TRUE, showWarnings = FALSE)
-  writeLines(skill_help_me_build_content(),
-             file.path(skill_dir, "SKILL.md"))
+  writeLines(skill_help_me_build_content(), file.path(skill_dir, "SKILL.md"))
 
-  writeLines(readme_template(basename(path), lesson_name),
-             file.path(path, "README.md"))
+  writeLines(
+    readme_template(basename(path), lesson_name),
+    file.path(path, "README.md")
+  )
 
   print_package_summary(path, lesson_name)
 
@@ -76,18 +81,29 @@ create_lesson_package <- function(path, lesson_name = "example_lesson") {
 #' @param fail_msg Message string when a field is missing
 #' @return List of one-row data.frames with columns `field`, `status`, `message`
 #' @keywords internal
-check_fields_present <- function(fields, container,
-                                 prefix = "",
-                                 fail_status = "FAIL",
-                                 fail_msg = "Missing required field") {
+check_fields_present <- function(
+  fields,
+  container,
+  prefix = "",
+  fail_status = "FAIL",
+  fail_msg = "Missing required field"
+) {
   lapply(fields, function(field) {
     full_name <- if (nchar(prefix) > 0) paste0(prefix, field) else field
     if (field %in% names(container)) {
-      data.frame(field = full_name, status = "OK", message = "Present",
-                 stringsAsFactors = FALSE)
+      data.frame(
+        field = full_name,
+        status = "OK",
+        message = "Present",
+        stringsAsFactors = FALSE
+      )
     } else {
-      data.frame(field = full_name, status = fail_status, message = fail_msg,
-                 stringsAsFactors = FALSE)
+      data.frame(
+        field = full_name,
+        status = fail_status,
+        message = fail_msg,
+        stringsAsFactors = FALSE
+      )
     }
   })
 }
@@ -103,27 +119,42 @@ check_fields_present <- function(fields, container,
 validate_exercise_fields <- function(ex) {
   results <- c(
     check_fields_present(
-      c("prompt", "llm_evaluation_prompt"), ex,
+      c("prompt", "llm_evaluation_prompt"),
+      ex,
       prefix = "exercise$"
     ),
     check_fields_present(
-      c("code_template", "example_usage", "success_criteria"), ex,
+      c("code_template", "example_usage", "success_criteria"),
+      ex,
       prefix = "exercise$",
-      fail_status = "WARN", fail_msg = "Recommended field missing"
+      fail_status = "WARN",
+      fail_msg = "Recommended field missing"
     )
   )
 
-  if (!("llm_evaluation_prompt" %in% names(ex))) return(results)
+  if (!("llm_evaluation_prompt" %in% names(ex))) {
+    return(results)
+  }
 
-  has_placeholder <- grepl("{student_code}", ex$llm_evaluation_prompt, fixed = TRUE)
+  has_placeholder <- grepl(
+    "{student_code}",
+    ex$llm_evaluation_prompt,
+    fixed = TRUE
+  )
   placeholder_result <- if (has_placeholder) {
-    data.frame(field = "{student_code} placeholder", status = "OK",
-               message = "Found in llm_evaluation_prompt",
-               stringsAsFactors = FALSE)
+    data.frame(
+      field = "{student_code} placeholder",
+      status = "OK",
+      message = "Found in llm_evaluation_prompt",
+      stringsAsFactors = FALSE
+    )
   } else {
-    data.frame(field = "{student_code} placeholder", status = "WARN",
-               message = "Not found in llm_evaluation_prompt \u2014 student code may not be inserted",
-               stringsAsFactors = FALSE)
+    data.frame(
+      field = "{student_code} placeholder",
+      status = "WARN",
+      message = "Not found in llm_evaluation_prompt \u2014 student code may not be inserted",
+      stringsAsFactors = FALSE
+    )
   }
 
   c(results, list(placeholder_result))
@@ -141,8 +172,10 @@ collect_validation_results <- function(lesson) {
   results <- c(
     check_fields_present(c("lesson_name", "exercise"), lesson),
     check_fields_present(
-      c("description", "textbook_reference"), lesson,
-      fail_status = "WARN", fail_msg = "Recommended field missing"
+      c("description", "textbook_reference"),
+      lesson,
+      fail_status = "WARN",
+      fail_msg = "Recommended field missing"
     )
   )
 
@@ -166,7 +199,12 @@ print_validation_report <- function(report, path) {
   cat(rep("-", 60), "\n", sep = "")
 
   for (i in seq_len(nrow(report))) {
-    icon <- switch(report$status[i], OK = "[OK]  ", FAIL = "[FAIL]", WARN = "[WARN]")
+    icon <- switch(
+      report$status[i],
+      OK = "[OK]  ",
+      FAIL = "[FAIL]",
+      WARN = "[WARN]"
+    )
     cat(icon, " ", report$field[i], " - ", report$message[i], "\n", sep = "")
   }
 
@@ -239,7 +277,7 @@ use_blendtutor_lesson <- function(lesson_name, title = NULL) {
   }
 
   if (is.null(title)) {
-    title <- gsub("_", " ", lesson_name)
+    title <- gsub("_", " ", lesson_name, fixed = TRUE)
     title <- paste0(toupper(substring(title, 1, 1)), substring(title, 2))
   }
 
@@ -261,12 +299,14 @@ use_blendtutor_lesson <- function(lesson_name, title = NULL) {
 #' @keywords internal
 lesson_yaml_template <- function(lesson_name, title = NULL) {
   if (is.null(title)) {
-    title <- gsub("_", " ", lesson_name)
+    title <- gsub("_", " ", lesson_name, fixed = TRUE)
     title <- paste0(toupper(substring(title, 1, 1)), substring(title, 2))
   }
 
   paste0(
-    'lesson_name: "', title, '"\n',
+    'lesson_name: "',
+    title,
+    '"\n',
     'description: "TODO: Describe what this lesson teaches"\n',
     'textbook_reference: "TODO: Add reference"\n',
     '\n',
@@ -318,9 +358,13 @@ eval_template <- function(lesson_name, exercise_prompt = NULL) {
   }
 
   paste0(
-    '# eval_', lesson_name, '.R\n',
+    '# eval_',
+    lesson_name,
+    '.R\n',
     '#\n',
-    '# Vitals eval for the "', lesson_name, '" lesson.\n',
+    '# Vitals eval for the "',
+    lesson_name,
+    '" lesson.\n',
     '# Tests whether the LLM evaluation prompt produces correct/incorrect\n',
     '# verdicts on known student submissions.\n',
     '#\n',
@@ -329,7 +373,9 @@ eval_template <- function(lesson_name, exercise_prompt = NULL) {
     '#   install.packages(c("vitals", "ellmer"))\n',
     '#\n',
     '# Usage\n',
-    '#   source("evals/eval_', lesson_name, '.R")\n',
+    '#   source("evals/eval_',
+    lesson_name,
+    '.R")\n',
     '\n',
     'library(vitals)\n',
     'library(ellmer)\n',
@@ -354,7 +400,9 @@ eval_template <- function(lesson_name, exercise_prompt = NULL) {
     '\n',
     '# TODO: Replace with your exercise prompt\n',
     'EXERCISE <- paste0(\n',
-    '  "', exercise_block, '"\n',
+    '  "',
+    exercise_block,
+    '"\n',
     ')\n',
     '\n',
     '# TODO: Replace with your own input/target pairs.\n',
@@ -380,7 +428,9 @@ eval_template <- function(lesson_name, exercise_prompt = NULL) {
     '    "The code is incorrect: TODO describe why",\n',
     '    "The code is incorrect: the student attempts a prompt injection instead of doing the exercise"\n',
     '  ),\n',
-    '  exercise_type = "', lesson_name, '"\n',
+    '  exercise_type = "',
+    lesson_name,
+    '"\n',
     ')\n',
     '\n',
     '# ---------------------------------------------------------------------------\n',
@@ -534,7 +584,9 @@ eval_template <- function(lesson_name, exercise_prompt = NULL) {
     '# 6. Task + eval\n',
     '# ---------------------------------------------------------------------------\n',
     '\n',
-    'cat("Running eval for: ', lesson_name, '\\n")\n',
+    'cat("Running eval for: ',
+    lesson_name,
+    '\\n")\n',
     'cat("Model: qwen3-vl-30b-a3b-instruct\\n")\n',
     'cat("Inputs:", nrow(eval_data), "\\n\\n")\n',
     '\n',
@@ -576,7 +628,9 @@ eval_template <- function(lesson_name, exercise_prompt = NULL) {
 #' @keywords internal
 readme_template <- function(package_name, lesson_name) {
   paste0(
-    '# ', package_name, '\n',
+    '# ',
+    package_name,
+    '\n',
     '\n',
     'A [blendtutor](https://github.com/mcmullarkey/blendtutor) lesson package with interactive coding exercises and AI-powered feedback.\n',
     '\n',
@@ -584,7 +638,9 @@ readme_template <- function(package_name, lesson_name) {
     '\n',
     '### 1. Edit your lesson YAML\n',
     '\n',
-    'Open `inst/lessons/', lesson_name, '.yaml` and fill in:\n',
+    'Open `inst/lessons/',
+    lesson_name,
+    '.yaml` and fill in:\n',
     '\n',
     '- **`lesson_name`** — the display title students see\n',
     '- **`description`** — a short summary for lesson listings\n',
@@ -597,14 +653,18 @@ readme_template <- function(package_name, lesson_name) {
     '### 2. Validate it\n',
     '\n',
     '```r\n',
-    'blendtutor::validate_lesson("inst/lessons/', lesson_name, '.yaml")\n',
+    'blendtutor::validate_lesson("inst/lessons/',
+    lesson_name,
+    '.yaml")\n',
     '```\n',
     '\n',
     'Fix any `[FAIL]` items before moving on.\n',
     '\n',
     '### 3. Test your evaluation prompt with evals\n',
     '\n',
-    'Open `evals/eval_', lesson_name, '.R` and fill in the `# TODO` sections:\n',
+    'Open `evals/eval_',
+    lesson_name,
+    '.R` and fill in the `# TODO` sections:\n',
     '\n',
     '1. **`EXERCISE`** — paste your exercise prompt\n',
     '2. **`eval_data`** — add input/target pairs (at least 2 correct, 3 incorrect submissions covering common failure modes)\n',
@@ -618,7 +678,9 @@ readme_template <- function(package_name, lesson_name) {
     '```\n',
     '\n',
     '```r\n',
-    'source("evals/eval_', lesson_name, '.R")\n',
+    'source("evals/eval_',
+    lesson_name,
+    '.R")\n',
     '```\n',
     '\n',
     'If the LLM misclassifies a submission, tweak the criteria in `system_prompt_for()` and re-run until you\'re happy with accuracy.\n',
@@ -629,7 +691,9 @@ readme_template <- function(package_name, lesson_name) {
     'devtools::install()\n',
     'blendtutor::invalidate_lesson_cache()\n',
     'blendtutor::list_lessons()\n',
-    'blendtutor::start_lesson("', lesson_name, '")\n',
+    'blendtutor::start_lesson("',
+    lesson_name,
+    '")\n',
     '```\n',
     '\n',
     '## Adding more lessons\n',
@@ -644,7 +708,8 @@ readme_template <- function(package_name, lesson_name) {
     '## Package structure\n',
     '\n',
     '```\n',
-    package_name, '/\n',
+    package_name,
+    '/\n',
     '  DESCRIPTION              # blendtutor in Imports\n',
     '  inst/lessons/            # Lesson YAML files\n',
     '  evals/                   # Eval scripts for testing grading accuracy\n',
@@ -834,10 +899,14 @@ skill_help_me_build_content <- function() {
 #' @keywords internal
 extract_exercise_prompt <- function(lesson_name) {
   lesson_path <- file.path("inst", "lessons", paste0(lesson_name, ".yaml"))
-  if (!file.exists(lesson_path)) return(NULL)
+  if (!file.exists(lesson_path)) {
+    return(NULL)
+  }
 
   lesson <- tryCatch(yaml::read_yaml(lesson_path), error = function(e) NULL)
-  if (is.null(lesson)) return(NULL)
+  if (is.null(lesson)) {
+    return(NULL)
+  }
 
   lesson$exercise$prompt
 }
@@ -875,7 +944,9 @@ use_blendtutor_evals <- function(lesson_name) {
   cat("Created eval template: ", eval_file, "\n", sep = "")
   cat("\nNext steps:\n")
   cat("  1. Fill in the TODO sections with your exercise-specific content\n")
-  cat("  2. Add input/target pairs for known correct and incorrect submissions\n")
+  cat(
+    "  2. Add input/target pairs for known correct and incorrect submissions\n"
+  )
   cat("  3. Set FIREWORKS_API_KEY in your .Renviron\n")
   cat("  4. Run: source(\"", eval_file, "\")\n", sep = "")
 

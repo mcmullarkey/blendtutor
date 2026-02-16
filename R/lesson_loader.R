@@ -60,7 +60,10 @@ validate_lesson_structure <- function(lesson, lesson_name) {
 
   # Validate exercise structure
   required_exercise_fields <- c("prompt", "llm_evaluation_prompt")
-  missing_exercise_fields <- setdiff(required_exercise_fields, names(lesson$exercise))
+  missing_exercise_fields <- setdiff(
+    required_exercise_fields,
+    names(lesson$exercise)
+  )
 
   if (length(missing_exercise_fields) > 0) {
     cli_abort(c(
@@ -113,12 +116,20 @@ empty_lessons_result <- function() {
 #' @return Character vector of descriptions (empty string on read failure)
 #' @keywords internal
 read_lesson_descriptions <- function(paths) {
-  vapply(paths, function(p) {
-    tryCatch({
-      lesson <- yaml::read_yaml(p)
-      lesson$description %||% ""
-    }, error = function(e) "")
-  }, character(1), USE.NAMES = FALSE)
+  vapply(
+    paths,
+    function(p) {
+      tryCatch(
+        {
+          lesson <- yaml::read_yaml(p)
+          lesson$description %||% ""
+        },
+        error = function(e) ""
+      )
+    },
+    character(1),
+    USE.NAMES = FALSE
+  )
 }
 
 #' List available lessons
@@ -141,12 +152,17 @@ list_lessons <- function(package = NULL, quiet = FALSE) {
 
   if (nrow(index) == 0) {
     if (!quiet) {
-      msg <- if (is.null(package)) "No lessons found.\n"
-             else paste0("No lessons found in package '", package, "'.\n")
+      msg <- if (is.null(package)) {
+        "No lessons found.\n"
+      } else {
+        paste0("No lessons found in package '", package, "'.\n")
+      }
       cat(msg)
     }
     result <- empty_lessons_result()
-    if (quiet) return(result)
+    if (quiet) {
+      return(result)
+    }
     return(invisible(result))
   }
 
@@ -158,7 +174,9 @@ list_lessons <- function(package = NULL, quiet = FALSE) {
   )
   rownames(result) <- NULL
 
-  if (!quiet) display_lesson_table(result)
+  if (!quiet) {
+    display_lesson_table(result)
+  }
 
   if (quiet) result else invisible(result)
 }

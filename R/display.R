@@ -109,7 +109,9 @@ display_retry_instructions <- function() {
 #' @return Formatted description string (e.g. `"  - Some desc"`) or `""`
 #' @keywords internal
 truncate_description <- function(desc, max_len = 45) {
-  if (nchar(desc) == 0) return("")
+  if (nchar(desc) == 0) {
+    return("")
+  }
   if (nchar(desc) > max_len) {
     desc <- paste0(substr(desc, 1, max_len - 3), "...")
   }

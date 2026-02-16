@@ -82,7 +82,9 @@ build_fireworks_request <- function(api_key, model, prompt, tools) {
       "Authorization" = paste0("Bearer ", api_key)
     ) |>
     httr2::req_body_json(list(
-      model = model, messages = messages, tools = tools
+      model = model,
+      messages = messages,
+      tools = tools
     )) |>
     httr2::req_retry(max_tries = 3) |>
     httr2::req_timeout(30)
@@ -104,12 +106,12 @@ perform_fireworks_request <- function(req, model) {
           "i" = "Please check your {.envvar FIREWORKS_API_KEY}.",
           "i" = "Get your key from: {.url https://fireworks.ai/api-keys}"
         ))
-      } else if (grepl("404", e$message)) {
+      } else if (grepl("404", e$message, fixed = TRUE)) {
         cli_abort(c(
           "Model {.val {model}} not found.",
           "i" = "Check available models at: {.url https://fireworks.ai/models}"
         ))
-      } else if (grepl("429", e$message)) {
+      } else if (grepl("429", e$message, fixed = TRUE)) {
         cli_abort("Rate limit exceeded. Please wait a moment and try again.")
       } else {
         cli_abort(c(
@@ -128,7 +130,9 @@ perform_fireworks_request <- function(req, model) {
 #' @keywords internal
 extract_text_fallback <- function(body) {
   content <- trimws(body$choices[[1]]$message$content %||% "")
-  if (nchar(content) == 0) return(NULL)
+  if (nchar(content) == 0) {
+    return(NULL)
+  }
 
   is_correct <- grepl("correct", content, ignore.case = TRUE) &&
     !grepl("incorrect|not correct|does not", content, ignore.case = TRUE)
@@ -155,10 +159,15 @@ call_fireworks_with_tools <- function(model, prompt) {
   body <- httr2::resp_body_json(resp)
 
   result <- parse_fireworks_tool_response(body)
-  if (!is.null(result)) return(result)
+  if (!is.null(result)) {
+    return(result)
+  }
 
   extract_text_fallback(body) %||%
-    list(is_correct = FALSE, feedback = "Unable to parse LLM response. Please try again.")
+    list(
+      is_correct = FALSE,
+      feedback = "Unable to parse LLM response. Please try again."
+    )
 }
 
 #' Extract the first respond_with_feedback tool call from a Fireworks response
@@ -169,7 +178,9 @@ call_fireworks_with_tools <- function(model, prompt) {
 #' @keywords internal
 extract_tool_call <- function(body, debug = FALSE) {
   if (is.null(body$choices) || length(body$choices) == 0) {
-    if (debug) cat("[DEBUG] No choices in response\n")
+    if (debug) {
+      cat("[DEBUG] No choices in response\n")
+    }
     return(NULL)
   }
 
@@ -189,8 +200,13 @@ extract_tool_call <- function(body, debug = FALSE) {
   }
 
   tool_call <- message$tool_calls[[1]]
-  if (is.null(tool_call[["function"]]) || tool_call[["function"]]$name != "respond_with_feedback") {
-    if (debug) cat("[DEBUG] Tool function name:", tool_call[["function"]]$name, "\n")
+  if (
+    is.null(tool_call[["function"]]) ||
+      tool_call[["function"]]$name != "respond_with_feedback"
+  ) {
+    if (debug) {
+      cat("[DEBUG] Tool function name:", tool_call[["function"]]$name, "\n")
+    }
     return(NULL)
   }
 
@@ -212,11 +228,15 @@ parse_feedback_arguments <- function(tool_call, debug = FALSE) {
   args <- tryCatch(
     jsonlite::fromJSON(tool_call[["function"]]$arguments),
     error = function(e) {
-      if (debug) cat("[DEBUG] Error parsing arguments:", conditionMessage(e), "\n")
+      if (debug) {
+        cat("[DEBUG] Error parsing arguments:", conditionMessage(e), "\n")
+      }
       NULL
     }
   )
-  if (is.null(args)) return(NULL)
+  if (is.null(args)) {
+    return(NULL)
+  }
 
   if (debug) {
     cat("[DEBUG] Parsed arguments:\n")
@@ -225,7 +245,10 @@ parse_feedback_arguments <- function(tool_call, debug = FALSE) {
 
   feedback <- if (is.character(args$feedback_message)) {
     args$feedback_message[1]
-  } else if (is.list(args$feedback_message) && !is.null(args$feedback_message$description)) {
+  } else if (
+    is.list(args$feedback_message) &&
+      !is.null(args$feedback_message$description)
+  ) {
     as.character(args$feedback_message$description)
   } else {
     ""
@@ -254,7 +277,9 @@ parse_fireworks_tool_response <- function(body) {
   debug <- getOption("blendtutor.debug", FALSE)
 
   tool_call <- extract_tool_call(body, debug)
-  if (is.null(tool_call)) return(NULL)
+  if (is.null(tool_call)) {
+    return(NULL)
+  }
 
   parse_feedback_arguments(tool_call, debug)
 }
@@ -269,9 +294,7 @@ parse_fireworks_tool_response <- function(body) {
 #' @param model Character string specifying which Fireworks model to use
 #' @return List with is_correct (logical) and feedback (character)
 #' @keywords internal
-evaluate_with_llm <- function(student_code,
-                               exercise_prompt,
-                               model = NULL) {
+evaluate_with_llm <- function(student_code, exercise_prompt, model = NULL) {
   if (is.null(model)) {
     model <- "accounts/fireworks/models/qwen3-vl-30b-a3b-instruct"
   }

@@ -43,7 +43,9 @@ check_feedback_correct <- function(result) {
 format_next_lessons <- function(current_id) {
   available <- list_lessons(quiet = TRUE)
   other <- available[available$lesson_id != current_id, , drop = FALSE]
-  if (nrow(other) == 0) return(character(0))
+  if (nrow(other) == 0) {
+    return(character(0))
+  }
 
   refs <- other$lesson_id
   external <- other$package != "blendtutor"

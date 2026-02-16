@@ -4,7 +4,11 @@
 # -- extract_text_fallback --------------------------------------------------
 
 test_that("extract_text_fallback returns feedback from text content", {
-  body <- list(choices = list(list(message = list(content = "The code is correct and works well."))))
+  body <- list(
+    choices = list(list(
+      message = list(content = "The code is correct and works well.")
+    ))
+  )
   result <- extract_text_fallback(body)
 
   expect_true(result$is_correct)
@@ -12,7 +16,9 @@ test_that("extract_text_fallback returns feedback from text content", {
 })
 
 test_that("extract_text_fallback detects incorrect in text", {
-  body <- list(choices = list(list(message = list(content = "The code is incorrect."))))
+  body <- list(
+    choices = list(list(message = list(content = "The code is incorrect.")))
+  )
   result <- extract_text_fallback(body)
 
   expect_false(result$is_correct)
@@ -29,14 +35,18 @@ test_that("extract_text_fallback returns NULL for empty content", {
 # -- extract_tool_call ------------------------------------------------------
 
 test_that("extract_tool_call finds respond_with_feedback call", {
-  body <- list(choices = list(list(message = list(
-    tool_calls = list(list(
-      "function" = list(
-        name = "respond_with_feedback",
-        arguments = '{"is_correct": true, "feedback_message": "Great!"}'
+  body <- list(
+    choices = list(list(
+      message = list(
+        tool_calls = list(list(
+          "function" = list(
+            name = "respond_with_feedback",
+            arguments = '{"is_correct": true, "feedback_message": "Great!"}'
+          )
+        ))
       )
     ))
-  ))))
+  )
 
   tc <- extract_tool_call(body)
   expect_equal(tc[["function"]]$name, "respond_with_feedback")
@@ -53,20 +63,26 @@ test_that("extract_tool_call returns NULL when no tool_calls", {
 })
 
 test_that("extract_tool_call returns NULL for wrong function name", {
-  body <- list(choices = list(list(message = list(
-    tool_calls = list(list(
-      "function" = list(name = "other_tool", arguments = "{}")
+  body <- list(
+    choices = list(list(
+      message = list(
+        tool_calls = list(list(
+          "function" = list(name = "other_tool", arguments = "{}")
+        ))
+      )
     ))
-  ))))
+  )
   expect_null(extract_tool_call(body))
 })
 
 # -- parse_feedback_arguments -----------------------------------------------
 
 test_that("parse_feedback_arguments extracts correct and feedback", {
-  tc <- list("function" = list(
-    arguments = '{"is_correct": true, "feedback_message": "Well done!"}'
-  ))
+  tc <- list(
+    "function" = list(
+      arguments = '{"is_correct": true, "feedback_message": "Well done!"}'
+    )
+  )
   result <- parse_feedback_arguments(tc)
 
   expect_true(result$is_correct)
@@ -74,9 +90,11 @@ test_that("parse_feedback_arguments extracts correct and feedback", {
 })
 
 test_that("parse_feedback_arguments handles false verdict", {
-  tc <- list("function" = list(
-    arguments = '{"is_correct": false, "feedback_message": "Try again."}'
-  ))
+  tc <- list(
+    "function" = list(
+      arguments = '{"is_correct": false, "feedback_message": "Try again."}'
+    )
+  )
   result <- parse_feedback_arguments(tc)
 
   expect_false(result$is_correct)
@@ -89,9 +107,11 @@ test_that("parse_feedback_arguments returns NULL for invalid JSON", {
 })
 
 test_that("parse_feedback_arguments handles nested feedback_message", {
-  tc <- list("function" = list(
-    arguments = '{"is_correct": true, "feedback_message": {"description": "Nested msg"}}'
-  ))
+  tc <- list(
+    "function" = list(
+      arguments = '{"is_correct": true, "feedback_message": {"description": "Nested msg"}}'
+    )
+  )
   result <- parse_feedback_arguments(tc)
 
   expect_true(result$is_correct)
@@ -101,14 +121,18 @@ test_that("parse_feedback_arguments handles nested feedback_message", {
 # -- parse_fireworks_tool_response (integration of above) -------------------
 
 test_that("parse_fireworks_tool_response returns parsed result end-to-end", {
-  body <- list(choices = list(list(message = list(
-    tool_calls = list(list(
-      "function" = list(
-        name = "respond_with_feedback",
-        arguments = '{"is_correct": false, "feedback_message": "Missing edge case."}'
+  body <- list(
+    choices = list(list(
+      message = list(
+        tool_calls = list(list(
+          "function" = list(
+            name = "respond_with_feedback",
+            arguments = '{"is_correct": false, "feedback_message": "Missing edge case."}'
+          )
+        ))
       )
     ))
-  ))))
+  )
 
   result <- parse_fireworks_tool_response(body)
   expect_false(result$is_correct)

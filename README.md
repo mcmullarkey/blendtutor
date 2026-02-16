@@ -17,6 +17,11 @@ pak::pak("mcmullarkey/blendtutor")
 
 Or from a local clone:
 
+```bash
+git clone https://github.com/mcmullarkey/blendtutor.git
+cd blendtutor
+```
+
 ```r
 devtools::install()
 ```

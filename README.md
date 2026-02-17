@@ -61,6 +61,10 @@ my.lessons/
   README.md                # Step-by-step walkthrough
 ```
 
+### Example lesson package
+
+See [justenougheng](https://github.com/mcmullarkey/justenougheng) for a complete example of a blendtutor lesson package with multiple lessons and evals.
+
 ### Writing lessons
 
 Lessons are YAML files in `inst/lessons/`. The key fields:

@@ -11,12 +11,14 @@ validate_fireworks_available <- function() {
   if (api_key == "") {
     cli_abort(c(
       "{.envvar FIREWORKS_API_KEY} not found.",
-      "i" = "Please set up your Fireworks API key:",
+      "i" = "Please set up your Fireworks API key to use AI-powered feedback:",
       " " = "1. Sign up at {.url https://fireworks.ai}",
       " " = "2. Get your API key from {.url https://fireworks.ai/api-keys}",
-      " " = "3. Add to .Renviron: {.code usethis::edit_r_environ()}",
-      " " = "4. Add line: {.code FIREWORKS_API_KEY=fw_...}",
-      " " = "5. Restart R session"
+      " " = "3. In R, run: {.code usethis::edit_r_environ()}",
+      " " = "   (Or manually edit {.file ~/.Renviron})",
+      " " = "4. Add this line: {.code FIREWORKS_API_KEY=your_key_here}",
+      " " = "5. Save the file and restart R",
+      "i" = "After restarting, try {.fn submit_code} again."
     ))
   }
 

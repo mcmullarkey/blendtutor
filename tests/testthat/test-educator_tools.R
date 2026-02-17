@@ -61,3 +61,21 @@ test_that("collect_validation_results warns when {student_code} is missing", {
   expect_equal(nrow(placeholder_row), 1)
   expect_equal(placeholder_row$status, "WARN")
 })
+
+test_that("create_lesson_package adds .Renviron to .gitignore", {
+  skip_if_not_installed("usethis")
+  skip_if_not_installed("withr")
+
+  tmp_dir <- file.path(tempdir(), "testpkg")
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  suppressMessages(
+    create_lesson_package(tmp_dir, lesson_name = "test_lesson")
+  )
+
+  gitignore_path <- file.path(tmp_dir, ".gitignore")
+  expect_true(file.exists(gitignore_path))
+
+  gitignore_content <- readLines(gitignore_path)
+  expect_true(".Renviron" %in% gitignore_content)
+})

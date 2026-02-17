@@ -10,6 +10,7 @@ print_package_summary <- function(path, lesson_name) {
   cat("Eval template:  evals/eval_", lesson_name, ".R\n", sep = "")
   cat("Claude skill:   .claude/skills/help-me-build/SKILL.md\n")
   cat("README:         README.md\n")
+  cat(".gitignore:     .Renviron added (protects API keys)\n")
   cat("\nNext steps: see README.md, or use /help-me-build in Claude Code\n")
   invisible(NULL)
 }
@@ -39,6 +40,7 @@ create_lesson_package <- function(path, lesson_name = "example_lesson") {
 
   withr::with_dir(path, {
     usethis::use_package("blendtutor", type = "Imports")
+    usethis::use_git_ignore(".Renviron")
   })
 
   lessons_dir <- file.path(path, "inst", "lessons")
@@ -634,6 +636,10 @@ readme_template <- function(package_name, lesson_name) {
     '\n',
     'A [blendtutor](https://github.com/mcmullarkey/blendtutor) lesson package with interactive coding exercises and AI-powered feedback.\n',
     '\n',
+    '## Example lesson package\n',
+    '\n',
+    'See [justenougheng](https://github.com/mcmullarkey/justenougheng) for a complete example of a blendtutor lesson package with multiple lessons and evals.\n',
+    '\n',
     '## Getting started\n',
     '\n',
     '### 1. Edit your lesson YAML\n',
@@ -676,6 +682,8 @@ readme_template <- function(package_name, lesson_name) {
     '# Add to .Renviron (restart R after)\n',
     'echo \'FIREWORKS_API_KEY=your-key-here\' >> .Renviron\n',
     '```\n',
+    '\n',
+    '> **Note:** `.Renviron` is automatically added to `.gitignore` to protect your API key from being accidentally committed.\n',
     '\n',
     '```r\n',
     'source("evals/eval_',
@@ -885,7 +893,9 @@ skill_help_me_build_content <- function() {
     '- **Evaluation criteria too loose** — wrong answers get marked correct.\n',
     '  Include incorrect test cases in evals to catch false positives\n',
     '- **Not running `invalidate_lesson_cache()`** after reinstalling — blendtutor caches\n',
-    '  lesson discovery, so updates won\'t appear until the cache is cleared\n'
+    '  lesson discovery, so updates won\'t appear until the cache is cleared\n',
+    '- **Committing `.Renviron` to git** — while `.Renviron` is automatically added to\n',
+    '  `.gitignore` by `create_lesson_package()`, always double-check before committing\n'
   )
 }
 

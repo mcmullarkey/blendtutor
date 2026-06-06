@@ -41,14 +41,22 @@ for key in ("schedule", "workflow_dispatch", "pull_request"):
     if key not in triggers:
         problems.append(f"missing trigger: on.{key}")
 
-# A label-only pull_request trigger keeps the job off ordinary PR pushes; an
-# unconditional `pull_request: {}` would run it on every PR (the AC2 negative).
+# A label-only pull_request trigger keeps the job off ordinary PR pushes. The
+# restriction must be exact: a null/empty pull_request (or one listing opened,
+# synchronize, ...) fires on every PR push — the AC2 negative — even though the
+# job `if:` would skip the body. We assert the trigger itself is gated, not just
+# the job condition.
 pr = triggers.get("pull_request")
-if isinstance(pr, dict):
-    if "labeled" not in (pr.get("types") or []):
-        problems.append("on.pull_request must restrict types to [labeled]")
-elif pr is not None:
-    problems.append("on.pull_request must be a mapping scoped to types: [labeled]")
+if not isinstance(pr, dict):
+    problems.append(
+        "on.pull_request must be a mapping scoped to types: [labeled] "
+        "(null/empty fires on all default PR activity)"
+    )
+elif set(pr.get("types") or []) != {"labeled"}:
+    problems.append(
+        "on.pull_request.types must be exactly [labeled] — no opened/"
+        "synchronize, which run on ordinary PR pushes"
+    )
 
 job = (doc.get("jobs") or {}).get("mutants", {})
 

@@ -211,6 +211,7 @@ language: R
 description: "Add two numbers"
 textbook_reference: "Chapter 2"
 exercise:
+  type: "function_writing"
   prompt: "Write a function add_two(x, y)."
   code_template: "add_two <- function(x, y) {}"
   example_usage: "add_two(3, 5)  # 8"
@@ -238,6 +239,9 @@ exercise:
         let lesson = Lesson::parse(VALID_YAML).expect("valid lesson should parse");
         assert_eq!(lesson.lesson_name, LessonId("Adder".to_string()));
         assert_eq!(lesson.language, Language::R);
+        // The snake_case `type` value maps to the enum; the round-trip test then
+        // confirms this populated optional survives JSON unchanged.
+        assert_eq!(lesson.exercise.kind, Some(ExerciseKind::FunctionWriting));
     }
 
     #[test]

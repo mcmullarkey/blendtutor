@@ -17,8 +17,11 @@ mkdir -p "$dst"
 for hook in "$src"/*; do
   [ -e "$hook" ] || continue
   name="$(basename "$hook")"
-  # Target is relative to the symlink's location (.git/hooks/), so the link
-  # survives the repo being moved.
-  ln -sf "../../.githooks/$name" "$dst/$name"
+  # Absolute target: correct regardless of where the hooks dir sits — a
+  # worktree's hooks live under .git/worktrees/<name>/, not two levels below the
+  # root, so a fixed-depth relative link would dangle there. Each clone runs
+  # this locally, so the machine-specific path is fine; re-run after moving the
+  # repo.
+  ln -sf "$src/$name" "$dst/$name"
   echo "installed $name -> .githooks/$name"
 done

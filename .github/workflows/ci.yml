@@ -17,7 +17,7 @@ jobs:
     name: fmt · clippy · nextest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # rust-toolchain.toml pins the channel and the rustfmt/clippy components;
       # rustup installs them on first cargo use, so the file is the single source

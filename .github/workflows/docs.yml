@@ -38,7 +38,7 @@ jobs:
     name: build site (mdBook + rustdoc)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # rust-toolchain.toml is the single source of truth for the toolchain
       # (channel + components); rustup installs it on first cargo use. See ci.yml.
@@ -68,7 +68,7 @@ jobs:
           cp -R target/doc docs/book/book/api
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs/book/book
 
@@ -88,4 +88,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

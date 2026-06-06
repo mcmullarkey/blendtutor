@@ -367,4 +367,33 @@ exercise:
             serde_json::from_str(&json).expect("lesson should deserialize from JSON");
         assert_eq!(roundtripped, original);
     }
+
+    #[test]
+    fn lesson_id_displays_its_value() {
+        let lesson = Lesson::parse(VALID_YAML).expect("valid lesson should parse");
+        assert_eq!(lesson.lesson_name.to_string(), "Adder");
+    }
+
+    #[test]
+    fn load_error_display_and_source_surface_the_cause() {
+        let invalid = LoadError::Invalid(ValidationError::MissingStudentCodePlaceholder);
+        assert!(
+            invalid.to_string().contains("{student_code}"),
+            "Invalid should display the validation message, got: {invalid}"
+        );
+        assert!(
+            std::error::Error::source(&invalid).is_some(),
+            "Invalid should expose the ValidationError as its source"
+        );
+
+        let read = LoadError::Read(std::io::Error::new(std::io::ErrorKind::NotFound, "nope"));
+        assert!(
+            read.to_string().contains("could not read"),
+            "Read should label itself a read failure, got: {read}"
+        );
+        assert!(
+            std::error::Error::source(&read).is_some(),
+            "Read should expose the io::Error as its source"
+        );
+    }
 }

@@ -36,7 +36,13 @@ pub enum Language {
 /// (§1.4). In v1 it carries the `lesson_name` value; a distinct slug id arrives
 /// with lesson discovery (Slice 6, see ADR-0003).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LessonId(pub String);
+pub struct LessonId(String);
+
+impl fmt::Display for LessonId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
 
 /// The kind of exercise a lesson poses.
 ///

@@ -13,7 +13,16 @@ set -euo pipefail
 
 base="${1:?usage: check-mutants-diff.sh <base-ref>}"
 
-diff="$(git diff --no-color "$base"...HEAD)"
+# Fail loudly (and block) on a bad base ref rather than emitting a raw git error
+# or, worse, silently skipping the gate.
+if ! git rev-parse --verify --quiet "$base^{commit}" >/dev/null; then
+  echo "mutants(in-diff): base ref '$base' is not a valid commit" >&2
+  exit 2
+fi
+
+# --no-ext-diff / --no-color keep the output a clean unified diff regardless of
+# the user's diff.external or textconv config, which --in-diff must parse.
+diff="$(git diff --no-color --no-ext-diff "$base"...HEAD)"
 if [ -z "$diff" ]; then
   echo "mutants(in-diff): no commits vs $base — nothing to check"
   exit 0
@@ -25,5 +34,6 @@ printf '%s\n' "$diff" >"$tmp"
 
 echo "mutants(in-diff): mutating changed core lines since $base …"
 # Exit status propagates: cargo-mutants returns nonzero when a mutant survives,
-# which blocks the push. With no core mutants in the diff it returns 0 (fast).
+# which blocks the push. When the diff touches no core mutants it returns 0
+# (nothing to test — no per-mutant builds).
 cargo mutants --in-diff "$tmp"

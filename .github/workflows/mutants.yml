@@ -13,7 +13,9 @@ on:
     types: [labeled]
 
 concurrency:
-  group: mutants-${{ github.ref }}
+  # Key on the trigger too, so a scheduled run and a manual dispatch on the same
+  # ref do not cancel each other mid-run.
+  group: mutants-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 permissions:
@@ -51,6 +53,7 @@ jobs:
       # green so it never masquerades as broken CI, and surface the outcome in the
       # job summary below. .cargo/mutants.toml scopes this to core and runs nextest.
       - name: Run mutation testing (core)
+        id: mutants
         continue-on-error: true
         run: cargo mutants | tee mutants-run.log
 
@@ -63,12 +66,18 @@ jobs:
             echo '```'
             tail -n 5 mutants-run.log 2>/dev/null || echo "no run output captured"
             echo '```'
-            if [ -s mutants.out/missed.txt ]; then
+            # Only report "clean" when cargo-mutants actually exited 0. A nonzero
+            # exit means either survivors (the expected signal — list them) or a
+            # run that never completed (build/baseline failure). Never let an
+            # absent missed.txt masquerade as a clean pass.
+            if [ "${{ steps.mutants.outcome }}" = "success" ]; then
+              echo "_All mutants caught — no survivors._"
+            elif [ -s mutants.out/missed.txt ]; then
               echo "### Surviving mutants (uncaught)"
               echo '```'
               cat mutants.out/missed.txt
               echo '```'
             else
-              echo "_No surviving mutants._"
+              echo "⚠️ Mutation run did not complete cleanly (outcome: ${{ steps.mutants.outcome }}); see the log above."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

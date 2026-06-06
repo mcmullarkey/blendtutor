@@ -34,16 +34,23 @@ enum Commands {
     Build,
 }
 
+impl Commands {
+    /// The subcommand's canonical name, for user-facing messages. The match is
+    /// exhaustive, so a new variant cannot silently skip getting a name.
+    const fn name(self) -> &'static str {
+        match self {
+            Commands::Init => "init",
+            Commands::New => "new",
+            Commands::Validate => "validate",
+            Commands::List => "list",
+            Commands::Run => "run",
+            Commands::Eval => "eval",
+            Commands::Build => "build",
+        }
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    let command = match cli.command {
-        Commands::Init => "init",
-        Commands::New => "new",
-        Commands::Validate => "validate",
-        Commands::List => "list",
-        Commands::Run => "run",
-        Commands::Eval => "eval",
-        Commands::Build => "build",
-    };
-    Err(blendtutor_core::NotYetImplemented::new(command).into())
+    Err(blendtutor_core::NotYetImplemented::new(cli.command.name()).into())
 }

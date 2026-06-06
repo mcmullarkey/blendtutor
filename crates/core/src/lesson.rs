@@ -287,6 +287,25 @@ exercise:
         );
     }
 
+    const UNKNOWN_EXERCISE_TYPE_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+exercise:
+  type: "essay_writing"
+  prompt: "Write a function add_two(x, y)."
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_rejects_unknown_exercise_type() {
+        let err = Lesson::parse(UNKNOWN_EXERCISE_TYPE_YAML)
+            .expect_err("an unknown exercise type is not a valid lesson");
+        assert!(
+            err.to_string().contains("essay_writing"),
+            "error should name the rejected exercise type, got: {err}"
+        );
+    }
+
     #[test]
     fn parse_rejects_unknown_field_so_author_typos_surface() {
         let err = Lesson::parse(UNKNOWN_FIELD_YAML)
@@ -320,11 +339,11 @@ exercise:
 
     #[test]
     fn read_lesson_file_invalid_contents_is_a_validation_error() {
-        // Write a known-bad lesson to a temp path, then load it through the shell.
-        let path = std::env::temp_dir().join("blendtutor_invalid_lesson_test.yaml");
-        std::fs::write(&path, PROMPT_WITHOUT_PLACEHOLDER_YAML).unwrap();
-        let err = read_lesson_file(&path).expect_err("a {student_code}-less lesson is invalid");
-        let _ = std::fs::remove_file(&path);
+        // A unique, auto-removed temp file (no fixed-path race, no leak on panic).
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        std::io::Write::write_all(&mut file, PROMPT_WITHOUT_PLACEHOLDER_YAML.as_bytes()).unwrap();
+        let err =
+            read_lesson_file(file.path()).expect_err("a {student_code}-less lesson is invalid");
         assert!(
             matches!(
                 err,

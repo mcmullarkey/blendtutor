@@ -33,3 +33,15 @@ fn help_lists_subcommands() {
         );
     }
 }
+
+#[test]
+fn version_prints_crate_version() {
+    // The expected line is derived from the compile-time crate version, not a
+    // hardcoded literal, so it can never drift from `Cargo.toml`.
+    Command::cargo_bin("blendtutor")
+        .expect("binary `blendtutor` should be built")
+        .arg("--version")
+        .assert()
+        .success()
+        .stdout(format!("blendtutor {}\n", env!("CARGO_PKG_VERSION")));
+}

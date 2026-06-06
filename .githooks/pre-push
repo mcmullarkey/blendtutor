@@ -33,7 +33,9 @@ while read -r _local_ref local_sha _remote_ref remote_sha; do
     # Updating an existing branch: diff only the commits being pushed.
     base="$remote_sha"
   fi
-  "$root/scripts/check-mutants-diff.sh" "$base" || status=1
+  # </dev/null: the gate (and cargo under it) must not consume the ref lines
+  # git is feeding this loop on stdin.
+  "$root/scripts/check-mutants-diff.sh" "$base" </dev/null || status=1
 done
 
 exit "$status"

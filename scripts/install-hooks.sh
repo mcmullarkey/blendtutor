@@ -15,7 +15,9 @@ dst="$(git rev-parse --git-path hooks)" # absolute or repo-relative hooks dir
 mkdir -p "$dst"
 
 for hook in "$src"/*; do
-  [ -e "$hook" ] || continue
+  # Only executable files are hooks — skip docs or stray files so they are not
+  # symlinked in as a broken hook.
+  [ -x "$hook" ] || continue
   name="$(basename "$hook")"
   # Absolute target so the link always resolves: `git rev-parse --git-path
   # hooks` can return a hooks dir whose depth below the repo root varies

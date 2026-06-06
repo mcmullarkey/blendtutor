@@ -1,0 +1,8 @@
+# Tests whose name contains `live` hit real external services (LLM providers).
+# They are excluded from the default lane so CI stays deterministic and free;
+# run them explicitly with `cargo nextest run --profile live` (used from Slice 10 on).
+[profile.default]
+default-filter = "not test(live)"
+
+[profile.live]
+default-filter = "all()"

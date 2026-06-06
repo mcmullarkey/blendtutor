@@ -10,12 +10,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Least privilege: the deploy job needs pages:write + id-token:write for the
-# Pages OIDC handshake; nothing here writes back to the repository.
+# Least privilege at the workflow level: only checkout is needed by default. The
+# Pages OIDC grants (pages:write + id-token:write) belong solely to the deploy
+# job, so they are scoped there rather than handed to the build job too.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # One Pages deploy at a time, and never cancel an in-flight deploy — a cancelled
 # deploy can leave the live site half-published.
@@ -72,6 +71,12 @@ jobs:
     name: deploy to Pages
     needs: build
     runs-on: ubuntu-latest
+    # Job-level permissions replace the workflow defaults: the Pages deploy needs
+    # the OIDC token write + pages write, and nothing else (it consumes the
+    # artifact the build job uploaded; it does not check out the repo).
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

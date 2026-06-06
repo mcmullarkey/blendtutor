@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "staging/**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: fmt · clippy · nextest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml pins the channel and the rustfmt/clippy components;
+      # rustup installs them on first cargo use, so the file is the single source
+      # of truth for the toolchain. This step just surfaces it (and fails loudly
+      # if the pinned toolchain cannot be installed).
+      - name: Install pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      # A failing test must fail the job: nextest propagates a red test as a
+      # nonzero exit (no `--no-run`, no `continue-on-error`, no `|| true`).
+      - name: Test
+        run: cargo nextest run --locked

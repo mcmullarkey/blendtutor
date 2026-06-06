@@ -1,0 +1,81 @@
+name: Docs
+
+# Build the combined documentation site — mdBook narrative + rustdoc API — and
+# deploy it to GitHub Pages on every push to the default branch. The rustdoc
+# output is nested under the book at /api, so a single artifact serves both the
+# prose (at /) and the API reference (at /api). scripts/check-docs.sh runs the
+# same build + assemble locally.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: the deploy job needs pages:write + id-token:write for the
+# Pages OIDC handshake; nothing here writes back to the repository.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One Pages deploy at a time, and never cancel an in-flight deploy — a cancelled
+# deploy can leave the live site half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  # Any rustdoc warning (broken intra-doc link, undocumented item) fails the
+  # build, so the published API reference cannot silently rot (AC2).
+  RUSTDOCFLAGS: -D warnings
+
+jobs:
+  build:
+    name: build site (mdBook + rustdoc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml is the single source of truth for the toolchain
+      # (channel + components); rustup installs it on first cargo use. See ci.yml.
+      - name: Install pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook
+
+      # API reference → target/doc. --no-deps keeps it to this workspace's crates;
+      # RUSTDOCFLAGS (above) makes any warning fatal.
+      - name: Build API docs (rustdoc)
+        run: cargo doc --no-deps
+
+      # Narrative site → docs/book/book, with client-side search (book.toml).
+      - name: Build narrative docs (mdBook)
+        run: mdbook build docs/book
+
+      # Merge: nest the rustdoc tree under the book output at /api so one artifact
+      # serves the book at / and the API reference at /api. Mirrors check-docs.sh.
+      - name: Assemble merged site
+        run: |
+          rm -rf docs/book/book/api
+          cp -R target/doc docs/book/book/api
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/book/book
+
+  deploy:
+    name: deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -7,5 +7,9 @@ rv/library/
 # Rust
 /target
 
+# cargo-mutants run output
+/mutants.out
+/mutants.out.old
+
 # rodney browser screenshots (per CLAUDE.md)
 screenshots/

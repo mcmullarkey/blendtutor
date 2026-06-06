@@ -36,3 +36,14 @@ impl fmt::Display for NotYetImplemented {
 }
 
 impl Error for NotYetImplemented {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_names_the_command_and_the_unimplemented_state() {
+        let err = NotYetImplemented::new("validate");
+        assert_eq!(err.to_string(), "`validate` is not yet implemented");
+    }
+}

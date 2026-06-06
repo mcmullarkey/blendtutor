@@ -1,0 +1,13 @@
+# cargo-mutants configuration.
+#
+# Mutation testing is Slice 2's §5.3 feedback signal for the domain logic in the
+# `core` crate. The thin `cli` shell holds no logic worth pinning with mutants,
+# so mutation is scoped to `crates/core` only (§3 boundary cut). `cli` mutants
+# are low-value noise — e.g. swapping a user-facing string — that would bury real
+# survivors in `core`.
+#
+# Tests run through nextest to match the rest of the workspace: one test runner,
+# and `.config/nextest.toml`'s default profile skips the `live` (real external
+# service) tests that mutation runs must not depend on.
+examine_globs = ["crates/core/**/*.rs"]
+test_tool = "nextest"

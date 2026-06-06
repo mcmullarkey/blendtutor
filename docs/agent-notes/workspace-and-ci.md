@@ -29,3 +29,22 @@ How the Rust workspace, tests, and CI fit together (Slice 1 walking skeleton).
 - 2026-06-06 (#1): Toolchain is pinned in `rust-toolchain.toml` (1.94.0 +
   rustfmt, clippy) as the single source of truth; CI lets rustup auto-install
   from it instead of pinning a second time in the workflow.
+- 2026-06-06 (#2): Mutation testing is wired via `.cargo/mutants.toml`, scoped
+  to `crates/core` with `examine_globs = ["crates/core/**/*.rs"]` and
+  `test_tool = "nextest"` (so mutation runs honour `.config/nextest.toml`'s
+  default profile). `cargo mutants --list` prints **workspace-relative** paths
+  (`crates/core/src/lib.rs:…`), not `core/…` — guards must anchor on
+  `crates/core/`. `scripts/check-mutants-scope.sh` asserts every listed mutant
+  is core-only and runs both locally and in the mutation workflow.
+- 2026-06-06 (#2): A scoped `cargo mutants` run doubles as a negative control
+  for new `core` tests — it replaces a fn body and confirms a test then fails.
+  The `NotYetImplemented` Display test was added precisely so `core`'s one
+  mutant is caught rather than surviving (it was the only mutable fn, untested).
+- 2026-06-06 (#2): `mutants.yml` is deliberately **non-gating**: triggers are
+  `schedule` + `workflow_dispatch` + a PR `mutation` label
+  (`if: github.event_name != 'pull_request' || contains(…labels…, 'mutation')`),
+  never ordinary PR pushes, and it is not a required check (gates stay
+  fmt·clippy·nextest in `ci.yml`). Survivors are a signal not a failure (the
+  cargo-mutants step is `continue-on-error`); the job summary reports "clean"
+  only when the step exited 0, so a crashed run cannot masquerade as
+  no-survivors.

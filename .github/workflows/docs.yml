@@ -1,0 +1,91 @@
+name: Docs
+
+# Build the combined documentation site — mdBook narrative + rustdoc API — and
+# deploy it to GitHub Pages. It runs on the default branch (main) and on the
+# staging/rewrite-in-rust-lol integration branch, so the published docs track the
+# Rust rewrite as it lands on staging instead of waiting for the merge to main.
+# The rustdoc output is nested under the book at /api, so a single artifact serves
+# both the prose (at /) and the API reference (at /api). scripts/check-docs.sh
+# runs the same build + assemble locally.
+#
+# The github-pages environment's deployment-branch-policy must also list any
+# branch named here, or the deploy job is blocked at the environment gate.
+on:
+  push:
+    branches: [main, staging/rewrite-in-rust-lol]
+  workflow_dispatch:
+
+# Least privilege at the workflow level: only checkout is needed by default. The
+# Pages OIDC grants (pages:write + id-token:write) belong solely to the deploy
+# job, so they are scoped there rather than handed to the build job too.
+permissions:
+  contents: read
+
+# One Pages deploy at a time, and never cancel an in-flight deploy — a cancelled
+# deploy can leave the live site half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  # Any rustdoc warning (broken intra-doc link, undocumented item) fails the
+  # build, so the published API reference cannot silently rot (AC2).
+  RUSTDOCFLAGS: -D warnings
+
+jobs:
+  build:
+    name: build site (mdBook + rustdoc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml is the single source of truth for the toolchain
+      # (channel + components); rustup installs it on first cargo use. See ci.yml.
+      - name: Install pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook
+
+      # API reference → target/doc. --no-deps keeps it to this workspace's crates;
+      # RUSTDOCFLAGS (above) makes any warning fatal.
+      - name: Build API docs (rustdoc)
+        run: cargo doc --no-deps
+
+      # Narrative site → docs/book/book, with client-side search (book.toml).
+      - name: Build narrative docs (mdBook)
+        run: mdbook build docs/book
+
+      # Merge: nest the rustdoc tree under the book output at /api so one artifact
+      # serves the book at / and the API reference at /api. Mirrors check-docs.sh.
+      - name: Assemble merged site
+        run: |
+          rm -rf docs/book/book/api
+          cp -R target/doc docs/book/book/api
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/book/book
+
+  deploy:
+    name: deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    # Job-level permissions replace the workflow defaults: the Pages deploy needs
+    # the OIDC token write + pages write, and nothing else (it consumes the
+    # artifact the build job uploaded; it does not check out the repo).
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

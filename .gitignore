@@ -13,3 +13,7 @@ rv/library/
 
 # rodney browser screenshots (per CLAUDE.md)
 screenshots/
+
+# mdBook build output (rendered narrative site; rebuilt by scripts/check-docs.sh
+# and the docs workflow, with rustdoc merged under book/api at deploy time)
+/docs/book/book/

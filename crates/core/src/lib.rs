@@ -8,6 +8,12 @@
 //! or render terminal output; that is the responsibility of the `blendtutor-cli`
 //! crate, which depends on this one (the dependency only ever points cli → core).
 
+// This crate is the documented, reusable API surface, so an undocumented public
+// item is a defect rather than a warning: fail the build (rustdoc and ordinary
+// compile alike) until it is documented. AC2 of #3 — "API docs build with no
+// rustdoc warnings" — then holds unconditionally, not only under -D warnings.
+#![deny(missing_docs)]
+
 use std::error::Error;
 use std::fmt;
 

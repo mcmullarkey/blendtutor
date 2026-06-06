@@ -65,12 +65,20 @@ learner-shippable. A future ADR locks those when Slices 7–12 implement them.
 - A constructed `Lesson` is valid by type; the runner and the JSON seam consume
   it without re-validating, and a representation change to the YAML stays inside
   `core::lesson` (§3.2).
-- The public surface is small — `Lesson`, `parse`, `ValidationError`,
-  `read_lesson_file` (§4.3); `core::lesson` never executes code, calls LLMs, or
-  renders output (§4.1).
-- Unknown YAML keys (e.g. `exercise.type`) are ignored, not rejected, so the R
-  example ports unchanged; modelling them is deferred to the slice that needs
-  them rather than added speculatively.
+- The entry points are few — `Lesson::parse` and `read_lesson_file`, returning
+  `ValidationError`/`LoadError`. The remaining public names (`Exercise`,
+  `Language`, `LessonId`, `ExerciseKind`) are the lesson value's own structure,
+  public because they are fields of a `Lesson` callers read and serialize, not
+  separate concerns — so the surface sits a little above the §4.3 ~5 soft
+  ceiling for a cohesive reason rather than from sprawl. `core::lesson` never
+  executes code, calls LLMs, or renders output (§4.1).
+- Unknown YAML keys are **rejected** (`#[serde(deny_unknown_fields)]`), so an
+  author's typo in an optional field (e.g. `descriptio`) fails `validate`
+  instead of silently dropping to `None` (§1.3.1) — the right trade for a
+  hand-authored, learner-shippable format. The one key the R example carries,
+  `exercise.type`, is therefore modelled as an `ExerciseKind` enum (one variant,
+  `function_writing`, matching today's lessons) rather than ignored; new kinds
+  are added as the runner supports them (Slice 9), not speculatively.
 - Stricter than R: a `{student_code}`-less prompt that the R package merely
   warned about now fails `validate`. This is the intended tightening, called out
   here so the behavior change is not a surprise at cutover (Slice 20).

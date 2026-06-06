@@ -38,27 +38,42 @@ pub enum Language {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LessonId(pub String);
 
+/// The kind of exercise a lesson poses.
+///
+/// An enum, not a string, so an unknown kind is rejected at the parse boundary
+/// rather than carried downstream (§1.2). The R package authors only
+/// function-writing exercises today; new variants are added as the runner gains
+/// support for them (Slice 9).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExerciseKind {
+    /// Write a function to a specification.
+    FunctionWriting,
+}
+
 /// The exercise a lesson poses.
 ///
 /// The two required prompts carry the learner-facing task and the grading
 /// template; the optional fields are authoring aids. `llm_evaluation_prompt`
 /// must contain the `{student_code}` placeholder — enforced by [`Lesson::parse`],
-/// not by this type alone.
+/// not by this type alone. Unknown keys are rejected (§1.3.1) so an author's
+/// typo in an optional field surfaces rather than silently dropping to `None`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Exercise {
     /// What the learner is asked to do. Required.
     pub prompt: String,
     /// The prompt sent to the LLM to grade a submission. Required; must contain
     /// the `{student_code}` placeholder.
     pub llm_evaluation_prompt: String,
+    /// The kind of exercise, from the YAML `type` key. Optional.
+    #[serde(rename = "type")]
+    pub kind: Option<ExerciseKind>,
     /// Optional starter code shown to the learner.
-    #[serde(default)]
     pub code_template: Option<String>,
     /// Optional example invocations.
-    #[serde(default)]
     pub example_usage: Option<String>,
     /// Optional human-readable success criteria.
-    #[serde(default)]
     pub success_criteria: Option<String>,
 }
 
@@ -67,6 +82,7 @@ pub struct Exercise {
 /// Construct one only through [`Lesson::parse`] — a value of this type is, by
 /// construction, structurally complete and semantically valid (ADR-0003).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Lesson {
     /// The lesson's identity (v1: its name). Required.
     pub lesson_name: LessonId,
@@ -75,10 +91,8 @@ pub struct Lesson {
     /// The exercise the lesson poses. Required.
     pub exercise: Exercise,
     /// Optional one-line summary.
-    #[serde(default)]
     pub description: Option<String>,
     /// Optional pointer to a textbook section.
-    #[serde(default)]
     pub textbook_reference: Option<String>,
 }
 
@@ -243,6 +257,80 @@ exercise:
         assert!(
             msg.contains("{student_code}"),
             "error should name the placeholder rule, got: {msg}"
+        );
+    }
+
+    const UNKNOWN_LANGUAGE_YAML: &str = r#"
+lesson_name: "Adder"
+language: Go
+exercise:
+  prompt: "Write a function add_two(x, y)."
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    const UNKNOWN_FIELD_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+descriptio: "typo'd optional field"
+exercise:
+  prompt: "Write a function add_two(x, y)."
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_rejects_unknown_language() {
+        let err = Lesson::parse(UNKNOWN_LANGUAGE_YAML)
+            .expect_err("an unknown language is not a valid lesson");
+        assert!(
+            err.to_string().contains("Go"),
+            "error should name the rejected language, got: {err}"
+        );
+    }
+
+    #[test]
+    fn parse_rejects_unknown_field_so_author_typos_surface() {
+        let err = Lesson::parse(UNKNOWN_FIELD_YAML)
+            .expect_err("a typo'd optional field must not be silently dropped");
+        assert!(
+            err.to_string().contains("descriptio"),
+            "error should name the unknown field, got: {err}"
+        );
+    }
+
+    #[test]
+    fn read_lesson_file_loads_and_parses_the_ported_fixture() {
+        let path = Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/lessons/add_two_numbers.yaml"
+        ));
+        let lesson = read_lesson_file(path).expect("ported fixture should load and validate");
+        assert_eq!(lesson.language, Language::R);
+        assert_eq!(lesson.exercise.kind, Some(ExerciseKind::FunctionWriting));
+    }
+
+    #[test]
+    fn read_lesson_file_missing_path_is_a_read_error_not_a_validation_error() {
+        let err = read_lesson_file(Path::new("/no/such/lesson.yaml"))
+            .expect_err("a missing file cannot load");
+        assert!(
+            matches!(err, LoadError::Read(_)),
+            "a missing file is a read error, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn read_lesson_file_invalid_contents_is_a_validation_error() {
+        // Write a known-bad lesson to a temp path, then load it through the shell.
+        let path = std::env::temp_dir().join("blendtutor_invalid_lesson_test.yaml");
+        std::fs::write(&path, PROMPT_WITHOUT_PLACEHOLDER_YAML).unwrap();
+        let err = read_lesson_file(&path).expect_err("a {student_code}-less lesson is invalid");
+        let _ = std::fs::remove_file(&path);
+        assert!(
+            matches!(
+                err,
+                LoadError::Invalid(ValidationError::MissingStudentCodePlaceholder)
+            ),
+            "invalid contents should surface as a validation error, got: {err:?}"
         );
     }
 

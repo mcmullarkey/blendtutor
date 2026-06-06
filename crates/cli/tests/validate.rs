@@ -9,8 +9,10 @@ use assert_cmd::Command;
 
 /// The ported example lesson, valid and complete. Lives under `core`'s fixtures
 /// (the schema's home) and is referenced cross-crate by path.
-const VALID_LESSON: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../core/tests/fixtures/lessons/add_two_numbers.yaml");
+const VALID_LESSON: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../core/tests/fixtures/lessons/add_two_numbers.yaml"
+);
 
 #[test]
 fn validate_valid_lesson_reports_ok_and_exit_zero() {

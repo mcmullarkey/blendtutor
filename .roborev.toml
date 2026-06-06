@@ -1,0 +1,62 @@
+review_guidelines = """
+This review covers BOTH correctness and design. Audit the diff for
+real bugs (incorrect logic, broken invariants, missing error paths,
+security regressions) AND for design-principle drift across the five
+principles below. Do not produce generic prose like "consider clean
+architecture" or "follow SOLID principles"; those read as boilerplate
+and are explicitly out of scope here.
+
+Anchor every finding:
+- Correctness/bug findings: name the failure mode and a concrete input
+  or call path that triggers it. "block" severity requires a
+  demonstrated failing input — not a hypothetical one.
+- Design findings: cite the matching signal from the project's
+  design-principles rubric (e.g. "§1.2 — bool flag where a sum type
+  is needed"). Rubric path:
+    ~/.claude/skills/_shared/design-principles-rubric.md
+  If you cannot anchor a design finding to a specific signal, the
+  finding is too vague — refine it or drop it.
+
+Audit each of the five design principles against the diff:
+
+  §1 Encode invariants in types
+    1.1 Required fields are non-Optional
+    1.2 State machines use sum types, not bool flags or string sentinels
+    1.3 Constructors refuse invalid input at the boundary
+    1.4 Domain values that share a primitive get distinct types
+
+  §2 Separate pure from effectful
+    2.1 I/O sits in dedicated functions with effect-naming verbs
+    2.2 Pure functions take values, not connections
+    2.3 Pure code's tests need no fixtures
+    2.4 The orchestrator is shorter than the pure core it composes
+
+  §3 Cut at the joints
+    3.1 Imports follow a single direction
+    3.2 A representation change on side A doesn't force side B to change
+    3.3 Cross-module helpers don't mix concerns
+    3.4 Callers depend on protocols, not concrete classes
+
+  §4 Document module responsibility
+    4.1 Module-top docstring exists and answers three questions
+        (what it contains, where it fits, what it does NOT do)
+    4.2 Module name describes the responsibility (no helpers/utils/manager)
+    4.3 Public API stays small (≤5 public names is a soft ceiling)
+
+  §5 Function-level discipline
+    5.1 Single responsibility — function name describes the whole job
+        (within-module counterpart to §3.3, which is cross-module)
+    5.2 Concise by default; length is a smell, not a violation
+        (only fires paired with a second clue: tangled responsibilities,
+         deep nesting, name no longer covers the body)
+    5.3 Testable in isolation without 6 patches per branch
+        (purity-agnostic; §2.3 fires only on pure functions)
+
+When a violation lights up multiple signals (e.g. a god-class that
+mixes concerns AND has >5 public names), cite each signal that fires.
+The rubric's "Violation examples" section lists worked anti-patterns
+mapped to signal numbers — read it for calibration before reviewing.
+
+When in doubt about a signal's exact meaning, quote from the rubric
+rather than paraphrase.
+"""

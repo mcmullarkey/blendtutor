@@ -3,3 +3,9 @@
 evals/
 .claude/
 rv/library/
+
+# Rust
+/target
+
+# rodney browser screenshots (per CLAUDE.md)
+screenshots/

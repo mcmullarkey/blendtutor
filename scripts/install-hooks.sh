@@ -19,6 +19,13 @@ for hook in "$src"/*; do
   # symlinked in as a broken hook.
   [ -x "$hook" ] || continue
   name="$(basename "$hook")"
+  # Don't clobber a real (non-symlink) hook a developer installed by hand: warn
+  # and leave it. An existing symlink is ours to refresh (keeps this idempotent).
+  if [ -e "$dst/$name" ] && [ ! -L "$dst/$name" ]; then
+    echo "install-hooks: $dst/$name exists and is not a symlink — leaving it;" \
+      "remove it to manage $name via .githooks" >&2
+    continue
+  fi
   # Absolute target so the link always resolves: `git rev-parse --git-path
   # hooks` can return a hooks dir whose depth below the repo root varies
   # (gitfile or submodule layouts, a relocated common dir, or invocation from a

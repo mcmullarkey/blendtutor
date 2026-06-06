@@ -25,14 +25,15 @@ require() {
   fi
 }
 
-# Markers are anchored so a commented-out trigger or an incidental mention of
-# "mutation" cannot fake a green: the trigger keys must be real YAML keys
-# (leading whitespace, no leading '#'), and the label gate must be the concrete
-# membership check on the PR's labels, not the word "mutation" in a comment.
+# Every marker is anchored so a commented-out line cannot fake a green: the
+# trigger keys must be real YAML keys (leading whitespace, no leading '#'); the
+# label gate must be the membership check on a real `if:` line, not the word
+# "mutation" loose in a comment; and the summary marker must be an actual `>>`
+# write, not a mention in prose.
 require '^[[:space:]]+schedule:' 'a schedule trigger'
 require '^[[:space:]]+workflow_dispatch:' 'a manual workflow_dispatch trigger'
-require 'contains\(.*labels.*mutation' 'a mutation-label-gated job condition'
-require 'GITHUB_STEP_SUMMARY' 'a step that writes the job summary'
+require '^[[:space:]]*if:.*contains\(.*labels.*mutation' 'a mutation-label-gated job condition'
+require '>>.*GITHUB_STEP_SUMMARY' 'a step that writes the job summary'
 
 if [[ "$fail" -ne 0 ]]; then
   exit 1

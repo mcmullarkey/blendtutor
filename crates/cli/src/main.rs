@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 
 /// Author and run interactive R and Python coding lessons with LLM feedback.
 #[derive(Parser)]
-#[command(name = "blendtutor")]
+#[command(name = "blendtutor", version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

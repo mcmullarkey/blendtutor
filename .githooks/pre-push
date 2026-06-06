@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# pre-push: block pushing core changes that leave a surviving mutant (issue #24).
+#
+# A thin shell (ADR-0002): for each ref being pushed it works out the base to
+# diff against and delegates the actual gate to scripts/check-mutants-diff.sh,
+# which runs `cargo mutants --in-diff` scoped to core. Bypass deliberately with:
+#   git push --no-verify
+#
+# git feeds "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin.
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+zero="0000000000000000000000000000000000000000"
+
+# Branch to diff a brand-new (not-yet-pushed) branch against. Override per repo:
+#   git config blendtutor.mutants.base <ref>
+integration="$(git config blendtutor.mutants.base || echo origin/staging/rewrite-in-rust-lol)"
+
+status=0
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue # branch deletion — nothing to mutate
+  if [ "$remote_sha" = "$zero" ]; then
+    # New branch on the remote: diff against the integration branch.
+    base="$(git merge-base "$local_sha" "$integration" 2>/dev/null || true)"
+  else
+    # Updating an existing branch: diff only the commits being pushed.
+    base="$remote_sha"
+  fi
+
+  # Fail open on a base we cannot resolve — the integration branch was never
+  # fetched (new branch), or a remote sha was gc'd / force-pushed away (existing
+  # branch). A setup/sync gap is not a surviving mutant, and CI + manual mutation
+  # (#2) still cover it. Both ref kinds funnel through this one check, so the
+  # behavior is symmetric.
+  if [ -z "$base" ] || ! git rev-parse --verify --quiet "$base^{commit}" >/dev/null; then
+    echo "pre-push: cannot resolve a base to diff against — skipping mutation gate." \
+      "Fetch the integration branch, or set: git config blendtutor.mutants.base <ref>" >&2
+    continue
+  fi
+
+  # </dev/null: the gate (and cargo under it) must not consume the ref lines
+  # git is feeding this loop on stdin.
+  "$root/scripts/check-mutants-diff.sh" "$base" </dev/null || status=1
+done
+
+exit "$status"

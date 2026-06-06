@@ -48,3 +48,17 @@ How the Rust workspace, tests, and CI fit together (Slice 1 walking skeleton).
   cargo-mutants step is `continue-on-error`); the job summary reports "clean"
   only when the step exited 0, so a crashed run cannot masquerade as
   no-survivors.
+- 2026-06-06 (#24): **One-time dev setup** — run `bash scripts/install-hooks.sh`
+  to enable the pre-push mutation gate. It symlinks `.githooks/*` into
+  `.git/hooks/` (per ADR-0002; not `core.hooksPath`, which would disable the
+  roborev `post-commit` hook). Re-run after pulling new hooks.
+- 2026-06-06 (#24): The pre-push hook runs `cargo mutants --in-diff` over the
+  pushed range so only a branch's **changed core lines** are mutated — fast
+  enough to gate every push, unlike the whole-crate CI run (#2). A survivor
+  blocks the push; `git push --no-verify` bypasses it. The thin `.githooks/
+  pre-push` delegates to `scripts/check-mutants-diff.sh <base>` (testable
+  without git's push machinery). Base = `merge-base` with the integration
+  branch (`git config blendtutor.mutants.base`, default
+  `origin/staging/rewrite-in-rust-lol`) for a new branch, else the remote sha.
+  If the base can't be resolved (integration branch not fetched) the hook
+  **warns and skips** rather than blocking — a setup gap is not a survivor.

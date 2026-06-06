@@ -1,0 +1,16 @@
+[book]
+title = "blendtutor"
+authors = ["Michael Mullarkey"]
+description = "Interactive R and Python coding lessons with LLM feedback, as a single-binary Rust CLI."
+src = "src"
+language = "en"
+
+[output.html]
+default-theme = "rust"
+git-repository-url = "https://github.com/mcmullarkey/blendtutor"
+edit-url-template = "https://github.com/mcmullarkey/blendtutor/edit/main/docs/book/{path}"
+
+# Client-side search over the rendered book. Required by AC1 of #3: a build must
+# emit a usable searchindex.js + searcher.js, not just an index.html.
+[output.html.search]
+enable = true

@@ -16,8 +16,9 @@ cd "$(git rev-parse --show-toplevel)"
 
 book_out="docs/book/book"
 
-# AC2 — rustdoc API docs build with zero warnings. -D warnings turns a broken
-# intra-doc link or an undocumented public item into a hard failure.
+# AC2 — rustdoc API docs build with zero warnings. RUSTDOCFLAGS="-D warnings"
+# turns any rustdoc warning (e.g. a broken intra-doc link) into a hard failure;
+# undocumented public items are caught by the crate's own #![deny(missing_docs)].
 echo "docs: building API reference (rustdoc, -D warnings) …"
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 test -f target/doc/blendtutor_core/index.html \
@@ -45,6 +46,8 @@ test -f "$book_out/api/blendtutor_core/index.html" \
 # The live deploy leg is CI-only; here we assert the workflow is present and
 # references each required step so a missing-deploy regression fails locally.
 workflow=".github/workflows/docs.yml"
+test -f "$workflow" \
+  || { echo "docs: deploy workflow missing ($workflow)" >&2; exit 1; }
 for needle in 'mdbook build' 'cargo doc --no-deps' \
   'actions/upload-pages-artifact' 'actions/deploy-pages'; do
   grep -q "$needle" "$workflow" \

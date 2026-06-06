@@ -45,3 +45,23 @@ fn validate_invalid_lesson_exits_nonzero_naming_problem() {
         .failure()
         .stderr(predicates::str::contains("llm_evaluation_prompt"));
 }
+
+#[test]
+fn validate_lesson_without_student_code_placeholder_exits_nonzero_naming_the_rule() {
+    // The other AC2 branch: llm_evaluation_prompt is present but lacks the
+    // {student_code} placeholder. The error must name the field and the rule.
+    let mut file = tempfile::NamedTempFile::new().unwrap();
+    file.write_all(
+        b"lesson_name: \"Adder\"\nlanguage: R\nexercise:\n  prompt: \"Write add_two\"\n  llm_evaluation_prompt: \"Grade the submission.\"\n",
+    )
+    .unwrap();
+
+    Command::cargo_bin("blendtutor")
+        .unwrap()
+        .arg("validate")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("llm_evaluation_prompt"))
+        .stderr(predicates::str::contains("{student_code}"));
+}

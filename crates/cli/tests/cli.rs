@@ -26,7 +26,7 @@ fn help_lists_subcommands() {
         // substring of "running" — both would false-pass a bare `contains` check.
         let listed = stdout
             .lines()
-            .any(|line| line.trim_start().split_whitespace().next() == Some(subcommand));
+            .any(|line| line.split_whitespace().next() == Some(subcommand));
         assert!(
             listed,
             "`--help` should list subcommand `{subcommand}` as a command entry; full output:\n{stdout}"

@@ -20,5 +20,6 @@ fn validate_valid_lesson_reports_ok_and_exit_zero() {
         .arg(VALID_LESSON)
         .assert()
         .success()
-        .stdout(predicates::str::is_match("(?i)OK|valid").unwrap());
+        // Word-bounded so a stray "invalid" in error text can't masquerade as a pass.
+        .stdout(predicates::str::is_match(r"(?i)\bOK\b|\bvalid\b").unwrap());
 }

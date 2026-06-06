@@ -1,13 +1,18 @@
 name: Docs
 
 # Build the combined documentation site — mdBook narrative + rustdoc API — and
-# deploy it to GitHub Pages on every push to the default branch. The rustdoc
-# output is nested under the book at /api, so a single artifact serves both the
-# prose (at /) and the API reference (at /api). scripts/check-docs.sh runs the
-# same build + assemble locally.
+# deploy it to GitHub Pages. It runs on the default branch (main) and on the
+# staging/rewrite-in-rust-lol integration branch, so the published docs track the
+# Rust rewrite as it lands on staging instead of waiting for the merge to main.
+# The rustdoc output is nested under the book at /api, so a single artifact serves
+# both the prose (at /) and the API reference (at /api). scripts/check-docs.sh
+# runs the same build + assemble locally.
+#
+# The github-pages environment's deployment-branch-policy must also list any
+# branch named here, or the deploy job is blocked at the environment gate.
 on:
   push:
-    branches: [main]
+    branches: [main, staging/rewrite-in-rust-lol]
   workflow_dispatch:
 
 # Least privilege at the workflow level: only checkout is needed by default. The

@@ -29,12 +29,17 @@ Pages) is built, merged, and deployed (Slice 3).
   predicates. `docs.yml` keeps the build commands **inline** (rather than calling
   the script) so the deploy pipeline reads standalone and is greppable; the small
   command overlap is deliberate. Run the script by hand to reproduce CI locally.
-- 2026-06-06 (#3): `docs.yml` triggers on push to the **default branch (`main`)**
-  plus `workflow_dispatch`. During the Rust rewrite the code lives on
-  `staging/rewrite-in-rust-lol`, so the Pages deploy does not fire until staging
-  merges to main; use `workflow_dispatch` to exercise it earlier. Pages needs a
-  one-time repo setting (Settings → Pages → Source: GitHub Actions) that the
-  workflow cannot self-enable.
+- 2026-06-06 (#3): `docs.yml` triggers on push to `main` **and to
+  `staging/rewrite-in-rust-lol`** (plus `workflow_dispatch`), so during the Rust
+  rewrite the published docs track each staging merge rather than waiting for
+  staging → main. Two gates must agree on the branch set, or the deploy silently
+  blocks: (1) the workflow's `on.push.branches`, and (2) the **github-pages
+  environment's deployment-branch-policy** (`gh api
+  repos/<o>/<r>/environments/github-pages/deployment-branch-policies`) — the env
+  policy is a persistent repo setting, not in the workflow file, so adding a
+  trigger branch without adding the matching policy entry fails the deploy job at
+  the environment gate. Pages also needs a one-time Settings → Pages → Source:
+  GitHub Actions that the workflow cannot self-enable.
 - 2026-06-06 (#3): Pages deploy hygiene — least-privilege `permissions` scoped
   **per job**: the workflow default is `contents: read` (checkout), and the
   `pages: write` + `id-token: write` OIDC grants live on the `deploy` job only,

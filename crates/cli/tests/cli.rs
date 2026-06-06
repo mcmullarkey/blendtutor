@@ -21,9 +21,15 @@ fn help_lists_subcommands() {
 
     let stdout = String::from_utf8(output.stdout).expect("help output should be UTF-8");
     for subcommand in PLANNED_SUBCOMMANDS {
+        // Anchor to the command-list entry (first token of a help line), not a raw
+        // substring: `--help`'s about text already contains "run", and "run" is a
+        // substring of "running" — both would false-pass a bare `contains` check.
+        let listed = stdout
+            .lines()
+            .any(|line| line.trim_start().split_whitespace().next() == Some(subcommand));
         assert!(
-            stdout.contains(subcommand),
-            "`--help` stdout should list subcommand `{subcommand}`; full output:\n{stdout}"
+            listed,
+            "`--help` should list subcommand `{subcommand}` as a command entry; full output:\n{stdout}"
         );
     }
 }

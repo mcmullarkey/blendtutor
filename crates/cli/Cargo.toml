@@ -10,6 +10,7 @@ name = "blendtutor"
 path = "src/main.rs"
 
 [dependencies]
+blendtutor-core = { path = "../core" }
 clap = { workspace = true }
 
 [dev-dependencies]

@@ -277,6 +277,20 @@ mod tests {
     }
 
     #[test]
+    fn render_checks_renders_no_line_for_a_check_without_an_outcome() {
+        // The other desync direction: more checks than outcomes. A check with no
+        // outcome has no verdict to report, so it contributes no line — it must
+        // never surface as a phantom pass.
+        let lesson = lesson_with_checks(&["graded", "ungraded"]);
+        let rendered = render_checks(&lesson, &[CheckOutcome::Pass]);
+        assert_eq!(rendered, "graded: pass");
+        assert!(
+            !rendered.contains("ungraded"),
+            "a check with no outcome must not appear as a phantom verdict, got: {rendered}"
+        );
+    }
+
+    #[test]
     fn render_check_neutralizes_a_token_in_the_outcome_detail() {
         // A check's failure detail is interpreter output — untrusted — so a fence
         // smuggled through stderr must be neutralized too.

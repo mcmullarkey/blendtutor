@@ -31,7 +31,7 @@ use crate::runner::Runner;
 /// "correct with no feedback" or contradictory state is unrepresentable; the
 /// JSON consumer's flat `{verdict, feedback}` pair is a serialization detail, not
 /// a second source of truth. Its JSON form is defined once here (via the private
-/// [`RunDocument`]), so `core` owns the report's canonical wire shape the way it
+/// `RunDocument`), so `core` owns the report's canonical wire shape the way it
 /// owns the lesson's; the cli only chooses human-vs-json and the output stream.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(into = "RunDocument", from = "RunDocument")]
@@ -251,12 +251,18 @@ mod tests {
 
         assert_eq!(value["verdict"], "correct", "verdict is a string tag");
         assert_eq!(value["feedback"], "well done", "feedback is the message");
-        assert!(value["checks"].is_array(), "checks is an array, got {value}");
+        assert!(
+            value["checks"].is_array(),
+            "checks is an array, got {value}"
+        );
         assert!(
             value["checks"].as_array().expect("array").is_empty(),
             "no checks serializes to [], not a stringified empty list"
         );
-        assert!(value["output"].is_string(), "output is a string, got {value}");
+        assert!(
+            value["output"].is_string(),
+            "output is a string, got {value}"
+        );
     }
 
     #[test]

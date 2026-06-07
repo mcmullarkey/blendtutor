@@ -1,10 +1,9 @@
 //! `blendtutor run <lesson> [--code <file>]` — the headline student loop.
 //!
 //! A thin orchestration shell (§4.1, §5.1): it gathers inputs (the lesson, the
-//! submission, the provider override), drives the pure-ish core
-//! [`run_lesson`](blendtutor_core::run::run_lesson) on a runtime, and renders the
-//! result through the [`output`](crate::output) seam. It contains no execution,
-//! grading, or HTTP logic — those live in `core`.
+//! submission, the provider override), drives the pure-ish core [`run_lesson`] on
+//! a runtime, and renders the result through the [`output`] seam. It contains no
+//! execution, grading, or HTTP logic — those live in `core`.
 
 use std::io::{self, IsTerminal};
 use std::path::Path;

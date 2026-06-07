@@ -113,7 +113,11 @@ async fn run_incorrect_submission_exits_two_with_feedback() {
         "an incorrect submission exits 2 (reserved 'not yet correct'); \
          stdout={stdout:?} stderr={stderr:?}"
     );
-    assert_ne!(code, Some(0), "exit 2 is disjoint from the correct code (0)");
+    assert_ne!(
+        code,
+        Some(0),
+        "exit 2 is disjoint from the correct code (0)"
+    );
     assert_ne!(code, Some(1), "exit 2 is disjoint from the error code (1)");
     assert!(
         matches(r"(?i)\bincorrect\b", &stdout),
@@ -232,12 +236,27 @@ async fn run_format_json_emits_one_typed_report() {
             String::from_utf8_lossy(&output.stdout)
         )
     });
-    assert!(value.is_object(), "the report is a JSON object, got {value}");
+    assert!(
+        value.is_object(),
+        "the report is a JSON object, got {value}"
+    );
     assert_eq!(value["verdict"], "correct", "verdict is the string tag");
-    assert!(value["verdict"].is_string(), "verdict is a string, got {value}");
-    assert_eq!(value["feedback"], feedback, "feedback is the model's message");
-    assert!(value["feedback"].is_string(), "feedback is a string, got {value}");
-    assert!(value["checks"].is_array(), "checks is an array, got {value}");
+    assert!(
+        value["verdict"].is_string(),
+        "verdict is a string, got {value}"
+    );
+    assert_eq!(
+        value["feedback"], feedback,
+        "feedback is the model's message"
+    );
+    assert!(
+        value["feedback"].is_string(),
+        "feedback is a string, got {value}"
+    );
+    assert!(
+        value["checks"].is_array(),
+        "checks is an array, got {value}"
+    );
     assert!(
         value["checks"].as_array().expect("checks array").is_empty(),
         "a checkless lesson serializes checks as [], not a stringified list, got {value}"

@@ -104,10 +104,7 @@ pub const WRONG_CODE: &str = concat!(
 pub fn dead_provider_url() -> String {
     let listener =
         std::net::TcpListener::bind("127.0.0.1:0").expect("bind an ephemeral localhost port");
-    let port = listener
-        .local_addr()
-        .expect("read the bound port")
-        .port();
+    let port = listener.local_addr().expect("read the bound port").port();
     drop(listener);
     format!("http://127.0.0.1:{port}")
 }
@@ -130,7 +127,8 @@ pub fn blendtutor_output_env(
     provider_url: String,
     extra_env: Vec<(&'static str, &'static str)>,
 ) -> std::process::Output {
-    let mut command = Command::cargo_bin("blendtutor").expect("binary `blendtutor` should be built");
+    let mut command =
+        Command::cargo_bin("blendtutor").expect("binary `blendtutor` should be built");
     command
         .args(&args)
         .env("FIREWORKS_API_KEY", "test-key")

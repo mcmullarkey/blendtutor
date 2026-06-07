@@ -348,6 +348,36 @@ pathh = "add_two.yaml"
     }
 
     #[test]
+    fn discover_reports_a_malformed_lesson_as_an_error_row_keeping_the_good_ones() {
+        let course = Course::open(Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/course_partial"
+        )))
+        .expect("course_partial should open");
+        let rows = course.discover();
+
+        // Three manifest entries -> three rows. Partial failure is represented as
+        // a Vec<Result>: it is neither flattened to Result<Vec> (which would abort
+        // the whole scan on the first bad lesson) nor filtered down to the good
+        // ones (the R-style silent swallow).
+        assert_eq!(rows.len(), 3, "one row per manifest entry");
+        assert_eq!(
+            rows.iter().filter(|row| row.is_ok()).count(),
+            2,
+            "the two valid lessons still discover"
+        );
+
+        let errors: Vec<&DiscoveryError> =
+            rows.iter().filter_map(|row| row.as_ref().err()).collect();
+        assert_eq!(errors.len(), 1, "exactly the one malformed lesson errors");
+        assert_eq!(
+            errors[0].id().to_string(),
+            "broken",
+            "the error row carries the manifest slug, not the unparseable lesson's name"
+        );
+    }
+
+    #[test]
     fn open_missing_manifest_is_a_read_error_not_a_parse_error() {
         let err = Course::open(Path::new("/no/such/course"))
             .expect_err("a directory without a manifest cannot open");

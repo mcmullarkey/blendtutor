@@ -1,0 +1,9 @@
+# Malformed on purpose: the required `language` field is missing, so
+# Lesson::parse rejects it and discovery reports this entry as an error row.
+lesson_name: "Broken Lesson"
+
+exercise:
+  prompt: "Write a function."
+  llm_evaluation_prompt: |
+    Evaluate the student's submission:
+    {student_code}

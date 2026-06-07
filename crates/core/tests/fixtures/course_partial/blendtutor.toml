@@ -1,0 +1,13 @@
+# A course with two valid lessons and one malformed lesson (`broken`). Discovery
+# must report the bad one as an error row without losing the good two.
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"
+
+[[lessons]]
+id = "greet"
+path = "greet.yaml"
+
+[[lessons]]
+id = "broken"
+path = "broken.yaml"

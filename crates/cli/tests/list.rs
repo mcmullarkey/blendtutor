@@ -16,6 +16,13 @@ const COURSE_BASIC: &str = concat!(
     "/../core/tests/fixtures/course_basic"
 );
 
+/// A course with two valid lessons and one malformed lesson whose manifest slug
+/// is `broken`. Drives the partial-failure behavior.
+const COURSE_PARTIAL: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../core/tests/fixtures/course_partial"
+);
+
 /// Run `list <course> --format json` via the built binary and parse stdout as a
 /// JSON array of lesson rows.
 fn list_json(course: &str) -> (std::process::Output, Vec<Value>) {
@@ -73,5 +80,59 @@ fn list_reports_each_lessons_id_language_and_title() {
     assert_eq!(
         triple("greet"),
         ("python".to_string(), "Greet Someone".to_string())
+    );
+}
+
+#[test]
+fn list_reports_a_malformed_lesson_as_an_error_row_without_losing_the_good_ones() {
+    let (output, rows) = list_json(COURSE_PARTIAL);
+
+    // A bad lesson does not fail the command — discovery still succeeds.
+    assert!(
+        output.status.success(),
+        "`list` should still exit 0 with one bad lesson, got {:?}; stderr={:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Two good rows survive (error null). This fails the abort fake-pass: aborting
+    // on the first bad lesson would leave fewer than two good rows.
+    let good = rows.iter().filter(|r| r["error"].is_null()).count();
+    assert_eq!(good, 2, "both valid lessons remain listed");
+
+    // Exactly one `broken` row bears an error marker. This fails the swallow
+    // fake-pass: silently dropping the bad lesson would leave zero such rows.
+    let broken = rows
+        .iter()
+        .filter(|r| r["id"] == "broken" && !r["error"].is_null())
+        .count();
+    assert_eq!(
+        broken, 1,
+        "the malformed lesson is an error row, neither aborted nor dropped; rows={rows:?}"
+    );
+}
+
+#[test]
+fn list_on_a_directory_without_a_manifest_exits_nonzero() {
+    // The symmetric twin of a per-lesson failure: a missing manifest is a
+    // whole-course failure, so the command itself fails rather than listing rows.
+    let dir = tempfile::tempdir().unwrap();
+    let output = Command::cargo_bin("blendtutor")
+        .unwrap()
+        .arg("list")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(
+        !output.status.success(),
+        "a course directory with no blendtutor.toml cannot be listed"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .to_lowercase()
+            .contains("manifest"),
+        "the failure should name the manifest; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
     );
 }

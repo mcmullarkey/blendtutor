@@ -16,6 +16,7 @@
 
 pub mod course;
 pub mod lesson;
+pub mod runner;
 
 use std::error::Error;
 use std::fmt;

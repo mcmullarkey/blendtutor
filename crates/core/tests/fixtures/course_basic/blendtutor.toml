@@ -1,0 +1,9 @@
+# A minimal course manifest: an ordered list of lessons, each a stable course
+# slug `id` paired with the lesson file `path` (relative to this manifest).
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"
+
+[[lessons]]
+id = "greet"
+path = "greet.yaml"

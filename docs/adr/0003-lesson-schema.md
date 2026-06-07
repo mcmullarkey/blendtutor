@@ -48,8 +48,10 @@ Two deltas from the R behavior, both deliberate:
 - **`LessonId` carries the `lesson_name` value as the v1 identity.** The lesson
   file has no separate id field, and a stable slug id belongs with discovery
   (Slice 6, course dir + manifest). The newtype keeps a lesson's identity from
-  being confused with arbitrary strings now (§1.4); promoting it to a distinct
-  slug later is a localized change inside `lesson`.
+  being confused with arbitrary strings now (§1.4). Refined by ADR-0004: the slug
+  did not replace `LessonId` inside `lesson` — it is course-scoped (the manifest
+  assigns it), so it lives as a separate `LessonSlug` in `core::course`, and
+  `lesson_name`/`LessonId` stays the lesson's own title.
 
 YAML is parsed with **`serde-saphyr`** (pure-Rust, no `unsafe`, line-numbered
 errors). `serde_yml` is rejected (RUSTSEC-2025-0068, unsound); `serde_yaml` is

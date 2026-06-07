@@ -14,6 +14,7 @@
 // rustdoc warnings" — then holds unconditionally, not only under -D warnings.
 #![deny(missing_docs)]
 
+pub mod course;
 pub mod lesson;
 
 use std::error::Error;

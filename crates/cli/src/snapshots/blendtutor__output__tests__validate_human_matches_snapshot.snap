@@ -1,0 +1,5 @@
+---
+source: crates/cli/src/output.rs
+expression: rendered.text
+---
+OK: "Writing Your First Function" is a valid lesson

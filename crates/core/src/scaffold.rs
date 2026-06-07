@@ -147,9 +147,17 @@ fn is_empty_target(dir: &Path) -> Result<bool, ScaffoldError> {
     match std::fs::read_dir(dir) {
         Ok(mut entries) => Ok(entries.next().is_none()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            // NotFound is ambiguous: distinguish a truly-absent path (empty,
-            // creatable) from a broken symlink that exists as its own inode (an
-            // existing object to refuse) with a non-following lstat.
+            // `read_dir` reports NotFound both for a truly-absent path and for a
+            // broken symlink (the link exists, its target does not). A
+            // non-following lstat tells them apart. This lstat runs *only after*
+            // read_dir already returned NotFound on the same path, so its only
+            // reachable outcomes are NotFound (the path is genuinely absent — a
+            // creatable, empty target) and Ok (the path exists as its own inode,
+            // e.g. a broken symlink — an existing object to refuse). A
+            // non-NotFound lstat error (e.g. a permission failure) cannot arise on
+            // a path read_dir just reported NotFound — that would have surfaced as
+            // the outer non-NotFound arm — so collapsing every lstat error to
+            // "absent" green-lights no un-inspectable target.
             Ok(std::fs::symlink_metadata(dir).is_err())
         }
         Err(e) => Err(ScaffoldError::Write(e)),

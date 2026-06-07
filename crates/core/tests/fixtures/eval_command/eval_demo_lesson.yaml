@@ -1,0 +1,17 @@
+# Eval suite for demo_lesson.yaml — three synthetic submissions whose expected
+# polarity, paired with the mock provider's verdicts, yields two matches and one
+# mismatch (accuracy 2/3). Each submission is valid, cleanly-running R so the
+# verdict comes from the provider, not a launch failure. Instructor-only.
+cases:
+  # mock grades this correct → matches expected → MATCH
+  - submission: |-
+      cat("alpha\n")
+    expected: correct
+  # mock grades this incorrect → matches expected → MATCH
+  - submission: |-
+      cat("beta\n")
+    expected: incorrect
+  # mock grades this incorrect → differs from expected → MISMATCH
+  - submission: |-
+      cat("gamma\n")
+    expected: correct

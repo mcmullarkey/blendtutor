@@ -1,0 +1,9 @@
+---
+source: crates/cli/src/output.rs
+expression: render_eval(&report)
+---
+Accuracy: 2/3 (66.7%)
+
+case 1: expected correct, got correct [match]
+case 2: expected incorrect, got incorrect [match]
+case 3: expected correct, got incorrect [mismatch]

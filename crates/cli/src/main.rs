@@ -58,7 +58,14 @@ enum Commands {
         format: OutputFormat,
     },
     /// Run feedback-quality evals for a lesson.
-    Eval,
+    Eval {
+        /// Path to the lesson YAML file; its sibling `eval_<lesson>.yaml`
+        /// supplies the eval cases.
+        lesson: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
     /// Build a browser-deployable lesson site.
     Build,
 }
@@ -73,7 +80,7 @@ impl Commands {
             Commands::Validate { .. } => "validate",
             Commands::List { .. } => "list",
             Commands::Run { .. } => "run",
-            Commands::Eval => "eval",
+            Commands::Eval { .. } => "eval",
             Commands::Build => "build",
         }
     }
@@ -89,6 +96,7 @@ fn main() -> anyhow::Result<ExitCode> {
             code,
             format,
         } => commands::run::run(&lesson, code.as_deref(), format),
+        Commands::Eval { lesson, format } => commands::eval::run(&lesson, format),
         other => Err(blendtutor_core::NotYetImplemented::new(other.name()).into()),
     }
 }

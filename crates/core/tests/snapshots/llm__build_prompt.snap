@@ -1,0 +1,19 @@
+---
+source: crates/core/tests/llm.rs
+expression: s
+---
+You are evaluating student code for a programming exercise.
+
+Task:
+Write a function called 'add_two' that takes two numeric arguments
+(x and y) and returns their sum.
+
+<<<STUDENT_CODE_BEGIN>>>
+let x = 41;
+<<<STUDENT_CODE_END>>>
+
+<<<CAPTURED_OUTPUT>>>
+42
+
+<<<CHECK_RESULTS>>>
+stopifnot(adds_one(2) == 3): pass

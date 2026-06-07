@@ -15,9 +15,13 @@ assert_cmd = "2"
 command-group = { version = "5", features = ["with-tokio"] }
 insta = "1"
 predicates = "3"
+rig-core = "0.38.1"
+schemars = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde-saphyr = "0.0.27"
+serial_test = "3"
 tempfile = "3"
 tokio = { version = "1", features = ["rt", "macros", "process", "time", "io-util"] }
 toml = "0.8"
+wiremock = "0.6"

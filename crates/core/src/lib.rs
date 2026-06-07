@@ -17,6 +17,7 @@
 pub mod course;
 pub mod grade;
 pub mod lesson;
+pub mod llm;
 pub mod runner;
 
 use std::error::Error;

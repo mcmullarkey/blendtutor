@@ -137,4 +137,14 @@ mod tests {
         assert!(!result.timed_out);
         assert_eq!(result.final_value, None);
     }
+
+    #[test]
+    fn runner_error_displays_its_stage_and_exposes_the_io_source() {
+        let io = std::io::Error::new(std::io::ErrorKind::NotFound, "boom");
+        let err = RunnerError::new("spawn Rscript", io);
+
+        assert_eq!(err.to_string(), "spawn Rscript: boom");
+        let source = Error::source(&err).expect("the io::Error is reachable as the source");
+        assert_eq!(source.to_string(), "boom");
+    }
 }

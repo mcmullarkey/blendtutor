@@ -184,6 +184,12 @@ fn set_key(var: &str, value: &str) {
     unsafe { std::env::set_var(var, value) };
 }
 
+/// Remove an env var at the start of a `#[serial]` test, so a key left set by a
+/// prior test cannot mask a missing-key assertion.
+fn clear_key(var: &str) {
+    unsafe { std::env::remove_var(var) };
+}
+
 /// Mount a 200 returning a real OpenAI chat-completions envelope whose single tool
 /// call carries `arguments` as a JSON-**encoded string** — the shape rig's openai
 /// client parses. The tool is named `submit`, the tool rig's `Extractor` forces.
@@ -304,5 +310,136 @@ async fn request_feedback_correct_verdict() {
     assert_eq!(
         message, "well done",
         "the feedback_message is surfaced verbatim"
+    );
+}
+
+// ── AC3: the missing-key guard fires before the rig client / any socket ──
+//
+// Each arm rules out a Potemkin: asserting no request reached the mock
+// (`received_requests().len() == 0`) rules out a check-after-dispatch; asserting
+// the message names the specific key var rules out rig's own auth/connection
+// error and a guard that read the wrong provider's var. The base URL is always a
+// live mock, so a guard that fired only "after" would leave a recorded request.
+
+#[tokio::test]
+#[serial]
+async fn fireworks_missing_key_errs_before_request() {
+    clear_key("FIREWORKS_API_KEY");
+    let server = MockServer::start().await;
+
+    let result = request_feedback(
+        ProviderChoice::Fireworks,
+        &sample_prompt(),
+        Some(&server.uri()),
+    )
+    .await;
+
+    let Err(error) = result else {
+        panic!("a missing key must error, got {result:?}");
+    };
+    let message = error.to_string();
+    assert!(
+        message.contains("FIREWORKS_API_KEY"),
+        "the error names the missing key var, got: {message}"
+    );
+    assert!(
+        message.to_lowercase().contains("set"),
+        "the error tells the user to set the key, got: {message}"
+    );
+    assert_eq!(
+        server.received_requests().await.unwrap().len(),
+        0,
+        "the guard fires before any socket I/O"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn fireworks_empty_key_errs_before_request() {
+    // An empty string is treated as unset — a boundary distinct from the absent
+    // var (some shells export an empty value).
+    set_key("FIREWORKS_API_KEY", "");
+    let server = MockServer::start().await;
+
+    let result = request_feedback(
+        ProviderChoice::Fireworks,
+        &sample_prompt(),
+        Some(&server.uri()),
+    )
+    .await;
+
+    let Err(error) = result else {
+        panic!("an empty key must error, got {result:?}");
+    };
+    let message = error.to_string();
+    assert!(
+        message.contains("FIREWORKS_API_KEY"),
+        "the error names the key var, got: {message}"
+    );
+    assert!(
+        message.to_lowercase().contains("set"),
+        "the error tells the user to set the key, got: {message}"
+    );
+    assert_eq!(
+        server.received_requests().await.unwrap().len(),
+        0,
+        "an empty key is treated as unset; no request is sent"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn fireworks_present_key_reaches_server() {
+    // The control: a present key is not a blanket refusal — the request dispatches
+    // exactly once, proving the guard is a key check, not a gate on every call.
+    set_key("FIREWORKS_API_KEY", "test-key");
+    let server = MockServer::start().await;
+    mount_tool_call(&server, r#"{"is_correct":true,"feedback_message":"ok"}"#).await;
+
+    let _ = request_feedback(
+        ProviderChoice::Fireworks,
+        &sample_prompt(),
+        Some(&server.uri()),
+    )
+    .await;
+
+    assert_eq!(
+        server.received_requests().await.unwrap().len(),
+        1,
+        "a present key dispatches exactly one request"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn anthropic_missing_key_errs_before_request() {
+    // The guard reads the ACTIVE provider's var: Anthropic names ANTHROPIC_API_KEY,
+    // not the Fireworks var.
+    clear_key("ANTHROPIC_API_KEY");
+    let server = MockServer::start().await;
+
+    let result = request_feedback(
+        ProviderChoice::Anthropic,
+        &sample_prompt(),
+        Some(&server.uri()),
+    )
+    .await;
+
+    let Err(error) = result else {
+        panic!("a missing anthropic key must error, got {result:?}");
+    };
+    let message = error.to_string();
+    assert!(
+        message.contains("ANTHROPIC_API_KEY"),
+        "the error names the anthropic key var, got: {message}"
+    );
+    assert!(
+        message.to_lowercase().contains("set"),
+        "the error tells the user to set the key, got: {message}"
+    );
+    assert_eq!(
+        server.received_requests().await.unwrap().len(),
+        0,
+        "the guard fires before any socket I/O"
     );
 }

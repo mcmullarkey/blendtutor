@@ -64,10 +64,42 @@ impl Manifest {
     ///
     /// The pure parse boundary (§2.1): the caller reads the file, this turns the
     /// text into the typed model. A malformed document or a typo'd key yields
-    /// [`ManifestError::Parse`] carrying the parser message.
+    /// [`ManifestError::Parse`]; a lesson path that would escape the course
+    /// directory yields [`ManifestError::UnsafePath`]. Both are caught here,
+    /// before any lesson file is read (§1.3.1), so a parsed `Manifest` only ever
+    /// names files inside its own course.
     pub fn parse(toml: &str) -> Result<Manifest, ManifestError> {
-        toml::from_str(toml).map_err(|e| ManifestError::Parse(e.to_string()))
+        let manifest: Manifest =
+            toml::from_str(toml).map_err(|e| ManifestError::Parse(e.to_string()))?;
+        manifest.validate_paths()?;
+        Ok(manifest)
     }
+
+    /// Reject any entry whose path would reach outside the course directory.
+    ///
+    /// A manifest is author-written but a course may be shared, so an absolute
+    /// path or a `..` component is refused at the boundary rather than handed to
+    /// [`Course::discover`] as a read of an arbitrary file (§1.3.1).
+    fn validate_paths(&self) -> Result<(), ManifestError> {
+        for entry in &self.lessons {
+            if escapes_course_dir(&entry.path) {
+                return Err(ManifestError::UnsafePath {
+                    id: entry.id.clone(),
+                    path: entry.path.clone(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Whether `path` would resolve outside the course directory: an absolute path,
+/// or one with a `..` component that climbs above the root.
+fn escapes_course_dir(path: &Path) -> bool {
+    path.is_absolute()
+        || path
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
 }
 
 /// Why a `blendtutor.toml` could not be turned into a [`Manifest`].
@@ -82,6 +114,14 @@ pub enum ManifestError {
     /// The file was read but is not a valid manifest (bad TOML, a missing or
     /// typo'd key). Carries the parser message.
     Parse(String),
+    /// An entry's `path` would resolve outside the course directory (it is
+    /// absolute or climbs through `..`), so it is refused before any file is read.
+    UnsafePath {
+        /// The slug of the offending entry.
+        id: LessonSlug,
+        /// The rejected path, as written in the manifest.
+        path: PathBuf,
+    },
 }
 
 impl fmt::Display for ManifestError {
@@ -89,6 +129,11 @@ impl fmt::Display for ManifestError {
         match self {
             ManifestError::Read(e) => write!(f, "could not read course manifest: {e}"),
             ManifestError::Parse(msg) => write!(f, "invalid course manifest: {msg}"),
+            ManifestError::UnsafePath { id, path } => write!(
+                f,
+                "lesson {id:?} path {path:?} escapes the course directory; \
+                 lesson paths must be relative and stay within the course",
+            ),
         }
     }
 }
@@ -97,7 +142,7 @@ impl Error for ManifestError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             ManifestError::Read(e) => Some(e),
-            ManifestError::Parse(_) => None,
+            ManifestError::Parse(_) | ManifestError::UnsafePath { .. } => None,
         }
     }
 }
@@ -260,6 +305,20 @@ pathh = "add_two.yaml"
             matches!(err, ManifestError::Parse(_)),
             "a malformed manifest is a parse error, got: {err:?}"
         );
+    }
+
+    #[test]
+    fn manifest_parse_rejects_a_path_escaping_the_course_directory() {
+        for escaping in ["../secrets.yaml", "/etc/passwd", "nested/../../up.yaml"] {
+            let err = Manifest::parse(&format!(
+                "[[lessons]]\nid = \"x\"\npath = {escaping:?}\n"
+            ))
+            .expect_err("a path leaving the course directory must be refused");
+            assert!(
+                matches!(err, ManifestError::UnsafePath { .. }),
+                "an escaping path should be UnsafePath, got: {err:?} for {escaping}"
+            );
+        }
     }
 
     #[test]

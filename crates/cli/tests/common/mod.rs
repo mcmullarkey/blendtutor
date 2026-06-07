@@ -91,10 +91,16 @@ pub const WRONG_CODE: &str = concat!(
     "/tests/fixtures/runs/add_two_numbers_wrong.R"
 );
 
-/// A localhost URL whose port has no listener, so a request to it is refused.
-/// Drives the provider-error path (transport failure → exit 1) deterministically
-/// without standing up a server. The bound port is freed before returning; the OS
-/// will not immediately reuse it.
+/// A localhost URL whose port has no listener, so a request to it is refused —
+/// drives the provider-error path (a failed feedback request → exit 1) without
+/// standing up a server.
+///
+/// The port is obtained by binding an ephemeral port and freeing it; the tiny
+/// window before the child connects does not threaten the assertion, because the
+/// test only asserts exit 1: a connection refused, a non-200, or any response
+/// that is not a valid `submit` tool call all map to a feedback error. The single
+/// way to flip it would be an unrelated process grabbing that exact freed port
+/// *and* serving a well-formed OpenAI verdict — which cannot happen.
 pub fn dead_provider_url() -> String {
     let listener =
         std::net::TcpListener::bind("127.0.0.1:0").expect("bind an ephemeral localhost port");

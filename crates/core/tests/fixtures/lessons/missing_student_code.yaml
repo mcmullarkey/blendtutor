@@ -1,0 +1,12 @@
+# Intentionally invalid lesson: structurally complete, but
+# `exercise.llm_evaluation_prompt` lacks the literal `{student_code}`
+# placeholder, so `validate` must reject it (exercises validate_semantics).
+# Used to assert exit-code parity between `--format human` and `--format json`
+# on a failing input.
+lesson_name: "Broken Adder"
+language: R
+exercise:
+  prompt: |
+    Write a function called 'add_two' that adds two numbers.
+  llm_evaluation_prompt: |
+    Evaluate the student's submission and decide whether it is correct.

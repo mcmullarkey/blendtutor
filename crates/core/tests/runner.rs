@@ -34,7 +34,13 @@ async fn captures_stdout_stderr_exit_separately() {
 
     let runner = RRunner::new(Timeout(Duration::from_secs(30)));
     // `cat` writes to stdout; `message` writes to stderr; the program exits 0.
-    let result: ExecutionResult = runner.execute("cat('OUT'); message('ERR')", &[]).await;
+    // `execute` is fallible: an `Err` means the interpreter never ran (spawn/IO
+    // failure), which is categorically distinct from R writing to stderr, so the
+    // two never collapse into one buffer.
+    let result: ExecutionResult = runner
+        .execute("cat('OUT'); message('ERR')", &[])
+        .await
+        .expect("Rscript should spawn and run to completion");
 
     assert!(
         result.stdout.contains("OUT"),

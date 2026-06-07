@@ -31,11 +31,15 @@ pub enum CheckOutcome {
 
 /// A runner chosen for a lesson's language.
 ///
-/// A closed enum rather than a `Box<dyn Runner>`: [`Runner::execute`] returns
-/// `impl Future` (an RPITIT), which is not object-safe, so dispatch is a fixed
-/// set of concrete runners matched exhaustively (§1.2). Adding a language adds a
-/// variant here and an arm in [`select_runner`]; the compiler then forces every
-/// `match` to account for it.
+/// A closed enum holding one concrete runner. [`Runner::execute`] returns
+/// `impl Future` (an RPITIT), so the trait is not object-safe and a
+/// runtime-chosen runner cannot be a `Box<dyn Runner>`; an enum is how we carry
+/// that choice instead. Consumers still depend on the [`Runner`] trait, not on
+/// these concrete variants — `RunnerKind` itself impls it, so [`run_checks`]
+/// takes `impl Runner` and never names `RRunner`/`PythonRunner` (§3.4). The
+/// `match` over it is exhaustive: adding a [`Language`] variant forces a new arm
+/// both here and in [`select_runner`], so a language can never be silently
+/// dropped (§1.2).
 #[derive(Debug, Clone)]
 pub enum RunnerKind {
     /// The R runner.
@@ -99,11 +103,97 @@ pub async fn run_checks(
 mod tests {
     use super::*;
 
+    /// A [`Runner`] that fabricates a fixed result instead of spawning an
+    /// interpreter, so `run_checks`'s classification — exit code → outcome, and
+    /// the spawn-failure arm a real interpreter never reaches — is exercised
+    /// deterministically with no `Rscript`/`uv` on `PATH`. It impls the real
+    /// [`Runner`] trait (so the signature can't drift) and returns the real
+    /// [`ExecutionResult`]/[`RunnerError`] built through their own constructors,
+    /// honouring the seam contract: a program that *ran* (any exit) is `Ok`; a
+    /// failure to launch is `Err`.
+    enum FakeRunner {
+        /// The program ran and exited with `code`, writing `stderr`.
+        Exited { code: i32, stderr: String },
+        /// The interpreter could not be launched at all.
+        FailedToSpawn,
+    }
+
+    impl Runner for FakeRunner {
+        async fn execute(
+            &self,
+            _code: &str,
+            _checks: &[String],
+        ) -> Result<ExecutionResult, RunnerError> {
+            match self {
+                FakeRunner::Exited { code, stderr } => Ok(ExecutionResult::from_capture(
+                    b"",
+                    stderr.as_bytes(),
+                    Some(*code),
+                    false,
+                )),
+                FakeRunner::FailedToSpawn => Err(RunnerError::new(
+                    "spawn fake",
+                    std::io::Error::new(std::io::ErrorKind::NotFound, "no such interpreter"),
+                )),
+            }
+        }
+    }
+
+    fn checks(one: &str) -> Vec<String> {
+        vec![one.to_string()]
+    }
+
     #[test]
     fn select_runner_dispatches_an_r_lesson_to_the_r_runner() {
         assert!(
             matches!(select_runner(&Language::R), RunnerKind::R(_)),
             "an R lesson must select the R runner"
+        );
+    }
+
+    #[test]
+    fn select_runner_dispatches_a_python_lesson_to_the_python_runner() {
+        assert!(
+            matches!(select_runner(&Language::Python), RunnerKind::Python(_)),
+            "a Python lesson must select the Python runner"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_check_whose_program_exits_cleanly_is_a_pass() {
+        let runner = FakeRunner::Exited {
+            code: 0,
+            stderr: String::new(),
+        };
+        let outcomes = run_checks(runner, "submission", &checks("check")).await;
+        assert_eq!(outcomes, vec![CheckOutcome::Pass]);
+    }
+
+    #[tokio::test]
+    async fn a_check_whose_program_exits_nonzero_is_a_fail_carrying_stderr() {
+        let runner = FakeRunner::Exited {
+            code: 1,
+            stderr: "assertion failed".to_string(),
+        };
+        let outcomes = run_checks(runner, "submission", &checks("check")).await;
+        assert_eq!(
+            outcomes,
+            vec![CheckOutcome::Fail {
+                detail: "assertion failed".to_string()
+            }],
+            "a non-zero exit fails the check and the interpreter's stderr is the detail"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_check_whose_interpreter_cannot_launch_is_a_fail() {
+        // The spawn-failure arm: a real interpreter present on `PATH` never
+        // produces it, so only this fake reaches the `Err` branch of run_checks.
+        let runner = FakeRunner::FailedToSpawn;
+        let outcomes = run_checks(runner, "submission", &checks("check")).await;
+        assert!(
+            matches!(outcomes.as_slice(), [CheckOutcome::Fail { .. }]),
+            "a launch failure cannot leave the check unclassified, got {outcomes:?}"
         );
     }
 }

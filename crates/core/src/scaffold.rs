@@ -4,10 +4,10 @@
 //! Holds the embedded starter templates (`include_str!`), the pure
 //! [`scaffold_plan`] that names the files a fresh course contains (testable with
 //! no filesystem, §2.3), and [`scaffold_course`] — the single effectful step
-//! that writes that plan into a target directory. This module owns *what a new
-//! course contains*; it does not parse CLI flags or decide where the course
-//! lives (§4.1). The templates are data the writer consumes, so changing a
-//! template never changes the writer (§3.2).
+//! that refuses a non-empty target before any write (§1.3.1) then writes that
+//! plan into it. This module owns *what a new course contains*; it does not parse
+//! CLI flags or decide where the course lives (§4.1). The templates are data the
+//! writer consumes, so changing a template never changes the writer (§3.2).
 
 use std::error::Error;
 use std::fmt;
@@ -80,6 +80,9 @@ pub fn scaffold_plan() -> Vec<FileSpec> {
 /// Why a course could not be scaffolded into a target directory.
 #[derive(Debug)]
 pub enum ScaffoldError {
+    /// The target directory already holds files, so the scaffold is refused
+    /// before any write (§1.3.1) rather than overwriting an existing course.
+    TargetNotEmpty(PathBuf),
     /// A filesystem operation failed while writing the scaffold (creating the
     /// directory or writing a file).
     Write(std::io::Error),
@@ -88,6 +91,11 @@ pub enum ScaffoldError {
 impl fmt::Display for ScaffoldError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ScaffoldError::TargetNotEmpty(path) => write!(
+                f,
+                "target directory {path:?} is not empty; init refuses to overwrite \
+                 an existing course — choose an empty or new directory",
+            ),
             ScaffoldError::Write(e) => write!(f, "could not write course scaffold: {e}"),
         }
     }
@@ -96,6 +104,7 @@ impl fmt::Display for ScaffoldError {
 impl Error for ScaffoldError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
+            ScaffoldError::TargetNotEmpty(_) => None,
             ScaffoldError::Write(e) => Some(e),
         }
     }
@@ -104,15 +113,36 @@ impl Error for ScaffoldError {
 /// Scaffold a fresh course into `dir`, writing every file in the
 /// [plan](scaffold_plan).
 ///
-/// The effectful shell (§2.2) over the pure plan: it creates `dir` if missing,
-/// then writes each [`FileSpec`] verbatim. A missing target is created; an
-/// existing one is written into.
+/// The effectful shell (§2.2) over the pure plan. The refuse-on-nonempty guard
+/// fires first (§1.3.1): a directory that already holds files is rejected as
+/// [`ScaffoldError::TargetNotEmpty`] *before any write*, so a refused target is
+/// left exactly as it was — never partially clobbered. An absent or empty target
+/// is then created if missing and each [`FileSpec`] written verbatim.
 pub fn scaffold_course(dir: &Path) -> Result<(), ScaffoldError> {
+    if !is_empty_target(dir)? {
+        return Err(ScaffoldError::TargetNotEmpty(dir.to_path_buf()));
+    }
     std::fs::create_dir_all(dir).map_err(ScaffoldError::Write)?;
     for spec in scaffold_plan() {
         std::fs::write(dir.join(&spec.path), spec.contents).map_err(ScaffoldError::Write)?;
     }
     Ok(())
+}
+
+/// Whether `dir` is a safe scaffold target: it does not yet exist, or exists and
+/// holds no entries.
+///
+/// The boundary check behind the guard (§1.3.1). A `NotFound` directory is an
+/// empty target (it will be created); a directory with any entry is not. A read
+/// failure other than `NotFound` (e.g. a permission error) propagates as a write
+/// error rather than being read as "empty", so the guard never green-lights a
+/// target it could not actually inspect.
+fn is_empty_target(dir: &Path) -> Result<bool, ScaffoldError> {
+    match std::fs::read_dir(dir) {
+        Ok(mut entries) => Ok(entries.next().is_none()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(true),
+        Err(e) => Err(ScaffoldError::Write(e)),
+    }
 }
 
 #[cfg(test)]
@@ -200,5 +230,41 @@ mod tests {
             course.join(MANIFEST_FILENAME).is_file(),
             "the manifest lands inside the freshly-created course directory"
         );
+    }
+
+    #[test]
+    fn scaffold_course_refuses_a_nonempty_target_before_writing_anything() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("sentinel.txt"), "KEEP").unwrap();
+
+        let err = scaffold_course(dir.path())
+            .expect_err("a directory that already holds files must be refused");
+        assert!(
+            matches!(err, ScaffoldError::TargetNotEmpty(_)),
+            "a non-empty target is a TargetNotEmpty refusal, got {err:?}"
+        );
+
+        // The guard fires before any write: only the seeded file remains, and it
+        // is untouched. No plan file leaked into the directory.
+        let mut names: Vec<String> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        assert_eq!(names, vec!["sentinel.txt".to_string()]);
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("sentinel.txt")).unwrap(),
+            "KEEP"
+        );
+    }
+
+    #[test]
+    fn scaffold_course_accepts_an_existing_empty_directory() {
+        // The boundary case the AC2 probe drives: `mktemp -d` yields a directory
+        // that exists and is empty. That is a valid target, distinct from a
+        // non-empty one.
+        let dir = tempfile::tempdir().unwrap();
+        scaffold_course(dir.path()).expect("an existing but empty directory is a valid target");
+        assert!(dir.path().join(MANIFEST_FILENAME).is_file());
     }
 }

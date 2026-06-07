@@ -15,7 +15,7 @@
 
 use assert_cmd::Command;
 use serde_json::json;
-use wiremock::matchers::method;
+use wiremock::matchers::{body_string_contains, method};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// True (after printing a notice) when `Rscript` is not on `PATH`, so a
@@ -41,12 +41,42 @@ pub fn rscript_absent() -> bool {
 /// corrupt the mock body (§1.3). Mirrors the wire contract `core/tests/llm.rs`
 /// unit-tests the provider layer against.
 pub async fn mount_feedback(server: &MockServer, is_correct: bool, feedback: &str) {
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(feedback_body(is_correct, feedback)))
+        .mount(server)
+        .await;
+}
+
+/// Like [`mount_feedback`], but only answers requests whose body contains
+/// `needle` — so one server can return a distinct verdict per submission when a
+/// command (e.g. `eval`) makes several feedback calls. `needle` is a token from
+/// the submission, which `build_prompt` fences verbatim into the request body, so
+/// each case's request is routed to its own scripted verdict regardless of order.
+pub async fn mount_feedback_for(
+    server: &MockServer,
+    needle: &str,
+    is_correct: bool,
+    feedback: &str,
+) {
+    Mock::given(method("POST"))
+        .and(body_string_contains(needle))
+        .respond_with(ResponseTemplate::new(200).set_body_json(feedback_body(is_correct, feedback)))
+        .mount(server)
+        .await;
+}
+
+/// Build the OpenAI chat-completions envelope whose single `submit` tool call
+/// carries the feedback (`is_correct` + `feedback_message`) as a JSON-**encoded
+/// string** — the wire shape rig's openai client parses. Arguments are built via
+/// `serde_json` so quotes, backslashes, or newlines in `feedback` cannot corrupt
+/// the body (§1.3). Shared by the single- and per-submission mock mounts.
+fn feedback_body(is_correct: bool, feedback: &str) -> serde_json::Value {
     let arguments = serde_json::to_string(&json!({
         "is_correct": is_correct,
         "feedback_message": feedback,
     }))
     .expect("the feedback arguments serialize infallibly");
-    let body = json!({
+    json!({
         "id": "chatcmpl-test",
         "object": "chat.completion",
         "created": 0,
@@ -65,11 +95,7 @@ pub async fn mount_feedback(server: &MockServer, is_correct: bool, feedback: &st
             "finish_reason": "tool_calls"
         }],
         "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
-    });
-    Mock::given(method("POST"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(body))
-        .mount(server)
-        .await;
+    })
 }
 
 /// The ported example lesson (R, no checks — LLM-graded), under `core`'s fixtures.

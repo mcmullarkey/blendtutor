@@ -280,4 +280,36 @@ mod tests {
         let value: serde_json::Value = serde_json::from_str(&json).expect("the json parses");
         assert_eq!(value["verdict"], "incorrect");
     }
+
+    #[test]
+    fn run_error_labels_each_stage_and_exposes_its_source() {
+        use crate::runner::RunnerError;
+
+        // The Run arm labels itself as a run failure and keeps the underlying
+        // RunnerError reachable as its source — so the cli can report what failed.
+        let run = RunError::Run(RunnerError::new(
+            "spawn Rscript",
+            std::io::Error::new(std::io::ErrorKind::NotFound, "boom"),
+        ));
+        assert!(
+            run.to_string().contains("could not run the submission"),
+            "Run labels itself a run failure, got: {run}"
+        );
+        assert!(
+            Error::source(&run).is_some(),
+            "Run exposes the RunnerError as its source"
+        );
+
+        // The Feedback arm defers to the FeedbackError's own message (no prefix)
+        // and exposes it as the source.
+        let feedback = RunError::Feedback(FeedbackError::Client("bad client".to_string()));
+        assert!(
+            feedback.to_string().contains("bad client"),
+            "Feedback surfaces the inner message, got: {feedback}"
+        );
+        assert!(
+            Error::source(&feedback).is_some(),
+            "Feedback exposes the FeedbackError as its source"
+        );
+    }
 }

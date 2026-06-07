@@ -96,6 +96,12 @@ pub struct Lesson {
     pub language: Language,
     /// The exercise the lesson poses. Required.
     pub exercise: Exercise,
+    /// Executable check code-strings, run against a submission in the lesson's
+    /// language to grade it (Slice 9). Optional and defaulting to empty: a lesson
+    /// with no checks is graded by the LLM alone (the R package's model), so an
+    /// author need not write checks and every existing lesson stays valid (§1.2).
+    #[serde(default)]
+    pub checks: Vec<String>,
     /// Optional one-line summary.
     pub description: Option<String>,
     /// Optional pointer to a textbook section.
@@ -242,6 +248,43 @@ exercise:
         // The snake_case `type` value maps to the enum; the round-trip test then
         // confirms this populated optional survives JSON unchanged.
         assert_eq!(lesson.exercise.kind, Some(ExerciseKind::FunctionWriting));
+    }
+
+    const LESSON_WITH_CHECKS_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+checks:
+  - "stopifnot(add_two(2, 3) == 5)"
+  - "stopifnot(is.function(add_two))"
+exercise:
+  prompt: "Write a function add_two(x, y)."
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_reads_checks_as_ordered_code_strings() {
+        let lesson = Lesson::parse(LESSON_WITH_CHECKS_YAML).expect("a lesson with checks is valid");
+        assert_eq!(
+            lesson.checks,
+            vec![
+                "stopifnot(add_two(2, 3) == 5)".to_string(),
+                "stopifnot(is.function(add_two))".to_string(),
+            ],
+            "checks parse in document order as raw code-strings"
+        );
+    }
+
+    #[test]
+    fn parse_defaults_checks_to_empty_when_absent() {
+        // A lesson with no `checks` key is graded by the LLM alone (the R
+        // package's model); checks must default to empty rather than be required,
+        // so every existing lesson stays valid.
+        let lesson = Lesson::parse(VALID_YAML).expect("valid lesson should parse");
+        assert!(
+            lesson.checks.is_empty(),
+            "a lesson without a checks key has no checks, got {:?}",
+            lesson.checks
+        );
     }
 
     #[test]

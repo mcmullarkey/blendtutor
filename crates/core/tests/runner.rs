@@ -9,7 +9,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use blendtutor_core::runner::{ExecutionResult, RRunner, Runner, Timeout};
+use blendtutor_core::runner::{ExecutionResult, PythonRunner, RRunner, Runner, Timeout};
 
 /// True (after printing a notice) when `Rscript` is not on `PATH`, so a test can
 /// `return` early instead of failing on machines without R installed.
@@ -178,5 +178,105 @@ async fn runs_in_isolated_temp_dir_cleaned_up() {
     assert!(
         marker.exists(),
         "the caller's pre-existing marker was disturbed by the run"
+    );
+}
+
+/// True (after printing a notice) when `uv run python` cannot run here, so a
+/// Python-runner test can `return` early instead of failing on machines without
+/// `uv` (or without a Python it can resolve). The `PythonRunner` spawns the
+/// interpreter through `uv` (per the project's always-`uv` rule), so this guards
+/// on exactly what the runner needs — not on a bare `python` that may be absent
+/// even where `uv run python` works.
+fn uv_python_absent() -> bool {
+    let present = std::process::Command::new("uv")
+        .args(["run", "--no-project", "--quiet", "python", "--version"])
+        .output()
+        .map(|out| out.status.success())
+        .unwrap_or(false);
+    if !present {
+        eprintln!(
+            "SKIP: `uv run python` unavailable — skipping real-interpreter python runner test"
+        );
+    }
+    !present
+}
+
+/// AC1 — a Python snippet's stdout, stderr, and exit status land in three
+/// distinct fields of a normalized [`ExecutionResult`], captured identically to
+/// the R runner through the same [`Runner`] trait; the streams do not bleed into
+/// one another.
+#[tokio::test]
+async fn python_captures_streams_distinctly() {
+    if uv_python_absent() {
+        return;
+    }
+
+    let runner = PythonRunner::new(Timeout(Duration::from_secs(30)));
+    // Write "OUT" to stdout and "ERR" to stderr, then exit 0. `execute` is
+    // fallible: an `Err` means the interpreter never ran (spawn/IO failure),
+    // categorically distinct from Python writing to stderr, so the two never
+    // collapse into one buffer.
+    let result: ExecutionResult = runner
+        .execute(
+            "import sys; sys.stdout.write('OUT'); sys.stderr.write('ERR')",
+            &[],
+        )
+        .await
+        .expect("python should spawn and run to completion");
+
+    assert!(
+        result.stdout.contains("OUT"),
+        "stdout should carry the stdout write, got {:?}",
+        result.stdout
+    );
+    assert!(
+        result.stderr.contains("ERR"),
+        "stderr should carry the stderr write, got {:?}",
+        result.stderr
+    );
+    assert!(
+        !result.stdout.contains("ERR"),
+        "stderr must not bleed into stdout, got {:?}",
+        result.stdout
+    );
+    assert_eq!(result.exit, Some(0), "a clean exit is Some(0), not a blob");
+    assert!(
+        !result.timed_out,
+        "a fast snippet must not be marked timed out"
+    );
+}
+
+/// A short wall-clock bound for the Python timeout test: long enough for the
+/// interpreter to start, short enough that a killed run returns well within the
+/// margin asserted below.
+const SHORT_TIMEOUT: Duration = Duration::from_millis(500);
+
+/// AC2 — a Python infinite loop is killed when it exceeds its [`Timeout`] and
+/// returns a timeout result through the same [`Runner`] trait, rather than
+/// running forever. The two-sided wall-clock bound proves a *reaped
+/// still-running* process: `timed_out` rules out a natural exit, and the upper
+/// bound rules out a hang where the kill never fired.
+#[tokio::test]
+async fn python_infinite_loop_times_out() {
+    if uv_python_absent() {
+        return;
+    }
+
+    let runner = PythonRunner::new(Timeout(SHORT_TIMEOUT));
+    let start = std::time::Instant::now();
+    let result = runner
+        .execute("while True:\n    pass\n", &[])
+        .await
+        .expect("a runaway run is a timeout, not a runner error");
+    let elapsed = start.elapsed();
+
+    assert!(
+        result.timed_out,
+        "a run past its timeout must be marked timed out, not completed naturally"
+    );
+    assert!(
+        elapsed < SHORT_TIMEOUT + Duration::from_secs(2),
+        "execute must kill the run near its {SHORT_TIMEOUT:?} timeout, not hang on the \
+         infinite loop; took {elapsed:?}"
     );
 }

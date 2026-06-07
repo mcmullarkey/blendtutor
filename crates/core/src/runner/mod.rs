@@ -13,8 +13,11 @@ use std::fmt;
 use std::future::Future;
 use std::time::Duration;
 
+mod python;
 mod r;
+mod subprocess;
 
+pub use python::PythonRunner;
 pub use r::RRunner;
 
 /// A wall-clock bound on a single execution.
@@ -97,14 +100,21 @@ pub trait Runner {
 /// (ADR-0001).
 #[derive(Debug)]
 pub struct RunnerError {
-    context: &'static str,
+    context: String,
     source: std::io::Error,
 }
 
 impl RunnerError {
-    /// Wrap an IO failure with the runner stage that produced it.
-    pub(crate) fn new(context: &'static str, source: std::io::Error) -> Self {
-        Self { context, source }
+    /// Wrap an IO failure with the runner stage that produced it. `context`
+    /// accepts both a `&'static str` (a fixed stage like `"collect stdout"`) and
+    /// an owned `String` (a stage that names the interpreter, e.g.
+    /// `format!("spawn {program}")`), so the shared subprocess core can report
+    /// which interpreter failed without each stage label being a separate const.
+    pub(crate) fn new(context: impl Into<String>, source: std::io::Error) -> Self {
+        Self {
+            context: context.into(),
+            source,
+        }
     }
 }
 

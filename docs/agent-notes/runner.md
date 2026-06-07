@@ -1,7 +1,7 @@
 ---
 topic: runner
 created: 2026-06-06
-slices: [7]
+slices: [7, 8]
 ---
 
 How `core::runner` runs learner code: the language-neutral seam and the R
@@ -64,3 +64,32 @@ subprocess mechanics. The Python runner (Slice 8) mirrors this design.
   `[dependencies]` — do **not** duplicate `tokio`/`tempfile` into
   `[dev-dependencies]` (roborev caught this on #7). Only test-exclusive crates
   (e.g. `serde_json`) belong in `[dev-dependencies]`.
+- 2026-06-06 (#8): **Python runs through `uv`, not a bare `python`.** Per the
+  project's always-`uv` rule, `PythonRunner` spawns
+  `uv run --no-project --quiet python -I -c <code>`. `--no-project` ignores any
+  surrounding pyproject so capture is reproducible; `--quiet` keeps uv's own
+  env-setup chatter out of the captured streams (without it, first-run messages
+  bleed into stdout/stderr); `-I` runs Python isolated (no user site, no
+  `PYTHON*` env) — the analog of R's `--vanilla`. The dev machine (and macOS
+  generally) has `python3` but no `python`, so the test skip-guard checks
+  `uv run --no-project --quiet python --version`, not a bare `python` — it gates
+  on exactly what the runner needs.
+- 2026-06-06 (#8): **uv adds a process layer the group-kill already handles.**
+  `uv run python` makes `uv` the group leader and `python` its child, so the
+  Slice-7 process-group SIGKILL reaps both — no extra work. AC2 (`while True:
+  pass` under a 500 ms `Timeout`) confirmed elapsed ≈ the timeout, i.e. the
+  python child is killed, not just uv. It is the same child-tree shape the group
+  kill was built for.
+- 2026-06-06 (#8): **Shared core factored into `runner::subprocess`.** The
+  spawn/drain/timeout/kill/temp-cwd dance is identical across languages; it lives
+  in the private `subprocess::run(&Interpreter, code, Timeout)`. A `Runner` impl
+  is now just an `Interpreter { program, code_args }` const (R: `Rscript` +
+  `["--vanilla", "-e"]`; Python: `uv` +
+  `["run", "--no-project", "--quiet", "python", "-I", "-c"]`) — adding a language
+  is a descriptor, not a re-implementation (§4.2). The core appends `code` as the
+  final arg.
+- 2026-06-06 (#8): `RunnerError`'s context is now `String` (was `&'static str`),
+  built via `impl Into<String>`, so the shared core can name the failing
+  interpreter — `format!("spawn {program}")` yields "spawn Rscript" / "spawn uv"
+  rather than a generic "spawn interpreter". Existing `&str` literal call sites
+  coerce unchanged.

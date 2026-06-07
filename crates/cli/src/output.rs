@@ -46,29 +46,13 @@ pub struct ValidateReport {
 }
 
 /// A validation outcome carries exactly the data its variant needs — a valid
-/// lesson its name, an invalid one its findings — so neither can be constructed
-/// without it (§1.1, §1.2).
+/// lesson its name, an invalid one the finding that sank it — so neither can be
+/// constructed without it (§1.1, §1.2). `validate` reports the first problem it
+/// hits, so an invalid outcome carries exactly one finding; the JSON view still
+/// renders it inside a `findings` array for a stable, forward-compatible shape.
 enum Outcome {
     Valid { lesson_name: String },
-    Invalid { findings: Findings },
-}
-
-/// One or more validation findings. The only constructor requires a first
-/// element, so an `Invalid` outcome can never carry an empty list — an invalid
-/// lesson with no stated problem is unrepresentable (§1.1).
-struct Findings(Vec<String>);
-
-impl Findings {
-    fn new(first: String, rest: Vec<String>) -> Self {
-        let mut all = Vec::with_capacity(1 + rest.len());
-        all.push(first);
-        all.extend(rest);
-        Self(all)
-    }
-
-    fn as_slice(&self) -> &[String] {
-        &self.0
-    }
+    Invalid { finding: String },
 }
 
 impl ValidateReport {
@@ -79,13 +63,11 @@ impl ValidateReport {
         }
     }
 
-    /// The lesson failed validation. `first` is the leading problem and `rest`
-    /// any further ones; requiring `first` guarantees at least one finding.
-    pub fn invalid(first: String, rest: Vec<String>) -> Self {
+    /// The lesson failed validation; `finding` states the problem. A mandatory
+    /// finding makes an "invalid with nothing to say" outcome unrepresentable.
+    pub fn invalid(finding: String) -> Self {
         Self {
-            outcome: Outcome::Invalid {
-                findings: Findings::new(first, rest),
-            },
+            outcome: Outcome::Invalid { finding },
         }
     }
 
@@ -118,10 +100,10 @@ impl<'a> ValidateDocument<'a> {
                 lesson_name: Some(lesson_name),
                 findings: NONE,
             },
-            Outcome::Invalid { findings } => Self {
+            Outcome::Invalid { finding } => Self {
                 status: "invalid",
                 lesson_name: None,
-                findings: findings.as_slice(),
+                findings: std::slice::from_ref(finding),
             },
         }
     }
@@ -159,8 +141,8 @@ fn render_validate(report: &ValidateReport, format: OutputFormat) -> Rendered {
                 text: format!("OK: \"{lesson_name}\" is a valid lesson"),
                 stream: Stream::Out,
             },
-            Outcome::Invalid { findings } => Rendered {
-                text: findings.as_slice().join("\n"),
+            Outcome::Invalid { finding } => Rendered {
+                text: finding.clone(),
                 stream: Stream::Err,
             },
         },
@@ -196,18 +178,16 @@ mod tests {
     }
 
     /// Pin the human rendering of an *invalid* lesson — the twin of the valid
-    /// render (§3.2): findings joined one per line, on stderr. Without this, the
-    /// join/ordering of the failing branch could drift unnoticed.
+    /// render (§3.2): the finding text, on stderr. `validate` produces exactly
+    /// one finding, so this pins the real shape, not a synthetic multi-line one.
     #[test]
     fn validate_human_invalid_matches_snapshot() {
-        let report = ValidateReport::invalid(
-            "exercise.prompt is required".to_string(),
-            vec!["exercise.llm_evaluation_prompt is required".to_string()],
-        );
+        let report =
+            ValidateReport::invalid("exercise.llm_evaluation_prompt is required".to_string());
 
         let rendered = render_validate(&report, OutputFormat::Human);
 
-        // Findings are diagnostics, so they belong on stderr.
+        // The finding is a diagnostic, so it belongs on stderr.
         assert_eq!(rendered.stream, Stream::Err);
         insta::assert_snapshot!(rendered.text);
     }

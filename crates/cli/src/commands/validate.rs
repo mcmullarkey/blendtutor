@@ -19,7 +19,7 @@ use crate::output::{self, OutputFormat, ValidateReport};
 pub fn run(path: &Path, format: OutputFormat) -> anyhow::Result<ExitCode> {
     let report = match read_lesson_file(path) {
         Ok(lesson) => ValidateReport::valid(lesson.lesson_name.to_string()),
-        Err(LoadError::Invalid(error)) => ValidateReport::invalid(error.to_string(), Vec::new()),
+        Err(LoadError::Invalid(error)) => ValidateReport::invalid(error.to_string()),
         Err(LoadError::Read(error)) => return Err(error.into()),
     };
     output::emit_validate(&report, format)?;

@@ -2,5 +2,4 @@
 source: crates/cli/src/output.rs
 expression: rendered.text
 ---
-exercise.prompt is required
 exercise.llm_evaluation_prompt is required

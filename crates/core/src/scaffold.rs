@@ -267,4 +267,44 @@ mod tests {
         scaffold_course(dir.path()).expect("an existing but empty directory is a valid target");
         assert!(dir.path().join(MANIFEST_FILENAME).is_file());
     }
+
+    #[test]
+    fn is_empty_target_surfaces_a_non_notfound_error_rather_than_reading_it_as_empty() {
+        // A path that is an existing *file* cannot be read as a directory:
+        // `read_dir` fails with a non-NotFound error. The guard must propagate
+        // that, never collapse it to "empty" — otherwise an uninspectable target
+        // would be green-lit. Distinguishes the NotFound arm (empty) from every
+        // other read failure (an error).
+        let file = tempfile::NamedTempFile::new().unwrap();
+        let result = is_empty_target(file.path());
+        assert!(
+            matches!(result, Err(ScaffoldError::Write(_))),
+            "a non-directory target is a Write error, not an empty target, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn scaffold_error_display_and_source_distinguish_each_variant() {
+        use std::io::{Error as IoError, ErrorKind};
+
+        // TargetNotEmpty names the refusal, names the path, and has no nested
+        // source.
+        let refused = ScaffoldError::TargetNotEmpty(PathBuf::from("/some/course"));
+        let refused_msg = refused.to_string();
+        assert!(
+            refused_msg.contains("not empty") && refused_msg.contains("/some/course"),
+            "TargetNotEmpty should explain the refusal and name the path, got: {refused_msg}"
+        );
+        assert!(std::error::Error::source(&refused).is_none());
+
+        // Write labels itself a write failure and exposes the io::Error as its
+        // source, preserving the error chain.
+        let write = ScaffoldError::Write(IoError::new(ErrorKind::PermissionDenied, "denied"));
+        let write_msg = write.to_string();
+        assert!(
+            write_msg.contains("could not write course scaffold") && write_msg.contains("denied"),
+            "Write should frame and carry the message, got: {write_msg}"
+        );
+        assert!(std::error::Error::source(&write).is_some());
+    }
 }

@@ -1,0 +1,29 @@
+# A four-case subset of eval_fireworks_vitals.yaml, corrupted at case index 2:
+# its `expected` is the unparseable token `maybe`. parse_eval_suite must reject
+# this and name the offending case rather than coercing it to a default polarity.
+# Four cases is enough to prove the parser reaches index 2 after two valid ones;
+# the full ten are not needed for this negative case.
+cases:
+  # 0 — correct
+  - submission: |-
+      # Read in a csv
+      # Create an integer ID column
+      # Filter to only past seven days
+    expected: correct
+  # 1 — incorrect
+  - submission: |-
+      Read in a csv
+      Create an integer ID column
+      Filter to only past seven days
+    expected: incorrect
+  # 2 — CORRUPTED: unknown verdict token
+  - submission: |-
+      # Get a csv
+      # Make ID column
+      # Get rows from past seven days
+    expected: maybe
+  # 3 — incorrect
+  - submission: |-
+      # Get a csv
+      # Get rows from past seven days
+    expected: incorrect

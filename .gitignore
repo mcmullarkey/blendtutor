@@ -1,6 +1,8 @@
 .Rproj.user
 .Renviron
-evals/
+# The top-level R evals working dir only — anchored so it does not also ignore
+# Rust eval fixtures under crates/*/tests/fixtures/evals/.
+/evals/
 .claude/
 rv/library/
 

@@ -39,14 +39,20 @@ pub enum ExpectedVerdict {
 }
 
 impl ExpectedVerdict {
+    /// The YAML `expected` spelling for [`ExpectedVerdict::Correct`].
+    const CORRECT_TOKEN: &'static str = "correct";
+    /// The YAML `expected` spelling for [`ExpectedVerdict::Incorrect`].
+    const INCORRECT_TOKEN: &'static str = "incorrect";
+
     /// Map a YAML `expected` token to its variant, or `None` if unrecognized.
     ///
-    /// The single authority for which tokens are valid (§1.5); the error path in
-    /// [`parse_eval_suite`] names the same two words on a miss.
+    /// The `CORRECT_TOKEN`/`INCORRECT_TOKEN` constants are the single source for
+    /// the valid spellings, and [`parse_eval_suite`]'s error path lists the same
+    /// constants on a miss, so the accepted set and the error hint cannot drift.
     fn from_token(token: &str) -> Option<Self> {
         match token {
-            "correct" => Some(ExpectedVerdict::Correct),
-            "incorrect" => Some(ExpectedVerdict::Incorrect),
+            Self::CORRECT_TOKEN => Some(ExpectedVerdict::Correct),
+            Self::INCORRECT_TOKEN => Some(ExpectedVerdict::Incorrect),
             _ => None,
         }
     }
@@ -119,7 +125,9 @@ impl fmt::Display for EvalParseError {
             EvalParseError::UnknownVerdict { index, token } => write!(
                 f,
                 "invalid eval suite: eval case {index} has unknown expected verdict \
-                 {token:?} (expected \"correct\" or \"incorrect\")",
+                 {token:?} (expected {correct:?} or {incorrect:?})",
+                correct = ExpectedVerdict::CORRECT_TOKEN,
+                incorrect = ExpectedVerdict::INCORRECT_TOKEN,
             ),
         }
     }
@@ -200,6 +208,20 @@ mod tests {
             err.to_string().contains("boom"),
             "structural error should pass through the parser message"
         );
+    }
+
+    #[test]
+    fn parse_eval_suite_surfaces_unknown_verdict_with_its_case_index_and_token() {
+        // The structured error, not just its Display: pins the index (0) and the
+        // offending token so a mutant that drops or rewrites either is caught.
+        let yaml = "cases:\n  - submission: x\n    expected: maybe\n";
+        match parse_eval_suite(yaml) {
+            Err(EvalParseError::UnknownVerdict { index, token }) => {
+                assert_eq!(index, 0, "names the offending case index");
+                assert_eq!(token, "maybe", "carries the unrecognized token verbatim");
+            }
+            other => panic!("expected an UnknownVerdict error, got: {other:?}"),
+        }
     }
 
     #[test]

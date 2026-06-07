@@ -60,9 +60,10 @@ fn rejects_unknown_verdict_naming_the_offending_case() {
         "error should quote the unknown verdict token, got: {msg}"
     );
     // …and names the offending case so the author can find it in the file,
-    // rather than emitting a message that omits which case failed.
+    // rather than emitting a message that omits which case failed. The trailing
+    // space anchors the index so a future "case 20" can't satisfy "case 2".
     assert!(
-        msg.contains("case 2"),
+        msg.contains("case 2 "),
         "error should name the offending case (index 2), got: {msg}"
     );
 }

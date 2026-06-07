@@ -8,6 +8,8 @@
 //! effectful (§2.1, §2.2). This module classifies outcomes; it does NOT build
 //! prompts or call LLMs — that is the provider layer's job (§4.1).
 
+use serde::{Deserialize, Serialize};
+
 use crate::lesson::Language;
 use crate::runner::{ExecutionResult, PythonRunner, RRunner, Runner, RunnerError};
 
@@ -18,7 +20,11 @@ use crate::runner::{ExecutionResult, PythonRunner, RRunner, Runner, RunnerError}
 /// passed, the submission ran and violated it, and — kept deliberately separate
 /// from a failure (§3.3) — the submission could not run at all, so no check ever
 /// got a verdict.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Serializable so the `run` command's [`RunReport`](crate::run::RunReport) can
+/// carry the per-check outcomes into its JSON form; the externally-tagged shape
+/// round-trips each variant losslessly.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CheckOutcome {
     /// The submission satisfied the check.
     Pass,

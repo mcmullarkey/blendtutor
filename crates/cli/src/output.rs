@@ -14,6 +14,8 @@ use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::lesson::Language;
+use blendtutor_core::llm::Verdict;
+use blendtutor_core::run::RunReport;
 
 /// How a command's result is rendered for the user.
 ///
@@ -330,6 +332,37 @@ fn render_list_human(report: &ListReport) -> String {
 /// listing reaches the terminal (§2.4, §5.1).
 pub fn emit_list(report: &ListReport, format: OutputFormat) -> io::Result<()> {
     writeln!(io::stdout(), "{}", render_list(report, format))
+}
+
+/// The human rendering of a [`RunReport`]: a verdict headline (`Correct!` /
+/// `Incorrect.`) followed by the learner-facing feedback.
+///
+/// Pure (§2.1): it reads the report and returns text, performing no I/O. The
+/// verdict word is matched off the typed [`Verdict`], so it cannot drift from the
+/// graded result. "Incorrect" deliberately starts the line so a `\bcorrect\b`
+/// word-boundary match cannot mistake an incorrect verdict for a pass.
+fn render_run(report: &RunReport) -> String {
+    match report.verdict() {
+        Verdict::Correct { message } => format!("Correct!\n\n{message}"),
+        Verdict::Incorrect { message } => format!("Incorrect.\n\n{message}"),
+    }
+}
+
+/// Render `report` in `format` and write it to stdout — the single place a run
+/// result reaches the terminal (§2.4, §5.1).
+///
+/// JSON is the report's canonical machine document (defined in `core`); human is
+/// the verdict + feedback. Both are the command's data, so both go to stdout —
+/// diagnostics (a load or provider failure) are errors that reach stderr via
+/// `main`, never mixed into this stream.
+pub fn emit_run(report: &RunReport, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("a RunReport serializes to JSON infallibly")
+        }
+        OutputFormat::Human => render_run(report),
+    };
+    writeln!(io::stdout(), "{text}")
 }
 
 #[cfg(test)]

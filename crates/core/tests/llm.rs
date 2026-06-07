@@ -10,9 +10,14 @@
 use blendtutor_core::grade::CheckOutcome;
 use blendtutor_core::lesson::Lesson;
 use blendtutor_core::llm::{
-    CHECKS_LABEL, CLOSE_CODE, ExecResults, OPEN_CODE, OUTPUT_LABEL, Submission, build_prompt,
+    CHECKS_LABEL, CLOSE_CODE, ExecResults, OPEN_CODE, OUTPUT_LABEL, Prompt, ProviderChoice,
+    Submission, Verdict, build_prompt, request_feedback,
 };
 use blendtutor_core::runner::ExecutionResult;
+use serde_json::json;
+use serial_test::serial;
+use wiremock::matchers::method;
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// A lesson mirroring `tests/fixtures/lessons/add_two_numbers.yaml`, plus a
 /// single check so the rendered prompt has a checks section to pin. Built inline
@@ -153,4 +158,141 @@ fn build_prompt_neutralizes_injected_delimiter() {
             "an injected {name} adds no second real structural token"
         );
     }
+}
+
+// ── AC2/AC3: request_feedback drives rig's Extractor and maps Feedback → Verdict ──
+//
+// The provider client is pointed at a `wiremock` server via the base-URL override
+// (the test seam, ADR-0006), so the request shape, the extraction, and the error
+// paths are exercised offline with no real provider. Tests that mutate the key env
+// vars are `#[serial]` and establish their required env state at the start, so a
+// key set by one test never leaks into another.
+
+/// Any valid prompt — the content is incidental to the request/extract path, which
+/// is what these tests exercise. Reuses the pure AC1 builder.
+fn sample_prompt() -> Prompt {
+    build_prompt(&add_two_lesson(), &Submission::new("let x = 41;"), &passing_results())
+}
+
+/// Set an env var for the duration of a `#[serial]` test. `set_var` is `unsafe` in
+/// edition 2024; serialization makes the mutation race-free.
+fn set_key(var: &str, value: &str) {
+    unsafe { std::env::set_var(var, value) };
+}
+
+/// Remove an env var at the start of a `#[serial]` test, so a key left set by a
+/// prior test cannot mask a missing-key assertion.
+fn clear_key(var: &str) {
+    unsafe { std::env::remove_var(var) };
+}
+
+/// Mount a 200 returning a real OpenAI chat-completions envelope whose single tool
+/// call carries `arguments` as a JSON-**encoded string** — the shape rig's openai
+/// client parses. The tool is named `submit`, the tool rig's `Extractor` forces.
+async fn mount_tool_call(server: &MockServer, arguments: &str) {
+    let body = json!({
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "test-model",
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [{
+                    "id": "call_1",
+                    "type": "function",
+                    "function": { "name": "submit", "arguments": arguments }
+                }]
+            },
+            "finish_reason": "tool_calls"
+        }],
+        "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
+    });
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(server)
+        .await;
+}
+
+#[tokio::test]
+#[serial]
+async fn request_feedback_incorrect_verdict_and_missing_field_errors() {
+    set_key("FIREWORKS_API_KEY", "test-key");
+
+    // Positive arm: a well-formed `is_correct:false` tool call maps to
+    // Verdict::Incorrect and surfaces the wire message verbatim.
+    let ok_server = MockServer::start().await;
+    mount_tool_call(
+        &ok_server,
+        r#"{"is_correct":false,"feedback_message":"missing the modifier"}"#,
+    )
+    .await;
+    let verdict =
+        request_feedback(ProviderChoice::Fireworks, &sample_prompt(), Some(&ok_server.uri()))
+            .await
+            .expect("a well-formed tool call yields a verdict");
+    assert!(
+        matches!(verdict, Verdict::Incorrect { .. }),
+        "is_correct:false maps to Incorrect, got {verdict:?}"
+    );
+    assert!(
+        !matches!(verdict, Verdict::Correct { .. }),
+        "the mapping did not collapse the verdict to a single arm"
+    );
+    let Verdict::Incorrect { message } = verdict else {
+        unreachable!("asserted Incorrect above")
+    };
+    assert_eq!(
+        message, "missing the modifier",
+        "the model's feedback_message is surfaced verbatim"
+    );
+
+    // Negative arm (distinct failure mode): an omitted required field is a typed
+    // Err, never a panic and never a silently-defaulted Verdict. Feedback.is_correct
+    // is a non-Option bool with no Default, so the missing field is a deserialize
+    // error.
+    let bad_server = MockServer::start().await;
+    mount_tool_call(&bad_server, r#"{"feedback_message":"no verdict"}"#).await;
+    let result =
+        request_feedback(ProviderChoice::Fireworks, &sample_prompt(), Some(&bad_server.uri()))
+            .await;
+    assert!(
+        result.is_err(),
+        "a tool call missing is_correct must be an error, got {result:?}"
+    );
+    assert!(
+        !matches!(result, Ok(_)),
+        "a malformed response never yields a Verdict"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn request_feedback_correct_verdict() {
+    // Cross-arm: the is_correct:true path maps to Verdict::Correct (the positive
+    // test pins only the Incorrect arm).
+    set_key("FIREWORKS_API_KEY", "test-key");
+    let server = MockServer::start().await;
+    mount_tool_call(
+        &server,
+        r#"{"is_correct":true,"feedback_message":"well done"}"#,
+    )
+    .await;
+    let verdict = request_feedback(ProviderChoice::Fireworks, &sample_prompt(), Some(&server.uri()))
+        .await
+        .expect("a well-formed correct tool call yields a verdict");
+    assert!(
+        matches!(verdict, Verdict::Correct { .. }),
+        "is_correct:true maps to Correct, got {verdict:?}"
+    );
+    assert!(
+        !matches!(verdict, Verdict::Incorrect { .. }),
+        "the correct verdict did not collapse to Incorrect"
+    );
+    let Verdict::Correct { message } = verdict else {
+        unreachable!("asserted Correct above")
+    };
+    assert_eq!(message, "well done", "the feedback_message is surfaced verbatim");
 }

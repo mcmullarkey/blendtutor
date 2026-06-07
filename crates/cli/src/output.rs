@@ -384,10 +384,20 @@ mod tests {
         let json = render_list(&mixed_report(), OutputFormat::Json);
         let rows: serde_json::Value = serde_json::from_str(&json).expect("list json parses");
 
+        // The array preserves manifest order and length — one row per entry.
+        assert_eq!(rows.as_array().expect("json is an array").len(), 3);
+
         assert_eq!(rows[0]["id"], "add-two");
         assert_eq!(rows[0]["language"], "r");
         assert_eq!(rows[0]["title"], "Add Two Numbers");
         assert!(rows[0]["error"].is_null(), "a found row has no error");
+
+        // The second found row carries the *other* language — proof both
+        // languages are emitted, not one default repeated.
+        assert_eq!(rows[1]["id"], "greet");
+        assert_eq!(rows[1]["language"], "python");
+        assert_eq!(rows[1]["title"], "Greet Someone");
+        assert!(rows[1]["error"].is_null(), "a found row has no error");
 
         assert_eq!(rows[2]["id"], "broken");
         assert!(
@@ -396,5 +406,18 @@ mod tests {
         );
         assert!(rows[2]["title"].is_null(), "a failed row has no title");
         assert_eq!(rows[2]["error"], "invalid lesson: missing field `language`");
+    }
+
+    /// An empty course is a real, if unusual, state: human says so in words and
+    /// JSON is an empty array, not blank output. Pinning both keeps the wording
+    /// and the `[]` contract from drifting silently.
+    #[test]
+    fn list_renders_an_empty_course_in_both_formats() {
+        let empty = ListReport { rows: vec![] };
+        assert_eq!(
+            render_list(&empty, OutputFormat::Human),
+            "No lessons found."
+        );
+        assert_eq!(render_list(&empty, OutputFormat::Json), "[]");
     }
 }

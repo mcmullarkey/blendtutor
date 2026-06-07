@@ -17,7 +17,8 @@ use crate::runner::ExecutionResult;
 ///
 /// Exported so tests and the builder reference one literal source — the same
 /// constant is both emitted by [`build_prompt`] and asserted against, so the
-/// delimiter can never drift between them (§1.5.1).
+/// test predicate pins the real delimiter rather than a hand-copied twin that
+/// could drift from it (§1.5).
 pub const OPEN_CODE: &str = "<<<STUDENT_CODE_BEGIN>>>";
 /// Closes the fence around the verbatim student submission.
 pub const CLOSE_CODE: &str = "<<<STUDENT_CODE_END>>>";
@@ -103,27 +104,51 @@ fn render_check(check: &str, outcome: &CheckOutcome) -> String {
     format!("{}: {verdict}", neutralize(check))
 }
 
+/// Render the check-results section: one line per outcome, in order, each labeled
+/// with its lesson check code-string.
+///
+/// Iterates over the **outcomes** — the verdicts — not the lesson's checks, so a
+/// verdict is never silently dropped. In the normal flow the two are 1:1:
+/// [`run_checks`](crate::grade::run_checks) returns exactly one outcome per
+/// `lesson.checks` entry, in order. If a caller hand-built [`ExecResults`] with
+/// more outcomes than the lesson has checks, the extra outcomes still render
+/// (labeled by 1-based position) rather than vanishing; checks with no outcome
+/// have no verdict to report and so contribute no line.
+fn render_checks(lesson: &Lesson, outcomes: &[CheckOutcome]) -> String {
+    outcomes
+        .iter()
+        .enumerate()
+        .map(|(i, outcome)| {
+            let fallback = format!("check {}", i + 1);
+            let label = lesson
+                .checks
+                .get(i)
+                .map(String::as_str)
+                .unwrap_or(fallback.as_str());
+            render_check(label, outcome)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Build the LLM feedback prompt for a graded submission.
 ///
 /// Pure (§2.1): it reads only the borrowed domain values and performs no IO, env
 /// read, or network call, so identical inputs always render byte-identically. The
 /// layout is a fixed structure — the task, a single fenced copy of the submission,
-/// a captured-output section, and a check-results section (each lesson check paired
-/// with its outcome by index) — not the lesson's `llm_evaluation_prompt` template
-/// (ADR-0006). Every interpolated value is [`neutralize`]d, so the fences and
-/// labels each appear exactly once even when the submission forges them: injected
-/// text can never be read as code or as a verdict.
+/// a captured-output section, and a check-results section (one line per outcome,
+/// labeled with its `lesson.checks` entry by index) — not the lesson's
+/// `llm_evaluation_prompt` template (ADR-0006). `results.outcomes` is expected 1:1
+/// with `lesson.checks` (the shape `run_checks` produces); the rendering never
+/// silently drops a verdict if they desync (see [`render_checks`]). Every
+/// interpolated value is [`neutralize`]d, so the fences and labels each appear
+/// exactly once even when the submission forges them: injected text can never be
+/// read as code or as a verdict.
 pub fn build_prompt(lesson: &Lesson, submission: &Submission, results: &ExecResults) -> Prompt {
     let task = neutralize(&lesson.exercise.prompt);
     let code = neutralize(&submission.code);
     let output = neutralize(&results.output.stdout);
-    let checks = lesson
-        .checks
-        .iter()
-        .zip(&results.outcomes)
-        .map(|(check, outcome)| render_check(check, outcome))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let checks = render_checks(lesson, &results.outcomes);
 
     let rendered = [
         "You are evaluating student code for a programming exercise.",
@@ -198,6 +223,56 @@ mod tests {
                 }
             ),
             "c: not run — no run"
+        );
+    }
+
+    fn lesson_with_checks(checks: &[&str]) -> Lesson {
+        let check_lines = checks
+            .iter()
+            .map(|c| format!("  - \"{c}\""))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let yaml = format!(
+            "lesson_name: \"L\"\nlanguage: R\nchecks:\n{check_lines}\nexercise:\n  \
+             prompt: \"do it\"\n  llm_evaluation_prompt: \"grade {{student_code}}\"\n"
+        );
+        Lesson::parse(&yaml).expect("the constructed lesson is valid")
+    }
+
+    #[test]
+    fn render_checks_labels_each_outcome_with_its_check_in_order() {
+        let lesson = lesson_with_checks(&["first_check", "second_check"]);
+        let rendered = render_checks(
+            &lesson,
+            &[
+                CheckOutcome::Pass,
+                CheckOutcome::Fail {
+                    detail: "nope".to_string(),
+                },
+            ],
+        );
+        assert_eq!(rendered, "first_check: pass\nsecond_check: fail — nope");
+    }
+
+    #[test]
+    fn render_checks_never_drops_a_verdict_when_outcomes_exceed_checks() {
+        // A desynced ExecResults (more outcomes than the lesson has checks) must
+        // not hide a verdict — the security-relevant property is that a Fail is
+        // always shown. The unlabeled extra falls back to its 1-based position.
+        let lesson = lesson_with_checks(&["only_check"]);
+        let rendered = render_checks(
+            &lesson,
+            &[
+                CheckOutcome::Pass,
+                CheckOutcome::Fail {
+                    detail: "hidden?".to_string(),
+                },
+            ],
+        );
+        assert_eq!(rendered, "only_check: pass\ncheck 2: fail — hidden?");
+        assert!(
+            rendered.contains("hidden?"),
+            "the second verdict must not be dropped, got: {rendered}"
         );
     }
 

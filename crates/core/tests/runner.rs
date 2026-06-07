@@ -194,7 +194,9 @@ fn uv_python_absent() -> bool {
         .map(|out| out.status.success())
         .unwrap_or(false);
     if !present {
-        eprintln!("SKIP: `uv run python` unavailable — skipping real-interpreter python runner test");
+        eprintln!(
+            "SKIP: `uv run python` unavailable — skipping real-interpreter python runner test"
+        );
     }
     !present
 }

@@ -132,15 +132,26 @@ pub fn scaffold_course(dir: &Path) -> Result<(), ScaffoldError> {
 /// Whether `dir` is a safe scaffold target: it does not yet exist, or exists and
 /// holds no entries.
 ///
-/// The boundary check behind the guard (§1.3.1). A `NotFound` directory is an
-/// empty target (it will be created); a directory with any entry is not. A read
-/// failure other than `NotFound` (e.g. a permission error) propagates as a write
-/// error rather than being read as "empty", so the guard never green-lights a
-/// target it could not actually inspect.
+/// The boundary check behind the guard (§1.3.1). A directory with any entry is
+/// not empty. A read failure other than `NotFound` (e.g. a permission error)
+/// propagates as a write error rather than being read as "empty", so the guard
+/// never green-lights a target it could not actually inspect.
+///
+/// `read_dir` reports `NotFound` for two different paths: one that truly does not
+/// exist (a creatable, absent target) and a *broken symlink* (the link exists but
+/// its target does not). An `lstat` (`symlink_metadata`, which does not follow the
+/// link) tells them apart: if the path itself exists it is an existing object the
+/// scaffold must refuse, not silently try to create over — which would otherwise
+/// fail later with a cryptic "File exists".
 fn is_empty_target(dir: &Path) -> Result<bool, ScaffoldError> {
     match std::fs::read_dir(dir) {
         Ok(mut entries) => Ok(entries.next().is_none()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // NotFound is ambiguous: distinguish a truly-absent path (empty,
+            // creatable) from a broken symlink that exists as its own inode (an
+            // existing object to refuse) with a non-following lstat.
+            Ok(std::fs::symlink_metadata(dir).is_err())
+        }
         Err(e) => Err(ScaffoldError::Write(e)),
     }
 }
@@ -280,6 +291,31 @@ mod tests {
         assert!(
             matches!(result, Err(ScaffoldError::Write(_))),
             "a non-directory target is a Write error, not an empty target, got {result:?}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scaffold_course_refuses_a_broken_symlink_target_instead_of_a_cryptic_write_error() {
+        // A broken symlink (its target does not exist) makes `read_dir` report
+        // NotFound, the same as a truly-absent path — but the link itself exists.
+        // The guard must refuse it before any write, rather than treat it as
+        // absent and let `create_dir_all` fail over the symlink inode with a
+        // confusing "File exists".
+        let dir = tempfile::tempdir().unwrap();
+        let link = dir.path().join("course_link");
+        let dangling = dir.path().join("nonexistent_target");
+        std::os::unix::fs::symlink(&dangling, &link).unwrap();
+
+        let err =
+            scaffold_course(&link).expect_err("a broken symlink target must be refused, not built");
+        assert!(
+            matches!(err, ScaffoldError::TargetNotEmpty(_)),
+            "a broken symlink is an existing object, refused before any write, got {err:?}"
+        );
+        assert!(
+            !dangling.exists(),
+            "the guard fires before create_dir_all, so the link's target is never created"
         );
     }
 

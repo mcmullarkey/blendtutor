@@ -244,8 +244,13 @@ impl From<Feedback> for Verdict {
 pub enum FeedbackError {
     /// The provider client could not be constructed.
     Client(String),
-    /// The model's response could not be extracted into a verdict — a malformed or
-    /// missing field, or a completion failure.
+    /// The completion request itself failed — a transport, auth, or model error
+    /// (e.g. the provider rejected the key, or the network was unreachable). The
+    /// caller's recourse is to retry or fix credentials, not to re-prompt.
+    Completion(String),
+    /// The model responded, but its output could not be turned into a verdict — a
+    /// malformed or missing field, or no tool call at all. The model's output, not
+    /// the transport, is at fault.
     Extraction(String),
 }
 
@@ -253,6 +258,7 @@ impl fmt::Display for FeedbackError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             FeedbackError::Client(msg) => write!(f, "could not build the provider client: {msg}"),
+            FeedbackError::Completion(msg) => write!(f, "the feedback request failed: {msg}"),
             FeedbackError::Extraction(msg) => {
                 write!(
                     f,
@@ -264,6 +270,23 @@ impl fmt::Display for FeedbackError {
 }
 
 impl std::error::Error for FeedbackError {}
+
+impl From<rig_core::extractor::ExtractionError> for FeedbackError {
+    /// Preserve rig's own distinction between a failed request and an
+    /// unparseable response (§1.2): a `CompletionError` is a transport/auth/model
+    /// failure, while a deserialize failure or missing tool call means the
+    /// response could not be turned into a verdict.
+    fn from(error: rig_core::extractor::ExtractionError) -> Self {
+        use rig_core::extractor::ExtractionError;
+        match error {
+            ExtractionError::CompletionError(e) => FeedbackError::Completion(e.to_string()),
+            ExtractionError::DeserializationError(e) => FeedbackError::Extraction(e.to_string()),
+            ExtractionError::NoData => {
+                FeedbackError::Extraction("the model returned no structured feedback".to_string())
+            }
+        }
+    }
+}
 
 /// Request structured feedback for a `prompt` from the chosen provider.
 ///
@@ -299,6 +322,11 @@ pub async fn request_feedback(
                 .await
         }
         ProviderChoice::Anthropic => {
+            // TODO(anthropic-happy-path): the Anthropic success path has no
+            // wiremock coverage — its native messages-API response shape differs
+            // from the OpenAI envelope `mount_tool_call` builds, so it needs its
+            // own tool_use-block fixture. AC3 exercises only the Anthropic key
+            // guard. See docs/agent-notes/llm.md.
             let client = anthropic::Client::builder()
                 .api_key(key)
                 .base_url(base_url)
@@ -312,9 +340,7 @@ pub async fn request_feedback(
         }
     };
 
-    extracted
-        .map(Verdict::from)
-        .map_err(|e| FeedbackError::Extraction(e.to_string()))
+    extracted.map(Verdict::from).map_err(FeedbackError::from)
 }
 
 #[cfg(test)]
@@ -478,6 +504,28 @@ mod tests {
             Verdict::Incorrect {
                 message: "try again".to_string()
             }
+        );
+    }
+
+    #[test]
+    fn extraction_failures_map_to_the_extraction_kind() {
+        use rig_core::extractor::ExtractionError;
+
+        // No tool call at all → an Extraction error: the response, not transport,
+        // failed to yield a verdict.
+        let no_data: FeedbackError = ExtractionError::NoData.into();
+        assert!(
+            matches!(no_data, FeedbackError::Extraction(_)),
+            "NoData is an extraction failure, got {no_data:?}"
+        );
+
+        // A malformed/missing field → an Extraction error, kept distinct from a
+        // transport-level Completion failure (§1.2).
+        let deser_err = serde_json::from_str::<i32>("not-an-int").unwrap_err();
+        let bad_field: FeedbackError = ExtractionError::DeserializationError(deser_err).into();
+        assert!(
+            matches!(bad_field, FeedbackError::Extraction(_)),
+            "a deserialize failure is an extraction failure, got {bad_field:?}"
         );
     }
 }

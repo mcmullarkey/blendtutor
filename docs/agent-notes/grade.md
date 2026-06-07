@@ -52,3 +52,11 @@ join between `lesson` and `runner`, and how a per-check verdict is produced.
   `AtomicUsize` (NOT a `Cell`) so `&self` stays `Sync` and the `execute` future
   stays `Send` under the RPITIT `+ Send` bound. Real-interpreter behaviour is the
   separate skip-guarded integration test in `tests/grade.rs`.
+- 2026-06-06 (#9): **Known gap — timeouts produce an empty message.** `run_checks`
+  classifies a timed-out submission as `NotRun` and a timed-out check as `Fail`
+  (both defensible), but neither it nor `submission_run_failure` inspects
+  `ExecutionResult.timed_out`, so the `reason`/`detail` is the empty post-SIGKILL
+  stderr. Giving timeouts an informative message (or a dedicated outcome), plus a
+  `ScriptedRunner::TimedOut` reply to pin it, is deferred — surfaced by the
+  adversarial review on PR #34; no AC in #9 covers it. Grep `timed_out` here when
+  that slice starts.

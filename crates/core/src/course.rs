@@ -386,4 +386,66 @@ pathh = "add_two.yaml"
             "a missing manifest is a read error, got: {err:?}"
         );
     }
+
+    #[test]
+    fn manifest_error_display_and_source_distinguish_each_variant() {
+        use std::io::{Error as IoError, ErrorKind};
+
+        // Read names itself a read failure and exposes the io::Error as its source.
+        let read = ManifestError::Read(IoError::new(ErrorKind::NotFound, "nope"));
+        assert!(
+            read.to_string().contains("could not read course manifest"),
+            "Read should label itself, got: {read}"
+        );
+        assert!(
+            std::error::Error::source(&read).is_some(),
+            "Read should expose the io::Error as its source"
+        );
+
+        // Parse carries the parser message and has no nested source.
+        let parse = ManifestError::Parse("bad toml".to_string());
+        let parse_msg = parse.to_string();
+        assert!(
+            parse_msg.contains("invalid course manifest") && parse_msg.contains("bad toml"),
+            "Parse should frame and carry the message, got: {parse_msg}"
+        );
+        assert!(std::error::Error::source(&parse).is_none());
+
+        // UnsafePath says the path escapes and has no nested source.
+        let unsafe_path = ManifestError::UnsafePath {
+            id: LessonSlug("x".to_string()),
+            path: PathBuf::from("../escape.yaml"),
+        };
+        assert!(
+            unsafe_path.to_string().contains("escapes"),
+            "UnsafePath should say the path escapes, got: {unsafe_path}"
+        );
+        assert!(std::error::Error::source(&unsafe_path).is_none());
+    }
+
+    #[test]
+    fn discovery_error_display_and_source_surface_the_underlying_load_failure() {
+        let course = Course::open(Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/course_partial"
+        )))
+        .expect("course_partial should open");
+        let rows = course.discover();
+        let err = rows
+            .iter()
+            .filter_map(|row| row.as_ref().err())
+            .next()
+            .expect("the malformed lesson produces an error");
+
+        // Display surfaces the underlying load failure rather than an empty string.
+        assert!(
+            err.to_string().contains("language"),
+            "Display should surface the missing-field cause, got: {err}"
+        );
+        // The LoadError is exposed as the source, preserving the error chain.
+        assert!(
+            std::error::Error::source(err).is_some(),
+            "DiscoveryError should expose its LoadError as the source"
+        );
+    }
 }

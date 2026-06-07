@@ -138,8 +138,8 @@ fn render_checks(lesson: &Lesson, outcomes: &[CheckOutcome]) -> String {
 /// labeled with its `lesson.checks` entry by index) — not the lesson's
 /// `llm_evaluation_prompt` template (ADR-0006). `results.outcomes` is expected 1:1
 /// with `lesson.checks` (the shape `run_checks` produces); the rendering never
-/// silently drops a verdict if they desync (see [`render_checks`]). Every
-/// interpolated value is [`neutralize`]d, so the fences and labels each appear
+/// silently drops a verdict if they desync (see `render_checks`). Every
+/// interpolated value is neutralized, so the fences and labels each appear
 /// exactly once even when the submission forges them: injected text can never be
 /// read as code or as a verdict.
 pub fn build_prompt(lesson: &Lesson, submission: &Submission, results: &ExecResults) -> Prompt {

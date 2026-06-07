@@ -22,7 +22,7 @@ use super::provider::ProviderChoice;
 ///
 /// A sum type, not a `bool` plus a message, so "correct with no message" and
 /// contradictory states are unrepresentable and there is no public `is_correct`
-/// (§1.2). This is what callers consume; the rig DTO ([`Feedback`]) stays an
+/// (§1.2). This is what callers consume; the rig DTO (`Feedback`) stays an
 /// implementation detail of this module.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Verdict {

@@ -84,6 +84,28 @@ pub const CORRECT_CODE: &str = concat!(
     "/tests/fixtures/runs/add_two_numbers_correct.R"
 );
 
+/// A wrong-but-runnable `add_two` submission (valid R, wrong arithmetic) — runs
+/// cleanly, so the verdict comes from the provider, not a launch failure.
+pub const WRONG_CODE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/fixtures/runs/add_two_numbers_wrong.R"
+);
+
+/// A localhost URL whose port has no listener, so a request to it is refused.
+/// Drives the provider-error path (transport failure → exit 1) deterministically
+/// without standing up a server. The bound port is freed before returning; the OS
+/// will not immediately reuse it.
+pub fn dead_provider_url() -> String {
+    let listener =
+        std::net::TcpListener::bind("127.0.0.1:0").expect("bind an ephemeral localhost port");
+    let port = listener
+        .local_addr()
+        .expect("read the bound port")
+        .port();
+    drop(listener);
+    format!("http://127.0.0.1:{port}")
+}
+
 /// Run the `blendtutor` binary with `args`, supplying a dummy Fireworks key and
 /// pointing the provider seam at `provider_url`, and capture its output.
 ///

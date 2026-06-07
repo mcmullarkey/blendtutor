@@ -52,3 +52,16 @@ decision record and [[lesson-model]] for the typed lesson `parse` it builds on.
   shared course can't turn `list` into an arbitrary-file read. The check is
   **lexical only**: it does not resolve symlinks. Empty-slug rejection is deferred
   until `new` (#15) actually *produces* slugs; discovery only reads.
+- 2026-06-06 (#6): The human listing reduces **each cell to its first line**
+  (`cli::output::first_line`) on purpose — a `DiscoveryError`'s Display is the
+  multi-line serde-saphyr parser message, which otherwise sprawls the `ERROR` row
+  across a dozen lines and breaks the table's alignment (adversarial pass-1 caught
+  it; the snapshot had hidden it behind a clean one-line error). JSON keeps the
+  **full** message; human is a one-line-per-row summary (run `validate` for the
+  full text). Don't "fix" the flattening thinking it truncates data.
+- 2026-06-06 (#6): Aside found while greening this slice — `docs.yml`
+  (`cargo doc` with `RUSTDOCFLAGS=-D warnings`) had been **red on staging since #4**:
+  a public doc comment linked to a private item, and `rustdoc::private_intra_doc_links`
+  under `-D warnings` fails the *whole crate* doc build (not just one item). If you
+  write `[`thing`]` linking a private fn from public docs, the docs gate breaks —
+  use plain text. Slice 6 swept the existing offenders.

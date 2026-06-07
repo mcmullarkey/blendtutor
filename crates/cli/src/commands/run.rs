@@ -11,14 +11,20 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use blendtutor_core::lesson::read_lesson_file;
-use blendtutor_core::llm::{ProviderChoice, Submission};
-use blendtutor_core::run::run_lesson;
+use blendtutor_core::llm::{ProviderChoice, Submission, Verdict};
+use blendtutor_core::run::{RunReport, run_lesson};
 
 use crate::output::{self, OutputFormat};
 
 /// The environment variable that overrides the provider's base URL — the test
 /// seam pointing the rig client at a stub (ADR-0006). Unset in production.
 const PROVIDER_URL_VAR: &str = "BLENDTUTOR_PROVIDER_URL";
+
+/// The exit code reserved for a submission that ran and was graded "not yet
+/// correct". Distinct from success (0) and from the error code (1, returned via
+/// `main` when a run fails outright), so a submit loop can tell a retry-worthy
+/// verdict from a pass and from a crash.
+const NOT_YET_CORRECT: u8 = 2;
 
 /// Load the lesson and submission, run the student loop, and render the report.
 ///
@@ -47,7 +53,18 @@ pub fn run(
     ))?;
 
     output::emit_run(&report, format)?;
-    Ok(ExitCode::SUCCESS)
+    Ok(verdict_exit_code(&report))
+}
+
+/// The process exit code for a report's verdict — read off the typed result so it
+/// is identical across output formats (§3.4): a correct submission succeeds, an
+/// incorrect one returns the reserved "not yet correct" code. A run that fails
+/// outright never reaches here; it propagates as an error and exits 1 via `main`.
+fn verdict_exit_code(report: &RunReport) -> ExitCode {
+    match report.verdict() {
+        Verdict::Correct { .. } => ExitCode::SUCCESS,
+        Verdict::Incorrect { .. } => ExitCode::from(NOT_YET_CORRECT),
+    }
 }
 
 /// Read the student's submission from `code_path`, or from stdin when no file is

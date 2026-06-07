@@ -4,10 +4,14 @@
 //! logic lives here.
 
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
 mod commands;
+mod output;
+
+use output::OutputFormat;
 
 /// Author and run interactive R and Python coding lessons with LLM feedback.
 #[derive(Parser)]
@@ -30,6 +34,9 @@ enum Commands {
     Validate {
         /// Path to the lesson YAML file.
         path: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
     },
     /// List the lessons discoverable in a course.
     List,
@@ -57,10 +64,10 @@ impl Commands {
     }
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<ExitCode> {
     let cli = Cli::parse();
     match cli.command {
-        Commands::Validate { path } => commands::validate::run(&path),
+        Commands::Validate { path, format } => commands::validate::run(&path, format),
         other => Err(blendtutor_core::NotYetImplemented::new(other.name()).into()),
     }
 }

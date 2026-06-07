@@ -139,6 +139,7 @@ dependencies = [
  "blendtutor-core",
  "clap",
  "predicates",
+ "serde",
  "serde_json",
  "tempfile",
 ]

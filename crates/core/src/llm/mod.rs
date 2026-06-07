@@ -9,9 +9,20 @@
 //! LLM, so [`build_prompt`] neutralizes every interpolated value: a forged
 //! delimiter or label can never become a second structural token.
 
+use std::fmt;
+
+use rig_core::prelude::CompletionClient;
+use rig_core::providers::{anthropic, openai};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
 use crate::grade::CheckOutcome;
 use crate::lesson::Lesson;
 use crate::runner::ExecutionResult;
+
+mod provider;
+
+pub use provider::ProviderChoice;
 
 /// Opens the fence around the verbatim student submission.
 ///
@@ -171,6 +182,141 @@ pub fn build_prompt(lesson: &Lesson, submission: &Submission, results: &ExecResu
     Prompt(rendered)
 }
 
+/// A graded verdict on a submission: correct or incorrect, each carrying the
+/// learner-facing message.
+///
+/// A sum type, not a `bool` plus a message, so "correct with no message" and
+/// contradictory states are unrepresentable and there is no public `is_correct`
+/// (§1.2). This is what callers consume; the rig DTO ([`Feedback`]) stays an
+/// implementation detail of this module.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Verdict {
+    /// The submission satisfies the exercise.
+    Correct {
+        /// The learner-facing feedback message.
+        message: String,
+    },
+    /// The submission does not satisfy the exercise.
+    Incorrect {
+        /// The learner-facing feedback message.
+        message: String,
+    },
+}
+
+/// The structured feedback the model returns through its tool call — the boundary
+/// DTO rig's `Extractor` fills from the tool-call arguments (ADR-0006).
+///
+/// `is_correct` is a non-`Option` `bool` and the struct derives **no** `Default`,
+/// so a tool call that omits a field is a deserialize error, never a
+/// silently-defaulted grade. It is mapped into [`Verdict`] at the boundary so the
+/// bool's meaning lives in the variant; callers never see this type.
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+struct Feedback {
+    /// Whether the submission satisfies the exercise.
+    is_correct: bool,
+    /// The feedback message for the learner.
+    feedback_message: String,
+}
+
+impl From<Feedback> for Verdict {
+    fn from(feedback: Feedback) -> Self {
+        let Feedback {
+            is_correct,
+            feedback_message,
+        } = feedback;
+        if is_correct {
+            Verdict::Correct {
+                message: feedback_message,
+            }
+        } else {
+            Verdict::Incorrect {
+                message: feedback_message,
+            }
+        }
+    }
+}
+
+/// Why feedback could not be produced.
+///
+/// A typed error implementing [`std::error::Error`], so `core` stays free of
+/// `anyhow` (ADR-0001); the CLI maps it at the edge.
+#[derive(Debug)]
+pub enum FeedbackError {
+    /// The provider client could not be constructed.
+    Client(String),
+    /// The model's response could not be extracted into a verdict — a malformed or
+    /// missing field, or a completion failure.
+    Extraction(String),
+}
+
+impl fmt::Display for FeedbackError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FeedbackError::Client(msg) => write!(f, "could not build the provider client: {msg}"),
+            FeedbackError::Extraction(msg) => {
+                write!(
+                    f,
+                    "could not extract a verdict from the model response: {msg}"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for FeedbackError {}
+
+/// Request structured feedback for a `prompt` from the chosen provider.
+///
+/// The effectful counterpart to [`build_prompt`] (§2.2): it reads the active
+/// provider's API key, builds the rig client, runs an `Extractor<Feedback>` over
+/// the prompt, and maps the extracted DTO into a [`Verdict`]. Fireworks is reached
+/// through rig's OpenAI **chat-completions** client (Fireworks is
+/// OpenAI-compatible); Anthropic through its native client. `base_url_override`
+/// points the client at a mock server in tests — the test seam (ADR-0006);
+/// production passes `None`. Callers depend only on this function and [`Verdict`],
+/// never on rig types.
+pub async fn request_feedback(
+    provider: ProviderChoice,
+    prompt: &Prompt,
+    base_url_override: Option<&str>,
+) -> Result<Verdict, FeedbackError> {
+    let key = std::env::var(provider.key_var()).unwrap_or_default();
+    let base_url = base_url_override.unwrap_or(provider.default_base_url());
+    let model = provider.default_model();
+
+    let extracted = match provider {
+        ProviderChoice::Fireworks => {
+            let client = openai::Client::builder()
+                .api_key(key)
+                .base_url(base_url)
+                .build()
+                .map_err(|e| FeedbackError::Client(e.to_string()))?;
+            client
+                .completions_api()
+                .extractor::<Feedback>(model)
+                .build()
+                .extract(prompt.as_str())
+                .await
+        }
+        ProviderChoice::Anthropic => {
+            let client = anthropic::Client::builder()
+                .api_key(key)
+                .base_url(base_url)
+                .build()
+                .map_err(|e| FeedbackError::Client(e.to_string()))?;
+            client
+                .extractor::<Feedback>(model)
+                .build()
+                .extract(prompt.as_str())
+                .await
+        }
+    };
+
+    extracted
+        .map(Verdict::from)
+        .map_err(|e| FeedbackError::Extraction(e.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -303,6 +449,35 @@ mod tests {
         assert!(
             !rendered.contains(CLOSE_CODE),
             "a token in a check detail is neutralized, got: {rendered}"
+        );
+    }
+
+    #[test]
+    fn feedback_maps_to_the_matching_verdict_variant() {
+        // The bool's meaning lives in the variant: is_correct true → Correct,
+        // false → Incorrect, and the message passes through unchanged.
+        let correct: Verdict = Feedback {
+            is_correct: true,
+            feedback_message: "well done".to_string(),
+        }
+        .into();
+        assert_eq!(
+            correct,
+            Verdict::Correct {
+                message: "well done".to_string()
+            }
+        );
+
+        let incorrect: Verdict = Feedback {
+            is_correct: false,
+            feedback_message: "try again".to_string(),
+        }
+        .into();
+        assert_eq!(
+            incorrect,
+            Verdict::Incorrect {
+                message: "try again".to_string()
+            }
         );
     }
 }

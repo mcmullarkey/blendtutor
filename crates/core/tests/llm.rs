@@ -171,19 +171,17 @@ fn build_prompt_neutralizes_injected_delimiter() {
 /// Any valid prompt — the content is incidental to the request/extract path, which
 /// is what these tests exercise. Reuses the pure AC1 builder.
 fn sample_prompt() -> Prompt {
-    build_prompt(&add_two_lesson(), &Submission::new("let x = 41;"), &passing_results())
+    build_prompt(
+        &add_two_lesson(),
+        &Submission::new("let x = 41;"),
+        &passing_results(),
+    )
 }
 
 /// Set an env var for the duration of a `#[serial]` test. `set_var` is `unsafe` in
 /// edition 2024; serialization makes the mutation race-free.
 fn set_key(var: &str, value: &str) {
     unsafe { std::env::set_var(var, value) };
-}
-
-/// Remove an env var at the start of a `#[serial]` test, so a key left set by a
-/// prior test cannot mask a missing-key assertion.
-fn clear_key(var: &str) {
-    unsafe { std::env::remove_var(var) };
 }
 
 /// Mount a 200 returning a real OpenAI chat-completions envelope whose single tool
@@ -229,10 +227,13 @@ async fn request_feedback_incorrect_verdict_and_missing_field_errors() {
         r#"{"is_correct":false,"feedback_message":"missing the modifier"}"#,
     )
     .await;
-    let verdict =
-        request_feedback(ProviderChoice::Fireworks, &sample_prompt(), Some(&ok_server.uri()))
-            .await
-            .expect("a well-formed tool call yields a verdict");
+    let verdict = request_feedback(
+        ProviderChoice::Fireworks,
+        &sample_prompt(),
+        Some(&ok_server.uri()),
+    )
+    .await
+    .expect("a well-formed tool call yields a verdict");
     assert!(
         matches!(verdict, Verdict::Incorrect { .. }),
         "is_correct:false maps to Incorrect, got {verdict:?}"
@@ -255,16 +256,18 @@ async fn request_feedback_incorrect_verdict_and_missing_field_errors() {
     // error.
     let bad_server = MockServer::start().await;
     mount_tool_call(&bad_server, r#"{"feedback_message":"no verdict"}"#).await;
-    let result =
-        request_feedback(ProviderChoice::Fireworks, &sample_prompt(), Some(&bad_server.uri()))
-            .await;
+    let result = request_feedback(
+        ProviderChoice::Fireworks,
+        &sample_prompt(),
+        Some(&bad_server.uri()),
+    )
+    .await;
+    // is_err() is exactly !Ok for a Result, so this single assertion covers both
+    // "no panic" (we reached it) and "no silently-defaulted Verdict" (not Ok).
     assert!(
         result.is_err(),
-        "a tool call missing is_correct must be an error, got {result:?}"
-    );
-    assert!(
-        !matches!(result, Ok(_)),
-        "a malformed response never yields a Verdict"
+        "a tool call missing is_correct must be a typed Err — never a panic or a \
+         defaulted Verdict — got {result:?}"
     );
 }
 
@@ -280,9 +283,13 @@ async fn request_feedback_correct_verdict() {
         r#"{"is_correct":true,"feedback_message":"well done"}"#,
     )
     .await;
-    let verdict = request_feedback(ProviderChoice::Fireworks, &sample_prompt(), Some(&server.uri()))
-        .await
-        .expect("a well-formed correct tool call yields a verdict");
+    let verdict = request_feedback(
+        ProviderChoice::Fireworks,
+        &sample_prompt(),
+        Some(&server.uri()),
+    )
+    .await
+    .expect("a well-formed correct tool call yields a verdict");
     assert!(
         matches!(verdict, Verdict::Correct { .. }),
         "is_correct:true maps to Correct, got {verdict:?}"
@@ -294,5 +301,8 @@ async fn request_feedback_correct_verdict() {
     let Verdict::Correct { message } = verdict else {
         unreachable!("asserted Correct above")
     };
-    assert_eq!(message, "well done", "the feedback_message is surfaced verbatim");
+    assert_eq!(
+        message, "well done",
+        "the feedback_message is surfaced verbatim"
+    );
 }

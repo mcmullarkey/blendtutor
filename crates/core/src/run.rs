@@ -38,6 +38,8 @@ use crate::runner::Runner;
 pub struct RunReport {
     verdict: Verdict,
     checks: Vec<CheckOutcome>,
+    /// The submission's captured standard output, from running it on its own (see
+    /// [`run_lesson`]).
     output: String,
 }
 
@@ -150,11 +152,22 @@ impl Error for RunError {
 /// Run `submission` against `lesson` and produce a [`RunReport`].
 ///
 /// The orchestrator (§2.4): it selects the lesson's runner, executes the
-/// submission once to capture its output, grades the lesson's checks, builds the
-/// feedback prompt, and asks `provider` for a verdict — composing each layer
-/// through its public type and adding no domain logic of its own. `base_url_override`
-/// points the provider at a stub in tests (the [`request_feedback`] seam) and is
-/// `None` in production. Short and linear: the only branch is error propagation.
+/// submission **on its own** to capture the output the report carries and the
+/// prompt shows, grades the lesson's checks, builds the feedback prompt, and asks
+/// `provider` for a verdict — composing each layer through its public type and
+/// adding no domain logic of its own. `base_url_override` points the provider at
+/// a stub in tests (the [`request_feedback`] seam) and is `None` in production.
+/// Short and linear: the only branch is error propagation.
+///
+/// The output-capturing run is separate from grading: when the lesson has checks,
+/// [`run_checks`] runs the submission again as its own gate (see
+/// [`grade`](crate::grade)), so a submission with side-effecting or
+/// nondeterministic output could in principle diverge between the captured output
+/// and what the checks graded against. This is benign under v0's trusted-local,
+/// deterministic-submission model, and the common LLM-only lesson has no checks —
+/// so the submission runs exactly once. Folding the gate's output back into
+/// grading (to run once even with checks) is a `grade`-layer change left to a
+/// later slice.
 pub async fn run_lesson(
     lesson: &Lesson,
     submission: &Submission,

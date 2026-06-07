@@ -176,3 +176,22 @@ pub fn emit_validate(report: &ValidateReport, format: OutputFormat) -> io::Resul
         Stream::Err => writeln!(io::stderr(), "{text}"),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Pin the human rendering of a valid lesson so any drift in the success
+    /// line — wording, spacing, quoting — fails loudly (AC2). The snapshot is the
+    /// committed source of truth for the default format.
+    #[test]
+    fn validate_human_matches_snapshot() {
+        let report = ValidateReport::valid("Writing Your First Function".to_string());
+
+        let rendered = render_validate(&report, OutputFormat::Human);
+
+        // The success line is data, so it belongs on stdout.
+        assert_eq!(rendered.stream, Stream::Out);
+        insta::assert_snapshot!(rendered.text);
+    }
+}

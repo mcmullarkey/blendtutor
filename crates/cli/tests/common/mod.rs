@@ -34,11 +34,18 @@ pub fn rscript_absent() -> bool {
 }
 
 /// Mount a 200 returning a real OpenAI chat-completions envelope whose single
-/// tool call carries `arguments` as a JSON-**encoded string** — the shape rig's
-/// openai client parses. The tool is named `submit`, the name rig's `Extractor`
-/// forces. Mirrors `core/tests/llm.rs::mount_tool_call` so the CLI exercises the
-/// same wire contract the provider layer is unit-tested against.
-pub async fn mount_tool_call(server: &MockServer, arguments: &str) {
+/// tool call carries the `submit` feedback (`is_correct` + `feedback_message`) as
+/// a JSON-**encoded string** — the shape rig's openai client parses, with the
+/// tool name rig's `Extractor` forces. The arguments are built via `serde_json`
+/// so a feedback string containing quotes, backslashes, or newlines can never
+/// corrupt the mock body (§1.3). Mirrors the wire contract `core/tests/llm.rs`
+/// unit-tests the provider layer against.
+pub async fn mount_feedback(server: &MockServer, is_correct: bool, feedback: &str) {
+    let arguments = serde_json::to_string(&json!({
+        "is_correct": is_correct,
+        "feedback_message": feedback,
+    }))
+    .expect("the feedback arguments serialize infallibly");
     let body = json!({
         "id": "chatcmpl-test",
         "object": "chat.completion",
@@ -52,7 +59,7 @@ pub async fn mount_tool_call(server: &MockServer, arguments: &str) {
                 "tool_calls": [{
                     "id": "call_1",
                     "type": "function",
-                    "function": { "name": "submit", "arguments": arguments }
+                    "function": { "name": "submit", "arguments": &arguments }
                 }]
             },
             "finish_reason": "tool_calls"
@@ -75,12 +82,6 @@ pub const LESSON: &str = concat!(
 pub const CORRECT_CODE: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/tests/fixtures/runs/add_two_numbers_correct.R"
-);
-
-/// A wrong-but-runnable `add_two` submission (valid R, wrong arithmetic).
-pub const WRONG_CODE: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/tests/fixtures/runs/add_two_numbers_wrong.R"
 );
 
 /// Run the `blendtutor` binary with `args`, supplying a dummy Fireworks key and

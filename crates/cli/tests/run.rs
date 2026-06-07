@@ -8,7 +8,7 @@
 
 mod common;
 
-use common::{CORRECT_CODE, LESSON, blendtutor_output, mount_tool_call, rscript_absent};
+use common::{CORRECT_CODE, LESSON, blendtutor_output, mount_feedback, rscript_absent};
 use predicates::prelude::*;
 use wiremock::MockServer;
 
@@ -26,11 +26,7 @@ async fn run_correct_code_reports_correct_and_exit_zero() {
     }
     let feedback = "Nicely done — your function returns the sum.";
     let server = MockServer::start().await;
-    mount_tool_call(
-        &server,
-        &format!(r#"{{"is_correct":true,"feedback_message":"{feedback}"}}"#),
-    )
-    .await;
+    mount_feedback(&server, true, feedback).await;
     let uri = server.uri();
 
     let output = tokio::task::spawn_blocking(move || {

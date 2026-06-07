@@ -92,11 +92,20 @@ pub fn select_runner(language: &Language) -> RunnerKind {
 /// runs cleanly, each check is the submission followed by the check code-string;
 /// the check passes when that program exits cleanly and fails otherwise.
 /// Outcomes are element-wise — never folded into a single aggregate verdict.
+///
+/// With no checks there is nothing to classify, so the submission is not run at
+/// all — an LLM-only lesson (the common case) never pays for a subprocess here.
 pub async fn run_checks(
     runner: impl Runner,
     submission: &str,
     checks: &[String],
 ) -> Vec<CheckOutcome> {
+    // Guard before the gate's subprocess (§1.3.1): with nothing to classify there
+    // is no reason to run the submission at all.
+    if checks.is_empty() {
+        return Vec::new();
+    }
+
     if let Some(reason) = submission_run_failure(&runner, submission).await {
         return checks
             .iter()
@@ -226,6 +235,19 @@ mod tests {
             code: 0,
             stderr: String::new(),
         }
+    }
+
+    #[tokio::test]
+    async fn no_checks_runs_nothing_and_returns_empty() {
+        // The script is empty, so any execute call would panic indexing it. This
+        // passes only if run_checks short-circuits before touching the runner —
+        // the LLM-only path must not spawn the submission.
+        let runner = ScriptedRunner::new(vec![]);
+        let outcomes = run_checks(runner, "submission", &check_strings(0)).await;
+        assert!(
+            outcomes.is_empty(),
+            "no checks yields no outcomes, got {outcomes:?}"
+        );
     }
 
     #[tokio::test]

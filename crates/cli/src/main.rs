@@ -39,7 +39,13 @@ enum Commands {
         format: OutputFormat,
     },
     /// List the lessons discoverable in a course.
-    List,
+    List {
+        /// Path to the course directory (the one holding `blendtutor.toml`).
+        path: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
     /// Run a lesson interactively with LLM feedback.
     Run,
     /// Run feedback-quality evals for a lesson.
@@ -56,7 +62,7 @@ impl Commands {
             Commands::Init => "init",
             Commands::New => "new",
             Commands::Validate { .. } => "validate",
-            Commands::List => "list",
+            Commands::List { .. } => "list",
             Commands::Run => "run",
             Commands::Eval => "eval",
             Commands::Build => "build",
@@ -68,6 +74,7 @@ fn main() -> anyhow::Result<ExitCode> {
     let cli = Cli::parse();
     match cli.command {
         Commands::Validate { path, format } => commands::validate::run(&path, format),
+        Commands::List { path, format } => commands::list::run(&path, format),
         other => Err(blendtutor_core::NotYetImplemented::new(other.name()).into()),
     }
 }

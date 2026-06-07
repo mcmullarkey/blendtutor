@@ -12,6 +12,9 @@ use std::process::ExitCode;
 use clap::ValueEnum;
 use serde::Serialize;
 
+use blendtutor_core::course::{DiscoveryError, LessonSummary};
+use blendtutor_core::lesson::Language;
+
 /// How a command's result is rendered for the user.
 ///
 /// Modelling the choice as an enum rather than a string makes dispatch
@@ -159,6 +162,157 @@ pub fn emit_validate(report: &ValidateReport, format: OutputFormat) -> io::Resul
     }
 }
 
+/// One row of a lesson listing as the cli renders it: a lesson that was
+/// discovered, or one that failed to load. Modelling the two as a sum type keeps
+/// a row from being half-found, half-failed (§1.1).
+enum LessonRow {
+    Found {
+        id: String,
+        language: Language,
+        title: String,
+    },
+    Failed {
+        id: String,
+        error: String,
+    },
+}
+
+impl LessonRow {
+    /// The row's course slug, shown in every format and used to size the human
+    /// table's first column.
+    fn id(&self) -> &str {
+        match self {
+            LessonRow::Found { id, .. } | LessonRow::Failed { id, .. } => id,
+        }
+    }
+}
+
+/// The outcome of discovering a course's lessons: one [`LessonRow`] per manifest
+/// entry, in manifest order. The pure value the `list` command computes and then
+/// hands to [`emit_list`].
+pub struct ListReport {
+    rows: Vec<LessonRow>,
+}
+
+impl ListReport {
+    /// Build a report from the rows `core` discovered: each `Ok` lesson becomes a
+    /// found row, each `Err` a failed row carrying its slug and message. Order is
+    /// preserved so the listing follows the manifest. The command shapes this
+    /// data; the renderer only formats it (§5.1).
+    pub fn from_discovery(rows: Vec<Result<LessonSummary, DiscoveryError>>) -> Self {
+        let rows = rows
+            .into_iter()
+            .map(|row| match row {
+                Ok(summary) => LessonRow::Found {
+                    id: summary.id.to_string(),
+                    language: summary.language,
+                    title: summary.title,
+                },
+                Err(error) => LessonRow::Failed {
+                    id: error.id().to_string(),
+                    error: error.to_string(),
+                },
+            })
+            .collect();
+        Self { rows }
+    }
+}
+
+/// The lowercase, machine-readable spelling of a lesson language for the JSON and
+/// human listings. An exhaustive match (§1.2): a new `Language` variant forces a
+/// spelling here rather than defaulting silently. Lowercase is the wire form,
+/// decoupled from the enum's YAML spelling (`R`/`Python`).
+fn language_code(language: &Language) -> &'static str {
+    match language {
+        Language::R => "r",
+        Language::Python => "python",
+    }
+}
+
+/// The machine-readable view of one lesson row: a stable, documented shape with
+/// `id` always present, `language`/`title` for a found lesson, `error` for a
+/// failed one. Every key is always emitted (the absent side is `null`) so
+/// consumers can rely on the shape.
+#[derive(Serialize)]
+struct LessonRowView<'a> {
+    id: &'a str,
+    language: Option<&'a str>,
+    title: Option<&'a str>,
+    error: Option<&'a str>,
+}
+
+impl<'a> LessonRowView<'a> {
+    fn of(row: &'a LessonRow) -> Self {
+        match row {
+            LessonRow::Found {
+                id,
+                language,
+                title,
+            } => Self {
+                id,
+                language: Some(language_code(language)),
+                title: Some(title),
+                error: None,
+            },
+            LessonRow::Failed { id, error } => Self {
+                id,
+                language: None,
+                title: None,
+                error: Some(error),
+            },
+        }
+    }
+}
+
+/// Render a [`ListReport`] in `format` without performing any I/O (§2.1).
+///
+/// Both formats are a single document on stdout: JSON is a stable array of row
+/// objects; human is an aligned table. Unlike `validate`, the listing has no
+/// stderr split — an error row is part of the listing's data, not a diagnostic.
+fn render_list(report: &ListReport, format: OutputFormat) -> String {
+    match format {
+        OutputFormat::Json => {
+            let view: Vec<LessonRowView> = report.rows.iter().map(LessonRowView::of).collect();
+            serde_json::to_string(&view).expect("lesson rows serialize infallibly")
+        }
+        OutputFormat::Human => render_list_human(report),
+    }
+}
+
+/// The human listing: one aligned `id  language  title` line per lesson, with a
+/// failed lesson shown as an `ERROR` row carrying its message. An empty course
+/// says so rather than printing nothing.
+fn render_list_human(report: &ListReport) -> String {
+    if report.rows.is_empty() {
+        return "No lessons found.".to_string();
+    }
+    let id_width = report
+        .rows
+        .iter()
+        .map(|row| row.id().len())
+        .max()
+        .unwrap_or(0);
+    report
+        .rows
+        .iter()
+        .map(|row| match row {
+            LessonRow::Found {
+                id,
+                language,
+                title,
+            } => format!("{id:<id_width$}  {:<7}  {title}", language_code(language)),
+            LessonRow::Failed { id, error } => format!("{id:<id_width$}  {:<7}  {error}", "ERROR"),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Render `report` in `format` and write it to stdout — the single place the
+/// listing reaches the terminal (§2.4, §5.1).
+pub fn emit_list(report: &ListReport, format: OutputFormat) -> io::Result<()> {
+    writeln!(io::stdout(), "{}", render_list(report, format))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,5 +344,57 @@ mod tests {
         // The finding is a diagnostic, so it belongs on stderr.
         assert_eq!(rendered.stream, Stream::Err);
         insta::assert_snapshot!(rendered.text);
+    }
+
+    /// A report fixture: two discovered lessons (one R, one Python) and one that
+    /// failed to load — the AC2 shape, used to pin both the human and JSON views.
+    fn mixed_report() -> ListReport {
+        ListReport {
+            rows: vec![
+                LessonRow::Found {
+                    id: "add-two".to_string(),
+                    language: Language::R,
+                    title: "Add Two Numbers".to_string(),
+                },
+                LessonRow::Found {
+                    id: "greet".to_string(),
+                    language: Language::Python,
+                    title: "Greet Someone".to_string(),
+                },
+                LessonRow::Failed {
+                    id: "broken".to_string(),
+                    error: "invalid lesson: missing field `language`".to_string(),
+                },
+            ],
+        }
+    }
+
+    /// Pin the human listing — aligned `id language title` rows plus the `ERROR`
+    /// row — so any drift in spacing or wording fails loudly.
+    #[test]
+    fn list_human_matches_snapshot() {
+        insta::assert_snapshot!(render_list(&mixed_report(), OutputFormat::Human));
+    }
+
+    /// The JSON view is a stable array: a found row carries `language`/`title`
+    /// with `error: null`; a failed row carries `error` with the other fields
+    /// null. Both keys always present so consumers can rely on the shape.
+    #[test]
+    fn list_json_separates_found_rows_from_failed_rows() {
+        let json = render_list(&mixed_report(), OutputFormat::Json);
+        let rows: serde_json::Value = serde_json::from_str(&json).expect("list json parses");
+
+        assert_eq!(rows[0]["id"], "add-two");
+        assert_eq!(rows[0]["language"], "r");
+        assert_eq!(rows[0]["title"], "Add Two Numbers");
+        assert!(rows[0]["error"].is_null(), "a found row has no error");
+
+        assert_eq!(rows[2]["id"], "broken");
+        assert!(
+            rows[2]["language"].is_null(),
+            "a failed row has no language"
+        );
+        assert!(rows[2]["title"].is_null(), "a failed row has no title");
+        assert_eq!(rows[2]["error"], "invalid lesson: missing field `language`");
     }
 }

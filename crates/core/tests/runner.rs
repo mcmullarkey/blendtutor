@@ -117,6 +117,11 @@ async fn timeout_kills_process_tree_under_natural_runtime() {
 
     // Give any un-reaped grandchild a full second to keep growing the sentinel.
     let size_at_return = std::fs::metadata(&sentinel).expect("stat sentinel").len();
+    assert!(
+        size_at_return > 0,
+        "the grandchild never wrote to the sentinel — the test cannot prove a kill \
+         reached the group, so a frozen size would be a vacuous pass"
+    );
     tokio::time::sleep(Duration::from_secs(1)).await;
     let size_after = std::fs::metadata(&sentinel).expect("stat sentinel").len();
     assert_eq!(

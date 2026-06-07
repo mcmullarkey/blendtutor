@@ -6,6 +6,7 @@
 //! missing external tool is a skip, not a failure (see
 //! `docs/agent-notes/workspace-and-ci.md`).
 
+use std::path::PathBuf;
 use std::time::Duration;
 
 use blendtutor_core::runner::{ExecutionResult, RRunner, Runner, Timeout};
@@ -128,5 +129,54 @@ async fn timeout_kills_process_tree_under_natural_runtime() {
         size_at_return, size_after,
         "the grandchild kept writing after the timeout — the process group was not \
          killed (sentinel grew {size_at_return} -> {size_after})"
+    );
+}
+
+/// AC3 — file-writing code runs in an isolated temp working directory that is
+/// removed when the run returns, and the caller's own directory is left
+/// untouched: a relative write lands in the temp dir, not back in the CWD.
+#[tokio::test]
+async fn runs_in_isolated_temp_dir_cleaned_up() {
+    if rscript_absent() {
+        return;
+    }
+
+    // Treat a fresh dir as the caller's CWD, with a pre-existing marker. nextest
+    // runs each test in its own process, so changing the process CWD here cannot
+    // disturb sibling tests — and a non-isolating regression would drop its
+    // stray `out.txt` here rather than in the source tree.
+    let outer = tempfile::tempdir().expect("create outer dir");
+    let marker = outer.path().join("marker.txt");
+    std::fs::write(&marker, b"keep me").expect("seed marker");
+    std::env::set_current_dir(outer.path()).expect("cd into outer dir");
+
+    // R reports its working directory (so the test can locate the run dir) then
+    // writes a file by *relative* path — which must land in the isolated run
+    // dir, not back in `outer`.
+    let runner = RRunner::default();
+    let result = runner
+        .execute("cat(getwd()); writeLines('x', 'out.txt')", &[])
+        .await
+        .expect("Rscript should spawn and run to completion");
+
+    let run_dir = PathBuf::from(result.stdout.trim());
+    // `getwd()` resolves symlinks (macOS /var -> /private/var), so canonicalize
+    // the temp root before the prefix check.
+    let temp_root = std::fs::canonicalize(std::env::temp_dir()).expect("canonicalize temp dir");
+    assert!(
+        run_dir.starts_with(&temp_root),
+        "run dir must be under the system temp dir {temp_root:?}, got {run_dir:?}"
+    );
+    assert!(
+        !run_dir.exists(),
+        "the per-run temp dir must be removed when execute returns, but {run_dir:?} survived"
+    );
+    assert!(
+        !outer.path().join("out.txt").exists(),
+        "a relative write escaped the isolated run dir into the caller's directory"
+    );
+    assert!(
+        marker.exists(),
+        "the caller's pre-existing marker was disturbed by the run"
     );
 }

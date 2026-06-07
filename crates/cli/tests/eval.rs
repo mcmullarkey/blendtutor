@@ -85,3 +85,66 @@ async fn eval_reports_aggregate_accuracy_and_per_case_results() {
         "exactly one case should be reported as a mismatch, got: {stdout:?}"
     );
 }
+
+/// AC2 — `eval --format json` emits one JSON document carrying per-case
+/// verdicts, their expected polarity, the derived `matched` flag, and the
+/// aggregate accuracy — the artifact a built site embeds without re-scoring.
+///
+/// The whole stdout must parse as a *single* JSON value (so no log line or
+/// second document interleaves), `accuracy` must be the number `2/3` (not a
+/// string), and each case must carry non-null `expected`/`actual` strings and a
+/// boolean `matched` consistent with `expected == actual` — pinning the array to
+/// `[true, true, false]` proves the serialized flags are the real derived scores.
+#[tokio::test]
+async fn eval_json_emits_per_case_verdicts_and_aggregate() {
+    if rscript_absent() {
+        return;
+    }
+    let server = MockServer::start().await;
+    mount_three_case_provider(&server).await;
+
+    let output = eval_against(&server, &["--format", "json"]).await;
+
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "eval --format json should succeed; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let doc: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be exactly one JSON document");
+
+    let accuracy = doc["accuracy"]
+        .as_f64()
+        .expect("accuracy should be a JSON number, not a string");
+    assert!(
+        (accuracy - 2.0 / 3.0).abs() < 1e-12,
+        "accuracy should be 2/3, got {accuracy}"
+    );
+
+    let cases = doc["cases"].as_array().expect("cases should be an array");
+    assert_eq!(cases.len(), 3, "one entry per case");
+    let matched: Vec<bool> = cases
+        .iter()
+        .map(|case| {
+            assert!(
+                case["expected"].is_string(),
+                "expected should be a non-null string: {case}"
+            );
+            assert!(
+                case["actual"].is_string(),
+                "actual should be a non-null string: {case}"
+            );
+            let matched = case["matched"]
+                .as_bool()
+                .expect("matched should be a boolean");
+            assert_eq!(
+                matched,
+                case["expected"] == case["actual"],
+                "matched must reflect expected == actual: {case}"
+            );
+            matched
+        })
+        .collect();
+    assert_eq!(matched, vec![true, true, false]);
+}

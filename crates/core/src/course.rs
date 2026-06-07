@@ -312,10 +312,8 @@ pathh = "add_two.yaml"
     #[test]
     fn manifest_parse_rejects_a_path_escaping_the_course_directory() {
         for escaping in ["../secrets.yaml", "/etc/passwd", "nested/../../up.yaml"] {
-            let err = Manifest::parse(&format!(
-                "[[lessons]]\nid = \"x\"\npath = {escaping:?}\n"
-            ))
-            .expect_err("a path leaving the course directory must be refused");
+            let err = Manifest::parse(&format!("[[lessons]]\nid = \"x\"\npath = {escaping:?}\n"))
+                .expect_err("a path leaving the course directory must be refused");
             assert!(
                 matches!(err, ManifestError::UnsafePath { .. }),
                 "an escaping path should be UnsafePath, got: {err:?} for {escaping}"

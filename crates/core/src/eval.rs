@@ -526,6 +526,35 @@ mod tests {
     }
 
     #[test]
+    fn eval_run_error_names_the_one_based_case_and_chains_its_source() {
+        use crate::llm::FeedbackError;
+        use crate::run::RunError;
+
+        let err = EvalRunError {
+            index: 2,
+            source: RunError::Feedback(FeedbackError::MissingApiKey {
+                var: "FIREWORKS_API_KEY",
+            }),
+        };
+
+        let message = err.to_string();
+        // Zero-based index 2 reads as the instructor's "case 3".
+        assert!(
+            message.contains("eval case 3 failed to run"),
+            "should name the 1-based case and the failure: {message}"
+        );
+        assert!(
+            message.contains("FIREWORKS_API_KEY"),
+            "should surface the underlying pipeline failure: {message}"
+        );
+        // The pipeline failure is chained as the error source, not swallowed.
+        assert!(
+            std::error::Error::source(&err).is_some(),
+            "the RunError must be reachable via Error::source"
+        );
+    }
+
+    #[test]
     fn expected_verdict_serializes_to_its_canonical_token() {
         // The JSON spelling is the same single-sourced token as the YAML one, so
         // the wire form cannot drift from the accepted set.

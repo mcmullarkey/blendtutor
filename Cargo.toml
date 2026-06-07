@@ -12,7 +12,7 @@ repository = "https://github.com/mcmullarkey/blendtutor"
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 assert_cmd = "2"
-command-group = { version = "5", features = ["tokio"] }
+command-group = { version = "5", features = ["with-tokio"] }
 insta = "1"
 predicates = "3"
 serde = { version = "1", features = ["derive"] }

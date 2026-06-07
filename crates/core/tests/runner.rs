@@ -58,5 +58,8 @@ async fn captures_stdout_stderr_exit_separately() {
         result.stdout
     );
     assert_eq!(result.exit, Some(0), "a clean exit is Some(0), not a blob");
-    assert!(!result.timed_out, "a fast snippet must not be marked timed out");
+    assert!(
+        !result.timed_out,
+        "a fast snippet must not be marked timed out"
+    );
 }

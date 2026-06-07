@@ -1,0 +1,5 @@
+---
+source: crates/cli/src/output.rs
+expression: rendered.text
+---
+exercise.llm_evaluation_prompt is required

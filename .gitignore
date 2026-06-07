@@ -7,6 +7,9 @@ rv/library/
 # Rust
 /target
 
+# insta pending snapshots (review + accept turns these into committed .snap files)
+*.snap.new
+
 # cargo-mutants run output
 /mutants.out
 /mutants.out.old

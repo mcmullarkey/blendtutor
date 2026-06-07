@@ -13,6 +13,7 @@ use clap::ValueEnum;
 use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
+use blendtutor_core::eval::EvalReport;
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
 use blendtutor_core::run::RunReport;
@@ -361,6 +362,59 @@ pub fn emit_run(report: &RunReport, format: OutputFormat) -> io::Result<()> {
             serde_json::to_string(report).expect("a RunReport serializes to JSON infallibly")
         }
         OutputFormat::Human => render_run(report),
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// The human rendering of an [`EvalReport`]: an accuracy headline followed by one
+/// row per case showing the expected and actual polarity and whether they
+/// matched.
+///
+/// Pure (§2.1): it reads the report and returns text, performing no I/O. The
+/// match marker is derived from the typed `matched` flag, so it cannot drift from
+/// the score; accuracy is shown as both the exact `matched/total` fraction and a
+/// rounded percentage. Each polarity word is the report's own canonical token, so
+/// the rendering cannot drift from the accepted set.
+fn render_eval(report: &EvalReport) -> String {
+    let total = report.cases().len();
+    let matched = report.cases().iter().filter(|case| case.matched()).count();
+    let mut lines = vec![
+        format!(
+            "Accuracy: {matched}/{total} ({percent:.1}%)",
+            percent = report.accuracy() * 100.0
+        ),
+        String::new(),
+    ];
+    for (position, case) in report.cases().iter().enumerate() {
+        let marker = if case.matched() {
+            "[match]"
+        } else {
+            "[mismatch]"
+        };
+        lines.push(format!(
+            "case {number}: expected {expected}, got {actual} {marker}",
+            number = position + 1,
+            expected = case.expected().token(),
+            actual = case.actual().token(),
+        ));
+    }
+    lines.join("\n")
+}
+
+/// Render `report` in `format` and write it to stdout — the single place an eval
+/// result reaches the terminal (§2.4, §5.1).
+///
+/// JSON is the report's canonical machine document (defined in `core`), the
+/// artifact a built site embeds without re-scoring; human is the accuracy
+/// headline plus per-case rows. Both are the command's data, so both go to
+/// stdout — a load or pipeline failure is an error that reaches stderr via
+/// `main`, never mixed into this stream.
+pub fn emit_eval(report: &EvalReport, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("an EvalReport serializes to JSON infallibly")
+        }
+        OutputFormat::Human => render_eval(report),
     };
     writeln!(io::stdout(), "{text}")
 }

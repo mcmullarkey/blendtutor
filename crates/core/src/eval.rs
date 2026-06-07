@@ -13,15 +13,22 @@
 //! `Feedback` → `Verdict` split (ADR-0006). That two-phase parse is what lets a
 //! bad verdict be reported against its *case index* rather than a YAML line.
 //!
-//! This module owns the eval *data shape* only. It does not read files (the
-//! caller's concern, so the parse stays pure — §2.1), does not run cases
-//! against a model (that is the `eval` command, Slice 13), and does not depend
-//! on `llm::Verdict`.
+//! The module owns two responsibilities at different altitudes. The *data shape*
+//! and its parse are pure: reading files is the caller's concern (§2.1). Scoring
+//! ([`score_case`], [`aggregate`], [`CaseResult`], [`EvalReport`]) is the pure
+//! core (§2.3) — exact polarity equality with no model in sight. [`run_eval`] is
+//! the thin effectful shell (§2.4) that drives the suite through the same
+//! pipeline `run` uses (so the feedback evaluated is the feedback shipped, §3.2)
+//! and hands each verdict to the pure scorer.
 
 use std::error::Error;
 use std::fmt;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize, Serializer};
+
+use crate::lesson::Lesson;
+use crate::llm::{ProviderChoice, Submission, Verdict};
+use crate::run::{RunError, run_lesson};
 
 /// The verdict an eval case expects the grader to return: a polarity, with no
 /// learner-facing message.
@@ -54,6 +61,36 @@ impl ExpectedVerdict {
             Self::CORRECT_TOKEN => Some(ExpectedVerdict::Correct),
             Self::INCORRECT_TOKEN => Some(ExpectedVerdict::Incorrect),
             _ => None,
+        }
+    }
+
+    /// The canonical lowercase spelling of this polarity — the single source for
+    /// the YAML `expected` token, the serialized JSON form, and the human
+    /// rendering, so none can drift from the accepted set.
+    pub const fn token(&self) -> &'static str {
+        match self {
+            ExpectedVerdict::Correct => Self::CORRECT_TOKEN,
+            ExpectedVerdict::Incorrect => Self::INCORRECT_TOKEN,
+        }
+    }
+}
+
+impl Serialize for ExpectedVerdict {
+    /// Serialize to the same canonical token the parser accepts, so a scored
+    /// report's JSON spells a polarity exactly as an author writes it.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.token())
+    }
+}
+
+impl From<&Verdict> for ExpectedVerdict {
+    /// Reduce a runtime verdict to its scoring polarity, dropping the
+    /// learner-facing message: eval scores *whether* the grader agreed, not the
+    /// words it chose (v0 — richer grading is deferred).
+    fn from(verdict: &Verdict) -> Self {
+        match verdict {
+            Verdict::Correct { .. } => ExpectedVerdict::Correct,
+            Verdict::Incorrect { .. } => ExpectedVerdict::Incorrect,
         }
     }
 }
@@ -170,6 +207,156 @@ pub fn parse_eval_suite(yaml: &str) -> Result<EvalSuite, EvalParseError> {
     Ok(EvalSuite { cases })
 }
 
+/// Score one case: whether the grader's `actual` polarity matched the `expected`
+/// one.
+///
+/// Pure and total (§2.3, §5.1): exact equality of the two polarities, so a wrong
+/// verdict can never be scored a match — no substring or contains slack that
+/// would let a near-miss pass.
+pub fn score_case(expected: &ExpectedVerdict, actual: &ExpectedVerdict) -> bool {
+    expected == actual
+}
+
+/// The aggregate accuracy of scored `cases`: the fraction whose polarity matched.
+///
+/// Pure and total (§2.3): an empty suite scores `0.0`, not a `0/0` NaN, so the
+/// value always serializes to a real JSON number.
+pub fn aggregate(cases: &[CaseResult]) -> f64 {
+    if cases.is_empty() {
+        return 0.0;
+    }
+    let matched = cases.iter().filter(|case| case.matched).count();
+    matched as f64 / cases.len() as f64
+}
+
+/// One scored eval case: the expected polarity, the polarity the grader actually
+/// returned, and whether they matched.
+///
+/// `matched` is derived at construction from the two polarities ([`score_case`]),
+/// never set independently (§1.1): a result cannot claim a match its polarities
+/// contradict. The serialized shape — `expected`, `actual`, `matched` — is the
+/// per-case artifact a built site embeds without re-scoring.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CaseResult {
+    expected: ExpectedVerdict,
+    actual: ExpectedVerdict,
+    matched: bool,
+}
+
+impl CaseResult {
+    /// Score a case: reduce the runtime `actual` verdict to its polarity and
+    /// derive `matched` from it and `expected`. The only constructor, so a
+    /// `matched` flag inconsistent with the polarities is unrepresentable.
+    pub fn score(expected: ExpectedVerdict, actual: &Verdict) -> Self {
+        let actual = ExpectedVerdict::from(actual);
+        let matched = score_case(&expected, &actual);
+        Self {
+            expected,
+            actual,
+            matched,
+        }
+    }
+
+    /// The polarity the case's author expected the grader to return.
+    pub fn expected(&self) -> &ExpectedVerdict {
+        &self.expected
+    }
+
+    /// The polarity the grader actually returned for the submission.
+    pub fn actual(&self) -> &ExpectedVerdict {
+        &self.actual
+    }
+
+    /// Whether the actual polarity matched the expected one.
+    pub fn matched(&self) -> bool {
+        self.matched
+    }
+}
+
+/// The result of scoring an eval suite: every [`CaseResult`] in suite order plus
+/// the aggregate accuracy.
+///
+/// `accuracy` is derived at construction from the cases ([`aggregate`]), never
+/// set independently (§1.1). The serialized shape — `cases`, `accuracy` — is the
+/// eval artifact a built site embeds without re-scoring.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct EvalReport {
+    cases: Vec<CaseResult>,
+    accuracy: f64,
+}
+
+impl EvalReport {
+    /// Assemble a report from scored `cases`, deriving the aggregate accuracy so
+    /// it cannot disagree with the per-case results.
+    pub fn new(cases: Vec<CaseResult>) -> Self {
+        let accuracy = aggregate(&cases);
+        Self { cases, accuracy }
+    }
+
+    /// The scored cases, in suite order.
+    pub fn cases(&self) -> &[CaseResult] {
+        &self.cases
+    }
+
+    /// The fraction of cases whose verdict polarity matched the expected one.
+    pub fn accuracy(&self) -> f64 {
+        self.accuracy
+    }
+}
+
+/// Why scoring an eval suite failed: a case's submission could not be run through
+/// the pipeline — the interpreter failed to launch or the provider call failed.
+///
+/// Names the offending case so an instructor can find it; a scoring run is
+/// all-or-nothing, since a missing verdict cannot be scored as either polarity.
+#[derive(Debug)]
+pub struct EvalRunError {
+    /// The zero-based index of the case whose run failed, in suite order.
+    pub index: usize,
+    /// The underlying pipeline failure.
+    pub source: RunError,
+}
+
+impl fmt::Display for EvalRunError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "eval case {} failed to run: {}", self.index, self.source)
+    }
+}
+
+impl Error for EvalRunError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(&self.source)
+    }
+}
+
+/// Run every case in `suite` through the same pipeline `run` uses and score each
+/// verdict against its expected polarity.
+///
+/// The thin effectful shell over the pure scorer (§2.4): for each case it runs
+/// the submission through [`run_lesson`] — execute, grade, ask `provider` for a
+/// verdict — then pairs the verdict's polarity with the expected one as a
+/// [`CaseResult`]. Driving the *same* `run_lesson` is what keeps the evaluated
+/// feedback identical to the shipped feedback (§3.2). A run failure stops scoring
+/// and names the offending case ([`EvalRunError`]); `base_url_override` points
+/// the provider at a stub in tests, exactly as `run` does, and is `None` in
+/// production.
+pub async fn run_eval(
+    lesson: &Lesson,
+    suite: &EvalSuite,
+    provider: ProviderChoice,
+    base_url_override: Option<&str>,
+) -> Result<EvalReport, EvalRunError> {
+    let mut cases = Vec::with_capacity(suite.cases.len());
+    for (index, case) in suite.cases.iter().enumerate() {
+        let submission = Submission::new(case.submission.clone());
+        let report = run_lesson(lesson, &submission, provider, base_url_override)
+            .await
+            .map_err(|source| EvalRunError { index, source })?;
+        cases.push(CaseResult::score(case.expected.clone(), report.verdict()));
+    }
+    Ok(EvalReport::new(cases))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -233,6 +420,110 @@ mod tests {
         assert!(
             err.to_string().contains("submision"),
             "error should name the unknown key, got: {err}"
+        );
+    }
+
+    use crate::llm::Verdict;
+
+    fn correct() -> Verdict {
+        Verdict::Correct {
+            message: "well done".to_string(),
+        }
+    }
+
+    fn incorrect() -> Verdict {
+        Verdict::Incorrect {
+            message: "try again".to_string(),
+        }
+    }
+
+    #[test]
+    fn score_case_matches_same_polarity_and_rejects_the_opposite() {
+        // Exact polarity equality both ways, so a one-directional or constant
+        // implementation cannot pass.
+        assert!(score_case(&ExpectedVerdict::Correct, &ExpectedVerdict::Correct));
+        assert!(score_case(
+            &ExpectedVerdict::Incorrect,
+            &ExpectedVerdict::Incorrect
+        ));
+        assert!(!score_case(
+            &ExpectedVerdict::Correct,
+            &ExpectedVerdict::Incorrect
+        ));
+        assert!(!score_case(
+            &ExpectedVerdict::Incorrect,
+            &ExpectedVerdict::Correct
+        ));
+    }
+
+    #[test]
+    fn verdict_polarity_drops_the_feedback_message() {
+        // The runtime verdict's message is irrelevant to scoring; both polarities
+        // map so a constant mapping (always Correct/Incorrect) is caught.
+        assert_eq!(ExpectedVerdict::from(&correct()), ExpectedVerdict::Correct);
+        assert_eq!(
+            ExpectedVerdict::from(&incorrect()),
+            ExpectedVerdict::Incorrect
+        );
+    }
+
+    #[test]
+    fn case_result_derives_matched_from_score_case() {
+        // `matched` is computed at construction from the scored polarities, never
+        // set independently (§1.1): an expected-correct case graded incorrect is a
+        // mismatch, and `matched` equals `score_case` of the stored polarities.
+        let result = CaseResult::score(ExpectedVerdict::Correct, &incorrect());
+        assert_eq!(result.expected(), &ExpectedVerdict::Correct);
+        assert_eq!(result.actual(), &ExpectedVerdict::Incorrect);
+        assert!(!result.matched());
+        assert_eq!(
+            result.matched(),
+            score_case(result.expected(), result.actual())
+        );
+    }
+
+    #[test]
+    fn aggregate_is_matched_over_total_and_zero_for_an_empty_suite() {
+        let cases = vec![
+            CaseResult::score(ExpectedVerdict::Correct, &correct()),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect()),
+            CaseResult::score(ExpectedVerdict::Correct, &incorrect()),
+        ];
+        assert_eq!(aggregate(&cases), 2.0 / 3.0);
+        // No cases means no NaN (0/0) — an empty suite is a real, serializable 0.0.
+        assert_eq!(aggregate(&[]), 0.0);
+    }
+
+    #[test]
+    fn scores_two_of_three_and_aggregates() {
+        // The AC1 probe: two matches and one mismatch give exactly 2/3, the
+        // per-case `matched` flags are [true, true, false], and each is the
+        // derived `score_case` of its stored polarities.
+        let report = EvalReport::new(vec![
+            CaseResult::score(ExpectedVerdict::Correct, &correct()),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect()),
+            CaseResult::score(ExpectedVerdict::Correct, &incorrect()),
+        ]);
+
+        assert_eq!(report.accuracy(), 2.0 / 3.0);
+        let matched: Vec<bool> = report.cases().iter().map(CaseResult::matched).collect();
+        assert_eq!(matched, vec![true, true, false]);
+        for case in report.cases() {
+            assert_eq!(case.matched(), score_case(case.expected(), case.actual()));
+        }
+    }
+
+    #[test]
+    fn expected_verdict_serializes_to_its_canonical_token() {
+        // The JSON spelling is the same single-sourced token as the YAML one, so
+        // the wire form cannot drift from the accepted set.
+        assert_eq!(
+            serde_json::to_string(&ExpectedVerdict::Correct).unwrap(),
+            format!("{:?}", ExpectedVerdict::CORRECT_TOKEN)
+        );
+        assert_eq!(
+            serde_json::to_string(&ExpectedVerdict::Incorrect).unwrap(),
+            format!("{:?}", ExpectedVerdict::INCORRECT_TOKEN)
         );
     }
 }

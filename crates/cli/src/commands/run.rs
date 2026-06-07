@@ -13,11 +13,8 @@ use blendtutor_core::lesson::read_lesson_file;
 use blendtutor_core::llm::{ProviderChoice, Submission, Verdict};
 use blendtutor_core::run::{RunReport, run_lesson};
 
+use crate::commands::PROVIDER_URL_VAR;
 use crate::output::{self, OutputFormat};
-
-/// The environment variable that overrides the provider's base URL — the test
-/// seam pointing the rig client at a stub (ADR-0006). Unset in production.
-const PROVIDER_URL_VAR: &str = "BLENDTUTOR_PROVIDER_URL";
 
 /// The exit code reserved for a submission that ran and was graded "not yet
 /// correct". Distinct from success (0) and from the error code (1, returned via

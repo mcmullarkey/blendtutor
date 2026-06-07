@@ -12,6 +12,11 @@
 //! `tokio::task::spawn_blocking`: that frees the test's async runtime to keep
 //! serving the wiremock mock while the child's HTTP request is in flight (a
 //! direct blocking call on a single-threaded runtime would deadlock).
+//!
+//! Compiled afresh into each integration-test binary, every one of which uses a
+//! subset of these helpers — so an unused-helper warning here is expected, not a
+//! defect.
+#![allow(dead_code)]
 
 use assert_cmd::Command;
 use serde_json::json;

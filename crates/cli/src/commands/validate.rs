@@ -5,7 +5,7 @@
 use std::path::Path;
 use std::process::ExitCode;
 
-use blendtutor_core::lesson::{read_lesson_file, LoadError};
+use blendtutor_core::lesson::{LoadError, read_lesson_file};
 
 use crate::output::{self, OutputFormat, ValidateReport};
 

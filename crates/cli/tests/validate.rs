@@ -81,10 +81,13 @@ fn validate_json_emits_documented_object_with_exit_code_parity() {
         // The json document is machine-readable: a string `status` and a
         // `findings` key (human text in braces would not parse here).
         let stdout = String::from_utf8_lossy(&json.stdout);
-        let doc: serde_json::Value = serde_json::from_str(&stdout)
-            .unwrap_or_else(|e| panic!("json stdout did not parse for {fixture}: {e}; stdout={stdout:?}"));
+        let doc: serde_json::Value = serde_json::from_str(&stdout).unwrap_or_else(|e| {
+            panic!("json stdout did not parse for {fixture}: {e}; stdout={stdout:?}")
+        });
         assert!(
-            doc.get("status").and_then(serde_json::Value::as_str).is_some(),
+            doc.get("status")
+                .and_then(serde_json::Value::as_str)
+                .is_some(),
             "json output for {fixture} lacks a string `status`: {doc}"
         );
         assert!(

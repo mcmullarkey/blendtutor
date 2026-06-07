@@ -64,10 +64,11 @@ impl Manifest {
     ///
     /// The pure parse boundary (§2.1): the caller reads the file, this turns the
     /// text into the typed model. A malformed document or a typo'd key yields
-    /// [`ManifestError::Parse`]; a lesson path that would escape the course
-    /// directory yields [`ManifestError::UnsafePath`]. Both are caught here,
-    /// before any lesson file is read (§1.3.1), so a parsed `Manifest` only ever
-    /// names files inside its own course.
+    /// [`ManifestError::Parse`]; a lesson path that escapes the course directory
+    /// yields [`ManifestError::UnsafePath`]. Both are caught here, before any
+    /// lesson file is read (§1.3.1), so a parsed `Manifest` carries only relative,
+    /// non-`..` paths. The check is lexical — it does not resolve symlinks, so a
+    /// symlink inside the course could still point elsewhere.
     pub fn parse(toml: &str) -> Result<Manifest, ManifestError> {
         let manifest: Manifest =
             toml::from_str(toml).map_err(|e| ManifestError::Parse(e.to_string()))?;
@@ -93,8 +94,9 @@ impl Manifest {
     }
 }
 
-/// Whether `path` would resolve outside the course directory: an absolute path,
-/// or one with a `..` component that climbs above the root.
+/// Whether `path` is lexically outside the course directory: an absolute path,
+/// or one carrying a `..` component. A lexical check only — it does not resolve
+/// symlinks, so a symlink within the course is not followed.
 fn escapes_course_dir(path: &Path) -> bool {
     path.is_absolute()
         || path

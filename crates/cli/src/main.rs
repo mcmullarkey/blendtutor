@@ -46,8 +46,17 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
-    /// Run a lesson interactively with LLM feedback.
-    Run,
+    /// Run a lesson: execute a submission, grade it, and get LLM feedback.
+    Run {
+        /// Path to the lesson YAML file.
+        lesson: PathBuf,
+        /// Path to the student's submission. Read from stdin when omitted.
+        #[arg(long)]
+        code: Option<PathBuf>,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
     /// Run feedback-quality evals for a lesson.
     Eval,
     /// Build a browser-deployable lesson site.
@@ -63,7 +72,7 @@ impl Commands {
             Commands::New => "new",
             Commands::Validate { .. } => "validate",
             Commands::List { .. } => "list",
-            Commands::Run => "run",
+            Commands::Run { .. } => "run",
             Commands::Eval => "eval",
             Commands::Build => "build",
         }
@@ -75,6 +84,11 @@ fn main() -> anyhow::Result<ExitCode> {
     match cli.command {
         Commands::Validate { path, format } => commands::validate::run(&path, format),
         Commands::List { path, format } => commands::list::run(&path, format),
+        Commands::Run {
+            lesson,
+            code,
+            format,
+        } => commands::run::run(&lesson, code.as_deref(), format),
         other => Err(blendtutor_core::NotYetImplemented::new(other.name()).into()),
     }
 }

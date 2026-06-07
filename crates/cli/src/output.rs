@@ -50,7 +50,25 @@ pub struct ValidateReport {
 /// without it (§1.1, §1.2).
 enum Outcome {
     Valid { lesson_name: String },
-    Invalid { findings: Vec<String> },
+    Invalid { findings: Findings },
+}
+
+/// One or more validation findings. The only constructor requires a first
+/// element, so an `Invalid` outcome can never carry an empty list — an invalid
+/// lesson with no stated problem is unrepresentable (§1.1).
+struct Findings(Vec<String>);
+
+impl Findings {
+    fn new(first: String, rest: Vec<String>) -> Self {
+        let mut all = Vec::with_capacity(1 + rest.len());
+        all.push(first);
+        all.extend(rest);
+        Self(all)
+    }
+
+    fn as_slice(&self) -> &[String] {
+        &self.0
+    }
 }
 
 impl ValidateReport {
@@ -61,10 +79,13 @@ impl ValidateReport {
         }
     }
 
-    /// The lesson failed validation; `findings` names each problem.
-    pub fn invalid(findings: Vec<String>) -> Self {
+    /// The lesson failed validation. `first` is the leading problem and `rest`
+    /// any further ones; requiring `first` guarantees at least one finding.
+    pub fn invalid(first: String, rest: Vec<String>) -> Self {
         Self {
-            outcome: Outcome::Invalid { findings },
+            outcome: Outcome::Invalid {
+                findings: Findings::new(first, rest),
+            },
         }
     }
 
@@ -100,7 +121,7 @@ impl<'a> ValidateDocument<'a> {
             Outcome::Invalid { findings } => Self {
                 status: "invalid",
                 lesson_name: None,
-                findings,
+                findings: findings.as_slice(),
             },
         }
     }
@@ -139,7 +160,7 @@ fn render_validate(report: &ValidateReport, format: OutputFormat) -> Rendered {
                 stream: Stream::Out,
             },
             Outcome::Invalid { findings } => Rendered {
-                text: findings.join("\n"),
+                text: findings.as_slice().join("\n"),
                 stream: Stream::Err,
             },
         },

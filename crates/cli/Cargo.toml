@@ -21,3 +21,5 @@ assert_cmd = { workspace = true }
 insta = { workspace = true }
 predicates = { workspace = true }
 tempfile = { workspace = true }
+tokio = { workspace = true }
+wiremock = { workspace = true }

@@ -39,7 +39,7 @@ pub enum CheckOutcome {
 /// takes `impl Runner` and never names `RRunner`/`PythonRunner` (§3.4). The
 /// `match` over it is exhaustive: adding a [`Language`] variant forces a new arm
 /// both here and in [`select_runner`], so a language can never be silently
-/// dropped (§1.2).
+/// dropped.
 #[derive(Debug, Clone)]
 pub enum RunnerKind {
     /// The R runner.
@@ -103,35 +103,55 @@ pub async fn run_checks(
 mod tests {
     use super::*;
 
-    /// A [`Runner`] that fabricates a fixed result instead of spawning an
-    /// interpreter, so `run_checks`'s classification — exit code → outcome, and
-    /// the spawn-failure arm a real interpreter never reaches — is exercised
-    /// deterministically with no `Rscript`/`uv` on `PATH`. It impls the real
-    /// [`Runner`] trait (so the signature can't drift) and returns the real
-    /// [`ExecutionResult`]/[`RunnerError`] built through their own constructors,
-    /// honouring the seam contract: a program that *ran* (any exit) is `Ok`; a
-    /// failure to launch is `Err`.
-    enum FakeRunner {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// One scripted interpreter outcome for [`ScriptedRunner`] to replay.
+    enum Reply {
         /// The program ran and exited with `code`, writing `stderr`.
         Exited { code: i32, stderr: String },
         /// The interpreter could not be launched at all.
         FailedToSpawn,
     }
 
-    impl Runner for FakeRunner {
+    /// A [`Runner`] that replays a fixed script of replies in call order instead
+    /// of spawning an interpreter, so `run_checks`'s classification (exit code →
+    /// outcome, plus the spawn-failure arm a real interpreter never reaches) *and*
+    /// its element-wise ordering are pinned deterministically with no
+    /// `Rscript`/`uv` on `PATH`. It impls the real [`Runner`] trait (so the
+    /// signature can't drift) and returns the real
+    /// [`ExecutionResult`]/[`RunnerError`] through their own constructors,
+    /// honouring the seam contract: a program that *ran* (any exit) is `Ok`; a
+    /// failure to launch is `Err`. The call cursor is an [`AtomicUsize`] — not a
+    /// `Cell` — so `&self` stays `Sync` and the `execute` future stays `Send`.
+    struct ScriptedRunner {
+        script: Vec<Reply>,
+        next: AtomicUsize,
+    }
+
+    impl ScriptedRunner {
+        fn new(script: Vec<Reply>) -> Self {
+            Self {
+                script,
+                next: AtomicUsize::new(0),
+            }
+        }
+    }
+
+    impl Runner for ScriptedRunner {
         async fn execute(
             &self,
             _code: &str,
             _checks: &[String],
         ) -> Result<ExecutionResult, RunnerError> {
-            match self {
-                FakeRunner::Exited { code, stderr } => Ok(ExecutionResult::from_capture(
+            let turn = self.next.fetch_add(1, Ordering::SeqCst);
+            match &self.script[turn] {
+                Reply::Exited { code, stderr } => Ok(ExecutionResult::from_capture(
                     b"",
                     stderr.as_bytes(),
                     Some(*code),
                     false,
                 )),
-                FakeRunner::FailedToSpawn => Err(RunnerError::new(
+                Reply::FailedToSpawn => Err(RunnerError::new(
                     "spawn fake",
                     std::io::Error::new(std::io::ErrorKind::NotFound, "no such interpreter"),
                 )),
@@ -139,8 +159,8 @@ mod tests {
         }
     }
 
-    fn checks(one: &str) -> Vec<String> {
-        vec![one.to_string()]
+    fn check_strings(n: usize) -> Vec<String> {
+        (0..n).map(|i| format!("check_{i}")).collect()
     }
 
     #[test]
@@ -160,28 +180,32 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_check_whose_program_exits_cleanly_is_a_pass() {
-        let runner = FakeRunner::Exited {
-            code: 0,
-            stderr: String::new(),
-        };
-        let outcomes = run_checks(runner, "submission", &checks("check")).await;
-        assert_eq!(outcomes, vec![CheckOutcome::Pass]);
-    }
-
-    #[tokio::test]
-    async fn a_check_whose_program_exits_nonzero_is_a_fail_carrying_stderr() {
-        let runner = FakeRunner::Exited {
-            code: 1,
-            stderr: "assertion failed".to_string(),
-        };
-        let outcomes = run_checks(runner, "submission", &checks("check")).await;
+    async fn checks_are_classified_element_wise_in_order() {
+        // First check exits clean → Pass; second exits non-zero → Fail carrying
+        // its stderr. Replaying distinct replies in call order means a grader that
+        // reversed, folded, or mis-paired the results cannot reproduce this exact
+        // ordered vector — pinning both the per-exit-code classification and the
+        // element-wise order off any live interpreter.
+        let runner = ScriptedRunner::new(vec![
+            Reply::Exited {
+                code: 0,
+                stderr: String::new(),
+            },
+            Reply::Exited {
+                code: 1,
+                stderr: "assertion failed".to_string(),
+            },
+        ]);
+        let outcomes = run_checks(runner, "submission", &check_strings(2)).await;
         assert_eq!(
             outcomes,
-            vec![CheckOutcome::Fail {
-                detail: "assertion failed".to_string()
-            }],
-            "a non-zero exit fails the check and the interpreter's stderr is the detail"
+            vec![
+                CheckOutcome::Pass,
+                CheckOutcome::Fail {
+                    detail: "assertion failed".to_string()
+                },
+            ],
+            "a clean exit then a non-zero exit must be [Pass, Fail{{stderr}}] in order"
         );
     }
 
@@ -189,8 +213,8 @@ mod tests {
     async fn a_check_whose_interpreter_cannot_launch_is_a_fail() {
         // The spawn-failure arm: a real interpreter present on `PATH` never
         // produces it, so only this fake reaches the `Err` branch of run_checks.
-        let runner = FakeRunner::FailedToSpawn;
-        let outcomes = run_checks(runner, "submission", &checks("check")).await;
+        let runner = ScriptedRunner::new(vec![Reply::FailedToSpawn]);
+        let outcomes = run_checks(runner, "submission", &check_strings(1)).await;
         assert!(
             matches!(outcomes.as_slice(), [CheckOutcome::Fail { .. }]),
             "a launch failure cannot leave the check unclassified, got {outcomes:?}"

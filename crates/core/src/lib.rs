@@ -15,6 +15,7 @@
 #![deny(missing_docs)]
 
 pub mod course;
+pub mod grade;
 pub mod lesson;
 pub mod runner;
 

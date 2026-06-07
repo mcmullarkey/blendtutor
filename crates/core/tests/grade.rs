@@ -7,7 +7,7 @@
 //! `docs/agent-notes/workspace-and-ci.md`). The pure runner-selection test needs
 //! no interpreter and always runs.
 
-use blendtutor_core::grade::{run_checks, select_runner, CheckOutcome};
+use blendtutor_core::grade::{CheckOutcome, run_checks, select_runner};
 use blendtutor_core::lesson::Lesson;
 
 /// True (after printing a notice) when `Rscript` is not on `PATH`, so a

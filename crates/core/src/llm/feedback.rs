@@ -111,6 +111,11 @@ impl From<rig_core::extractor::ExtractionError> for FeedbackError {
     /// unparseable response (§1.2): a `CompletionError` is a transport/auth/model
     /// failure, while a deserialize failure or missing tool call means the
     /// response could not be turned into a verdict.
+    ///
+    /// The match is deliberately exhaustive with no wildcard arm: if a future rig
+    /// version adds an `ExtractionError` variant, this fails to compile until we
+    /// decide which `FeedbackError` it maps to, rather than silently funnelling it
+    /// into the wrong kind.
     fn from(error: rig_core::extractor::ExtractionError) -> Self {
         use rig_core::extractor::ExtractionError;
         match error {
@@ -230,6 +235,24 @@ mod tests {
         assert!(
             matches!(bad_field, FeedbackError::Extraction(_)),
             "a deserialize failure is an extraction failure, got {bad_field:?}"
+        );
+    }
+
+    #[test]
+    fn completion_errors_map_to_the_completion_kind() {
+        use rig_core::completion::CompletionError;
+        use rig_core::extractor::ExtractionError;
+
+        // A provider/transport-level failure (e.g. a 401) maps to Completion, kept
+        // distinct from a malformed-response Extraction failure (§1.2) so the
+        // caller can tell "fix the key / retry" from "the model's output was bad".
+        let provider_err = ExtractionError::CompletionError(CompletionError::ProviderError(
+            "401 unauthorized".to_string(),
+        ));
+        let mapped: FeedbackError = provider_err.into();
+        assert!(
+            matches!(mapped, FeedbackError::Completion(_)),
+            "a completion failure maps to Completion, got {mapped:?}"
         );
     }
 }

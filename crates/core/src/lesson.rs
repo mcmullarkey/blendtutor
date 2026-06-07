@@ -97,9 +97,11 @@ pub struct Lesson {
     /// The exercise the lesson poses. Required.
     pub exercise: Exercise,
     /// Executable check code-strings, run against a submission in the lesson's
-    /// language to grade it (Slice 9). Optional and defaulting to empty: a lesson
-    /// with no checks is graded by the LLM alone (the R package's model), so an
-    /// author need not write checks and every existing lesson stays valid (§1.2).
+    /// language to grade it (Slice 9). A `Vec` defaulting to empty, not an
+    /// `Option<Vec>`: "no checks" is just the empty list, so there is no
+    /// redundant null state forcing absence-handling downstream (§1.1). A lesson
+    /// graded by the LLM alone (the R package's model) therefore needs no
+    /// `checks` key, and every existing lesson stays valid.
     #[serde(default)]
     pub checks: Vec<String>,
     /// Optional one-line summary.

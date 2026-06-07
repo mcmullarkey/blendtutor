@@ -86,3 +86,51 @@ fn init_scaffolds_a_ready_course_that_list_accepts() {
         "the scaffolded course lists at least one valid lesson; rows={rows:?}"
     );
 }
+
+#[test]
+fn init_refuses_a_nonempty_target_leaving_it_untouched() {
+    let dir = tempfile::tempdir().unwrap();
+    let course = dir.path();
+    let sentinel = course.join("sentinel.txt");
+    std::fs::write(&sentinel, "KEEP").unwrap();
+
+    let output = Command::cargo_bin("blendtutor")
+        .unwrap()
+        .arg("init")
+        .arg(course)
+        .output()
+        .unwrap();
+
+    // Refuses rather than overwriting: nonzero exit with a clear message that the
+    // target is not empty.
+    assert!(
+        !output.status.success(),
+        "init must refuse a non-empty target, got {:?}; stderr={:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .to_lowercase()
+            .contains("not empty"),
+        "the refusal should explain the target is not empty; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // The pre-existing file is byte-for-byte untouched.
+    assert_eq!(
+        std::fs::read_to_string(&sentinel).unwrap(),
+        "KEEP",
+        "the guard must fire before any write, leaving existing files intact"
+    );
+
+    // Nothing else was created: the guard precedes every write, so a
+    // partial-clobber (write some files, then notice the dir is non-empty) cannot
+    // happen. The directory still holds only its pre-existing file.
+    let names = entry_names(course);
+    assert_eq!(
+        names,
+        vec!["sentinel.txt".to_string()],
+        "no scaffold artifact should appear in a refused target; got {names:?}"
+    );
+}

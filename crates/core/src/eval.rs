@@ -319,7 +319,16 @@ pub struct EvalRunError {
 
 impl fmt::Display for EvalRunError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "eval case {} failed to run: {}", self.index, self.source)
+        // One-based for the instructor, matching the report's `case N` rows; the
+        // field stays a zero-based index. (Slice-12's `EvalParseError` reports the
+        // zero-based logical index instead — a parse-time developer concern, its
+        // tested contract left untouched here.)
+        write!(
+            f,
+            "eval case {} failed to run: {}",
+            self.index + 1,
+            self.source
+        )
     }
 }
 
@@ -441,7 +450,10 @@ mod tests {
     fn score_case_matches_same_polarity_and_rejects_the_opposite() {
         // Exact polarity equality both ways, so a one-directional or constant
         // implementation cannot pass.
-        assert!(score_case(&ExpectedVerdict::Correct, &ExpectedVerdict::Correct));
+        assert!(score_case(
+            &ExpectedVerdict::Correct,
+            &ExpectedVerdict::Correct
+        ));
         assert!(score_case(
             &ExpectedVerdict::Incorrect,
             &ExpectedVerdict::Incorrect

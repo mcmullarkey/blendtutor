@@ -534,4 +534,27 @@ mod tests {
         );
         assert_eq!(render_list(&empty, OutputFormat::Json), "[]");
     }
+
+    /// Pin the human rendering of an eval report — the accuracy headline and the
+    /// 1-based per-case rows with their `[match]`/`[mismatch]` markers — so any
+    /// drift in wording, numbering, or the fraction/percentage fails loudly. The
+    /// fixture is the AC1 shape (two matches, one mismatch → 2/3).
+    #[test]
+    fn eval_human_matches_snapshot() {
+        use blendtutor_core::eval::{CaseResult, EvalReport, ExpectedVerdict};
+
+        let correct = Verdict::Correct {
+            message: "well done".to_string(),
+        };
+        let incorrect = Verdict::Incorrect {
+            message: "try again".to_string(),
+        };
+        let report = EvalReport::new(vec![
+            CaseResult::score(ExpectedVerdict::Correct, &correct),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
+            CaseResult::score(ExpectedVerdict::Correct, &incorrect),
+        ]);
+
+        insta::assert_snapshot!(render_eval(&report));
+    }
 }

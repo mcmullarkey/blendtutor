@@ -161,6 +161,7 @@ name = "blendtutor-core"
 version = "0.1.0"
 dependencies = [
  "command-group",
+ "insta",
  "serde",
  "serde-saphyr",
  "serde_json",

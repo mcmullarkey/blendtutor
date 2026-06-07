@@ -7,7 +7,7 @@
 //! `docs/agent-notes/workspace-and-ci.md`). The pure runner-selection test needs
 //! no interpreter and always runs.
 
-use blendtutor_core::grade::{CheckOutcome, run_checks, select_runner};
+use blendtutor_core::grade::{CheckOutcome, RunnerKind, run_checks, select_runner};
 use blendtutor_core::lesson::Lesson;
 
 /// True (after printing a notice) when `Rscript` is not on `PATH`, so a
@@ -70,5 +70,32 @@ async fn r_runner_reports_per_check_pass_fail() {
         matches!(outcomes[1], CheckOutcome::Fail { .. }),
         "check 2 (a property the submission lacks) must fail, got {:?}",
         outcomes[1]
+    );
+}
+
+/// A minimal `language: Python` lesson with one trivial check and the required
+/// valid exercise. Parsing it (rather than hand-building a `Language`) proves the
+/// real lesson field drives selection.
+const LESSON_PYTHON_MINIMAL: &str = r#"
+lesson_name: "Py Adder"
+language: Python
+checks:
+  - "assert True"
+exercise:
+  prompt: "Write a function add_two(x, y)."
+  llm_evaluation_prompt: "Grade this submission: {student_code}"
+"#;
+
+/// AC2 — a `language: Python` lesson auto-selects the Python runner. The
+/// assertion is on the *selected runner's identity*, not on any executed output,
+/// so it needs no interpreter on `PATH`. `select_runner` matches the language
+/// exhaustively with no wildcard arm, so an R-hardcoded or `_`-defaulting impl
+/// would return the R runner here and fail the `RunnerKind::Python` match.
+#[test]
+fn python_lesson_selects_python_runner() {
+    let lesson = Lesson::parse(LESSON_PYTHON_MINIMAL).expect("fixture lesson is valid");
+    assert!(
+        matches!(select_runner(&lesson.language), RunnerKind::Python(_)),
+        "a language: Python lesson must select the Python runner"
     );
 }

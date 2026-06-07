@@ -279,9 +279,18 @@ fn render_list(report: &ListReport, format: OutputFormat) -> String {
     }
 }
 
+/// The first line of a possibly multi-line value. A lesson title (a YAML block
+/// scalar) or a discovery error (the multi-line parser message) would otherwise
+/// embed newlines into a table row and break its alignment; the full text is
+/// kept in the JSON view for machine consumers.
+fn first_line(text: &str) -> &str {
+    text.lines().next().unwrap_or("")
+}
+
 /// The human listing: one aligned `id  language  title` line per lesson, with a
-/// failed lesson shown as an `ERROR` row carrying its message. An empty course
-/// says so rather than printing nothing.
+/// failed lesson shown as an `ERROR` row carrying its message. Each cell is
+/// reduced to its first line so a multi-line title or error cannot break the
+/// table. An empty course says so rather than printing nothing.
 fn render_list_human(report: &ListReport) -> String {
     if report.rows.is_empty() {
         return "No lessons found.".to_string();
@@ -289,7 +298,7 @@ fn render_list_human(report: &ListReport) -> String {
     let id_width = report
         .rows
         .iter()
-        .map(|row| row.id().len())
+        .map(|row| first_line(row.id()).len())
         .max()
         .unwrap_or(0);
     report
@@ -300,8 +309,18 @@ fn render_list_human(report: &ListReport) -> String {
                 id,
                 language,
                 title,
-            } => format!("{id:<id_width$}  {:<7}  {title}", language_code(language)),
-            LessonRow::Failed { id, error } => format!("{id:<id_width$}  {:<7}  {error}", "ERROR"),
+            } => format!(
+                "{:<id_width$}  {:<7}  {}",
+                first_line(id),
+                language_code(language),
+                first_line(title)
+            ),
+            LessonRow::Failed { id, error } => format!(
+                "{:<id_width$}  {:<7}  {}",
+                first_line(id),
+                "ERROR",
+                first_line(error)
+            ),
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -363,7 +382,10 @@ mod tests {
                 },
                 LessonRow::Failed {
                     id: "broken".to_string(),
-                    error: "invalid lesson: missing field `language`".to_string(),
+                    // A realistic, multi-line parser message: the human table must
+                    // flatten it to one line while JSON keeps it whole.
+                    error: "invalid lesson: missing field `language`\n --> <input>:5:1\n  | ^"
+                        .to_string(),
                 },
             ],
         }
@@ -405,7 +427,12 @@ mod tests {
             "a failed row has no language"
         );
         assert!(rows[2]["title"].is_null(), "a failed row has no title");
-        assert_eq!(rows[2]["error"], "invalid lesson: missing field `language`");
+        // JSON keeps the full multi-line message — machine consumers get every
+        // line, unlike the human table which shows only the first.
+        assert_eq!(
+            rows[2]["error"],
+            "invalid lesson: missing field `language`\n --> <input>:5:1\n  | ^"
+        );
     }
 
     /// An empty course is a real, if unusual, state: human says so in words and

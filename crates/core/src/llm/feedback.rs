@@ -77,6 +77,11 @@ impl From<Feedback> for Verdict {
 /// `anyhow` (ADR-0001); the CLI maps it at the edge.
 #[derive(Debug)]
 pub enum FeedbackError {
+    /// The active provider's API key environment variable is unset or empty.
+    MissingApiKey {
+        /// The env var that must be set (e.g. `FIREWORKS_API_KEY`).
+        var: &'static str,
+    },
     /// The provider client could not be constructed.
     Client(String),
     /// The completion request itself failed — a transport, auth, or model error
@@ -92,6 +97,9 @@ pub enum FeedbackError {
 impl fmt::Display for FeedbackError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            FeedbackError::MissingApiKey { var } => {
+                write!(f, "{var} is not set — set your {var} to use this provider")
+            }
             FeedbackError::Client(msg) => write!(f, "could not build the provider client: {msg}"),
             FeedbackError::Completion(msg) => write!(f, "the feedback request failed: {msg}"),
             FeedbackError::Extraction(msg) => {
@@ -143,7 +151,9 @@ pub async fn request_feedback(
     prompt: &Prompt,
     base_url_override: Option<&str>,
 ) -> Result<Verdict, FeedbackError> {
-    let key = std::env::var(provider.key_var()).unwrap_or_default();
+    // The boundary guard fires first (§1.3.1): a missing key is a clear typed
+    // error naming the var, before any rig client is built or any socket opened.
+    let key = require_api_key(provider)?;
     let base_url = base_url_override.unwrap_or(provider.default_base_url());
     let model = provider.default_model();
 
@@ -181,6 +191,20 @@ pub async fn request_feedback(
     };
 
     extracted.map(Verdict::from).map_err(FeedbackError::from)
+}
+
+/// Read the active provider's API key, treating unset **or empty** as missing.
+///
+/// The boundary guard for [`request_feedback`] (§1.3.1): it runs before any rig
+/// client is built or socket opened, so a missing key surfaces as a clear typed
+/// error naming the variable rather than a downstream auth failure or connection
+/// error. An empty string is treated as unset — some shells export an empty value.
+fn require_api_key(provider: ProviderChoice) -> Result<String, FeedbackError> {
+    let var = provider.key_var();
+    match std::env::var(var) {
+        Ok(key) if !key.is_empty() => Ok(key),
+        _ => Err(FeedbackError::MissingApiKey { var }),
+    }
 }
 
 #[cfg(test)]

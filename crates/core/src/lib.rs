@@ -21,6 +21,7 @@ pub mod lesson;
 pub mod llm;
 pub mod run;
 pub mod runner;
+pub mod scaffold;
 
 use std::error::Error;
 use std::fmt;

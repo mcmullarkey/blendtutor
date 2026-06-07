@@ -1,0 +1,8 @@
+# Keep local LLM provider API keys out of version control. blendtutor reads the
+# provider key (e.g. FIREWORKS_API_KEY, ANTHROPIC_API_KEY) from the environment;
+# if you keep it in a local dotenv or key file, these patterns stop it being
+# committed alongside your course.
+.env
+.env.*
+.Renviron
+*.key

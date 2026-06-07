@@ -99,3 +99,48 @@ fn python_lesson_selects_python_runner() {
         "a language: Python lesson must select the Python runner"
     );
 }
+
+/// An R lesson with a single check, for the submission-error case.
+const LESSON_R_ONE_CHECK: &str = r#"
+lesson_name: "Adder"
+language: R
+checks:
+  - "stopifnot(add_two(2, 3) == 5)"
+exercise:
+  prompt: "Write a function add_two(x, y)."
+  llm_evaluation_prompt: "Grade this submission: {student_code}"
+"#;
+
+/// An un-parseable R submission: `x <-` has no right-hand side, so it is a syntax
+/// error that cannot execute at all — categorically different from a submission
+/// that runs and violates a check.
+const SUBMISSION_R_SYNTAX_ERROR: &str = "x <- ";
+
+/// AC3 — a submission that errors *before* any check can run is reported as
+/// `NotRun`, distinct from a check the submission ran and failed. Both halves are
+/// pinned: the outcome is `NotRun{..}` AND it is not `Fail{..}`, so an impl that
+/// maps "interpreter exited non-zero" onto `Fail` (the bug this AC guards
+/// against) is caught — "not Pass" alone would let a `Fail` through.
+#[tokio::test]
+async fn submission_error_is_notrun_not_fail() {
+    if rscript_absent() {
+        return;
+    }
+
+    let lesson = Lesson::parse(LESSON_R_ONE_CHECK).expect("fixture lesson is valid");
+    let runner = select_runner(&lesson.language);
+
+    let outcomes = run_checks(runner, SUBMISSION_R_SYNTAX_ERROR, &lesson.checks).await;
+
+    assert_eq!(outcomes.len(), 1, "one outcome for the single check");
+    assert!(
+        matches!(outcomes[0], CheckOutcome::NotRun { .. }),
+        "a submission that cannot execute is NotRun, got {:?}",
+        outcomes[0]
+    );
+    assert!(
+        !matches!(outcomes[0], CheckOutcome::Fail { .. }),
+        "a submission error must not be reported as a check failure, got {:?}",
+        outcomes[0]
+    );
+}

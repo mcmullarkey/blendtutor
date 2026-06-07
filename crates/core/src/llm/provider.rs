@@ -72,4 +72,43 @@ mod tests {
         assert_eq!(ProviderChoice::Fireworks.key_var(), "FIREWORKS_API_KEY");
         assert_eq!(ProviderChoice::Anthropic.key_var(), "ANTHROPIC_API_KEY");
     }
+
+    #[test]
+    fn each_provider_targets_its_own_api_host() {
+        // The base URL is the request root; rig appends the path. The integration
+        // tests always override it with a mock, so pin the real defaults here.
+        assert!(
+            ProviderChoice::Fireworks
+                .default_base_url()
+                .contains("api.fireworks.ai"),
+            "Fireworks targets its inference host, got {}",
+            ProviderChoice::Fireworks.default_base_url()
+        );
+        assert!(
+            ProviderChoice::Anthropic
+                .default_base_url()
+                .contains("api.anthropic.com"),
+            "Anthropic targets its native host, got {}",
+            ProviderChoice::Anthropic.default_base_url()
+        );
+    }
+
+    #[test]
+    fn each_provider_has_a_recognizable_default_model() {
+        // Pinned by a substring so a model-id bump stays green while an empty or
+        // wrong default does not (the mock ignores the model, so nothing else
+        // exercises this value).
+        assert!(
+            ProviderChoice::Fireworks
+                .default_model()
+                .contains("fireworks"),
+            "the Fireworks model id names the provider, got {}",
+            ProviderChoice::Fireworks.default_model()
+        );
+        assert!(
+            ProviderChoice::Anthropic.default_model().contains("claude"),
+            "the Anthropic model id is a Claude model, got {}",
+            ProviderChoice::Anthropic.default_model()
+        );
+    }
 }

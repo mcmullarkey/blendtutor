@@ -14,9 +14,10 @@ use crate::runner::{ExecutionResult, PythonRunner, RRunner, Runner, RunnerError}
 /// The verdict for a single lesson check.
 ///
 /// A sum type, not a `bool`, so per-check verdicts stay distinct and the grader
-/// never folds them into one aggregate (§1.2). Slice 9 begins with the two
-/// states a *running* submission produces; a submission that cannot run at all
-/// gains its own variant in AC3 rather than masquerading as a failure.
+/// never folds them into one aggregate (§1.2). Three real states: the check
+/// passed, the submission ran and violated it, and — kept deliberately separate
+/// from a failure (§3.3) — the submission could not run at all, so no check ever
+/// got a verdict.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CheckOutcome {
     /// The submission satisfied the check.
@@ -26,6 +27,14 @@ pub enum CheckOutcome {
         /// What the interpreter wrote when the check failed — typically the
         /// failing assertion on stderr.
         detail: String,
+    },
+    /// The submission could not be executed at all (a syntax error, or the
+    /// interpreter failed to launch), so this check never ran. Distinct from
+    /// [`Fail`](CheckOutcome::Fail): the submission was never even evaluated.
+    NotRun {
+        /// Why the submission could not run — the interpreter's diagnostic, or
+        /// the launch error.
+        reason: String,
     },
 }
 
@@ -73,15 +82,30 @@ pub fn select_runner(language: &Language) -> RunnerKind {
 /// Run each `check` against `submission` through `runner`, returning one
 /// [`CheckOutcome`] per check, in order.
 ///
-/// Effectful: each check is the `submission` followed by the check code-string,
-/// executed in the runner; the check passes when that program exits cleanly and
-/// fails otherwise (§2.2). Outcomes are element-wise — never folded into a single
-/// aggregate verdict — so a caller sees exactly which checks held.
+/// Effectful (§2.2). The submission is first run **on its own**: if it cannot
+/// execute — a syntax error, or a launch failure — every check is
+/// [`NotRun`](CheckOutcome::NotRun), because no check could have a verdict
+/// (§3.3). This standalone gate is load-bearing: concatenating the submission
+/// with a check and reading the combined exit code cannot tell a broken
+/// submission from a violated check (and some interpreters, R among them, would
+/// even splice an unterminated submission into the check). Once the submission
+/// runs cleanly, each check is the submission followed by the check code-string;
+/// the check passes when that program exits cleanly and fails otherwise.
+/// Outcomes are element-wise — never folded into a single aggregate verdict.
 pub async fn run_checks(
     runner: impl Runner,
     submission: &str,
     checks: &[String],
 ) -> Vec<CheckOutcome> {
+    if let Some(reason) = submission_run_failure(&runner, submission).await {
+        return checks
+            .iter()
+            .map(|_| CheckOutcome::NotRun {
+                reason: reason.clone(),
+            })
+            .collect();
+    }
+
     let mut outcomes = Vec::with_capacity(checks.len());
     for check in checks {
         let program = format!("{submission}\n{check}");
@@ -97,6 +121,22 @@ pub async fn run_checks(
         outcomes.push(outcome);
     }
     outcomes
+}
+
+/// Run `submission` on its own and report why it could not run, or `None` if it
+/// ran cleanly.
+///
+/// The gate that makes "errored before checks" distinct from a check verdict
+/// (§3.3, §5.1): a non-zero exit means the submission ran and failed (a syntax
+/// error surfaces here), and an [`Err`] means the interpreter never launched —
+/// both are reasons no check can run. A clean exit is `None`, so the caller
+/// proceeds to the checks.
+async fn submission_run_failure(runner: &impl Runner, submission: &str) -> Option<String> {
+    match runner.execute(submission, &[]).await {
+        Ok(result) if result.exit == Some(0) => None,
+        Ok(result) => Some(result.stderr),
+        Err(error) => Some(error.to_string()),
+    }
 }
 
 #[cfg(test)]
@@ -179,14 +219,25 @@ mod tests {
         );
     }
 
+    /// A reply for a submission that ran cleanly on its own — the gate's
+    /// pass-through, so a test's script can focus on the checks that follow it.
+    fn clean() -> Reply {
+        Reply::Exited {
+            code: 0,
+            stderr: String::new(),
+        }
+    }
+
     #[tokio::test]
     async fn checks_are_classified_element_wise_in_order() {
-        // First check exits clean → Pass; second exits non-zero → Fail carrying
-        // its stderr. Replaying distinct replies in call order means a grader that
-        // reversed, folded, or mis-paired the results cannot reproduce this exact
-        // ordered vector — pinning both the per-exit-code classification and the
-        // element-wise order off any live interpreter.
+        // The submission passes the gate, then the first check exits clean → Pass
+        // and the second exits non-zero → Fail carrying its stderr. Replaying
+        // distinct replies in call order means a grader that reversed, folded, or
+        // mis-paired the results cannot reproduce this exact ordered vector —
+        // pinning the per-exit-code classification and the element-wise order off
+        // any live interpreter.
         let runner = ScriptedRunner::new(vec![
+            clean(),
             Reply::Exited {
                 code: 0,
                 stderr: String::new(),
@@ -210,14 +261,51 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_check_whose_interpreter_cannot_launch_is_a_fail() {
-        // The spawn-failure arm: a real interpreter present on `PATH` never
-        // produces it, so only this fake reaches the `Err` branch of run_checks.
+    async fn a_submission_that_exits_nonzero_makes_every_check_notrun() {
+        // The submission runs but exits non-zero on its own (e.g. a syntax error):
+        // the gate fails, so every check is NotRun carrying the submission's
+        // stderr — never Fail — and no check is executed at all.
+        let runner = ScriptedRunner::new(vec![Reply::Exited {
+            code: 1,
+            stderr: "could not parse submission".to_string(),
+        }]);
+        let outcomes = run_checks(runner, "broken submission", &check_strings(2)).await;
+        assert_eq!(
+            outcomes,
+            vec![
+                CheckOutcome::NotRun {
+                    reason: "could not parse submission".to_string()
+                },
+                CheckOutcome::NotRun {
+                    reason: "could not parse submission".to_string()
+                },
+            ],
+            "a submission that cannot run makes every check NotRun, not Fail"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_submission_whose_interpreter_cannot_launch_makes_checks_notrun() {
+        // The gate's other failure arm: the interpreter never launched for the
+        // submission, so the checks are NotRun, distinct from a check failure.
         let runner = ScriptedRunner::new(vec![Reply::FailedToSpawn]);
         let outcomes = run_checks(runner, "submission", &check_strings(1)).await;
         assert!(
+            matches!(outcomes.as_slice(), [CheckOutcome::NotRun { .. }]),
+            "a submission launch failure is NotRun, got {outcomes:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_check_whose_interpreter_cannot_launch_is_a_fail() {
+        // After the submission passes the gate, a per-check launch failure is a
+        // Fail — the check could not produce a verdict — NOT a NotRun, which is
+        // reserved for the submission itself failing to run.
+        let runner = ScriptedRunner::new(vec![clean(), Reply::FailedToSpawn]);
+        let outcomes = run_checks(runner, "submission", &check_strings(1)).await;
+        assert!(
             matches!(outcomes.as_slice(), [CheckOutcome::Fail { .. }]),
-            "a launch failure cannot leave the check unclassified, got {outcomes:?}"
+            "a per-check launch failure after a clean submission is a Fail, got {outcomes:?}"
         );
     }
 }

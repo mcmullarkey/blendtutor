@@ -111,9 +111,12 @@ exercise:
   llm_evaluation_prompt: "Grade this submission: {student_code}"
 "#;
 
-/// An un-parseable R submission: `x <-` has no right-hand side, so it is a syntax
-/// error that cannot execute at all — categorically different from a submission
-/// that runs and violates a check.
+/// An un-parseable R submission: `x <-` has no right-hand side, so run *on its
+/// own* it is a syntax error (`Rscript` exits non-zero with "unexpected end of
+/// input"). This pins the standalone-gate mechanism: the grader must evaluate the
+/// submission alone, not concatenated with a check — R would splice `x <-` onto
+/// the next line and the failure would surface as a check-style "could not find
+/// function" error, masquerading as a `Fail`.
 const SUBMISSION_R_SYNTAX_ERROR: &str = "x <- ";
 
 /// AC3 — a submission that errors *before* any check can run is reported as

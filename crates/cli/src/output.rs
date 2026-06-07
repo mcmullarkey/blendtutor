@@ -194,4 +194,21 @@ mod tests {
         assert_eq!(rendered.stream, Stream::Out);
         insta::assert_snapshot!(rendered.text);
     }
+
+    /// Pin the human rendering of an *invalid* lesson — the twin of the valid
+    /// render (§3.2): findings joined one per line, on stderr. Without this, the
+    /// join/ordering of the failing branch could drift unnoticed.
+    #[test]
+    fn validate_human_invalid_matches_snapshot() {
+        let report = ValidateReport::invalid(
+            "exercise.prompt is required".to_string(),
+            vec!["exercise.llm_evaluation_prompt is required".to_string()],
+        );
+
+        let rendered = render_validate(&report, OutputFormat::Human);
+
+        // Findings are diagnostics, so they belong on stderr.
+        assert_eq!(rendered.stream, Stream::Err);
+        insta::assert_snapshot!(rendered.text);
+    }
 }

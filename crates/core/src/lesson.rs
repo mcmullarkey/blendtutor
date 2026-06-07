@@ -137,7 +137,7 @@ impl Lesson {
     /// The pure parse boundary (§2.1, §1.3.1): it deserializes the document into
     /// the typed model — a missing required field or wrong type yields
     /// [`ValidationError::Parse`] naming the field — then runs
-    /// [`validate_semantics`](Lesson::validate_semantics) for the rules structure
+    /// `validate_semantics` for the rules structure
     /// alone cannot express. Returns a [`Lesson`] only if both succeed.
     pub fn parse(yaml: &str) -> Result<Lesson, ValidationError> {
         let lesson: Lesson =

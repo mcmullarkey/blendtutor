@@ -107,7 +107,7 @@ fn escapes_course_dir(path: &Path) -> bool {
 /// Why a `blendtutor.toml` could not be turned into a [`Manifest`].
 ///
 /// Read failures stay distinct from parse failures (mirroring
-/// [`LoadError`](crate::lesson::LoadError)) so a missing manifest is never
+/// [`LoadError`]) so a missing manifest is never
 /// reported as a malformed one.
 #[derive(Debug)]
 pub enum ManifestError {
@@ -181,7 +181,7 @@ impl Course {
     /// Each entry yields `Ok(LessonSummary)` if its lesson loads and validates,
     /// or `Err(DiscoveryError)` carrying the entry's slug if it does not — so a
     /// malformed lesson neither aborts the scan nor disappears (ADR-0004, §1.2).
-    /// The per-lesson read is effectful; the [`summarize`] it feeds is pure
+    /// The per-lesson read is effectful; the `summarize` it feeds is pure
     /// (§2.1, §2.2), depending on [`crate::lesson`] in one direction (§3.1).
     pub fn discover(&self) -> Vec<Result<LessonSummary, DiscoveryError>> {
         self.manifest

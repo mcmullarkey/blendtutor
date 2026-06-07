@@ -119,11 +119,26 @@ pub fn dead_provider_url() -> String {
 /// server on the test runtime keeps serving while this blocks. The key is set on
 /// the **child** (never the test process), so tests need no serialization.
 pub fn blendtutor_output(args: Vec<String>, provider_url: String) -> std::process::Output {
-    Command::cargo_bin("blendtutor")
-        .expect("binary `blendtutor` should be built")
+    blendtutor_output_env(args, provider_url, Vec::new())
+}
+
+/// Like [`blendtutor_output`], but also sets `extra_env` on the child — used to
+/// drive the diagnostics path (e.g. `RUST_LOG`) while asserting stdout stays a
+/// clean machine document.
+pub fn blendtutor_output_env(
+    args: Vec<String>,
+    provider_url: String,
+    extra_env: Vec<(&'static str, &'static str)>,
+) -> std::process::Output {
+    let mut command = Command::cargo_bin("blendtutor").expect("binary `blendtutor` should be built");
+    command
         .args(&args)
         .env("FIREWORKS_API_KEY", "test-key")
-        .env("BLENDTUTOR_PROVIDER_URL", provider_url)
+        .env("BLENDTUTOR_PROVIDER_URL", provider_url);
+    for (key, value) in extra_env {
+        command.env(key, value);
+    }
+    command
         .output()
         .expect("running `blendtutor run` should produce output")
 }

@@ -9,8 +9,8 @@
 mod common;
 
 use common::{
-    CORRECT_CODE, LESSON, WRONG_CODE, blendtutor_output, dead_provider_url, mount_feedback,
-    rscript_absent,
+    CORRECT_CODE, LESSON, WRONG_CODE, blendtutor_output, blendtutor_output_env, dead_provider_url,
+    mount_feedback, rscript_absent,
 };
 use predicates::prelude::*;
 use wiremock::MockServer;
@@ -18,8 +18,17 @@ use wiremock::MockServer;
 /// Run `blendtutor run` with `args`, serving `server` as the provider, inside
 /// `spawn_blocking` so the test runtime keeps answering the child's request.
 async fn run_against(server: &MockServer, args: Vec<String>) -> std::process::Output {
+    run_against_env(server, args, Vec::new()).await
+}
+
+/// Like [`run_against`], but also sets `extra_env` on the child.
+async fn run_against_env(
+    server: &MockServer,
+    args: Vec<String>,
+    extra_env: Vec<(&'static str, &'static str)>,
+) -> std::process::Output {
     let uri = server.uri();
-    tokio::task::spawn_blocking(move || blendtutor_output(args, uri))
+    tokio::task::spawn_blocking(move || blendtutor_output_env(args, uri, extra_env))
         .await
         .expect("the blocking command task should join")
 }
@@ -175,5 +184,130 @@ fn run_provider_error_exits_one() {
         code,
         Some(2),
         "a transport failure is an error (1), not a 'not yet correct' verdict (2)"
+    );
+}
+
+/// The argument vector for `run <LESSON> --code <code> --format json`.
+fn run_json_args(code: &str) -> Vec<String> {
+    let mut args = run_args(code);
+    args.push("--format".to_string());
+    args.push("json".to_string());
+    args
+}
+
+/// True when `bytes` are exactly one parseable JSON document (the whole buffer
+/// parses; trailing log/prose bytes would make this `false`).
+fn is_one_json_document(bytes: &[u8]) -> bool {
+    serde_json::from_slice::<serde_json::Value>(bytes).is_ok()
+}
+
+/// AC3 — `--format json` emits exactly one JSON document on stdout with the four
+/// well-typed keys, and keeps diagnostics off stdout.
+///
+/// Parsing the whole stdout buffer is the "exactly one document" check: any
+/// interleaved log line or trailing prose would make it fail. Each key is typed
+/// (verdict/feedback strings, checks an array, output a string or object), so a
+/// stringified `"[]"` or a missing key is caught.
+#[tokio::test]
+async fn run_format_json_emits_one_typed_report() {
+    if rscript_absent() {
+        return;
+    }
+    let feedback = "Looks right — the sum is returned.";
+    let server = MockServer::start().await;
+    mount_feedback(&server, true, feedback).await;
+
+    let output = run_against(&server, run_json_args(CORRECT_CODE)).await;
+
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "a correct submission in json mode exits 0; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap_or_else(|e| {
+        panic!(
+            "stdout must be exactly one JSON document, parse failed: {e}; stdout={:?}",
+            String::from_utf8_lossy(&output.stdout)
+        )
+    });
+    assert!(value.is_object(), "the report is a JSON object, got {value}");
+    assert_eq!(value["verdict"], "correct", "verdict is the string tag");
+    assert!(value["verdict"].is_string(), "verdict is a string, got {value}");
+    assert_eq!(value["feedback"], feedback, "feedback is the model's message");
+    assert!(value["feedback"].is_string(), "feedback is a string, got {value}");
+    assert!(value["checks"].is_array(), "checks is an array, got {value}");
+    assert!(
+        value["checks"].as_array().expect("checks array").is_empty(),
+        "a checkless lesson serializes checks as [], not a stringified list, got {value}"
+    );
+    let output_kind = &value["output"];
+    assert!(
+        output_kind.is_string() || output_kind.is_object(),
+        "output is a string or object, got {value}"
+    );
+
+    // Diagnostics belong on stderr: stdout is the machine document alone.
+    let stderr_is_json_object = serde_json::from_slice::<serde_json::Value>(&output.stderr)
+        .map(|v| v.is_object())
+        .unwrap_or(false);
+    assert!(
+        !stderr_is_json_object,
+        "stdout carries the only JSON document; stderr must not, got: {:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// AC3 (negative) — the default human format is NOT JSON, so a consumer cannot
+/// accidentally parse human text as a machine document.
+#[tokio::test]
+async fn run_human_format_is_not_json() {
+    if rscript_absent() {
+        return;
+    }
+    let server = MockServer::start().await;
+    mount_feedback(&server, true, "Looks right.").await;
+
+    let output = run_against(&server, run_args(CORRECT_CODE)).await;
+
+    assert!(
+        output.status.success(),
+        "the human run still succeeds; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !is_one_json_document(&output.stdout),
+        "human output must not parse as JSON, got: {:?}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+/// AC3 — requesting logs (`RUST_LOG`) does not contaminate the json document:
+/// diagnostics stay off stdout, so the whole stdout buffer still re-parses clean.
+#[tokio::test]
+async fn run_format_json_stays_clean_under_logging() {
+    if rscript_absent() {
+        return;
+    }
+    let server = MockServer::start().await;
+    mount_feedback(&server, true, "Looks right.").await;
+
+    let output = run_against_env(
+        &server,
+        run_json_args(CORRECT_CODE),
+        vec![("RUST_LOG", "debug")],
+    )
+    .await;
+
+    assert!(
+        output.status.success(),
+        "the json run still succeeds under RUST_LOG; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        is_one_json_document(&output.stdout),
+        "stdout must stay one clean JSON document even with logging on, got: {:?}",
+        String::from_utf8_lossy(&output.stdout)
     );
 }

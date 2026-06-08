@@ -54,9 +54,17 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // The page shell, the in-browser runner (which boots webR), and the COOP/COEP
-    // shim all land.
-    for name in ["index.html", "lesson-runner.js", "coi-serviceworker.js"] {
+    // The page shell, the in-browser runner (which boots webR), the shared runner
+    // core the runner imports, and the COOP/COEP shim all land. The core is now a
+    // shared asset (factored in #17), and the webR runner `import`s it — so a
+    // regression that stopped emitting it would break webR at runtime; assert it
+    // lands here, mirroring the pyodide test (the symmetric twin).
+    for name in [
+        "index.html",
+        "lesson-runner.js",
+        "lesson-runner-core.js",
+        "coi-serviceworker.js",
+    ] {
         assert!(out.join(name).is_file(), "the built site is missing {name}");
     }
 

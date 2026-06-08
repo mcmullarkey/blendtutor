@@ -1,0 +1,7 @@
+# A Python-only course: an ordered list of Python lessons, each a stable course
+# slug `id` paired with its lesson file `path` (relative to this manifest). Drives
+# the `build --target pyodide` static-site assembly (Slice 17), mirroring the
+# all-R `r-course` fixture that drives the webR target.
+[[lessons]]
+id = "add-two"
+path = "add.yaml"

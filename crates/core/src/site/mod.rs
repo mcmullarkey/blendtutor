@@ -12,6 +12,7 @@
 //! (author side) and the JS runtime (learner side): a Rust-side change that keeps
 //! the JSON shape leaves the runtime untouched (§3.2).
 
+mod pyodide;
 mod webr;
 
 use std::error::Error;
@@ -137,13 +138,6 @@ pub enum PlanError {
         /// The target the build was asked for.
         target: BuildTarget,
     },
-    /// The target is recognized but its assembler is not built yet — the Pyodide
-    /// target arrives in Slice 17. Carried so a valid-but-unbuilt target fails
-    /// cleanly rather than panicking.
-    TargetUnsupported {
-        /// The not-yet-built target.
-        target: BuildTarget,
-    },
 }
 
 impl fmt::Display for PlanError {
@@ -159,14 +153,87 @@ impl fmt::Display for PlanError {
                  the {target} target's language ({:?})",
                 target.language()
             ),
-            PlanError::TargetUnsupported { target } => {
-                write!(f, "the {target} build target is not implemented yet")
-            }
         }
     }
 }
 
 impl Error for PlanError {}
+
+/// The in-browser runner core every target's `lesson-runner.js` imports: the
+/// cross-target scaffolding (lesson loading, rendering, pass/fail reporting) that
+/// a target's thin adapter sits atop. Shared, not duplicated per target (§4.2).
+const LESSON_RUNNER_CORE_JS: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/shared/lesson-runner-core.js"
+));
+/// The COOP/COEP service-worker shim, so cross-origin isolation (and so
+/// SharedArrayBuffer) works on GitHub Pages. Vendored once and shared by every
+/// target — the isolation it provides is runtime-agnostic.
+const COI_SERVICEWORKER_JS: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/shared/coi-serviceworker.js"
+));
+
+/// A build target's own client assets: its page shell and its runner adapter.
+///
+/// A named-field struct, not two positional `&str`s (§1.4): the shell and the
+/// runner are both HTML/JS strings of the same type, so a caller could silently
+/// transpose them — injecting runner JS where the page shell belongs — with no
+/// compile error. Naming the fields makes that illegal state unrepresentable at
+/// the one seam every target extends through.
+pub(super) struct TargetAssets<'a> {
+    /// The target's `index.html` page shell.
+    pub index_html: &'a str,
+    /// The target's `lesson-runner.js` runtime adapter.
+    pub lesson_runner_js: &'a str,
+}
+
+/// Assemble a site from one target's [`TargetAssets`] and the loaded lessons.
+///
+/// The shared scaffolding both targets reuse (§4.2): a target supplies only its
+/// own shell and runner; the runner core, the COOP/COEP shim, and the per-lesson
+/// JSON contract — keyed by position, never by slug, so an author's slug can never
+/// reach the filesystem as a path — are identical across targets and laid out here
+/// in deterministic order. The slug rides inside the JSON as `id`; `lessons.json`
+/// is the ordered slug index the runner enumerates.
+fn assemble(assets: TargetAssets<'_>, lessons: &[(LessonSlug, Lesson)]) -> SiteFiles {
+    let mut files = vec![
+        asset("index.html", assets.index_html),
+        asset("lesson-runner.js", assets.lesson_runner_js),
+        asset("lesson-runner-core.js", LESSON_RUNNER_CORE_JS),
+        asset("coi-serviceworker.js", COI_SERVICEWORKER_JS),
+    ];
+
+    let mut slugs = Vec::new();
+    for (index, (slug, lesson)) in lessons.iter().enumerate() {
+        let site_lesson = SiteLesson::from_lesson(slug, lesson);
+        files.push(SiteFile {
+            path: format!("lessons/{index}.json").into(),
+            contents: to_json(&site_lesson),
+        });
+        slugs.push(site_lesson.id);
+    }
+    files.push(SiteFile {
+        path: "lessons.json".into(),
+        contents: to_json(&slugs),
+    });
+
+    SiteFiles { files }
+}
+
+/// A static asset file copied verbatim into the site.
+fn asset(path: &str, contents: &str) -> SiteFile {
+    SiteFile {
+        path: path.into(),
+        contents: contents.to_string(),
+    }
+}
+
+/// Serialize a contract value to pretty JSON. Infallible for the plain-data
+/// contract types, so a failure is a programmer error, not a runtime condition.
+fn to_json<T: Serialize>(value: &T) -> String {
+    serde_json::to_string_pretty(value).expect("the site contract serializes infallibly")
+}
 
 /// Plan the static site for `lessons`, targeting `target`.
 ///
@@ -175,6 +242,8 @@ impl Error for PlanError {}
 /// snapshot-testable. Refuses a language/target mismatch before producing anything
 /// (§1.3.1): every lesson must be in the target's language, or the whole build
 /// fails with [`PlanError::LanguageMismatch`] and no [`SiteFiles`] are returned.
+/// Past that guard the build dispatches on the [`BuildTarget`] seam (§3.4) — each
+/// target contributing only its own shell + runner atop the shared `assemble`.
 pub fn plan_site(
     lessons: &[(LessonSlug, Lesson)],
     target: BuildTarget,
@@ -188,10 +257,10 @@ pub fn plan_site(
             });
         }
     }
-    match target {
-        BuildTarget::Webr => Ok(webr::plan(lessons)),
-        BuildTarget::Pyodide => Err(PlanError::TargetUnsupported { target }),
-    }
+    Ok(match target {
+        BuildTarget::Webr => webr::plan(lessons),
+        BuildTarget::Pyodide => pyodide::plan(lessons),
+    })
 }
 
 /// Write a planned site to `out_dir`, creating parent directories as needed.
@@ -228,20 +297,16 @@ mod tests {
         .expect("r-course lessons load")
     }
 
-    /// The Python-only subset of `course_basic` (its `greet` lesson) — a matching
-    /// course for the Pyodide target, used to reach the not-yet-built arm without
-    /// a dedicated Python fixture (that lands with Slice 17).
-    fn python_only() -> Vec<(LessonSlug, Lesson)> {
+    /// The all-Python `python-course` fixture's lessons in full (slug + parsed
+    /// lesson) — a matching course for the Pyodide target, mirroring `r_course`.
+    fn python_course() -> Vec<(LessonSlug, Lesson)> {
         Course::open(Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/course_basic"
+            "/tests/fixtures/python-course"
         )))
-        .expect("course_basic opens")
+        .expect("python-course opens")
         .load_lessons()
-        .expect("course_basic lessons load")
-        .into_iter()
-        .filter(|(_, lesson)| lesson.language == Language::Python)
-        .collect()
+        .expect("python-course lessons load")
     }
 
     /// Find a planned file by its relative path, or panic listing what is present.
@@ -305,7 +370,9 @@ mod tests {
                 .contains("webr"),
             "the runner boots webR"
         );
-        // The shim file exists (its referencing from index.html is asserted above).
+        // The shared runner core and the shim file both land (the shim's
+        // referencing from index.html is asserted above).
+        let _ = file(&site, "lesson-runner-core.js");
         let _ = file(&site, "coi-serviceworker.js");
 
         // One JSON per manifest entry — count matches the course, neither dropped
@@ -373,33 +440,84 @@ mod tests {
         // (§1.3.1) and returns no SiteFiles, so write_site is never reached.
         let err = plan_site(&r_course(), BuildTarget::Pyodide)
             .expect_err("an R course cannot be built for the Python target");
-        match err {
-            PlanError::LanguageMismatch {
-                lesson_language,
-                target,
-                ..
-            } => {
-                assert_eq!(lesson_language, Language::R);
-                assert_eq!(target, BuildTarget::Pyodide);
-            }
-            other => panic!("expected a language mismatch, got {other:?}"),
-        }
+        // PlanError has a single variant today, so a catch-all arm would be
+        // unreachable; assert the shape with `matches!`. A future variant keeps
+        // this honest — the R/Pyodide fields are pinned, not wildcarded.
+        assert!(
+            matches!(
+                &err,
+                PlanError::LanguageMismatch {
+                    lesson_language: Language::R,
+                    target: BuildTarget::Pyodide,
+                    ..
+                }
+            ),
+            "expected an R-vs-Pyodide language mismatch, got {err:?}"
+        );
     }
 
     #[test]
-    fn plan_site_pyodide_target_is_not_built_yet() {
-        // A matching (Python) course for Pyodide passes the language check but the
-        // assembler is not built until Slice 17.
-        let err = plan_site(&python_only(), BuildTarget::Pyodide)
-            .expect_err("the pyodide assembler is not implemented in this slice");
+    fn plan_site_pyodide_assembles_the_shell_runner_core_shim_and_one_json_per_lesson() {
+        let site = plan_site(&python_course(), BuildTarget::Pyodide)
+            .expect("an all-Python course plans for pyodide");
+
+        // The shell boots the Pyodide runtime and references the COOP/COEP shim;
+        // the runner boots Pyodide — not webR — so this is genuinely the Python
+        // target and not a verbatim copy of the webR assets.
+        let index = &file(&site, "index.html").contents;
+        assert!(index.contains("coi-serviceworker.js"));
         assert!(
-            matches!(
-                err,
-                PlanError::TargetUnsupported {
-                    target: BuildTarget::Pyodide
-                }
-            ),
-            "expected TargetUnsupported(Pyodide), got {err:?}"
+            index.to_lowercase().contains("pyodide"),
+            "index.html boots the Pyodide runtime"
+        );
+        assert!(
+            file(&site, "lesson-runner.js")
+                .contents
+                .to_lowercase()
+                .contains("pyodide"),
+            "the runner boots Pyodide"
+        );
+        // The shared runner core and the shim both land (referencing asserted above).
+        let _ = file(&site, "lesson-runner-core.js");
+        let _ = file(&site, "coi-serviceworker.js");
+
+        // One JSON per manifest entry — the same per-lesson contract the webR
+        // target produces, carried across the seam unchanged (§3.2).
+        let per_lesson = site
+            .files()
+            .iter()
+            .filter(|f| f.path.starts_with("lessons/"))
+            .count();
+        assert_eq!(per_lesson, 1, "one lesson -> one per-lesson JSON file");
+        let first: Value = serde_json::from_str(&file(&site, "lessons/0.json").contents)
+            .expect("the per-lesson JSON parses");
+        assert_eq!(first["id"], "add-two");
+        assert_eq!(first["title"], "Add Two Numbers");
+        let index_json: Value =
+            serde_json::from_str(&file(&site, "lessons.json").contents).expect("index parses");
+        assert_eq!(index_json, serde_json::json!(["add-two"]));
+    }
+
+    #[test]
+    fn plan_site_carries_the_same_shared_core_and_shim_across_both_targets() {
+        // The seam's payoff (§3.2, §4.2): the shared runner core and the COOP/COEP
+        // shim are byte-identical whichever target produced them — only the shell
+        // and runner glue differ. A divergence here means a target forked the
+        // shared scaffolding instead of reusing it.
+        let webr = plan_site(&r_course(), BuildTarget::Webr).expect("plans");
+        let pyodide = plan_site(&python_course(), BuildTarget::Pyodide).expect("plans");
+        for shared in ["lesson-runner-core.js", "coi-serviceworker.js"] {
+            assert_eq!(
+                file(&webr, shared).contents,
+                file(&pyodide, shared).contents,
+                "{shared} must be identical across targets"
+            );
+        }
+        // ...while the per-target shell genuinely differs (R vs Python boot).
+        assert_ne!(
+            file(&webr, "index.html").contents,
+            file(&pyodide, "index.html").contents,
+            "each target carries its own shell"
         );
     }
 
@@ -419,7 +537,7 @@ mod tests {
     }
 
     #[test]
-    fn plan_error_display_distinguishes_its_variants() {
+    fn plan_error_language_mismatch_displays_the_clash_with_no_nested_source() {
         let mismatch = plan_site(&r_course(), BuildTarget::Pyodide).unwrap_err();
         let text = mismatch.to_string().to_lowercase();
         assert!(
@@ -427,13 +545,7 @@ mod tests {
             "a mismatch names the language/target clash, got: {text}"
         );
 
-        let unsupported = plan_site(&python_only(), BuildTarget::Pyodide).unwrap_err();
-        assert!(
-            unsupported.to_string().contains("not implemented"),
-            "an unbuilt target says so, got: {unsupported}"
-        );
-
-        // Both are std::error::Errors with no nested source.
+        // A std::error::Error with no nested source.
         let as_error: &dyn Error = &mismatch;
         assert!(as_error.source().is_none());
     }

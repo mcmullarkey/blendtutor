@@ -1,8 +1,9 @@
 /*! coi-serviceworker v0.1.7 - Guido Zuidhof and contributors, licensed under MIT
  *
  * Vendored verbatim (ADR-0008). GitHub Pages cannot set the COOP/COEP response
- * headers webR needs for SharedArrayBuffer, so this service worker re-serves the
- * site's responses with those headers, making the page cross-origin isolated. */
+ * headers a browser runtime needs for cross-origin isolation (and so
+ * SharedArrayBuffer), so this service worker re-serves the site's responses with
+ * those headers. Shared by every build target — webR and Pyodide alike. */
 let coepCredentialless = false;
 if (typeof window === "undefined") {
     self.addEventListener("install", () => self.skipWaiting());

@@ -3,14 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>blendtutor — interactive R lessons</title>
+    <title>blendtutor — interactive Python lessons</title>
     <!--
       COOP/COEP shim, loaded first. It registers a service worker that re-serves
-      this site cross-origin isolated, so webR's SharedArrayBuffer works on
-      GitHub Pages (which cannot set the headers itself). Must run before
+      this site cross-origin isolated, so a runtime that wants SharedArrayBuffer
+      works on GitHub Pages (which cannot set the headers itself). Must run before
       anything that depends on isolation.
     -->
     <script src="coi-serviceworker.js"></script>
+    <!--
+      The Pyodide runtime: a classic script that exposes the global `loadPyodide`
+      the runner calls to boot Python in the browser. Pinned to a versioned CDN
+      build so the site is reproducible.
+    -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
     <style>
       body {
         font-family: system-ui, sans-serif;
@@ -73,7 +79,7 @@
   </head>
   <body>
     <h1>blendtutor</h1>
-    <p id="boot-status">Booting webR…</p>
+    <p id="boot-status">Booting Pyodide…</p>
 
     <p>
       <label for="lesson-select">Lesson:</label>

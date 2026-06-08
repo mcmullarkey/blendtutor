@@ -19,6 +19,14 @@ const R_COURSE: &str = concat!(
     "/../core/tests/fixtures/r-course"
 );
 
+/// A Python-only course: a manifest and one valid Python lesson carrying checks
+/// and a reference solution. Lives under `core`'s fixtures (the schema's home)
+/// and is referenced cross-crate by path, mirroring `R_COURSE`.
+const PYTHON_COURSE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../core/tests/fixtures/python-course"
+);
+
 /// Run `build --target <target> <course> -o <out>` via the built binary.
 fn build(target: &str, course: &str, out: &Path) -> std::process::Output {
     Command::cargo_bin("blendtutor")
@@ -101,6 +109,99 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
         vec!["add-two".to_string(), "square".to_string()],
         "exactly the course's two lessons are serialized, by slug"
     );
+}
+
+#[test]
+fn build_pyodide_emits_a_deployable_python_lesson_site() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build("pyodide", PYTHON_COURSE, &out);
+    assert!(
+        output.status.success(),
+        "`build --target pyodide` on a Python course should exit 0, got {:?}; stderr={:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // The page shell, the in-browser runner, the shared core, and the COOP/COEP
+    // shim all land — the same site contract the webR target produces, carried
+    // verbatim across the BuildTarget seam (§3.2).
+    for name in [
+        "index.html",
+        "lesson-runner.js",
+        "lesson-runner-core.js",
+        "coi-serviceworker.js",
+    ] {
+        assert!(out.join(name).is_file(), "the built site is missing {name}");
+    }
+
+    let index = std::fs::read_to_string(out.join("index.html")).unwrap();
+
+    // index.html boots the Pyodide runtime — not webR. A pyodide build that copied
+    // webR's shell verbatim would miss this (the AC1 negative).
+    assert!(
+        regex_lite_contains_pyodide_boot(&index),
+        "index.html must reference the Pyodide runtime boot (pyodide.js / loadPyodide); \
+         index.html={index}"
+    );
+
+    // The shim is *referenced* from index.html — present-but-dead leaves the page
+    // un-isolated, so a bare file on disk is not enough.
+    assert!(
+        index.contains("coi-serviceworker.js"),
+        "index.html must reference the coi-serviceworker shim; index.html={index}"
+    );
+
+    // The runner boots Pyodide (loadPyodide), so it is genuinely the Python runtime
+    // and not a verbatim copy of the webR runner.
+    let runner = std::fs::read_to_string(out.join("lesson-runner.js")).unwrap();
+    assert!(
+        runner.to_lowercase().contains("pyodide"),
+        "the lesson runner must boot Pyodide; runner={runner}"
+    );
+
+    // One JSON per manifest entry, carrying the contract fields the runner reads,
+    // and a title derived from the source course (not a stub).
+    let mut ids: Vec<String> = std::fs::read_dir(out.join("lessons"))
+        .expect("the site has a lessons/ directory")
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
+        .map(|path| {
+            let text = std::fs::read_to_string(&path).unwrap();
+            let lesson: Value = serde_json::from_str(&text)
+                .unwrap_or_else(|e| panic!("lesson JSON {path:?} did not parse: {e}"));
+            assert_eq!(
+                lesson["title"], "Add Two Numbers",
+                "lesson JSON title must come from the source course, not a stub: {lesson}"
+            );
+            assert!(
+                lesson["checks"].is_array(),
+                "lesson JSON needs checks: {lesson}"
+            );
+            assert!(
+                lesson["solution"].is_string(),
+                "lesson JSON needs a solution the runner can submit: {lesson}"
+            );
+            lesson["id"]
+                .as_str()
+                .expect("lesson JSON needs an id")
+                .to_string()
+        })
+        .collect();
+    ids.sort();
+    assert_eq!(
+        ids,
+        vec!["add-two".to_string()],
+        "exactly the course's one lesson is serialized, by slug"
+    );
+}
+
+/// Whether `index.html` references a Pyodide runtime boot, matching the AC1 probe's
+/// `pyodide(.js|.asm|/v[0-9])|loadPyodide` grep without pulling in a regex crate:
+/// it is enough that the page names `loadPyodide` or a versioned `pyodide` asset.
+fn regex_lite_contains_pyodide_boot(html: &str) -> bool {
+    html.contains("loadPyodide") || html.contains("pyodide.js") || html.contains("pyodide/v")
 }
 
 #[test]

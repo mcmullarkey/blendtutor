@@ -5,8 +5,9 @@
 //! (§4.2). This pins the *structural* half of AC2: the R package's source
 //! artifacts are gone from the tracked tree — `R/`, `NAMESPACE`, and
 //! `DESCRIPTION` are absent from the repo root, and no R-package source file
-//! (`R/`, `man/`, a `.R`/`.Rd`/`.Rproj`, or a build config) is still tracked,
-//! leaving only the Rust crates' `.R` student-code fixtures under `crates/`.
+//! (`R/`, `man/`, `inst/`, `evals/`, a `.R`/`.Rd`/`.Rproj`, or a build config)
+//! is still tracked, leaving only the Rust crates' `.R` student-code fixtures
+//! under `crates/`.
 //! The R sources are preserved in git history — the `main` branch *is* the R
 //! package — so retiring them on the integration branch loses nothing.
 //!
@@ -67,6 +68,8 @@ fn is_retired_r_package_path(path: &str) -> bool {
     }
     path.starts_with("R/")
         || path.starts_with("man/")
+        || path.starts_with("inst/")
+        || path.starts_with("evals/")
         || path.ends_with(".R")
         || path.ends_with(".Rd")
         || path.ends_with(".Rproj")

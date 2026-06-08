@@ -314,21 +314,43 @@ fn is_valid_slug(id: &str) -> bool {
 /// Add a `language` lesson `id` to the course rooted at `dir`: write
 /// `lessons/<id>.yaml` from [`lesson_template`] and register it in the manifest.
 ///
-/// The effectful shell (§2.2) over the pure template selection. The id guard
-/// fires first (§1.3.1): an unsafe slug is refused as
-/// [`AddLessonError::InvalidId`] *before any write*. On success the lesson file is
-/// written and a `[[lessons]]` entry appended to `blendtutor.toml`, and the
-/// course-relative lesson path is returned for the caller to report.
+/// The effectful shell (§2.2) over the pure template selection. Two guards fire
+/// before the lesson is registered (§1.3.1): an unsafe slug is refused as
+/// [`AddLessonError::InvalidId`] before any write, and an id whose lesson file
+/// already exists is refused as [`AddLessonError::AlreadyExists`] — the
+/// create-new write makes the existence check atomic, so a duplicate never
+/// clobbers the existing lesson nor appends a second manifest entry. On success
+/// the lesson file is written, a `[[lessons]]` entry appended to
+/// `blendtutor.toml`, and the course-relative lesson path returned for the caller
+/// to report.
 pub fn add_lesson(dir: &Path, language: Language, id: &str) -> Result<PathBuf, AddLessonError> {
     if !is_valid_slug(id) {
         return Err(AddLessonError::InvalidId(id.to_string()));
     }
     let rel_path = PathBuf::from(LESSONS_DIR).join(format!("{id}.yaml"));
     std::fs::create_dir_all(dir.join(LESSONS_DIR)).map_err(AddLessonError::Write)?;
-    std::fs::write(dir.join(&rel_path), lesson_template(language, id))
-        .map_err(AddLessonError::Write)?;
+    write_without_clobber(&dir.join(&rel_path), &lesson_template(language, id)).map_err(
+        |e| match e.kind() {
+            std::io::ErrorKind::AlreadyExists => AddLessonError::AlreadyExists(rel_path.clone()),
+            _ => AddLessonError::Write(e),
+        },
+    )?;
     register_lesson(dir, id)?;
     Ok(rel_path)
+}
+
+/// Write `contents` to `path`, failing with [`std::io::ErrorKind::AlreadyExists`]
+/// rather than overwriting an existing file.
+///
+/// `create_new` fuses the existence check and the create into one atomic step, so
+/// there is no window between "does it exist?" and "write it" for the no-clobber
+/// guard to miss (§1.3.1) — unlike a separate `exists()` test then `write`.
+fn write_without_clobber(path: &Path, contents: &str) -> std::io::Result<()> {
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+    std::io::Write::write_all(&mut file, contents.as_bytes())
 }
 
 /// Append a `[[lessons]]` entry registering lesson `id` to the course manifest in
@@ -644,5 +666,36 @@ mod tests {
             "Write should carry the io message, got: {write_msg}"
         );
         assert!(std::error::Error::source(&write).is_some());
+    }
+
+    #[test]
+    fn add_lesson_refuses_a_duplicate_without_clobbering_or_double_registering() {
+        // No-clobber (§1.3.1): a second add of the same id is refused before any
+        // write, so the original lesson's bytes and the manifest are both
+        // untouched — no overwrite, no duplicate `[[lessons]]` entry.
+        let dir = tempfile::tempdir().unwrap();
+        scaffold_course(dir.path()).unwrap();
+        add_lesson(dir.path(), Language::R, "dup").expect("the first add succeeds");
+
+        let lesson_path = dir.path().join(LESSONS_DIR).join("dup.yaml");
+        let lesson_before = std::fs::read(&lesson_path).unwrap();
+        let manifest_before = std::fs::read_to_string(dir.path().join(MANIFEST_FILENAME)).unwrap();
+
+        let err = add_lesson(dir.path(), Language::Python, "dup")
+            .expect_err("a duplicate id must be refused");
+        assert!(
+            matches!(err, AddLessonError::AlreadyExists(_)),
+            "a duplicate is an AlreadyExists refusal, got {err:?}"
+        );
+        assert_eq!(
+            std::fs::read(&lesson_path).unwrap(),
+            lesson_before,
+            "the existing lesson's bytes must be unchanged (still the R template)"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join(MANIFEST_FILENAME)).unwrap(),
+            manifest_before,
+            "a refused duplicate must not append a second manifest entry"
+        );
     }
 }

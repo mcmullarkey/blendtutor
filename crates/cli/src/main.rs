@@ -9,6 +9,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 use blendtutor_core::lesson::Language;
+use blendtutor_core::site::BuildTarget;
 
 mod commands;
 mod output;
@@ -75,8 +76,17 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
     },
-    /// Build a browser-deployable lesson site.
-    Build,
+    /// Build a browser-deployable lesson site from a course.
+    Build {
+        /// Path to the course directory (the one holding `blendtutor.toml`).
+        path: PathBuf,
+        /// Browser runtime to target: `webr` (R lessons) or `pyodide` (Python).
+        #[arg(long, value_parser = commands::build::parse_target)]
+        target: BuildTarget,
+        /// Output directory for the generated site.
+        #[arg(short = 'o', long)]
+        out: PathBuf,
+    },
 }
 
 /// What `blendtutor new` creates. A nested subcommand rather than a positional
@@ -94,22 +104,6 @@ enum NewTarget {
     },
 }
 
-impl Commands {
-    /// The subcommand's canonical name, for user-facing messages. The match is
-    /// exhaustive, so a new variant cannot silently skip getting a name.
-    const fn name(&self) -> &'static str {
-        match self {
-            Commands::Init { .. } => "init",
-            Commands::New { .. } => "new",
-            Commands::Validate { .. } => "validate",
-            Commands::List { .. } => "list",
-            Commands::Run { .. } => "run",
-            Commands::Eval { .. } => "eval",
-            Commands::Build => "build",
-        }
-    }
-}
-
 fn main() -> anyhow::Result<ExitCode> {
     let cli = Cli::parse();
     match cli.command {
@@ -125,6 +119,6 @@ fn main() -> anyhow::Result<ExitCode> {
         Commands::New { target } => match target {
             NewTarget::Lesson { lang, id } => commands::new::run(lang, &id),
         },
-        other => Err(blendtutor_core::NotYetImplemented::new(other.name()).into()),
+        Commands::Build { path, target, out } => commands::build::run(&path, target, &out),
     }
 }

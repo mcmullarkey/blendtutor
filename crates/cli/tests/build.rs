@@ -14,7 +14,10 @@ use serde_json::Value;
 /// An R-only course: a manifest and two valid R lessons, each carrying checks
 /// and a reference solution. Lives under `core`'s fixtures (the schema's home)
 /// and is referenced cross-crate by path.
-const R_COURSE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../core/tests/fixtures/r-course");
+const R_COURSE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../core/tests/fixtures/r-course"
+);
 
 /// Run `build --target <target> <course> -o <out>` via the built binary.
 fn build(target: &str, course: &str, out: &Path) -> std::process::Output {
@@ -74,8 +77,14 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
             let text = std::fs::read_to_string(&path).unwrap();
             let lesson: Value = serde_json::from_str(&text)
                 .unwrap_or_else(|e| panic!("lesson JSON {path:?} did not parse: {e}"));
-            assert!(lesson["title"].is_string(), "lesson JSON needs a title: {lesson}");
-            assert!(lesson["checks"].is_array(), "lesson JSON needs checks: {lesson}");
+            assert!(
+                lesson["title"].is_string(),
+                "lesson JSON needs a title: {lesson}"
+            );
+            assert!(
+                lesson["checks"].is_array(),
+                "lesson JSON needs checks: {lesson}"
+            );
             assert!(
                 lesson["solution"].is_string(),
                 "lesson JSON needs a solution the runner can submit: {lesson}"

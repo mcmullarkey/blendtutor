@@ -28,6 +28,21 @@ const PYTHON_COURSE: &str = concat!(
     "/../core/tests/fixtures/python-course"
 );
 
+/// A one-lesson R course bundled with a Slice-13 `eval-report.json` (accuracy
+/// 0.67). Drives Slice 19 AC1: a build folds the report's accuracy into the
+/// site's eval-results page.
+const COURSE_WITH_EVAL_REPORT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../core/tests/fixtures/course_with_eval_report_0_67"
+);
+
+/// The same one-lesson R course with no eval report alongside it. Drives Slice 19
+/// AC2: a build still succeeds and the eval-results page says so explicitly.
+const COURSE_WITHOUT_EVAL_REPORT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../core/tests/fixtures/course_without_eval_report"
+);
+
 /// Run `build --target <target> <course> -o <out>` via the built binary.
 fn build(target: &str, course: &str, out: &Path) -> std::process::Output {
     Command::cargo_bin("blendtutor")
@@ -398,5 +413,79 @@ fn build_pyodide_ships_the_same_shared_feedback_seam() {
     assert_eq!(
         webr_feedback, pyo_feedback,
         "feedback.js must be byte-identical across targets (shared, not forked)"
+    );
+}
+
+/// The marker the report-less eval-results page carries. A literal here at red;
+/// green re-anchors both the page renderer and this assertion to a single
+/// `core::site` constant so the page model's state stays observable and can't
+/// drift from its test (§1.2).
+const NOT_VALIDATED_MARKER: &str = r#"data-eval-status="not-validated""#;
+
+#[test]
+fn eval_report_page_reflects_actual_accuracy() {
+    // Slice 19 AC1: a course bundled with a Slice-13 eval report builds a site
+    // whose eval-results page shows the report's *actual* accuracy — read from the
+    // JSON, never recomputed (§3.2) or hardcoded — and renders the validated
+    // state, not the not-validated marker.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build("webr", COURSE_WITH_EVAL_REPORT, &out);
+    assert!(
+        output.status.success(),
+        "build of a course with an eval report should exit 0; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let page = std::fs::read_to_string(out.join("eval-results.html"))
+        .expect("the built site must include an eval-results.html page");
+
+    // The expected figure is derived from the report JSON, parsed independently
+    // here — so a placeholder/zero/different constant fails this. The page must
+    // reflect the report's real accuracy, never a hardcoded literal.
+    let report: Value = serde_json::from_str(
+        &std::fs::read_to_string(Path::new(COURSE_WITH_EVAL_REPORT).join("eval-report.json"))
+            .unwrap(),
+    )
+    .unwrap();
+    let accuracy = report["accuracy"]
+        .as_f64()
+        .expect("the eval report carries a numeric accuracy");
+    let pct = (accuracy * 100.0).round() as i64;
+    assert!(
+        page.contains(&format!("{pct}%")),
+        "eval-results.html must show the report's accuracy ({pct}%); page={page}"
+    );
+
+    // ...and it is the validated state — the not-validated marker must be absent,
+    // so a present report can never be mistaken for an unvalidated course.
+    assert!(
+        !page.contains(NOT_VALIDATED_MARKER),
+        "a present report must render the validated state, not the not-validated marker; page={page}"
+    );
+}
+
+#[test]
+fn missing_report_builds_with_not_validated_page() {
+    // Slice 19 AC2: a course with no eval report still builds (exit 0) and its
+    // eval-results page carries an explicit not-validated marker — never a
+    // real-looking 0%/empty view indistinguishable from a validated result (§1.2).
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build("webr", COURSE_WITHOUT_EVAL_REPORT, &out);
+    assert!(
+        output.status.success(),
+        "build of a report-less course must still exit 0; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let page = std::fs::read_to_string(out.join("eval-results.html")).expect(
+        "the built site must include an eval-results.html page even without a report",
+    );
+    assert!(
+        page.contains(NOT_VALIDATED_MARKER),
+        "a report-less build must render the explicit not-validated state; page={page}"
     );
 }

@@ -1,0 +1,6 @@
+# A one-lesson R course with no eval report alongside it. Drives Slice 19 AC2:
+# a build folds in the NotValidated state. Identical to
+# `course_with_eval_report_0_67` except that no `eval-report.json` accompanies it.
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"

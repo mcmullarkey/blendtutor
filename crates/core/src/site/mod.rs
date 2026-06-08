@@ -173,6 +173,15 @@ const COI_SERVICEWORKER_JS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/assets/shared/coi-serviceworker.js"
 ));
+/// The BYOK feedback backend: the `FeedbackBackend` JS contract + its
+/// `byok-anthropic` impl (Slice 18). Shared by every target — the Anthropic
+/// browser call is identical whether the lesson runs in webR or Pyodide, so it is
+/// assembled once here rather than forked per target (§4.2). The seam a future
+/// backend (WebLLM) plugs into with no change to lesson rendering or execution.
+const FEEDBACK_JS: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/shared/feedback.js"
+));
 
 /// A build target's own client assets: its page shell and its runner adapter.
 ///
@@ -202,6 +211,7 @@ fn assemble(assets: TargetAssets<'_>, lessons: &[(LessonSlug, Lesson)]) -> SiteF
         asset("lesson-runner.js", assets.lesson_runner_js),
         asset("lesson-runner-core.js", LESSON_RUNNER_CORE_JS),
         asset("coi-serviceworker.js", COI_SERVICEWORKER_JS),
+        asset("feedback.js", FEEDBACK_JS),
     ];
 
     let mut slugs = Vec::new();
@@ -518,6 +528,29 @@ mod tests {
             file(&webr, "index.html").contents,
             file(&pyodide, "index.html").contents,
             "each target carries its own shell"
+        );
+    }
+
+    #[test]
+    fn plan_site_assembles_the_shared_byok_feedback_backend() {
+        // Slice 18: the FeedbackBackend contract + its byok-anthropic impl ship as a
+        // single shared feedback.js (§4.2) — the Anthropic BYOK call is identical for
+        // R and Python lessons — referenced by each target's shell. A per-target fork
+        // or a shell that never loads it both fail here.
+        let webr = plan_site(&r_course(), BuildTarget::Webr).expect("plans");
+        let pyodide = plan_site(&python_course(), BuildTarget::Pyodide).expect("plans");
+
+        for site in [&webr, &pyodide] {
+            let _ = file(site, "feedback.js");
+            assert!(
+                file(site, "index.html").contents.contains("feedback.js"),
+                "each shell must load feedback.js (the seam is dead if unreferenced)"
+            );
+        }
+        assert_eq!(
+            file(&webr, "feedback.js").contents,
+            file(&pyodide, "feedback.js").contents,
+            "feedback.js is shared — byte-identical across targets, not forked"
         );
     }
 

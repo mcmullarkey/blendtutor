@@ -6,9 +6,10 @@
 //! rules (`plan_site`) are unit-tested in `blendtutor-core`; here we observe the
 //! files that actually land on disk.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use assert_cmd::Command;
+use blendtutor_core::llm::{CHECKS_LABEL, CLOSE_CODE, OPEN_CODE, OUTPUT_LABEL};
 use serde_json::Value;
 
 /// An R-only course: a manifest and two valid R lessons, each carrying checks
@@ -240,5 +241,162 @@ fn build_refuses_a_language_target_mismatch_before_writing_anything() {
     assert!(
         !out.exists(),
         "a refused build must not create the output directory"
+    );
+}
+
+/// Recursively collect every emitted file's (path, contents) under `root`. The
+/// built site is all text (HTML / JS / JSON), so a lossy decode is faithful and
+/// lets one predicate scan the whole shipped artifact for a forbidden literal.
+fn emitted_files(root: &Path) -> Vec<(PathBuf, String)> {
+    let mut collected = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                stack.push(path);
+            } else {
+                let bytes = std::fs::read(&path).unwrap();
+                collected.push((path, String::from_utf8_lossy(&bytes).into_owned()));
+            }
+        }
+    }
+    collected
+}
+
+#[test]
+fn build_webr_ships_the_byok_anthropic_feedback_seam() {
+    // Slice 18: a built site carries the BYOK feedback backend so a learner can
+    // get LLM feedback with their own key — stored only in the tab, sent only to
+    // the provider, and never baked into a shipped file.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build("webr", R_COURSE, &out);
+    assert!(
+        output.status.success(),
+        "`build --target webr` should exit 0, got {:?}; stderr={:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // The FeedbackBackend contract + byok-anthropic impl ship as their own asset,
+    // loaded by the page shell, which also carries the submit control the flow
+    // drives (the `[data-action=submit]` the rodney probe clicks).
+    let feedback = std::fs::read_to_string(out.join("feedback.js"))
+        .expect("the built site must ship feedback.js (the FeedbackBackend + byok-anthropic impl)");
+    let index = std::fs::read_to_string(out.join("index.html")).unwrap();
+    assert!(
+        index.contains("feedback.js"),
+        "index.html must load feedback.js; index={index}"
+    );
+    assert!(
+        index.contains(r#"data-action="submit""#),
+        "index.html must carry the submit control the BYOK flow drives; index={index}"
+    );
+
+    // AC1: submitting with no key prompts for one with a *dual* disclosure — both
+    // phrases live in the impl that renders the prompt (the UI matches them
+    // case-insensitively; asserted lowercased against the source).
+    let lower = feedback.to_lowercase();
+    assert!(
+        lower.contains("stored only in this tab"),
+        "feedback.js must disclose tab-only key storage; feedback={feedback}"
+    );
+    assert!(
+        lower.contains("sent only to anthropic"),
+        "feedback.js must disclose provider-only transmission; feedback={feedback}"
+    );
+
+    // AC2: the BYOK call hits Anthropic directly from the browser — the key rides
+    // `x-api-key`, the direct-browser-access opt-in is required for the call to be
+    // allowed, and the key is read from the sessionStorage slot (tab-scoped).
+    assert!(
+        feedback.contains("x-api-key"),
+        "byok-anthropic must send the key in the x-api-key header"
+    );
+    assert!(
+        feedback.contains("anthropic-dangerous-direct-browser-access"),
+        "a direct browser call to Anthropic needs the dangerous-direct-browser-access opt-in"
+    );
+    assert!(
+        feedback.contains("anthropic_api_key"),
+        "the key is read from the tab-scoped sessionStorage `anthropic_api_key` slot"
+    );
+
+    // The `?provider=` override is host-gated (a fix(review) hardening): the BYOK
+    // base URL honors it only for a local stub, so a crafted production link can't
+    // redirect the key off-Anthropic. This JS has no unit-test harness, so the
+    // shipped contract is the regression gate. Pin the *live guard shape* — the host
+    // comparison and the credential rejection — not a bare "localhost" substring: that
+    // literal also appears in the explanatory comment, so deleting the guard while
+    // leaving the comment would pass and silently re-open the exfiltration vector.
+    for guard in [
+        r#"url.hostname === "localhost""#,
+        r#"url.hostname === "127.0.0.1""#,
+        // One fragment pins BOTH credential fields, in order — a future edit dropping
+        // `!url.password` can't pass while leaving `!url.username`.
+        "!url.username && !url.password",
+    ] {
+        assert!(
+            feedback.contains(guard),
+            "feedback.js must host-gate the ?provider= override with the live guard `{guard}`"
+        );
+    }
+
+    // §1.2/§3.2: the JS request mirrors the Rust contract. The prompt delimiters are
+    // pinned to the *same exported constants* `build_prompt` emits, so the
+    // learner-side prompt structure cannot drift from the author-side one — and the
+    // student code is delimited (the Slice-10 injection-hardened structure).
+    for token in [OPEN_CODE, CLOSE_CODE, OUTPUT_LABEL, CHECKS_LABEL] {
+        assert!(
+            feedback.contains(token),
+            "feedback.js must delimit the prompt with {token} (the Slice-10 structure); feedback={feedback}"
+        );
+    }
+    for field in ["is_correct", "feedback_message", "respond_with_feedback"] {
+        assert!(
+            feedback.contains(field),
+            "byok-anthropic must speak the `{field}` tool contract (mirrors the Rust Feedback DTO)"
+        );
+    }
+
+    // AC1 + AC2 negative: an API key literal must never be baked into any shipped
+    // file — scan the *whole* emitted site, not just feedback.js.
+    for (path, contents) in emitted_files(&out) {
+        assert!(
+            !contents.contains("sk-ant"),
+            "an Anthropic key literal must never ship; found in {path:?}"
+        );
+    }
+}
+
+#[test]
+fn build_pyodide_ships_the_same_shared_feedback_seam() {
+    // feedback.js is target-agnostic — the Anthropic BYOK call is identical whether
+    // the lesson runs in webR or Pyodide — so it is a *shared* asset (§4.2): the
+    // Pyodide build ships the byte-identical impl its shell references, not a fork.
+    // (Symmetric twin of the webR test, mirroring the shared-core/shim assertion.)
+    let tmp = tempfile::tempdir().unwrap();
+    let webr_out = tmp.path().join("webr");
+    let pyo_out = tmp.path().join("pyodide");
+    assert!(build("webr", R_COURSE, &webr_out).status.success());
+    assert!(build("pyodide", PYTHON_COURSE, &pyo_out).status.success());
+
+    let pyo_index = std::fs::read_to_string(pyo_out.join("index.html")).unwrap();
+    assert!(
+        pyo_index.contains("feedback.js"),
+        "the pyodide shell must also load feedback.js; index={pyo_index}"
+    );
+    assert!(
+        pyo_index.contains(r#"data-action="submit""#),
+        "the pyodide shell must carry the submit control too; index={pyo_index}"
+    );
+
+    let webr_feedback = std::fs::read_to_string(webr_out.join("feedback.js")).unwrap();
+    let pyo_feedback = std::fs::read_to_string(pyo_out.join("feedback.js")).unwrap();
+    assert_eq!(
+        webr_feedback, pyo_feedback,
+        "feedback.js must be byte-identical across targets (shared, not forked)"
     );
 }

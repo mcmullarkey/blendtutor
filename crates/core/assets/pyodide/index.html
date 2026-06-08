@@ -93,11 +93,20 @@
 
     <div class="controls">
       <button id="run" type="button" data-test="run">Run checks</button>
+      <button id="submit" type="button" data-action="submit">Submit for feedback</button>
       <span id="lesson-status" data-test="lesson-status" data-status="idle">idle</span>
     </div>
 
     <pre id="output" data-test="output"></pre>
 
+    <!--
+      BYOK feedback mount. feedback.js renders the key-entry prompt (with the
+      stored-only-in-this-tab / sent-only-to-Anthropic disclosure) and the verdict
+      here; the key-handling concern lives in that module, not this shell.
+    -->
+    <section id="feedback" data-test="feedback"></section>
+
     <script type="module" src="lesson-runner.js"></script>
+    <script type="module" src="feedback.js"></script>
   </body>
 </html>

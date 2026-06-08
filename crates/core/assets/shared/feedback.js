@@ -102,8 +102,12 @@ function providerBaseUrl() {
   const override = new URLSearchParams(window.location.search).get("provider");
   if (override) {
     try {
-      const host = new URL(override).hostname;
-      if (host === "localhost" || host === "127.0.0.1") {
+      const url = new URL(override);
+      const isLocal = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+      // Reject embedded credentials (`user@host`): a credentialed authority never
+      // names a clean local stub (and `fetch` rejects such URLs anyway), so fall
+      // through to the default rather than let a crafted authority look honored.
+      if (isLocal && !url.username && !url.password) {
         return override;
       }
     } catch (_error) {

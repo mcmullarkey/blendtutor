@@ -850,6 +850,34 @@ mod tests {
     }
 
     #[test]
+    fn eval_report_error_displays_each_variant_and_chains_its_source() {
+        // The malformed variant names the JSON failure and preserves the underlying
+        // serde error as its source, so a build failure is diagnosable.
+        let malformed = eval_summary_from_report_json("{ not json").unwrap_err();
+        assert!(
+            malformed.to_string().contains("not valid Slice-13 JSON"),
+            "malformed Display names the JSON failure, got: {malformed}"
+        );
+        let as_error: &dyn Error = &malformed;
+        assert!(
+            as_error.source().is_some(),
+            "a malformed report chains its serde source for diagnosis"
+        );
+
+        // The out-of-range variant names the offending figure and the bound, and is
+        // self-contained — a validation failure, no nested cause.
+        let out_of_range =
+            eval_summary_from_report_json(r#"{"cases":[],"accuracy":2.0}"#).unwrap_err();
+        let text = out_of_range.to_string();
+        assert!(
+            text.contains('2') && text.contains("range"),
+            "out-of-range Display names the bad figure and the range, got: {text}"
+        );
+        let as_error: &dyn Error = &out_of_range;
+        assert!(as_error.source().is_none());
+    }
+
+    #[test]
     fn plan_site_folds_the_eval_results_page_for_each_state() {
         // The eval-results page rides every built site (§4.1), in whichever state
         // the EvalSummary carries — the same plan_site path handles both states.

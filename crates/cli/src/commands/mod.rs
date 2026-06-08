@@ -5,6 +5,7 @@
 //! `core`'s responsibility (the dependency only ever points cli → core).
 
 pub mod eval;
+pub mod init;
 pub mod list;
 pub mod run;
 pub mod validate;

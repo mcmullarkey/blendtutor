@@ -27,7 +27,10 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Scaffold a new course directory.
-    Init,
+    Init {
+        /// Path to the course directory to create (must be empty or new).
+        dir: PathBuf,
+    },
     /// Create a new lesson from a template.
     New,
     /// Validate a lesson file against the schema.
@@ -75,7 +78,7 @@ impl Commands {
     /// exhaustive, so a new variant cannot silently skip getting a name.
     const fn name(&self) -> &'static str {
         match self {
-            Commands::Init => "init",
+            Commands::Init { .. } => "init",
             Commands::New => "new",
             Commands::Validate { .. } => "validate",
             Commands::List { .. } => "list",
@@ -89,6 +92,7 @@ impl Commands {
 fn main() -> anyhow::Result<ExitCode> {
     let cli = Cli::parse();
     match cli.command {
+        Commands::Init { dir } => commands::init::run(&dir),
         Commands::Validate { path, format } => commands::validate::run(&path, format),
         Commands::List { path, format } => commands::list::run(&path, format),
         Commands::Run {

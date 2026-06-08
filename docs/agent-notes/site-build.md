@@ -88,3 +88,24 @@ lesson site (`core::site`). See ADR-0008 for the decision record.
   SW) and no-op the shim locally; webR's Automatic channel then boots via
   PostMessage and runs the exact same R checks. Verified correct→`pass`,
   wrong→`fail` live; evidence in `docs/evidence/16/`.
+- 2026-06-08 (#19): The **eval-results page is folded into `plan_site` itself**,
+  after the per-target `webr::plan`/`pyodide::plan` dispatch — not into `assemble`.
+  It is target-independent: the same `EvalSummary` renders the same
+  `eval-results.html` for both runtimes (§4.1), so `webr`/`pyodide`/`assemble`
+  signatures stayed untouched. Validation is a represented
+  `EvalSummary { Validated { accuracy }, NotValidated }` (§1.2), never a
+  missing-file inference: the CLI shell (`build::load_eval_summary`) does the
+  effectful check of `<course>/eval-report.json` and hands core an *explicit*
+  state — absent → `NotValidated` (build still exits 0), present → parsed,
+  present-but-unreadable → build fails (so a corrupt report never silently
+  unvalidates a course).
+- 2026-06-08 (#19): The build **consumes the Slice-13 eval artifact as-is** (§3.2):
+  `site::eval_summary_from_report_json` reads only `accuracy` via a private read
+  DTO — deliberately **not** a round-trip through `EvalReport`. `EvalReport` is
+  `Serialize`-only, and its `EvalReport::new` *recomputes* accuracy from the cases
+  (the §1.1 derived-invariant from [[eval]]); deserializing through it would
+  re-score at build time, violating "as-is". The figure is range-guarded to
+  `[0.0, 1.0]` at the read boundary (§1.3.1) — a hand-edited `accuracy: 2.0` is an
+  `EvalReportError::AccuracyOutOfRange`, so the page can never render `200%`.
+  Convention: the report rides next to the course manifest as `eval-report.json`
+  (the `blendtutor eval --format json` output). evidence in `docs/evidence/19/`.

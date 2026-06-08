@@ -91,12 +91,26 @@ function storeKey(key) {
   window.sessionStorage.setItem(KEY_SLOT, key);
 }
 
-// The provider base URL. Defaults to Anthropic; a `?provider=` query override is a
-// test seam (point it at a local stub) — it never changes which *host* a real
-// learner's key reaches in production.
+// The provider base URL. Defaults to Anthropic. A `?provider=` override is the
+// test seam (point rodney at a local stub), but it is honored *only* when it
+// resolves to a local host — so a crafted production link
+// (`?provider=https://attacker.example`) can never redirect a real learner's key
+// off-Anthropic. This *enforces* the AC1 disclosure ("sent only to Anthropic") in
+// code rather than merely asserting it: a non-local override is ignored, and the
+// key still reaches only api.anthropic.com.
 function providerBaseUrl() {
   const override = new URLSearchParams(window.location.search).get("provider");
-  return override || "https://api.anthropic.com";
+  if (override) {
+    try {
+      const host = new URL(override).hostname;
+      if (host === "localhost" || host === "127.0.0.1") {
+        return override;
+      }
+    } catch (_error) {
+      // A malformed override is ignored — fall through to the default.
+    }
+  }
+  return "https://api.anthropic.com";
 }
 
 // --- the byok-anthropic backend --------------------------------------------------

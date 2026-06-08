@@ -8,6 +8,8 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+use blendtutor_core::lesson::Language;
+
 mod commands;
 mod output;
 
@@ -32,7 +34,11 @@ enum Commands {
         dir: PathBuf,
     },
     /// Create a new lesson from a template.
-    New,
+    New {
+        /// What to create (currently only `lesson`).
+        #[command(subcommand)]
+        target: NewTarget,
+    },
     /// Validate a lesson file against the schema.
     Validate {
         /// Path to the lesson YAML file.
@@ -73,13 +79,28 @@ enum Commands {
     Build,
 }
 
+/// What `blendtutor new` creates. A nested subcommand rather than a positional
+/// string keeps the set of creatable things a checked sum type (§1.2) and lets it
+/// grow — e.g. a future `new eval` — without reparsing free text.
+#[derive(Subcommand)]
+enum NewTarget {
+    /// Add a new lesson from a language template.
+    Lesson {
+        /// The lesson's language: `r` or `python`.
+        #[arg(long, value_parser = commands::new::parse_language)]
+        lang: Language,
+        /// The lesson's course id; also its file stem under `lessons/`.
+        id: String,
+    },
+}
+
 impl Commands {
     /// The subcommand's canonical name, for user-facing messages. The match is
     /// exhaustive, so a new variant cannot silently skip getting a name.
     const fn name(&self) -> &'static str {
         match self {
             Commands::Init { .. } => "init",
-            Commands::New => "new",
+            Commands::New { .. } => "new",
             Commands::Validate { .. } => "validate",
             Commands::List { .. } => "list",
             Commands::Run { .. } => "run",
@@ -101,6 +122,9 @@ fn main() -> anyhow::Result<ExitCode> {
             format,
         } => commands::run::run(&lesson, code.as_deref(), format),
         Commands::Eval { lesson, format } => commands::eval::run(&lesson, format),
+        Commands::New { target } => match target {
+            NewTarget::Lesson { lang, id } => commands::new::run(lang, &id),
+        },
         other => Err(blendtutor_core::NotYetImplemented::new(other.name()).into()),
     }
 }

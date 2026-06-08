@@ -5,13 +5,18 @@
 //! [`scaffold_plan`] that names the files a fresh course contains (testable with
 //! no filesystem, §2.3), and [`scaffold_course`] — the single effectful step
 //! that refuses a non-empty target before any write (§1.3.1) then writes that
-//! plan into it. This module owns *what a new course contains*; it does not parse
-//! CLI flags or decide where the course lives (§4.1). The templates are data the
-//! writer consumes, so changing a template never changes the writer (§3.2).
+//! plan into it. It also grows an existing course one lesson at a time: the pure
+//! [`lesson_template`] selects a language-appropriate starter (§2.1) and the
+//! effectful [`add_lesson`] writes it and registers it in the manifest. This
+//! module owns *what a course's content is*; it does not parse CLI flags or decide
+//! where the course lives (§4.1). The templates are data the writer consumes, so
+//! changing a template never changes the writer (§3.2).
 
 use std::error::Error;
 use std::fmt;
 use std::path::{Path, PathBuf};
+
+use crate::lesson::Language;
 
 /// One file a scaffold writes: its path relative to the course directory and the
 /// exact bytes to write there.
@@ -164,12 +169,248 @@ fn is_empty_target(dir: &Path) -> Result<bool, ScaffoldError> {
     }
 }
 
+/// The subdirectory new lessons are written into, relative to the course root.
+/// The `init` example lesson sits at the course root; lessons added later live
+/// under here so a growing course keeps its lesson files in one place.
+const LESSONS_DIR: &str = "lessons";
+
+/// The exercise body of an R starter lesson: a valid `exercise` block whose
+/// `llm_evaluation_prompt` carries the required `{student_code}` placeholder.
+const R_EXERCISE: &str = r#"exercise:
+  type: "function_writing"
+  prompt: |
+    Write R code that prints the word "hello" on its own line, using cat().
+  code_template: |
+    # Your code here
+    cat("hello\n")
+  example_usage: |
+    cat("hello\n")  # prints: hello
+  success_criteria: |
+    - Prints exactly the word "hello"
+    - Uses cat()
+  llm_evaluation_prompt: |
+    You are grading a beginner R exercise: print the word "hello" with cat().
+
+    The student submitted this code:
+    {student_code}
+
+    Decide whether it prints "hello" and call respond_with_feedback with your
+    assessment. Set is_correct true when the requirement is met, and give two or
+    three sentences of encouraging feedback.
+"#;
+
+/// The exercise body of a Python starter lesson: the `print()` twin of
+/// [`R_EXERCISE`], likewise carrying the `{student_code}` placeholder.
+const PYTHON_EXERCISE: &str = r#"exercise:
+  type: "function_writing"
+  prompt: |
+    Write Python code that prints the word "hello" on its own line, using print().
+  code_template: |
+    # Your code here
+    print("hello")
+  example_usage: |
+    print("hello")  # prints: hello
+  success_criteria: |
+    - Prints exactly the word "hello"
+    - Uses print()
+  llm_evaluation_prompt: |
+    You are grading a beginner Python exercise: print the word "hello" with print().
+
+    The student submitted this code:
+    {student_code}
+
+    Decide whether it prints "hello" and call respond_with_feedback with your
+    assessment. Set is_correct true when the requirement is met, and give two or
+    three sentences of encouraging feedback.
+"#;
+
+/// Render a starter lesson for `language` under the slug `id`.
+///
+/// Pure (§2.1): it picks the language-appropriate exercise body and frames it
+/// with the lesson's `lesson_name`, `language`, and a description — returning the
+/// YAML as data with no filesystem access, so the result is asserted directly
+/// against the production parser. The `language` choice drives the template, so a
+/// `--lang python` lesson never declares `language: R` (§1.2). The caller is
+/// responsible for `id` being a safe slug; [`add_lesson`] guards it.
+pub fn lesson_template(language: Language, id: &str) -> String {
+    let (lang, exercise) = match language {
+        Language::R => ("R", R_EXERCISE),
+        Language::Python => ("Python", PYTHON_EXERCISE),
+    };
+    format!(
+        "# A lesson scaffolded by `blendtutor new lesson`. Edit it, then check your\n\
+         # changes with `blendtutor validate {LESSONS_DIR}/{id}.yaml`.\n\
+         lesson_name: \"{id}\"\n\
+         language: {lang}\n\
+         description: \"A starter {lang} lesson — replace with your own exercise\"\n\
+         {exercise}"
+    )
+}
+
+/// Why a lesson could not be added to a course.
+///
+/// The three refusals are kept distinct from a genuine write failure so the cli
+/// can frame each: an [`InvalidId`](AddLessonError::InvalidId), a
+/// [`NotACourse`](AddLessonError::NotACourse), or an
+/// [`AlreadyExists`](AddLessonError::AlreadyExists) is a user-correctable refusal
+/// caught at the boundary *before any write*, whereas a
+/// [`Write`](AddLessonError::Write) is an underlying I/O fault.
+#[derive(Debug)]
+pub enum AddLessonError {
+    /// The lesson id is not a safe slug (empty, or containing a path separator,
+    /// `..`, whitespace, or punctuation), so it is refused before any write
+    /// (§1.3.1) rather than escaping the course's `lessons/` directory or
+    /// breaking the manifest's TOML. Carries the rejected id.
+    InvalidId(String),
+    /// The target directory is not a course: it has no `blendtutor.toml` to
+    /// register the lesson in, so the add is refused before any write (§1.3.1)
+    /// rather than leaving an orphan lesson in a non-course directory. Carries the
+    /// directory. (Run `blendtutor init` first, or `cd` into a course.)
+    NotACourse(PathBuf),
+    /// A lesson already exists at the target path, so the command refuses to
+    /// overwrite it (no clobber), before any write. Carries the course-relative
+    /// path that is already taken.
+    AlreadyExists(PathBuf),
+    /// A filesystem operation failed while writing the lesson file or registering
+    /// it in the manifest.
+    Write(std::io::Error),
+}
+
+impl fmt::Display for AddLessonError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AddLessonError::InvalidId(id) => write!(
+                f,
+                "lesson id {id:?} is not a valid slug; use letters, digits, \
+                 hyphens, and underscores only",
+            ),
+            AddLessonError::NotACourse(dir) => write!(
+                f,
+                "{dir:?} is not a blendtutor course (no blendtutor.toml); run \
+                 `blendtutor init` or cd into a course before adding a lesson",
+            ),
+            AddLessonError::AlreadyExists(path) => write!(
+                f,
+                "a lesson already exists at {path:?}; new lesson refuses to \
+                 overwrite it — choose a different id",
+            ),
+            AddLessonError::Write(e) => write!(f, "could not write the new lesson: {e}"),
+        }
+    }
+}
+
+impl Error for AddLessonError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            AddLessonError::InvalidId(_)
+            | AddLessonError::NotACourse(_)
+            | AddLessonError::AlreadyExists(_) => None,
+            AddLessonError::Write(e) => Some(e),
+        }
+    }
+}
+
+/// Whether `id` is a safe lesson slug: non-empty and built only from ASCII
+/// letters, digits, hyphens, and underscores.
+///
+/// The boundary check behind [`add_lesson`]'s guard (§1.3.1). The id is used both
+/// as a filename stem and, verbatim, inside the manifest's TOML, so excluding path
+/// separators, `.`, whitespace, and quotes keeps a new lesson from escaping
+/// `lessons/` or corrupting `blendtutor.toml`.
+fn is_valid_slug(id: &str) -> bool {
+    !id.is_empty()
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+/// Add a `language` lesson `id` to the course rooted at `dir`: write
+/// `lessons/<id>.yaml` from [`lesson_template`] and register it in the manifest.
+///
+/// The effectful shell (§2.2) over the pure template selection. Three guards fire
+/// before any write (§1.3.1): an unsafe slug is refused as
+/// [`AddLessonError::InvalidId`]; a directory with no `blendtutor.toml` is refused
+/// as [`AddLessonError::NotACourse`] — its manifest is *opened* up front, so a
+/// non-course directory is never left with an orphan lesson; and an id whose
+/// lesson file already exists is refused as [`AddLessonError::AlreadyExists`], the
+/// create-new write making that check atomic so a duplicate never clobbers the
+/// existing lesson nor appends a second manifest entry. On success the lesson file
+/// is written, a `[[lessons]]` entry appended to `blendtutor.toml`, and the
+/// course-relative lesson path returned.
+///
+/// The manifest is opened first (the not-a-course guard) but its entry is appended
+/// last, after the lesson file is written. The only residual non-atomic window is
+/// a rare append failure after a good write, which leaves an orphan lesson `list`
+/// (manifest-driven) simply omits — a valid, recoverable state. Registering first
+/// would be worse: a `list` row pointing at a file that was never written.
+pub fn add_lesson(dir: &Path, language: Language, id: &str) -> Result<PathBuf, AddLessonError> {
+    if !is_valid_slug(id) {
+        return Err(AddLessonError::InvalidId(id.to_string()));
+    }
+    let mut manifest = open_manifest_for_append(dir)?;
+    let rel_path = PathBuf::from(LESSONS_DIR).join(format!("{id}.yaml"));
+    std::fs::create_dir_all(dir.join(LESSONS_DIR)).map_err(AddLessonError::Write)?;
+    write_without_clobber(&dir.join(&rel_path), &lesson_template(language, id)).map_err(
+        |e| match e.kind() {
+            std::io::ErrorKind::AlreadyExists => AddLessonError::AlreadyExists(rel_path.clone()),
+            _ => AddLessonError::Write(e),
+        },
+    )?;
+    append_lesson_entry(&mut manifest, id).map_err(AddLessonError::Write)?;
+    Ok(rel_path)
+}
+
+/// Write `contents` to `path`, failing with [`std::io::ErrorKind::AlreadyExists`]
+/// rather than overwriting an existing file.
+///
+/// `create_new` fuses the existence check and the create into one atomic step, so
+/// there is no window between "does it exist?" and "write it" for the no-clobber
+/// guard to miss (§1.3.1) — unlike a separate `exists()` test then `write`.
+fn write_without_clobber(path: &Path, contents: &str) -> std::io::Result<()> {
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+    std::io::Write::write_all(&mut file, contents.as_bytes())
+}
+
+/// Open the course manifest in `dir` for appending, or refuse a directory that has
+/// no manifest as [`AddLessonError::NotACourse`].
+///
+/// Opening the manifest up front (it is not written here) turns "this is not a
+/// course" into a boundary refusal *before* any lesson file is written (§1.3.1),
+/// so a missing manifest can never leave an orphan lesson behind. A `NotFound` is
+/// the not-a-course signal; any other open failure is a genuine
+/// [`AddLessonError::Write`].
+fn open_manifest_for_append(dir: &Path) -> Result<std::fs::File, AddLessonError> {
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(dir.join(MANIFEST_FILENAME))
+        .map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => AddLessonError::NotACourse(dir.to_path_buf()),
+            _ => AddLessonError::Write(e),
+        })
+}
+
+/// Append a `[[lessons]]` entry registering lesson `id` to an already-open manifest
+/// handle.
+///
+/// A textual append, not a re-serialize: TOML permits repeated `[[lessons]]`
+/// array-of-tables, the [`Manifest`](crate::course::Manifest) model is parse-only,
+/// and appending leaves every existing entry's bytes exactly where they were. The
+/// id is a validated slug, so the emitted TOML string and `lessons/<id>.yaml` path
+/// are safe to embed verbatim.
+fn append_lesson_entry(manifest: &mut std::fs::File, id: &str) -> std::io::Result<()> {
+    let entry = format!("\n[[lessons]]\nid = \"{id}\"\npath = \"{LESSONS_DIR}/{id}.yaml\"\n");
+    std::io::Write::write_all(manifest, entry.as_bytes())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::course::Manifest;
+    use crate::course::{Course, Manifest};
     use crate::eval::parse_eval_suite;
-    use crate::lesson::Lesson;
+    use crate::lesson::{Language, Lesson};
 
     /// The planned file at `path`, or a panic naming the missing path.
     fn planned(path: &str) -> FileSpec {
@@ -350,5 +591,198 @@ mod tests {
             "Write should frame and carry the message, got: {write_msg}"
         );
         assert!(std::error::Error::source(&write).is_some());
+    }
+
+    #[test]
+    fn lesson_template_produces_a_valid_python_lesson() {
+        // The pure selector (§2.1) returns a Python lesson the production parser
+        // accepts: a template that hardcoded R, or emitted an invalid schema,
+        // fails here without touching any filesystem.
+        let yaml = lesson_template(Language::Python, "greet");
+        let lesson = Lesson::parse(&yaml).expect("the generated python lesson must be valid");
+        assert_eq!(lesson.language, Language::Python);
+        assert_eq!(lesson.lesson_name.to_string(), "greet");
+    }
+
+    #[test]
+    fn lesson_template_produces_a_valid_r_lesson() {
+        // The twin: the same selector yields a valid R lesson, so language drives
+        // the template rather than a hardcoded default.
+        let yaml = lesson_template(Language::R, "loops");
+        let lesson = Lesson::parse(&yaml).expect("the generated r lesson must be valid");
+        assert_eq!(lesson.language, Language::R);
+        assert_eq!(lesson.lesson_name.to_string(), "loops");
+    }
+
+    #[test]
+    fn add_lesson_writes_the_file_and_registers_it_so_the_course_lists_it() {
+        // Effectful (§2.2): into a real scaffolded course, add a python lesson and
+        // observe the whole AC1 chain in core terms — the file lands under
+        // lessons/, parses, and the manifest now resolves it as a discovered row.
+        let dir = tempfile::tempdir().unwrap();
+        scaffold_course(dir.path()).unwrap();
+
+        let rel = add_lesson(dir.path(), Language::Python, "greet")
+            .expect("adding a fresh lesson succeeds");
+        assert_eq!(rel, Path::new("lessons/greet.yaml"));
+        assert!(
+            dir.path().join(&rel).is_file(),
+            "the lesson file is written"
+        );
+
+        let course = Course::open(dir.path()).expect("the course still opens after registration");
+        let greet = course
+            .discover()
+            .into_iter()
+            .filter_map(Result::ok)
+            .find(|s| s.id.to_string() == "greet")
+            .expect("the new lesson is discovered via the manifest");
+        assert_eq!(greet.language, Language::Python);
+    }
+
+    #[test]
+    fn add_lesson_refuses_an_unsafe_id_before_writing_anything() {
+        // The id becomes both a filename stem and a manifest path, so an id with a
+        // path separator, `..`, whitespace, or other unslug character is refused at
+        // the boundary (§1.3.1) before any write — never allowed to escape the
+        // course's lessons/ directory or break the manifest's TOML.
+        let dir = tempfile::tempdir().unwrap();
+        scaffold_course(dir.path()).unwrap();
+        let manifest_before = std::fs::read_to_string(dir.path().join(MANIFEST_FILENAME)).unwrap();
+
+        for bad in ["../evil", "a/b", "", "has space", "dot.dot", "quote\"d"] {
+            let err = add_lesson(dir.path(), Language::Python, bad)
+                .expect_err("an unsafe id must be refused");
+            assert!(
+                matches!(err, AddLessonError::InvalidId(_)),
+                "id {bad:?} should be an InvalidId refusal, got {err:?}"
+            );
+        }
+        // No lessons/ dir created, manifest byte-identical: the guard precedes every
+        // write, so a refused id leaves the course exactly as it was.
+        assert!(
+            !dir.path().join("lessons").exists(),
+            "a refused id must not create the lessons directory"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join(MANIFEST_FILENAME)).unwrap(),
+            manifest_before,
+            "a refused id must not touch the manifest"
+        );
+    }
+
+    #[test]
+    fn add_lesson_refuses_a_non_course_directory_without_leaving_an_orphan() {
+        // Running `new lesson` outside a course (no blendtutor.toml) must refuse
+        // before any write (§1.3.1): the manifest is opened up front, so a plain
+        // directory is rejected as NotACourse and never contaminated with an orphan
+        // lessons/<id>.yaml that no manifest registers.
+        let dir = tempfile::tempdir().unwrap(); // a bare dir, never `init`-ed
+
+        let err = add_lesson(dir.path(), Language::Python, "greet")
+            .expect_err("a directory with no manifest is not a course");
+        assert!(
+            matches!(err, AddLessonError::NotACourse(_)),
+            "a missing manifest is a NotACourse refusal, got {err:?}"
+        );
+        assert!(
+            !dir.path().join(LESSONS_DIR).exists(),
+            "a refused non-course add must not write an orphan lesson directory"
+        );
+    }
+
+    #[test]
+    fn add_lesson_error_display_and_source_distinguish_each_variant() {
+        use std::io::{Error as IoError, ErrorKind};
+
+        // InvalidId names the rejected id and has no nested source.
+        let invalid = AddLessonError::InvalidId("../evil".to_string());
+        let invalid_msg = invalid.to_string();
+        assert!(
+            invalid_msg.contains("../evil"),
+            "InvalidId should name the rejected id, got: {invalid_msg}"
+        );
+        assert!(std::error::Error::source(&invalid).is_none());
+
+        // AlreadyExists names the path and frames the no-clobber refusal, no source.
+        let exists = AddLessonError::AlreadyExists(PathBuf::from("lessons/greet.yaml"));
+        let exists_msg = exists.to_string();
+        assert!(
+            exists_msg.contains("lessons/greet.yaml") && exists_msg.contains("exists"),
+            "AlreadyExists should name the path and the refusal, got: {exists_msg}"
+        );
+        assert!(std::error::Error::source(&exists).is_none());
+
+        // NotACourse names the directory and points at `init`, no source.
+        let not_course = AddLessonError::NotACourse(PathBuf::from("/tmp/scratch"));
+        let not_course_msg = not_course.to_string();
+        assert!(
+            not_course_msg.contains("/tmp/scratch") && not_course_msg.contains("blendtutor.toml"),
+            "NotACourse should name the dir and the missing manifest, got: {not_course_msg}"
+        );
+        assert!(std::error::Error::source(&not_course).is_none());
+
+        // Write frames itself and exposes the io::Error as its source.
+        let write = AddLessonError::Write(IoError::new(ErrorKind::PermissionDenied, "denied"));
+        let write_msg = write.to_string();
+        assert!(
+            write_msg.contains("denied"),
+            "Write should carry the io message, got: {write_msg}"
+        );
+        assert!(std::error::Error::source(&write).is_some());
+    }
+
+    #[test]
+    fn add_lesson_refuses_a_duplicate_without_clobbering_or_double_registering() {
+        // No-clobber (§1.3.1): a second add of the same id is refused before any
+        // write, so the original lesson's bytes and the manifest are both
+        // untouched — no overwrite, no duplicate `[[lessons]]` entry.
+        let dir = tempfile::tempdir().unwrap();
+        scaffold_course(dir.path()).unwrap();
+        add_lesson(dir.path(), Language::R, "dup").expect("the first add succeeds");
+
+        let lesson_path = dir.path().join(LESSONS_DIR).join("dup.yaml");
+        let lesson_before = std::fs::read(&lesson_path).unwrap();
+        let manifest_before = std::fs::read_to_string(dir.path().join(MANIFEST_FILENAME)).unwrap();
+
+        let err = add_lesson(dir.path(), Language::Python, "dup")
+            .expect_err("a duplicate id must be refused");
+        assert!(
+            matches!(err, AddLessonError::AlreadyExists(_)),
+            "a duplicate is an AlreadyExists refusal, got {err:?}"
+        );
+        assert_eq!(
+            std::fs::read(&lesson_path).unwrap(),
+            lesson_before,
+            "the existing lesson's bytes must be unchanged (still the R template)"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join(MANIFEST_FILENAME)).unwrap(),
+            manifest_before,
+            "a refused duplicate must not append a second manifest entry"
+        );
+    }
+
+    #[test]
+    fn is_valid_slug_accepts_word_chars_hyphens_and_underscores_but_nothing_else() {
+        // Pin both sides of the charset: hyphens, underscores, and digits are part
+        // of a real slug (`add-two`, `my_lesson`, `ch2`) and must be accepted, so a
+        // dropped allowed-char branch is caught here rather than only when a reject
+        // case slips through.
+        for ok in ["greet", "add-two", "my_lesson", "ch2", "a", "R2D2"] {
+            assert!(is_valid_slug(ok), "{ok:?} should be a valid slug");
+        }
+        for bad in [
+            "",
+            "../x",
+            "a/b",
+            "has space",
+            "dot.dot",
+            "quote\"d",
+            "tab\tx",
+            ".",
+        ] {
+            assert!(!is_valid_slug(bad), "{bad:?} should be rejected");
+        }
     }
 }

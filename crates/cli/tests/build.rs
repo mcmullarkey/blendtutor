@@ -331,7 +331,13 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
     // comparison and the credential rejection — not a bare "localhost" substring: that
     // literal also appears in the explanatory comment, so deleting the guard while
     // leaving the comment would pass and silently re-open the exfiltration vector.
-    for guard in [r#"=== "localhost""#, r#"=== "127.0.0.1""#, "url.username"] {
+    for guard in [
+        r#"url.hostname === "localhost""#,
+        r#"url.hostname === "127.0.0.1""#,
+        // One fragment pins BOTH credential fields, in order — a future edit dropping
+        // `!url.password` can't pass while leaving `!url.username`.
+        "!url.username && !url.password",
+    ] {
         assert!(
             feedback.contains(guard),
             "feedback.js must host-gate the ?provider= override with the live guard `{guard}`"

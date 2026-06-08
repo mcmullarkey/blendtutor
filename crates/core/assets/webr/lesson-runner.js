@@ -25,6 +25,10 @@ function setStatus(state, text) {
   statusEl.textContent = text ?? state;
 }
 
+// Default (Automatic) channel: uses the fast SharedArrayBuffer transport when the
+// page is cross-origin isolated (the coi-serviceworker achieves this on GitHub
+// Pages), and degrades to a working channel otherwise — so a host where isolation
+// fails still runs, just slower. Don't pin a channel; that would break the fallback.
 const webR = new WebR();
 
 // Fetch the ordered slug index, then each per-lesson JSON by position. Keyed by

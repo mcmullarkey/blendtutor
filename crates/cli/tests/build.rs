@@ -488,3 +488,43 @@ fn missing_report_builds_with_not_validated_page() {
         "a report-less build must render the explicit not-validated state; page={page}"
     );
 }
+
+#[test]
+fn corrupt_eval_report_fails_the_build_loudly() {
+    // The third branch of the report read, the symmetric twin of present-OK (AC1)
+    // and absent (AC2): a present-but-unreadable eval-report.json must fail the
+    // build, never silently drop to not-validated. Without this, a regression that
+    // swallowed the parse error would still pass AC1 + AC2 while a corrupt artifact
+    // quietly unvalidated a course — exactly the failure the loud error prevents.
+    let tmp = tempfile::tempdir().unwrap();
+    let course = tmp.path().join("course");
+    std::fs::create_dir_all(&course).unwrap();
+    for asset in ["blendtutor.toml", "add_two.yaml"] {
+        std::fs::copy(
+            Path::new(COURSE_WITHOUT_EVAL_REPORT).join(asset),
+            course.join(asset),
+        )
+        .unwrap();
+    }
+    // A valid course bundled with a corrupt report.
+    std::fs::write(course.join("eval-report.json"), "{ not valid json").unwrap();
+
+    let out = tmp.path().join("site");
+    let output = build("webr", course.to_str().unwrap(), &out);
+    assert!(
+        !output.status.success(),
+        "a corrupt eval report must fail the build, not silently unvalidate; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
+    assert!(
+        stderr.contains("eval report"),
+        "the failure should name the eval report problem; stderr={stderr}"
+    );
+    // Fail-fast: the read is refused before the site is planned, so no partial
+    // output dir is left behind (mirrors the language-mismatch refusal).
+    assert!(
+        !out.exists(),
+        "a build refused on a corrupt report must not create the output directory"
+    );
+}

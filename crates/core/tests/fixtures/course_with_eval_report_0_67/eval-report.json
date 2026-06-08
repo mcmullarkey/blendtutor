@@ -1,0 +1,1 @@
+{"cases":[{"expected":"correct","actual":"correct","matched":true},{"expected":"correct","actual":"incorrect","matched":false},{"expected":"correct","actual":"correct","matched":true}],"accuracy":0.6666666666666666}

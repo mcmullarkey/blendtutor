@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 use assert_cmd::Command;
 use blendtutor_core::llm::{CHECKS_LABEL, CLOSE_CODE, OPEN_CODE, OUTPUT_LABEL};
+use blendtutor_core::site::EvalSummary;
 use serde_json::Value;
 
 /// An R-only course: a manifest and two valid R lessons, each carrying checks
@@ -26,6 +27,21 @@ const R_COURSE: &str = concat!(
 const PYTHON_COURSE: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../core/tests/fixtures/python-course"
+);
+
+/// A one-lesson R course bundled with a Slice-13 `eval-report.json` (accuracy
+/// 0.67). Drives Slice 19 AC1: a build folds the report's accuracy into the
+/// site's eval-results page.
+const COURSE_WITH_EVAL_REPORT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../core/tests/fixtures/course_with_eval_report_0_67"
+);
+
+/// The same one-lesson R course with no eval report alongside it. Drives Slice 19
+/// AC2: a build still succeeds and the eval-results page says so explicitly.
+const COURSE_WITHOUT_EVAL_REPORT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../core/tests/fixtures/course_without_eval_report"
 );
 
 /// Run `build --target <target> <course> -o <out>` via the built binary.
@@ -398,5 +414,117 @@ fn build_pyodide_ships_the_same_shared_feedback_seam() {
     assert_eq!(
         webr_feedback, pyo_feedback,
         "feedback.js must be byte-identical across targets (shared, not forked)"
+    );
+}
+
+#[test]
+fn eval_report_page_reflects_actual_accuracy() {
+    // Slice 19 AC1: a course bundled with a Slice-13 eval report builds a site
+    // whose eval-results page shows the report's *actual* accuracy — read from the
+    // JSON, never recomputed (§3.2) or hardcoded — and renders the validated
+    // state, not the not-validated marker.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build("webr", COURSE_WITH_EVAL_REPORT, &out);
+    assert!(
+        output.status.success(),
+        "build of a course with an eval report should exit 0; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let page = std::fs::read_to_string(out.join("eval-results.html"))
+        .expect("the built site must include an eval-results.html page");
+
+    // The expected figure is derived from the report JSON, parsed independently
+    // here — so a placeholder/zero/different constant fails this. The page must
+    // reflect the report's real accuracy, never a hardcoded literal.
+    let report: Value = serde_json::from_str(
+        &std::fs::read_to_string(Path::new(COURSE_WITH_EVAL_REPORT).join("eval-report.json"))
+            .unwrap(),
+    )
+    .unwrap();
+    let accuracy = report["accuracy"]
+        .as_f64()
+        .expect("the eval report carries a numeric accuracy");
+    let pct = (accuracy * 100.0).round() as i64;
+    assert!(
+        page.contains(&format!("{pct}%")),
+        "eval-results.html must show the report's accuracy ({pct}%); page={page}"
+    );
+
+    // ...and it is *positively* the validated state (§1.2): the validated marker is
+    // present AND the not-validated marker is absent, so a page that emitted
+    // neither state — or the wrong one — cannot pass.
+    assert!(
+        page.contains(EvalSummary::VALIDATED_MARKER),
+        "a present report must render the explicit validated state; page={page}"
+    );
+    assert!(
+        !page.contains(EvalSummary::NOT_VALIDATED_MARKER),
+        "a present report must not render the not-validated marker; page={page}"
+    );
+}
+
+#[test]
+fn missing_report_builds_with_not_validated_page() {
+    // Slice 19 AC2: a course with no eval report still builds (exit 0) and its
+    // eval-results page carries an explicit not-validated marker — never a
+    // real-looking 0%/empty view indistinguishable from a validated result (§1.2).
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build("webr", COURSE_WITHOUT_EVAL_REPORT, &out);
+    assert!(
+        output.status.success(),
+        "build of a report-less course must still exit 0; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let page = std::fs::read_to_string(out.join("eval-results.html"))
+        .expect("the built site must include an eval-results.html page even without a report");
+    assert!(
+        page.contains(EvalSummary::NOT_VALIDATED_MARKER),
+        "a report-less build must render the explicit not-validated state; page={page}"
+    );
+}
+
+#[test]
+fn corrupt_eval_report_fails_the_build_loudly() {
+    // The third branch of the report read, the symmetric twin of present-OK (AC1)
+    // and absent (AC2): a present-but-unreadable eval-report.json must fail the
+    // build, never silently drop to not-validated. Without this, a regression that
+    // swallowed the parse error would still pass AC1 + AC2 while a corrupt artifact
+    // quietly unvalidated a course — exactly the failure the loud error prevents.
+    let tmp = tempfile::tempdir().unwrap();
+    let course = tmp.path().join("course");
+    std::fs::create_dir_all(&course).unwrap();
+    for asset in ["blendtutor.toml", "add_two.yaml"] {
+        std::fs::copy(
+            Path::new(COURSE_WITHOUT_EVAL_REPORT).join(asset),
+            course.join(asset),
+        )
+        .unwrap();
+    }
+    // A valid course bundled with a corrupt report.
+    std::fs::write(course.join("eval-report.json"), "{ not valid json").unwrap();
+
+    let out = tmp.path().join("site");
+    let output = build("webr", course.to_str().unwrap(), &out);
+    assert!(
+        !output.status.success(),
+        "a corrupt eval report must fail the build, not silently unvalidate; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
+    assert!(
+        stderr.contains("eval report"),
+        "the failure should name the eval report problem; stderr={stderr}"
+    );
+    // Fail-fast: the read is refused before the site is planned, so no partial
+    // output dir is left behind (mirrors the language-mismatch refusal).
+    assert!(
+        !out.exists(),
+        "a build refused on a corrupt report must not create the output directory"
     );
 }

@@ -1,7 +1,7 @@
 ---
 topic: site-build
 created: 2026-06-08
-slices: [16]
+slices: [16, 17]
 ---
 
 How `blendtutor build --target <runtime>` assembles a static, browser-deployable
@@ -49,6 +49,35 @@ lesson site (`core::site`). See ADR-0008 for the decision record.
   (Automatic) channel**: SharedArrayBuffer when isolated (the shim's job), and a
   graceful fallback (PostMessage) otherwise — so a host where isolation fails still
   runs. Don't pin a channel; it breaks the fallback.
+- 2026-06-08 (#17): The Pyodide target proved the `BuildTarget` seam (§3.4): a
+  second target added `site::pyodide` + `assets/pyodide/` reusing `plan_site`/
+  `write_site` and the `SiteLesson` JSON unchanged. Factoring the cross-target
+  scaffolding **out of `webr`** was the bulk of the work (§4.2): `assemble(
+  TargetAssets, lessons)` now owns the per-lesson JSON layout, and the runner core
+  (`lesson-runner-core.js`) + the COOP/COEP shim moved to `assets/shared/`. Each
+  target now ships only its own `index.html` + a thin `lesson-runner.js` adapter
+  `{ name, boot(), run(code, checks) -> {output, ok} }` atop the shared core.
+  `assemble` takes a named-field `TargetAssets` (not two positional `&str`) so the
+  shell/runner can't transpose (§1.4). `PlanError::TargetUnsupported` is **gone** —
+  both targets are built now, so the placeholder variant is unrepresentable (§1.1).
+- 2026-06-08 (#17): The status DOM contract is **`data-status`** (idle / running /
+  pass / fail) on `#lesson-status`, set by the shared core and polled by the rodney
+  probe (`[data-status="pass"]`). Slice 16's webR shell used `data-state`; unified
+  to `data-status` here when the shell/runner split landed.
+- 2026-06-08 (#17): **Pyodide boots main-thread and needs no SharedArrayBuffer /
+  cross-origin isolation** for the basic runner — so the slice-16 headless-Chrome
+  SAB gotcha does *not* block Pyodide boot. The only headless issue is the
+  `coi-serviceworker` reload-to-isolate loop, so for rodney **neuter the served
+  shim copy** (overwrite `out/coi-serviceworker.js` with a no-op); the shipped
+  artifact keeps the real shim (AC1 asserts it present + referenced). Pyodide loads
+  from `cdn.jsdelivr.net/pyodide/v0.27.2`; the runner grades via `runPythonAsync`
+  in a fresh `toPy({})` namespace and **destroys the result PyProxy** (a
+  non-primitive trailing value leaks otherwise). Verified correct→`pass`,
+  wrong→`fail` (AssertionError) live; evidence in `docs/evidence/17/`.
+- 2026-06-08 (#17): The AC1 spec probe wrote `rg -Eq '...'`, a **ripgrep flag
+  typo** — ripgrep's `-E` takes an encoding argument (that is grep syntax), so
+  `-Eq` parses `q` as the encoding and errors. The behaviour is correct under the
+  intended `rg -q '...'`; only the probe's flag was wrong.
 - 2026-06-08 (#16): **rodney/headless-Chrome gotcha for SAB-dependent slices.**
   This rodney's headless Chrome does NOT enable `SharedArrayBuffer` /
   `crossOriginIsolated` even with correct COOP/COEP headers, and rodney can't pass

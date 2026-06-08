@@ -327,12 +327,14 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
     // The `?provider=` override is host-gated (a fix(review) hardening): the BYOK
     // base URL honors it only for a local stub, so a crafted production link can't
     // redirect the key off-Anthropic. This JS has no unit-test harness, so the
-    // shipped contract is the regression gate — pin that the allowlist ships, or a
-    // future edit could silently re-open the exfiltration vector.
-    for marker in ["localhost", "127.0.0.1"] {
+    // shipped contract is the regression gate. Pin the *live guard shape* — the host
+    // comparison and the credential rejection — not a bare "localhost" substring: that
+    // literal also appears in the explanatory comment, so deleting the guard while
+    // leaving the comment would pass and silently re-open the exfiltration vector.
+    for guard in [r#"=== "localhost""#, r#"=== "127.0.0.1""#, "url.username"] {
         assert!(
-            feedback.contains(marker),
-            "feedback.js must host-gate the ?provider= override to a local stub; missing {marker}"
+            feedback.contains(guard),
+            "feedback.js must host-gate the ?provider= override with the live guard `{guard}`"
         );
     }
 

@@ -84,3 +84,40 @@ fn new_lesson_python_creates_a_lesson_that_validates_and_lists() {
         "the new lesson's language should be python; got {greet:?}"
     );
 }
+
+#[test]
+fn new_lesson_refuses_a_duplicate_id_without_clobbering() {
+    let course = fresh_init_course();
+
+    // Create lesson `dup` as an R lesson, then snapshot its bytes and the manifest.
+    Command::cargo_bin("blendtutor")
+        .unwrap()
+        .current_dir(course.path())
+        .args(["new", "lesson", "--lang", "r", "dup"])
+        .assert()
+        .success();
+    let lesson_path = course.path().join("lessons").join("dup.yaml");
+    let lesson_before = std::fs::read(&lesson_path).expect("the first lesson is written");
+    let manifest_before = std::fs::read(course.path().join("blendtutor.toml")).unwrap();
+
+    // A second `new lesson` with the same id but a different language must refuse.
+    Command::cargo_bin("blendtutor")
+        .unwrap()
+        .current_dir(course.path())
+        .args(["new", "lesson", "--lang", "python", "dup"])
+        .assert()
+        .failure();
+
+    // The original lesson is byte-for-byte untouched (still the R template), and
+    // the manifest gained no duplicate entry: the guard fires before any write.
+    assert_eq!(
+        std::fs::read(&lesson_path).unwrap(),
+        lesson_before,
+        "a refused duplicate must not change the existing lesson's bytes"
+    );
+    assert_eq!(
+        std::fs::read(course.path().join("blendtutor.toml")).unwrap(),
+        manifest_before,
+        "a refused duplicate must not append a manifest entry"
+    );
+}

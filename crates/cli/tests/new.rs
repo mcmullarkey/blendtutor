@@ -99,6 +99,14 @@ fn new_lesson_r_creates_a_lesson_that_validates_and_lists() {
         .assert()
         .success();
 
+    // Pin file existence directly, exactly as the python twin does, so the R
+    // branch never relies on `validate` alone as a file-existence proxy.
+    let lesson_path = course.path().join("lessons").join("tally.yaml");
+    assert!(
+        lesson_path.is_file(),
+        "new lesson --lang r should write lessons/tally.yaml; missing at {lesson_path:?}"
+    );
+
     Command::cargo_bin("blendtutor")
         .unwrap()
         .current_dir(course.path())

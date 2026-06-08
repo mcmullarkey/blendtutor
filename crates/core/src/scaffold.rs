@@ -249,8 +249,9 @@ pub fn lesson_template(language: Language, id: &str) -> String {
 
 /// Why a lesson could not be added to a course.
 ///
-/// The two refusals are kept distinct from a genuine write failure so the cli can
-/// frame each: an [`InvalidId`](AddLessonError::InvalidId) or an
+/// The three refusals are kept distinct from a genuine write failure so the cli
+/// can frame each: an [`InvalidId`](AddLessonError::InvalidId), a
+/// [`NotACourse`](AddLessonError::NotACourse), or an
 /// [`AlreadyExists`](AddLessonError::AlreadyExists) is a user-correctable refusal
 /// caught at the boundary *before any write*, whereas a
 /// [`Write`](AddLessonError::Write) is an underlying I/O fault.
@@ -261,6 +262,11 @@ pub enum AddLessonError {
     /// (§1.3.1) rather than escaping the course's `lessons/` directory or
     /// breaking the manifest's TOML. Carries the rejected id.
     InvalidId(String),
+    /// The target directory is not a course: it has no `blendtutor.toml` to
+    /// register the lesson in, so the add is refused before any write (§1.3.1)
+    /// rather than leaving an orphan lesson in a non-course directory. Carries the
+    /// directory. (Run `blendtutor init` first, or `cd` into a course.)
+    NotACourse(PathBuf),
     /// A lesson already exists at the target path, so the command refuses to
     /// overwrite it (no clobber), before any write. Carries the course-relative
     /// path that is already taken.
@@ -278,6 +284,11 @@ impl fmt::Display for AddLessonError {
                 "lesson id {id:?} is not a valid slug; use letters, digits, \
                  hyphens, and underscores only",
             ),
+            AddLessonError::NotACourse(dir) => write!(
+                f,
+                "{dir:?} is not a blendtutor course (no blendtutor.toml); run \
+                 `blendtutor init` or cd into a course before adding a lesson",
+            ),
             AddLessonError::AlreadyExists(path) => write!(
                 f,
                 "a lesson already exists at {path:?}; new lesson refuses to \
@@ -291,7 +302,9 @@ impl fmt::Display for AddLessonError {
 impl Error for AddLessonError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            AddLessonError::InvalidId(_) | AddLessonError::AlreadyExists(_) => None,
+            AddLessonError::InvalidId(_)
+            | AddLessonError::NotACourse(_)
+            | AddLessonError::AlreadyExists(_) => None,
             AddLessonError::Write(e) => Some(e),
         }
     }
@@ -314,25 +327,27 @@ fn is_valid_slug(id: &str) -> bool {
 /// Add a `language` lesson `id` to the course rooted at `dir`: write
 /// `lessons/<id>.yaml` from [`lesson_template`] and register it in the manifest.
 ///
-/// The effectful shell (§2.2) over the pure template selection. Two guards fire
-/// before the lesson is registered (§1.3.1): an unsafe slug is refused as
-/// [`AddLessonError::InvalidId`] before any write, and an id whose lesson file
-/// already exists is refused as [`AddLessonError::AlreadyExists`] — the
-/// create-new write makes the existence check atomic, so a duplicate never
-/// clobbers the existing lesson nor appends a second manifest entry. On success
-/// the lesson file is written, a `[[lessons]]` entry appended to
-/// `blendtutor.toml`, and the course-relative lesson path returned for the caller
-/// to report.
+/// The effectful shell (§2.2) over the pure template selection. Three guards fire
+/// before any write (§1.3.1): an unsafe slug is refused as
+/// [`AddLessonError::InvalidId`]; a directory with no `blendtutor.toml` is refused
+/// as [`AddLessonError::NotACourse`] — its manifest is *opened* up front, so a
+/// non-course directory is never left with an orphan lesson; and an id whose
+/// lesson file already exists is refused as [`AddLessonError::AlreadyExists`], the
+/// create-new write making that check atomic so a duplicate never clobbers the
+/// existing lesson nor appends a second manifest entry. On success the lesson file
+/// is written, a `[[lessons]]` entry appended to `blendtutor.toml`, and the
+/// course-relative lesson path returned.
 ///
-/// Write-then-register is not a transaction: a write that succeeds followed by a
-/// failed manifest append leaves an orphan lesson file that `list` (manifest-
-/// driven) simply does not show — a valid, recoverable state. The reverse order
-/// would be worse: a registered-then-unwritten entry makes `list` surface a
-/// broken row for a missing file. So the lesson file is written first, by intent.
+/// The manifest is opened first (the not-a-course guard) but its entry is appended
+/// last, after the lesson file is written. The only residual non-atomic window is
+/// a rare append failure after a good write, which leaves an orphan lesson `list`
+/// (manifest-driven) simply omits — a valid, recoverable state. Registering first
+/// would be worse: a `list` row pointing at a file that was never written.
 pub fn add_lesson(dir: &Path, language: Language, id: &str) -> Result<PathBuf, AddLessonError> {
     if !is_valid_slug(id) {
         return Err(AddLessonError::InvalidId(id.to_string()));
     }
+    let mut manifest = open_manifest_for_append(dir)?;
     let rel_path = PathBuf::from(LESSONS_DIR).join(format!("{id}.yaml"));
     std::fs::create_dir_all(dir.join(LESSONS_DIR)).map_err(AddLessonError::Write)?;
     write_without_clobber(&dir.join(&rel_path), &lesson_template(language, id)).map_err(
@@ -341,7 +356,7 @@ pub fn add_lesson(dir: &Path, language: Language, id: &str) -> Result<PathBuf, A
             _ => AddLessonError::Write(e),
         },
     )?;
-    register_lesson(dir, id)?;
+    append_lesson_entry(&mut manifest, id).map_err(AddLessonError::Write)?;
     Ok(rel_path)
 }
 
@@ -359,21 +374,35 @@ fn write_without_clobber(path: &Path, contents: &str) -> std::io::Result<()> {
     std::io::Write::write_all(&mut file, contents.as_bytes())
 }
 
-/// Append a `[[lessons]]` entry registering lesson `id` to the course manifest in
-/// `dir`.
+/// Open the course manifest in `dir` for appending, or refuse a directory that has
+/// no manifest as [`AddLessonError::NotACourse`].
+///
+/// Opening the manifest up front (it is not written here) turns "this is not a
+/// course" into a boundary refusal *before* any lesson file is written (§1.3.1),
+/// so a missing manifest can never leave an orphan lesson behind. A `NotFound` is
+/// the not-a-course signal; any other open failure is a genuine
+/// [`AddLessonError::Write`].
+fn open_manifest_for_append(dir: &Path) -> Result<std::fs::File, AddLessonError> {
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(dir.join(MANIFEST_FILENAME))
+        .map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => AddLessonError::NotACourse(dir.to_path_buf()),
+            _ => AddLessonError::Write(e),
+        })
+}
+
+/// Append a `[[lessons]]` entry registering lesson `id` to an already-open manifest
+/// handle.
 ///
 /// A textual append, not a re-serialize: TOML permits repeated `[[lessons]]`
 /// array-of-tables, the [`Manifest`](crate::course::Manifest) model is parse-only,
 /// and appending leaves every existing entry's bytes exactly where they were. The
 /// id is a validated slug, so the emitted TOML string and `lessons/<id>.yaml` path
 /// are safe to embed verbatim.
-fn register_lesson(dir: &Path, id: &str) -> Result<(), AddLessonError> {
-    let mut file = std::fs::OpenOptions::new()
-        .append(true)
-        .open(dir.join(MANIFEST_FILENAME))
-        .map_err(AddLessonError::Write)?;
+fn append_lesson_entry(manifest: &mut std::fs::File, id: &str) -> std::io::Result<()> {
     let entry = format!("\n[[lessons]]\nid = \"{id}\"\npath = \"{LESSONS_DIR}/{id}.yaml\"\n");
-    std::io::Write::write_all(&mut file, entry.as_bytes()).map_err(AddLessonError::Write)
+    std::io::Write::write_all(manifest, entry.as_bytes())
 }
 
 #[cfg(test)]
@@ -643,6 +672,26 @@ mod tests {
     }
 
     #[test]
+    fn add_lesson_refuses_a_non_course_directory_without_leaving_an_orphan() {
+        // Running `new lesson` outside a course (no blendtutor.toml) must refuse
+        // before any write (§1.3.1): the manifest is opened up front, so a plain
+        // directory is rejected as NotACourse and never contaminated with an orphan
+        // lessons/<id>.yaml that no manifest registers.
+        let dir = tempfile::tempdir().unwrap(); // a bare dir, never `init`-ed
+
+        let err = add_lesson(dir.path(), Language::Python, "greet")
+            .expect_err("a directory with no manifest is not a course");
+        assert!(
+            matches!(err, AddLessonError::NotACourse(_)),
+            "a missing manifest is a NotACourse refusal, got {err:?}"
+        );
+        assert!(
+            !dir.path().join(LESSONS_DIR).exists(),
+            "a refused non-course add must not write an orphan lesson directory"
+        );
+    }
+
+    #[test]
     fn add_lesson_error_display_and_source_distinguish_each_variant() {
         use std::io::{Error as IoError, ErrorKind};
 
@@ -663,6 +712,15 @@ mod tests {
             "AlreadyExists should name the path and the refusal, got: {exists_msg}"
         );
         assert!(std::error::Error::source(&exists).is_none());
+
+        // NotACourse names the directory and points at `init`, no source.
+        let not_course = AddLessonError::NotACourse(PathBuf::from("/tmp/scratch"));
+        let not_course_msg = not_course.to_string();
+        assert!(
+            not_course_msg.contains("/tmp/scratch") && not_course_msg.contains("blendtutor.toml"),
+            "NotACourse should name the dir and the missing manifest, got: {not_course_msg}"
+        );
+        assert!(std::error::Error::source(&not_course).is_none());
 
         // Write frames itself and exposes the io::Error as its source.
         let write = AddLessonError::Write(IoError::new(ErrorKind::PermissionDenied, "denied"));

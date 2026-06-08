@@ -45,8 +45,11 @@ contract this mirrors.
   browser-access: true` (the CORS opt-in). Forces the `respond_with_feedback` tool
   via `tool_choice`; the tool input `{is_correct, feedback_message}` maps to a
   Verdict. Model is `claude-opus-4-8` (fixed, per the claude-api skill — not learner-
-  configurable in v1). `?provider=<url>` is a test seam for the base URL; it only
-  ever changes the *configured* host, never adds a second sink. Key lives in
+  configurable in v1). `?provider=<url>` is a test seam for the base URL, but it is
+  **honored only when it resolves to localhost/127.0.0.1** (a fix(review) hardening
+  — d5efe84): a crafted production link `?provider=https://attacker.example` is
+  ignored and the key reaches only `api.anthropic.com`, so the AC1 "sent only to
+  Anthropic" disclosure is enforced in code, not just asserted. Key lives in
   `sessionStorage` under `anthropic_api_key` (tab-scoped, gone on tab close).
 - 2026-06-08 (#18): **rodney realization for AC2 (in-browser fetch spy, not a live
   9099 server).** The spec's `window.__stub.requests` is populated by installing a

@@ -1,7 +1,7 @@
 ---
 topic: workspace-and-ci
 created: 2026-06-06
-slices: [1]
+slices: [1, 20]
 ---
 
 How the Rust workspace, tests, and CI fit together (Slice 1 walking skeleton).
@@ -62,3 +62,21 @@ How the Rust workspace, tests, and CI fit together (Slice 1 walking skeleton).
   `origin/staging/rewrite-in-rust-lol`) for a new branch, else the remote sha.
   If the base can't be resolved (integration branch not fetched) the hook
   **warns and skips** rather than blocking — a setup gap is not a survivor.
+- 2026-06-08 (#20): Cutover slice (README rewrite + R-package retirement) is
+  gated by two spec tests in `crates/cli/tests/`. `readme.rs` reads the repo-root
+  README via `Path::new(env!("CARGO_MANIFEST_DIR")).join("../../README.md")` (so
+  the check is CWD-independent) and pins the install + six-command workflow +
+  COOP/COEP-deploy tokens. `cutover.rs` gates the R package's *file shapes* — no
+  tracked `R/`, `man/`, `.R`/`.Rd`/`.Rproj`, `NAMESPACE`, or `DESCRIPTION` outside
+  `crates/` and `legacy-r/` — via `git ls-files`.
+- 2026-06-08 (#20): **Why the cutover test gates shapes, not a content grep.**
+  AC2's "no active file references an R identifier" is verified by the issue's
+  grep probe, which avoids matching its *own* pattern text only because it lives
+  in `.claude/` (gitignored, so `rg`/`git grep` never scan it). A committed test
+  that spelled those same literals would be a tracked file the probe then matches
+  — a self-inflicted false positive. So the in-tree test gates file shapes (which
+  carry no forbidden token) and the literal no-reference grep stays the
+  out-of-tree verification probe. General pattern: a committed "assert no
+  occurrence of token T" test cannot itself name T; gate a proxy (file shape,
+  path glob) or keep the literal check outside the scanned tree. Both cutover
+  tests skip-with-notice outside a git work tree (the `Rscript`-absent idiom).

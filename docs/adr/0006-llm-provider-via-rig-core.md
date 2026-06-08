@@ -8,7 +8,7 @@ to course-manifest discovery before this slice; the LLM-provider ADR is 0006.)
 
 ## Context
 
-Issue #10 ports the R package's LLM feedback (`R/fireworks_integration.R`: a
+Issue #10 ports the R package's LLM feedback (a
 Fireworks/OpenAI-compatible call whose forced `respond_with_feedback(is_correct,
 feedback_message)` tool contract returns a structured grade) into `core`. The
 `run` and `eval` commands both consume this: given a lesson, a submission, its

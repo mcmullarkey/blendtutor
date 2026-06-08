@@ -1,203 +1,140 @@
 # blendtutor
 
-A framework for creating interactive R coding lessons with AI-powered feedback — like [learnr](https://rstudio.github.io/learnr/), but for the console with LLM evaluation.
+A single-binary CLI for building interactive coding lessons — in R or Python —
+with AI-powered feedback. Instructors author a course of exercises and grading
+prompts; learners practice in the terminal or in a static browser site, getting
+instant, personalized feedback on each submission.
+
+Inspired by [swirl](https://swirlstats.com/) and [learnr](https://rstudio.github.io/learnr/),
+and originally designed to complement the
+[Just Enough Software Engineering](https://mcmullarkey.github.io/just-enough-software-engineering/)
+textbook.
 
 ## What is blendtutor?
 
-**blendtutor** lets educators build lesson packages that give students instant, personalized feedback on coding exercises. You write lesson YAML files describing the exercise and how to grade it, and blendtutor handles the interactive session + AI evaluation via [Fireworks AI](https://fireworks.ai).
+A course is a directory of lesson YAML files plus a `blendtutor.toml` manifest.
+Each lesson describes an exercise prompt, a code template, checks, and an LLM
+evaluation prompt. `blendtutor` handles the rest:
 
-Inspired by [swirl](https://swirlstats.com/) and originally designed to complement the [Just Enough Software Engineering](https://mcmullarkey.github.io/just-enough-software-engineering/) textbook.
+- **Instructors** scaffold a course, add lessons, validate them, dry-run the
+  grading against sample submissions, score the grading prompt against known
+  cases, and build a deployable browser site.
+- **Learners** run a lesson, submit code, and get an AI verdict — in the
+  terminal locally, or in a browser via [webR](https://docs.r-wasm.org/webr/) /
+  [Pyodide](https://pyodide.org/) with no install.
 
 ## Installation
 
-```r
-# install.packages("pak")
-pak::pak("mcmullarkey/blendtutor")
-```
-
-Or from a local clone:
+`blendtutor` is a Rust binary. Install it from a clone with Cargo:
 
 ```bash
 git clone https://github.com/mcmullarkey/blendtutor.git
 cd blendtutor
+cargo install --path crates/cli
 ```
 
-```r
-devtools::install()
+This puts a `blendtutor` executable on your `PATH` (`~/.cargo/bin`).
+
+## API key
+
+AI feedback calls an LLM provider. Set one of these in your environment:
+
+- `FIREWORKS_API_KEY` — [Fireworks AI](https://fireworks.ai) (the default provider).
+- `ANTHROPIC_API_KEY` — [Anthropic](https://www.anthropic.com) (used by built
+  browser sites, which are bring-your-own-key / Anthropic-only).
+
+```bash
+export FIREWORKS_API_KEY=fw_...
 ```
 
-## Prerequisites
+Authoring commands (`init`, `new`, `validate`, `build`) need no key; only `run`
+and `eval` call the provider.
 
-AI evaluation requires a Fireworks API key:
+## Authoring workflow
 
-1. Sign up at [fireworks.ai](https://fireworks.ai)
-2. Get your key from [fireworks.ai/api-keys](https://fireworks.ai/api-keys)
-3. Add to `.Renviron`:
-   ```r
-   usethis::edit_r_environ()
-   # Add line: FIREWORKS_API_KEY=fw_...
-   ```
-4. Restart R
+The instructor loop is **`init → new → validate → run → eval → build`**.
 
-## Creating a lesson package
+### `blendtutor init` — scaffold a course
 
-The main use case is scaffolding your own package of lessons:
-
-```r
-library(blendtutor)
-
-# Scaffold a new lesson package
-create_lesson_package("~/my.lessons", lesson_name = "pseudocode_planning")
+```bash
+blendtutor init my-course
 ```
 
-This creates a standard R package with:
+Creates `my-course/` with a `blendtutor.toml` manifest, an example lesson under
+`lessons/`, a matching eval suite, and a `.gitignore`. The fresh course is
+immediately listable and runnable.
 
-```
-my.lessons/
-  DESCRIPTION              # blendtutor in Imports
-  inst/lessons/            # Lesson YAML files
-  evals/                   # Eval scripts for testing grading accuracy
-  .claude/skills/          # Claude Code skill for guided lesson authoring
-  README.md                # Step-by-step walkthrough
-```
+### `blendtutor new` — add a lesson
 
-### Example lesson package
-
-See [justenougheng](https://github.com/mcmullarkey/justenougheng) for a complete example of a blendtutor lesson package with multiple lessons and evals.
-
-### Writing lessons
-
-Lessons are YAML files in `inst/lessons/`. The key fields:
-
-```yaml
-lesson_name: "Writing Pseudocode"
-description: "Practice translating requirements into pseudocode"
-
-exercise:
-  prompt: |
-    Write pseudocode for a function that finds the maximum value in a list.
-  llm_evaluation_prompt: |
-    You are evaluating student code for a software engineering course.
-    Exercise: Write pseudocode for finding the max value in a list.
-
-    Student submitted:
-    {student_code}
-
-    Evaluate and call respond_with_feedback with your assessment.
+```bash
+blendtutor new lesson --lang r greet         # add lessons/greet.yaml (R)
+blendtutor new lesson --lang python tally    # add lessons/tally.yaml (Python)
 ```
 
-The `{student_code}` placeholder is required — blendtutor inserts the student's submission before sending to the LLM.
+Writes a lesson YAML template plus a sibling `eval_<name>.yaml` for grading
+cases. `--lang` selects the runtime the lesson targets (`r` or `python`).
 
-### Adding more lessons to an existing package
+### `blendtutor validate` — check a lesson
 
-```r
-# Add a new lesson YAML template
-use_blendtutor_lesson("loop_basics")
-
-# Add a matching eval script
-use_blendtutor_evals("loop_basics")
+```bash
+blendtutor validate lessons/greet.yaml
+blendtutor validate lessons/greet.yaml --format json   # machine-readable
 ```
 
-### Validating and testing
+Reports missing required fields and common authoring mistakes. Exit code is
+nonzero when a lesson is invalid, so it drops cleanly into CI.
 
-```r
-# Check a lesson for required fields and common issues
-validate_lesson("inst/lessons/pseudocode_planning.yaml")
+### `blendtutor run` — execute + get feedback
 
-# Run evals to test your grading prompt against known submissions
-source("evals/eval_pseudocode_planning.R")
+```bash
+blendtutor run lessons/greet.yaml --code submission.R
+echo 'greet <- function(x) paste("hi", x)' | blendtutor run lessons/greet.yaml
 ```
 
-### Installing your lesson package
+Runs a submission through the real interpreter, then asks the LLM for a verdict.
+`--code <path>` reads a file; omit it to read the submission from stdin. Add
+`--format json` for a structured report. Exit code reflects the verdict
+(correct / incorrect / error).
 
-```r
-devtools::install()
-blendtutor::invalidate_lesson_cache()
-blendtutor::list_lessons()
+### `blendtutor eval` — score the grading prompt
+
+```bash
+blendtutor eval lessons/greet.yaml
+blendtutor eval lessons/greet.yaml --format json
 ```
 
-If you push to Github, students can install your package using pak, devtools, etc. and all its lessons appear alongside any others.
+Replays the lesson's `eval_<name>.yaml` cases through the full run pipeline and
+reports how often the grader's verdict matches the expected label — so you can
+measure (and regression-test) grading accuracy before shipping. Because evals
+score against whichever provider your API key selects, run them against the same
+provider your deployed site will use.
 
-## Student workflow
+### `blendtutor build` — assemble a browser site
 
-Once a lesson package is installed, students interact with it in the R console:
-
-```r
-library(blendtutor)
-
-list_lessons()                       # See available lessons across all packages
-start_lesson("pseudocode_planning")  # Start a lesson
-
-open_editor()                        # Opens editor with template
-# Write code, save, close
-submit_code()                        # Get AI feedback
-
-# Iterate: open_editor() -> edit -> submit_code()
+```bash
+blendtutor build my-course --target webr -o site      # R lessons → webR
+blendtutor build my-course --target pyodide -o site   # Python lessons → Pyodide
 ```
 
-Code persists between submissions — students refine based on feedback rather than starting over.
+Emits a static site to `-o <dir>`: `index.html`, a per-lesson JSON index, the
+in-browser runtime, and (if the course carries an `eval-report.json`) an
+embedded eval-results page. `--target` picks the WASM runtime — `webr` for R
+lessons, `pyodide` for Python.
 
-### Example session
+## Deploying to GitHub Pages
 
-blendtutor ships with a built-in example lesson:
+The built `site/` directory is fully static, so it deploys to **GitHub Pages**
+as-is (push it to a `gh-pages` branch or wire it into a Pages workflow).
 
-```r
-> start_lesson("add_two_numbers")
-
-============================================================
-  Blendtutor: Interactive Coding Lessons
-  Lesson: Writing Your First Function
-  Reference: Just Enough Software Engineering - Chapter 2
-============================================================
-
-Write a function called 'add_two' that takes two numeric
-arguments (x and y) and returns their sum.
-
-> submit_code("add_two <- function(x, y) x + y")
-
-Evaluating your code with AI...
-
-FEEDBACK:
-------------------------------------------------------------
-Excellent work! Your function correctly adds two numbers
-using clean, idiomatic R syntax.
-------------------------------------------------------------
-
-Congratulations! Lesson complete!
-```
-
-## API reference
-
-### Educator functions
-
-| Function | Description |
-|---|---|
-| `create_lesson_package(path)` | Scaffold a new lesson package |
-| `use_blendtutor_lesson(name)` | Add a lesson YAML template |
-| `use_blendtutor_evals(name)` | Add an eval script template |
-| `validate_lesson(path)` | Check a lesson YAML for issues |
-
-### Student functions
-
-| Function | Description |
-|---|---|
-| `list_lessons()` | Show all available lessons |
-| `start_lesson(name)` | Begin a lesson |
-| `open_editor()` | Open code in your editor |
-| `submit_code()` | Submit for AI evaluation |
-| `reset_lesson()` | Clear current lesson state |
-
-## Cross-package discovery
-
-blendtutor automatically discovers lessons from any installed package that lists `blendtutor` in its `Imports` and has YAML files in `inst/lessons/`. Students see all lessons from all packages in a single `list_lessons()` call. Use `invalidate_lesson_cache()` after installing or removing lesson packages.
-
-## Related projects
-
-- [learnr](https://rstudio.github.io/learnr/) — Interactive tutorials with Shiny
-- [swirl](https://swirlstats.com/) — Console-based interactive R learning
-- [Fireworks AI](https://fireworks.ai) — Fast inference API
-- [Just Enough Software Engineering](https://mcmullarkey.github.io/just-enough-software-engineering/) — Companion textbook
+One caveat: webR needs `SharedArrayBuffer`, which browsers only enable under
+**cross-origin isolation** — i.e. `COOP`/`COEP` response headers that GitHub
+Pages cannot set. To work around this, the build ships a vendored
+[`coi-serviceworker`](https://github.com/gzuidhof/coi-serviceworker) shim that
+re-serves the page with the required COOP/COEP headers from a service worker, so
+the site is cross-origin isolated on Pages without any header configuration.
+(Pyodide-only sites boot on the main thread and do not require this, but the shim
+ships for both targets and is harmless when unused.)
 
 ## License
 
-MIT License — see LICENSE file for details.
+MIT License — see the `LICENSE` file for details.

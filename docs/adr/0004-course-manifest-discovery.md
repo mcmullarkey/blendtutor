@@ -7,7 +7,7 @@
 
 Issue #6 ports the R package's `list_lessons()` / `invalidate_lesson_cache()`
 (`R/lesson_loader.R`, `R/package_discovery.R`) into the Rust `core`. The R side
-scans every *installed package* for an `inst/lessons/` directory, builds an
+scans every *installed package* for a lessons directory, builds an
 untyped index, caches it, and **silently swallows** a lesson it cannot read — so
 a broken lesson simply vanishes from the list and the author never learns why.
 

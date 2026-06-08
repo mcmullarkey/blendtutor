@@ -30,7 +30,7 @@ start({
     try {
       result = await pyodide.runPythonAsync(program, { globals: namespace });
       // A clean run ending in the checks returns None (-> undefined); any other
-      // trailing value is shown for context via its repr.
+      // trailing value is shown for context via its str() (PyProxy.toString()).
       const output = result == null ? "All checks passed." : result.toString();
       return { output, ok: true };
     } catch (err) {

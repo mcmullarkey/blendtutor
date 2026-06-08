@@ -243,7 +243,7 @@ fn to_json<T: Serialize>(value: &T) -> String {
 /// (§1.3.1): every lesson must be in the target's language, or the whole build
 /// fails with [`PlanError::LanguageMismatch`] and no [`SiteFiles`] are returned.
 /// Past that guard the build dispatches on the [`BuildTarget`] seam (§3.4) — each
-/// target contributing only its own shell + runner atop the shared [`assemble`].
+/// target contributing only its own shell + runner atop the shared `assemble`.
 pub fn plan_site(
     lessons: &[(LessonSlug, Lesson)],
     target: BuildTarget,

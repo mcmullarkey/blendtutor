@@ -11,12 +11,12 @@ rig-core = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde-saphyr = { workspace = true }
+serde_json = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }
-serde_json = { workspace = true }
 serial_test = { workspace = true }
 wiremock = { workspace = true }

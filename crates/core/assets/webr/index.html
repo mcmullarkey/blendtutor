@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>blendtutor — interactive R lessons</title>
+    <!--
+      COOP/COEP shim, loaded first. It registers a service worker that re-serves
+      this site cross-origin isolated, so webR's SharedArrayBuffer works on
+      GitHub Pages (which cannot set the headers itself). Must run before
+      anything that depends on isolation.
+    -->
+    <script src="coi-serviceworker.js"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 50rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      h1 {
+        margin-bottom: 0;
+      }
+      select,
+      textarea,
+      button {
+        font: inherit;
+      }
+      textarea {
+        width: 100%;
+        min-height: 9rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        padding: 0.5rem;
+        box-sizing: border-box;
+      }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0.75rem 0;
+      }
+      button {
+        padding: 0.4rem 0.9rem;
+        cursor: pointer;
+      }
+      #lesson-status {
+        padding: 0.25rem 0.6rem;
+        border-radius: 0.25rem;
+      }
+      #lesson-status[data-state="idle"] {
+        color: #555;
+      }
+      #lesson-status[data-state="running"] {
+        color: #b06a00;
+      }
+      #lesson-status[data-state="pass"] {
+        color: #0a7d28;
+        font-weight: 600;
+      }
+      #lesson-status[data-state="fail"] {
+        color: #c0202a;
+        font-weight: 600;
+      }
+      #output {
+        background: #f5f5f5;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        white-space: pre-wrap;
+        min-height: 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>blendtutor</h1>
+    <p id="boot-status">Booting webR…</p>
+
+    <p>
+      <label for="lesson-select">Lesson:</label>
+      <select id="lesson-select" data-test="lesson-select"></select>
+    </p>
+
+    <h2 id="lesson-title"></h2>
+    <p id="lesson-prompt"></p>
+
+    <textarea id="submission" data-test="submission" spellcheck="false"></textarea>
+
+    <div class="controls">
+      <button id="run" type="button" data-test="run">Run checks</button>
+      <span id="lesson-status" data-test="lesson-status" data-state="idle">idle</span>
+    </div>
+
+    <pre id="output" data-test="output"></pre>
+
+    <script type="module" src="lesson-runner.js"></script>
+  </body>
+</html>

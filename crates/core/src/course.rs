@@ -197,6 +197,29 @@ impl Course {
             })
             .collect()
     }
+
+    /// Load every lesson the manifest lists, in full and in author order.
+    ///
+    /// The effectful loader the static-site build needs (ADR-0008). Unlike
+    /// [`discover`](Course::discover) — which tolerates a partial failure by
+    /// returning one row per entry — this short-circuits on the first lesson that
+    /// fails to load: a site cannot be built from a course with a broken lesson,
+    /// so the whole build fails rather than emitting a site that silently drops a
+    /// page. Each entry pairs the manifest slug with its parsed [`Lesson`].
+    pub fn load_lessons(&self) -> Result<Vec<(LessonSlug, Lesson)>, DiscoveryError> {
+        self.manifest
+            .lessons
+            .iter()
+            .map(|entry| {
+                read_lesson_file(&self.root.join(&entry.path))
+                    .map(|lesson| (entry.id.clone(), lesson))
+                    .map_err(|source| DiscoveryError {
+                        id: entry.id.clone(),
+                        source,
+                    })
+            })
+            .collect()
+    }
 }
 
 /// One discovered lesson, as listed: its course slug, language, and title.
@@ -446,6 +469,49 @@ pathh = "add_two.yaml"
         assert!(
             std::error::Error::source(err).is_some(),
             "DiscoveryError should expose its LoadError as the source"
+        );
+    }
+
+    #[test]
+    fn load_lessons_returns_every_lesson_in_full_and_in_author_order() {
+        let course = Course::open(course_basic()).expect("course_basic should open");
+        let lessons = course
+            .load_lessons()
+            .expect("every lesson in course_basic loads");
+
+        // Full lessons paired with their manifest slug, in author order — not the
+        // summaries `discover` returns. The order assertion pins manifest order so
+        // a later reader (the site build) emits pages deterministically.
+        let pairs: Vec<(String, Language)> = lessons
+            .iter()
+            .map(|(slug, lesson)| (slug.to_string(), lesson.language.clone()))
+            .collect();
+        assert_eq!(
+            pairs,
+            vec![
+                ("add-two".to_string(), Language::R),
+                ("greet".to_string(), Language::Python),
+            ],
+        );
+    }
+
+    #[test]
+    fn load_lessons_fails_on_the_first_broken_lesson_rather_than_dropping_it() {
+        let course = Course::open(Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/course_partial"
+        )))
+        .expect("course_partial should open");
+
+        // Unlike `discover`, a single broken lesson fails the whole load — a site
+        // must never be built from an incomplete course.
+        let err = course
+            .load_lessons()
+            .expect_err("a course with a malformed lesson cannot be loaded in full");
+        assert_eq!(
+            err.id().to_string(),
+            "broken",
+            "the failure names the manifest slug of the lesson that broke"
         );
     }
 }

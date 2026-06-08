@@ -174,22 +174,32 @@ const COI_SERVICEWORKER_JS: &str = include_str!(concat!(
     "/assets/shared/coi-serviceworker.js"
 ));
 
-/// Assemble a site from one target's shell + runner glue and the loaded lessons.
+/// A build target's own client assets: its page shell and its runner adapter.
+///
+/// A named-field struct, not two positional `&str`s (§1.4): the shell and the
+/// runner are both HTML/JS strings of the same type, so a caller could silently
+/// transpose them — injecting runner JS where the page shell belongs — with no
+/// compile error. Naming the fields makes that illegal state unrepresentable at
+/// the one seam every target extends through.
+pub(super) struct TargetAssets<'a> {
+    /// The target's `index.html` page shell.
+    pub index_html: &'a str,
+    /// The target's `lesson-runner.js` runtime adapter.
+    pub lesson_runner_js: &'a str,
+}
+
+/// Assemble a site from one target's [`TargetAssets`] and the loaded lessons.
 ///
 /// The shared scaffolding both targets reuse (§4.2): a target supplies only its
-/// own `index.html` and `lesson-runner.js`; the runner core, the COOP/COEP shim,
-/// and the per-lesson JSON contract — keyed by position, never by slug, so an
-/// author's slug can never reach the filesystem as a path — are identical across
-/// targets and laid out here in deterministic order. The slug rides inside the
-/// JSON as `id`; `lessons.json` is the ordered slug index the runner enumerates.
-fn assemble(
-    index_html: &str,
-    lesson_runner_js: &str,
-    lessons: &[(LessonSlug, Lesson)],
-) -> SiteFiles {
+/// own shell and runner; the runner core, the COOP/COEP shim, and the per-lesson
+/// JSON contract — keyed by position, never by slug, so an author's slug can never
+/// reach the filesystem as a path — are identical across targets and laid out here
+/// in deterministic order. The slug rides inside the JSON as `id`; `lessons.json`
+/// is the ordered slug index the runner enumerates.
+fn assemble(assets: TargetAssets<'_>, lessons: &[(LessonSlug, Lesson)]) -> SiteFiles {
     let mut files = vec![
-        asset("index.html", index_html),
-        asset("lesson-runner.js", lesson_runner_js),
+        asset("index.html", assets.index_html),
+        asset("lesson-runner.js", assets.lesson_runner_js),
         asset("lesson-runner-core.js", LESSON_RUNNER_CORE_JS),
         asset("coi-serviceworker.js", COI_SERVICEWORKER_JS),
     ];

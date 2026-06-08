@@ -12,7 +12,7 @@
 use crate::course::LessonSlug;
 use crate::lesson::Lesson;
 
-use super::SiteFiles;
+use super::{SiteFiles, TargetAssets};
 
 /// The page shell — boots the shim, loads the Pyodide runtime, and the runner.
 const INDEX_HTML: &str = include_str!(concat!(
@@ -30,5 +30,11 @@ const LESSON_RUNNER_JS: &str = include_str!(concat!(
 /// every lesson is Python (§1.3.1), so this only contributes the Pyodide shell +
 /// runner to the shared [`super::assemble`] scaffolding.
 pub(super) fn plan(lessons: &[(LessonSlug, Lesson)]) -> SiteFiles {
-    super::assemble(INDEX_HTML, LESSON_RUNNER_JS, lessons)
+    super::assemble(
+        TargetAssets {
+            index_html: INDEX_HTML,
+            lesson_runner_js: LESSON_RUNNER_JS,
+        },
+        lessons,
+    )
 }

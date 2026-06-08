@@ -26,12 +26,21 @@ start({
   async run(code, checks) {
     const program = [code, ...checks].join("\n");
     const namespace = pyodide.toPy({});
+    let result;
     try {
-      const result = await pyodide.runPythonAsync(program, { globals: namespace });
-      return { output: result == null ? "All checks passed." : String(result), ok: true };
+      result = await pyodide.runPythonAsync(program, { globals: namespace });
+      // A clean run ending in the checks returns None (-> undefined); any other
+      // trailing value is shown for context via its repr.
+      const output = result == null ? "All checks passed." : result.toString();
+      return { output, ok: true };
     } catch (err) {
       return { output: String(err && err.message ? err.message : err), ok: false };
     } finally {
+      // Destroy a PyProxy result (a non-primitive trailing value) so it never
+      // leaks; a primitive converts to JS and has no `destroy`. Then drop the scope.
+      if (result != null && typeof result.destroy === "function") {
+        result.destroy();
+      }
       namespace.destroy();
     }
   },

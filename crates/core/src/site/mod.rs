@@ -340,6 +340,34 @@ mod tests {
     }
 
     #[test]
+    fn plan_site_serializes_a_missing_solution_as_json_null_not_dropped() {
+        // solution is optional (ADR-0008): a lesson without one must still build,
+        // with the field present-but-null so the contract shape stays stable for the
+        // runner — never silently dropped (which a later `skip_serializing_if` would
+        // do, breaking `lessons[i].solution`). course_basic's R lesson carries none.
+        let r_lessons: Vec<(LessonSlug, Lesson)> = Course::open(Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/course_basic"
+        )))
+        .expect("course_basic opens")
+        .load_lessons()
+        .expect("course_basic lessons load")
+        .into_iter()
+        .filter(|(_, lesson)| lesson.language == Language::R)
+        .collect();
+        assert!(!r_lessons.is_empty(), "course_basic has an R lesson");
+
+        let site =
+            plan_site(&r_lessons, BuildTarget::Webr).expect("a solution-less R course still plans");
+        let lesson: Value =
+            serde_json::from_str(&file(&site, "lessons/0.json").contents).expect("parses");
+        assert!(
+            lesson.get("solution").is_some() && lesson["solution"].is_null(),
+            "a missing solution serializes as null, never dropped: {lesson}"
+        );
+    }
+
+    #[test]
     fn plan_site_refuses_an_r_course_built_for_the_pyodide_target() {
         // Symmetric twin of the happy path: a language/target mismatch is refused
         // (§1.3.1) and returns no SiteFiles, so write_site is never reached.

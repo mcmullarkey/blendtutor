@@ -77,6 +77,11 @@ pub struct Exercise {
     pub kind: Option<ExerciseKind>,
     /// Optional starter code shown to the learner.
     pub code_template: Option<String>,
+    /// Optional reference solution: a known-correct answer to the exercise. The
+    /// static-site build serializes it into the lesson JSON so the in-browser
+    /// runner can self-verify a correct submission (ADR-0008). It is authoring
+    /// data, never sent to the LLM; `Option` so every existing lesson stays valid.
+    pub solution: Option<String>,
     /// Optional example invocations.
     pub example_usage: Option<String>,
     /// Optional human-readable success criteria.
@@ -286,6 +291,41 @@ exercise:
             lesson.checks.is_empty(),
             "a lesson without a checks key has no checks, got {:?}",
             lesson.checks
+        );
+    }
+
+    const LESSON_WITH_SOLUTION_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+exercise:
+  prompt: "Write add_two(x, y)."
+  solution: "add_two <- function(x, y) x + y"
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_reads_an_optional_reference_solution() {
+        // The static-site build needs an author-provided known-correct answer to
+        // serialize into the lesson JSON (ADR-0008). With `deny_unknown_fields`,
+        // `exercise.solution` must be modelled or it is rejected as a typo.
+        let lesson = Lesson::parse(LESSON_WITH_SOLUTION_YAML)
+            .expect("a lesson may carry a reference solution under exercise.solution");
+        assert_eq!(
+            lesson.exercise.solution.as_deref(),
+            Some("add_two <- function(x, y) x + y"),
+            "the solution is read verbatim from exercise.solution"
+        );
+    }
+
+    #[test]
+    fn parse_defaults_solution_to_none_when_absent() {
+        // A lesson without a `solution` key has none — the field stays optional so
+        // every existing lesson (none carried one) remains valid.
+        let lesson = Lesson::parse(VALID_YAML).expect("valid lesson should parse");
+        assert!(
+            lesson.exercise.solution.is_none(),
+            "a lesson without a solution has none, got {:?}",
+            lesson.exercise.solution
         );
     }
 

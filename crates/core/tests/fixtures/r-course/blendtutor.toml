@@ -1,0 +1,10 @@
+# An R-only course: an ordered list of R lessons, each a stable course slug `id`
+# paired with its lesson file `path` (relative to this manifest). Drives the
+# `build --target webr` static-site assembly.
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"
+
+[[lessons]]
+id = "square"
+path = "square.yaml"

@@ -22,6 +22,7 @@ pub mod llm;
 pub mod run;
 pub mod runner;
 pub mod scaffold;
+pub mod site;
 
 use std::error::Error;
 use std::fmt;

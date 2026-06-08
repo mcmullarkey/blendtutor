@@ -5,8 +5,8 @@
 
 ## Context
 
-Issue #4 ports the R package's lesson YAML (`inst/lessons/add_two_numbers.yaml`)
-and its `validate_lesson()` (`R/educator_tools.R`) into the Rust `core`. The R
+Issue #4 ports the R package's lesson YAML (the `add_two_numbers` example)
+and its `validate_lesson()` into the Rust `core`. The R
 side parses YAML into an untyped list and validates after the fact: required
 fields (`lesson_name`, `exercise.prompt`, `exercise.llm_evaluation_prompt`)
 *abort*, while the `{student_code}` placeholder rule only *warns*. Downstream R

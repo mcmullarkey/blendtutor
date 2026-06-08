@@ -82,10 +82,17 @@ window.__bt = bt;
 
 async function main() {
   setStatus("idle", "idle");
+  // Disabled until webR has booted: a click before init would fail in the R
+  // shelter and surface as a spurious check failure.
+  runButton.disabled = true;
+
   bt.lessons = await loadLessons();
-  selectEl.innerHTML = bt.lessons
-    .map((lesson, i) => `<option value="${i}">${lesson.title}</option>`)
-    .join("");
+  // Build the picker with the DOM Option API, never innerHTML: a lesson title
+  // comes from a course that may be untrusted (shared), so it must never be
+  // parsed as HTML (the same threat model that keeps slugs off the filesystem).
+  selectEl.replaceChildren(
+    ...bt.lessons.map((lesson, i) => new Option(lesson.title, String(i))),
+  );
   selectEl.addEventListener("change", () => bt.selectLesson(Number(selectEl.value)));
   runButton.addEventListener("click", () => bt.runSubmission(submissionEl.value));
   if (bt.lessons.length > 0) {
@@ -93,6 +100,7 @@ async function main() {
   }
 
   await webR.init();
+  runButton.disabled = false;
   bootEl.textContent = "webR ready — pick a lesson, write your answer, run the checks.";
 }
 

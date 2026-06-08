@@ -1,0 +1,25 @@
+lesson_name: "Square a Number"
+language: R
+description: "Write a function that squares its argument"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    Write a function called 'square' that takes one numeric argument (x) and
+    returns its square.
+  code_template: |
+    square <- function(x) {
+
+    }
+  solution: |
+    square <- function(x) {
+      x * x
+    }
+  llm_evaluation_prompt: |
+    Evaluate the student's submission:
+    {student_code}
+    Reply with feedback.
+
+checks:
+  - "stopifnot(square(3) == 9)"
+  - "stopifnot(square(-2) == 4)"

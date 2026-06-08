@@ -2,12 +2,11 @@
 //!
 //! Once the Rust CLI covers authoring + run + eval + build, the obsolete R
 //! package is retired so the active tree carries no dual R/Rust ambiguity
-//! (§4.2). This pins the *structural* half of AC2 — the R package's source
-//! artifacts are gone from the tracked tree:
-//!   1. `R/`, `NAMESPACE`, `DESCRIPTION` are absent from the repo root; and
-//!   2. no R-package source file (`R/`, `man/`, a `.R`/`.Rd`/`.Rproj`, or the
-//!      build configs) is still tracked — only the Rust crates' `.R` student-code
-//!      fixtures under `crates/` remain.
+//! (§4.2). This pins the *structural* half of AC2: the R package's source
+//! artifacts are gone from the tracked tree — `R/`, `NAMESPACE`, and
+//! `DESCRIPTION` are absent from the repo root, and no R-package source file
+//! (`R/`, `man/`, a `.R`/`.Rd`/`.Rproj`, or a build config) is still tracked,
+//! leaving only the Rust crates' `.R` student-code fixtures under `crates/`.
 //! The R sources are preserved in git history — the `main` branch *is* the R
 //! package — so retiring them on the integration branch loses nothing.
 //!
@@ -23,7 +22,7 @@
 //! Both checks need the git work tree, so they skip-with-notice when run outside
 //! a checkout (mirroring the `Rscript`-absent convention in `tests/common`).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Repo root via `git rev-parse`, or `None` (after a notice) when this is not a
@@ -43,7 +42,7 @@ fn repo_root() -> Option<PathBuf> {
 }
 
 /// Every tracked path in the work tree, one per line.
-fn tracked_files(root: &PathBuf) -> Vec<String> {
+fn tracked_files(root: &Path) -> Vec<String> {
     let out = Command::new("git")
         .current_dir(root)
         .args(["ls-files"])
@@ -59,7 +58,11 @@ fn tracked_files(root: &PathBuf) -> Vec<String> {
 /// True for a path that belongs to the retired R package, as opposed to the Rust
 /// crates' `.R` student-code fixtures (kept under `crates/`).
 fn is_retired_r_package_path(path: &str) -> bool {
-    if path.starts_with("crates/") {
+    // `crates/` keeps the Rust runner's `.R` student-code fixtures; `legacy-r/`
+    // is the spec's documented relocation alternative to deletion. Neither is
+    // the retired root package, so both are out of scope here (the latter
+    // mirrors the AC2 grep probe's `!legacy-r/**` exclusion).
+    if path.starts_with("crates/") || path.starts_with("legacy-r/") {
         return false;
     }
     path.starts_with("R/")

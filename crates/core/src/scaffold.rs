@@ -698,4 +698,18 @@ mod tests {
             "a refused duplicate must not append a second manifest entry"
         );
     }
+
+    #[test]
+    fn is_valid_slug_accepts_word_chars_hyphens_and_underscores_but_nothing_else() {
+        // Pin both sides of the charset: hyphens, underscores, and digits are part
+        // of a real slug (`add-two`, `my_lesson`, `ch2`) and must be accepted, so a
+        // dropped allowed-char branch is caught here rather than only when a reject
+        // case slips through.
+        for ok in ["greet", "add-two", "my_lesson", "ch2", "a", "R2D2"] {
+            assert!(is_valid_slug(ok), "{ok:?} should be a valid slug");
+        }
+        for bad in ["", "../x", "a/b", "has space", "dot.dot", "quote\"d", "tab\tx", "."] {
+            assert!(!is_valid_slug(bad), "{bad:?} should be rejected");
+        }
+    }
 }

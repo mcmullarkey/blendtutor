@@ -86,6 +86,51 @@ fn new_lesson_python_creates_a_lesson_that_validates_and_lists() {
 }
 
 #[test]
+fn new_lesson_r_creates_a_lesson_that_validates_and_lists() {
+    // The symmetric twin of the python happy path: --lang r drives the R template
+    // end to end, so the language selection is exercised on both branches at the
+    // CLI boundary, not just python.
+    let course = fresh_init_course();
+
+    Command::cargo_bin("blendtutor")
+        .unwrap()
+        .current_dir(course.path())
+        .args(["new", "lesson", "--lang", "r", "tally"])
+        .assert()
+        .success();
+
+    Command::cargo_bin("blendtutor")
+        .unwrap()
+        .current_dir(course.path())
+        .args(["validate", "lessons/tally.yaml"])
+        .assert()
+        .success();
+
+    let listing = Command::cargo_bin("blendtutor")
+        .unwrap()
+        .args(["list"])
+        .arg(course.path())
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(listing.status.success());
+    let rows: Vec<Value> = serde_json::from_str(&String::from_utf8_lossy(&listing.stdout))
+        .expect("list --format json emits a JSON array");
+    let tally = rows
+        .iter()
+        .find(|row| row["id"] == "tally")
+        .unwrap_or_else(|| panic!("list should show a `tally` row; rows={rows:?}"));
+    assert!(
+        tally["error"].is_null(),
+        "the tally row must be discovered; got {tally:?}"
+    );
+    assert_eq!(
+        tally["language"], "r",
+        "the new lesson's language should be r; got {tally:?}"
+    );
+}
+
+#[test]
 fn new_lesson_refuses_a_duplicate_id_without_clobbering() {
     let course = fresh_init_course();
 

@@ -323,6 +323,12 @@ fn is_valid_slug(id: &str) -> bool {
 /// the lesson file is written, a `[[lessons]]` entry appended to
 /// `blendtutor.toml`, and the course-relative lesson path returned for the caller
 /// to report.
+///
+/// Write-then-register is not a transaction: a write that succeeds followed by a
+/// failed manifest append leaves an orphan lesson file that `list` (manifest-
+/// driven) simply does not show — a valid, recoverable state. The reverse order
+/// would be worse: a registered-then-unwritten entry makes `list` surface a
+/// broken row for a missing file. So the lesson file is written first, by intent.
 pub fn add_lesson(dir: &Path, language: Language, id: &str) -> Result<PathBuf, AddLessonError> {
     if !is_valid_slug(id) {
         return Err(AddLessonError::InvalidId(id.to_string()));
@@ -708,7 +714,16 @@ mod tests {
         for ok in ["greet", "add-two", "my_lesson", "ch2", "a", "R2D2"] {
             assert!(is_valid_slug(ok), "{ok:?} should be a valid slug");
         }
-        for bad in ["", "../x", "a/b", "has space", "dot.dot", "quote\"d", "tab\tx", "."] {
+        for bad in [
+            "",
+            "../x",
+            "a/b",
+            "has space",
+            "dot.dot",
+            "quote\"d",
+            "tab\tx",
+            ".",
+        ] {
             assert!(!is_valid_slug(bad), "{bad:?} should be rejected");
         }
     }

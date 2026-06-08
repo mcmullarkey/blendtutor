@@ -416,10 +416,12 @@ fn build_pyodide_ships_the_same_shared_feedback_seam() {
     );
 }
 
-/// The marker the report-less eval-results page carries. A literal here at red;
-/// green re-anchors both the page renderer and this assertion to a single
-/// `core::site` constant so the page model's state stays observable and can't
-/// drift from its test (§1.2).
+/// The markers each eval-results state carries. Literals here at red; green
+/// re-anchors both the page renderer and these assertions to single `core::site`
+/// constants so the page model's two states stay observable and can't drift from
+/// their tests (§1.2). The two are mutually exclusive as substrings, so asserting
+/// one present and the other absent pins the state unambiguously.
+const VALIDATED_MARKER: &str = r#"data-eval-status="validated""#;
 const NOT_VALIDATED_MARKER: &str = r#"data-eval-status="not-validated""#;
 
 #[test]
@@ -458,11 +460,16 @@ fn eval_report_page_reflects_actual_accuracy() {
         "eval-results.html must show the report's accuracy ({pct}%); page={page}"
     );
 
-    // ...and it is the validated state — the not-validated marker must be absent,
-    // so a present report can never be mistaken for an unvalidated course.
+    // ...and it is *positively* the validated state (§1.2): the validated marker is
+    // present AND the not-validated marker is absent, so a page that emitted
+    // neither state — or the wrong one — cannot pass.
+    assert!(
+        page.contains(VALIDATED_MARKER),
+        "a present report must render the explicit validated state; page={page}"
+    );
     assert!(
         !page.contains(NOT_VALIDATED_MARKER),
-        "a present report must render the validated state, not the not-validated marker; page={page}"
+        "a present report must not render the not-validated marker; page={page}"
     );
 }
 

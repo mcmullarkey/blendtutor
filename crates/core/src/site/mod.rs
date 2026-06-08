@@ -193,20 +193,41 @@ impl Error for PlanError {}
 ///
 /// Distinct from an *absent* report (which the CLI shell maps to
 /// [`EvalSummary::NotValidated`] before parsing): a report that is present but
-/// malformed fails the build loudly rather than silently dropping to
+/// unreadable fails the build loudly rather than silently dropping to
 /// not-validated, so a corrupt artifact can never quietly unvalidate a course.
 #[derive(Debug)]
-pub struct EvalReportError(serde_json::Error);
+pub enum EvalReportError {
+    /// The report is not valid JSON, or lacks the expected `accuracy` shape.
+    Malformed(serde_json::Error),
+    /// The report parsed but its accuracy lies outside the representable
+    /// `[0.0, 1.0]` (§1.3.1): a hand-edited or corrupt figure that would otherwise
+    /// render nonsense like `200%`. Rejected at the read boundary, not carried.
+    AccuracyOutOfRange {
+        /// The out-of-range figure the report recorded.
+        accuracy: f64,
+    },
+}
 
 impl fmt::Display for EvalReportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "eval report is not valid Slice-13 JSON: {}", self.0)
+        match self {
+            EvalReportError::Malformed(err) => {
+                write!(f, "eval report is not valid Slice-13 JSON: {err}")
+            }
+            EvalReportError::AccuracyOutOfRange { accuracy } => write!(
+                f,
+                "eval report accuracy {accuracy} is outside the expected range [0.0, 1.0]"
+            ),
+        }
     }
 }
 
 impl Error for EvalReportError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.0)
+        match self {
+            EvalReportError::Malformed(err) => Some(err),
+            EvalReportError::AccuracyOutOfRange { .. } => None,
+        }
     }
 }
 
@@ -314,7 +335,16 @@ pub fn eval_summary_from_report_json(json: &str) -> Result<EvalSummary, EvalRepo
         accuracy: f64,
     }
 
-    let artifact: ReportArtifact = serde_json::from_str(json).map_err(EvalReportError)?;
+    let artifact: ReportArtifact =
+        serde_json::from_str(json).map_err(EvalReportError::Malformed)?;
+    // A genuine Slice-13 report's accuracy is matched/total, always in [0.0, 1.0].
+    // Anything else is a corrupt or hand-edited artifact — reject it at the read
+    // boundary (§1.3.1) so a nonsense figure (`200%`, `-50%`, NaN) never renders.
+    if !(0.0..=1.0).contains(&artifact.accuracy) {
+        return Err(EvalReportError::AccuracyOutOfRange {
+            accuracy: artifact.accuracy,
+        });
+    }
     Ok(EvalSummary::Validated {
         accuracy: artifact.accuracy,
     })
@@ -742,6 +772,15 @@ mod tests {
             half.contains("50%"),
             "the figure tracks the summary, not a hardcoded constant: {half}"
         );
+
+        // The inclusive bounds render their whole-number percent — 0% is a real
+        // (validated, all-wrong) result, distinct from the not-validated state.
+        assert!(eval_results_html(&EvalSummary::Validated { accuracy: 0.0 }).contains("0%"));
+        let perfect = eval_results_html(&EvalSummary::Validated { accuracy: 1.0 });
+        assert!(
+            perfect.contains("100%"),
+            "1.0 should render 100%: {perfect}"
+        );
     }
 
     #[test]
@@ -774,9 +813,40 @@ mod tests {
     fn eval_summary_from_report_json_rejects_a_malformed_report() {
         // A present-but-unreadable report is a loud error, not a silent drop to
         // not-validated — a corrupt artifact must never quietly unvalidate a course.
-        assert!(eval_summary_from_report_json("{ not json").is_err());
+        assert!(matches!(
+            eval_summary_from_report_json("{ not json"),
+            Err(EvalReportError::Malformed(_))
+        ));
         // Missing the accuracy field is equally unreadable for the page's purpose.
-        assert!(eval_summary_from_report_json(r#"{"cases":[]}"#).is_err());
+        assert!(matches!(
+            eval_summary_from_report_json(r#"{"cases":[]}"#),
+            Err(EvalReportError::Malformed(_))
+        ));
+    }
+
+    #[test]
+    fn eval_summary_from_report_json_rejects_an_out_of_range_accuracy() {
+        // §1.3.1: a real report's accuracy is matched/total, always in [0.0, 1.0].
+        // A figure outside that is a corrupt/hand-edited artifact and is rejected at
+        // the read boundary, so the page never renders nonsense like 200% or -50%.
+        // (JSON has no NaN/Inf literal, so only finite out-of-range is reachable
+        // from an artifact; the guard rejects NaN/Inf too, defensively.)
+        for bogus in ["2.0", "-0.5", "1.0001"] {
+            let json = format!(r#"{{"cases":[],"accuracy":{bogus}}}"#);
+            let result = eval_summary_from_report_json(&json);
+            assert!(
+                matches!(result, Err(EvalReportError::AccuracyOutOfRange { .. })),
+                "accuracy {bogus} must be rejected as out of range, got {result:?}"
+            );
+        }
+        // The inclusive bounds 0.0 and 1.0 are valid — a perfect or zero score.
+        for ok in ["0.0", "1.0"] {
+            let json = format!(r#"{{"cases":[],"accuracy":{ok}}}"#);
+            assert!(
+                eval_summary_from_report_json(&json).is_ok(),
+                "accuracy {ok} is on the inclusive boundary and must be accepted"
+            );
+        }
     }
 
     #[test]

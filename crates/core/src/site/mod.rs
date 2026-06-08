@@ -19,7 +19,7 @@ use std::error::Error;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::course::LessonSlug;
 use crate::lesson::{Language, Lesson};
@@ -54,6 +54,36 @@ impl fmt::Display for BuildTarget {
             BuildTarget::Pyodide => "pyodide",
         })
     }
+}
+
+/// Whether a built site's lessons carry eval validation, and at what accuracy.
+///
+/// A *represented* state (§1.2), never a missing-file inference: the effectful
+/// shell decides whether a report is present and hands the pure assembly an
+/// explicit value, so the eval-results page can always distinguish "validated at
+/// N%" from "not validated". A missing report can never masquerade as a real 0%.
+#[derive(Debug, Clone, PartialEq)]
+pub enum EvalSummary {
+    /// Evals were run; `accuracy` is the figure the Slice-13 report recorded,
+    /// carried through as-is (§3.2) and only formatted — never recomputed here.
+    Validated {
+        /// The suite's accuracy as recorded, a fraction in `[0.0, 1.0]`.
+        accuracy: f64,
+    },
+    /// No eval report accompanied the course — the page says so explicitly.
+    NotValidated,
+}
+
+impl EvalSummary {
+    /// The `data-eval-status` body attribute the *validated* page carries. The
+    /// single source for the marker, so the page and any probe asserting it cannot
+    /// drift; mutually exclusive — as a substring — with
+    /// [`Self::NOT_VALIDATED_MARKER`], so asserting one present and the other
+    /// absent pins the state unambiguously.
+    pub const VALIDATED_MARKER: &'static str = r#"data-eval-status="validated""#;
+    /// The `data-eval-status` body attribute the *not-validated* page carries — the
+    /// observable form of the [`EvalSummary::NotValidated`] state (§1.2).
+    pub const NOT_VALIDATED_MARKER: &'static str = r#"data-eval-status="not-validated""#;
 }
 
 /// One lesson as the in-browser runner consumes it: the Rust↔JS JSON contract
@@ -159,6 +189,27 @@ impl fmt::Display for PlanError {
 
 impl Error for PlanError {}
 
+/// A course's bundled eval report could not be read as the Slice-13 JSON artifact.
+///
+/// Distinct from an *absent* report (which the CLI shell maps to
+/// [`EvalSummary::NotValidated`] before parsing): a report that is present but
+/// malformed fails the build loudly rather than silently dropping to
+/// not-validated, so a corrupt artifact can never quietly unvalidate a course.
+#[derive(Debug)]
+pub struct EvalReportError(serde_json::Error);
+
+impl fmt::Display for EvalReportError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "eval report is not valid Slice-13 JSON: {}", self.0)
+    }
+}
+
+impl Error for EvalReportError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
 /// The in-browser runner core every target's `lesson-runner.js` imports: the
 /// cross-target scaffolding (lesson loading, rendering, pass/fail reporting) that
 /// a target's thin adapter sits atop. Shared, not duplicated per target (§4.2).
@@ -245,7 +296,77 @@ fn to_json<T: Serialize>(value: &T) -> String {
     serde_json::to_string_pretty(value).expect("the site contract serializes infallibly")
 }
 
-/// Plan the static site for `lessons`, targeting `target`.
+/// Fold a Slice-13 eval report's JSON into the page model, taking its accuracy
+/// as-is (§3.2) — the figure the `eval` command recorded, never recomputed here.
+///
+/// Pure (§2.3): the effectful read of the artifact file happens at the CLI edge,
+/// which hands this the bytes. An *absent* report is the shell's concern (it maps
+/// to [`EvalSummary::NotValidated`] without calling this); a *present* report that
+/// does not parse is an [`EvalReportError`], so the build fails loudly rather than
+/// silently treating a corrupt report as unvalidated.
+pub fn eval_summary_from_report_json(json: &str) -> Result<EvalSummary, EvalReportError> {
+    /// The slice of the report contract the page consumes: its aggregate accuracy.
+    /// Per-case results are intentionally ignored — the page shows the headline
+    /// figure, and reading only `accuracy` keeps the build from depending on the
+    /// full case shape.
+    #[derive(Deserialize)]
+    struct ReportArtifact {
+        accuracy: f64,
+    }
+
+    let artifact: ReportArtifact = serde_json::from_str(json).map_err(EvalReportError)?;
+    Ok(EvalSummary::Validated {
+        accuracy: artifact.accuracy,
+    })
+}
+
+/// Render the standalone eval-results page for a site's [`EvalSummary`].
+///
+/// §5.1: the single function mapping the validation state to its page. Each state
+/// renders its own `data-eval-status` marker and human copy, so a learner — and
+/// the build's probe — can always tell a validated course (with its accuracy)
+/// from an unvalidated one (§1.2); a missing report never renders as a real 0%.
+fn eval_results_html(summary: &EvalSummary) -> String {
+    let (status, body) = match summary {
+        EvalSummary::Validated { accuracy } => (
+            EvalSummary::VALIDATED_MARKER,
+            format!(
+                "These lessons were validated against an eval suite at \
+                 <strong>{}% accuracy</strong>.",
+                accuracy_percent(*accuracy)
+            ),
+        ),
+        EvalSummary::NotValidated => (
+            EvalSummary::NOT_VALIDATED_MARKER,
+            "These lessons have <strong>not been validated</strong> — no eval \
+             report accompanied this course."
+                .to_string(),
+        ),
+    };
+    format!(
+        "<!doctype html>\n\
+         <html lang=\"en\">\n\
+         <head>\n\
+         <meta charset=\"utf-8\">\n\
+         <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\
+         <title>Eval results</title>\n\
+         </head>\n\
+         <body {status}>\n\
+         <h1>Eval results</h1>\n\
+         <p>{body}</p>\n\
+         </body>\n\
+         </html>\n"
+    )
+}
+
+/// The accuracy as a whole-number percentage for display. Reads the report's
+/// figure as-is (§3.2) and only formats it — no re-scoring.
+fn accuracy_percent(accuracy: f64) -> i64 {
+    (accuracy * 100.0).round() as i64
+}
+
+/// Plan the static site for `lessons`, targeting `target`, folding in the eval
+/// validation `eval` carries.
 ///
 /// Pure (§2.1): it decides which files exist and their contents — embedded assets
 /// plus the per-lesson JSON contract — with no filesystem access, so the result is
@@ -254,9 +375,15 @@ fn to_json<T: Serialize>(value: &T) -> String {
 /// fails with [`PlanError::LanguageMismatch`] and no [`SiteFiles`] are returned.
 /// Past that guard the build dispatches on the [`BuildTarget`] seam (§3.4) — each
 /// target contributing only its own shell + runner atop the shared `assemble`.
+///
+/// The eval-results page is target-independent, so it is folded in here once
+/// (§4.1) rather than per target: whichever runtime a site serves, the same
+/// [`EvalSummary`] renders the same page — its accuracy, or an explicit
+/// not-validated state — so "validation travels with the lessons".
 pub fn plan_site(
     lessons: &[(LessonSlug, Lesson)],
     target: BuildTarget,
+    eval: &EvalSummary,
 ) -> Result<SiteFiles, PlanError> {
     for (slug, lesson) in lessons {
         if lesson.language != target.language() {
@@ -267,10 +394,15 @@ pub fn plan_site(
             });
         }
     }
-    Ok(match target {
+    let mut site = match target {
         BuildTarget::Webr => webr::plan(lessons),
         BuildTarget::Pyodide => pyodide::plan(lessons),
-    })
+    };
+    site.files.push(SiteFile {
+        path: "eval-results.html".into(),
+        contents: eval_results_html(eval),
+    });
+    Ok(site)
 }
 
 /// Write a planned site to `out_dir`, creating parent directories as needed.
@@ -330,6 +462,13 @@ mod tests {
             })
     }
 
+    /// Plan a site with no eval validation — the default for the tests about
+    /// lesson assembly, not the eval-results page. Eval folding is exercised by the
+    /// dedicated tests below with an explicit [`EvalSummary`].
+    fn plan(lessons: &[(LessonSlug, Lesson)], target: BuildTarget) -> Result<SiteFiles, PlanError> {
+        plan_site(lessons, target, &EvalSummary::NotValidated)
+    }
+
     #[test]
     fn build_target_language_maps_each_runtime_to_its_language() {
         assert_eq!(BuildTarget::Webr.language(), Language::R);
@@ -364,8 +503,7 @@ mod tests {
 
     #[test]
     fn plan_site_webr_assembles_the_shell_runner_shim_and_one_json_per_lesson() {
-        let site =
-            plan_site(&r_course(), BuildTarget::Webr).expect("an all-R course plans for webr");
+        let site = plan(&r_course(), BuildTarget::Webr).expect("an all-R course plans for webr");
 
         // The page shell, the runner, and the COOP/COEP shim all land.
         assert!(
@@ -399,7 +537,7 @@ mod tests {
 
     #[test]
     fn plan_site_serializes_each_lesson_to_the_browser_contract() {
-        let site = plan_site(&r_course(), BuildTarget::Webr).expect("plans");
+        let site = plan(&r_course(), BuildTarget::Webr).expect("plans");
 
         // The per-lesson JSON carries exactly the contract fields the runner reads.
         let first: Value = serde_json::from_str(&file(&site, "lessons/0.json").contents)
@@ -435,7 +573,7 @@ mod tests {
         assert!(!r_lessons.is_empty(), "course_basic has an R lesson");
 
         let site =
-            plan_site(&r_lessons, BuildTarget::Webr).expect("a solution-less R course still plans");
+            plan(&r_lessons, BuildTarget::Webr).expect("a solution-less R course still plans");
         let lesson: Value =
             serde_json::from_str(&file(&site, "lessons/0.json").contents).expect("parses");
         assert!(
@@ -448,7 +586,7 @@ mod tests {
     fn plan_site_refuses_an_r_course_built_for_the_pyodide_target() {
         // Symmetric twin of the happy path: a language/target mismatch is refused
         // (§1.3.1) and returns no SiteFiles, so write_site is never reached.
-        let err = plan_site(&r_course(), BuildTarget::Pyodide)
+        let err = plan(&r_course(), BuildTarget::Pyodide)
             .expect_err("an R course cannot be built for the Python target");
         // PlanError has a single variant today, so a catch-all arm would be
         // unreachable; assert the shape with `matches!`. A future variant keeps
@@ -468,7 +606,7 @@ mod tests {
 
     #[test]
     fn plan_site_pyodide_assembles_the_shell_runner_core_shim_and_one_json_per_lesson() {
-        let site = plan_site(&python_course(), BuildTarget::Pyodide)
+        let site = plan(&python_course(), BuildTarget::Pyodide)
             .expect("an all-Python course plans for pyodide");
 
         // The shell boots the Pyodide runtime and references the COOP/COEP shim;
@@ -514,8 +652,8 @@ mod tests {
         // shim are byte-identical whichever target produced them — only the shell
         // and runner glue differ. A divergence here means a target forked the
         // shared scaffolding instead of reusing it.
-        let webr = plan_site(&r_course(), BuildTarget::Webr).expect("plans");
-        let pyodide = plan_site(&python_course(), BuildTarget::Pyodide).expect("plans");
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let pyodide = plan(&python_course(), BuildTarget::Pyodide).expect("plans");
         for shared in ["lesson-runner-core.js", "coi-serviceworker.js"] {
             assert_eq!(
                 file(&webr, shared).contents,
@@ -537,8 +675,8 @@ mod tests {
         // single shared feedback.js (§4.2) — the Anthropic BYOK call is identical for
         // R and Python lessons — referenced by each target's shell. A per-target fork
         // or a shell that never loads it both fail here.
-        let webr = plan_site(&r_course(), BuildTarget::Webr).expect("plans");
-        let pyodide = plan_site(&python_course(), BuildTarget::Pyodide).expect("plans");
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let pyodide = plan(&python_course(), BuildTarget::Pyodide).expect("plans");
 
         for site in [&webr, &pyodide] {
             let _ = file(site, "feedback.js");
@@ -556,7 +694,7 @@ mod tests {
 
     #[test]
     fn write_site_writes_every_planned_file_to_disk() {
-        let site = plan_site(&r_course(), BuildTarget::Webr).expect("plans");
+        let site = plan(&r_course(), BuildTarget::Webr).expect("plans");
         let tmp = tempfile::tempdir().unwrap();
         write_site(tmp.path(), &site).expect("the site writes");
 
@@ -571,7 +709,7 @@ mod tests {
 
     #[test]
     fn plan_error_language_mismatch_displays_the_clash_with_no_nested_source() {
-        let mismatch = plan_site(&r_course(), BuildTarget::Pyodide).unwrap_err();
+        let mismatch = plan(&r_course(), BuildTarget::Pyodide).unwrap_err();
         let text = mismatch.to_string().to_lowercase();
         assert!(
             text.contains("does not match") && text.contains("language"),
@@ -581,5 +719,105 @@ mod tests {
         // A std::error::Error with no nested source.
         let as_error: &dyn Error = &mismatch;
         assert!(as_error.source().is_none());
+    }
+
+    #[test]
+    fn eval_results_html_validated_renders_the_accuracy_and_validated_marker() {
+        // The validated page shows the report's accuracy as a percentage and
+        // carries the validated marker, never the not-validated one (§1.2). Two
+        // different accuracies render two different figures, so the percentage is
+        // derived from the summary, not a constant.
+        let two_thirds = eval_results_html(&EvalSummary::Validated {
+            accuracy: 0.6666666666666666,
+        });
+        assert!(
+            two_thirds.contains("67%"),
+            "2/3 should render 67%: {two_thirds}"
+        );
+        assert!(two_thirds.contains(EvalSummary::VALIDATED_MARKER));
+        assert!(!two_thirds.contains(EvalSummary::NOT_VALIDATED_MARKER));
+
+        let half = eval_results_html(&EvalSummary::Validated { accuracy: 0.5 });
+        assert!(
+            half.contains("50%"),
+            "the figure tracks the summary, not a hardcoded constant: {half}"
+        );
+    }
+
+    #[test]
+    fn eval_results_html_not_validated_renders_an_explicit_marker() {
+        // The not-validated page is explicit (§1.2): it carries the not-validated
+        // marker and plain human copy, and is *not* the validated state — so a
+        // missing report is never mistaken for a real result.
+        let page = eval_results_html(&EvalSummary::NotValidated);
+        assert!(page.contains(EvalSummary::NOT_VALIDATED_MARKER));
+        assert!(
+            page.to_lowercase().contains("not been validated"),
+            "the page states plainly the lessons were not validated: {page}"
+        );
+        assert!(!page.contains(EvalSummary::VALIDATED_MARKER));
+    }
+
+    #[test]
+    fn eval_summary_from_report_json_takes_the_accuracy_as_is() {
+        // §3.2: the build consumes the Slice-13 artifact as-is — the accuracy is
+        // read straight from the JSON, never recomputed from the cases. A report
+        // whose recorded accuracy (0.5) contradicts its single all-matched case
+        // (which would re-derive 1.0) proves it: the summary reflects the recorded
+        // figure, not a re-scored one.
+        let json = r#"{"cases":[{"expected":"correct","actual":"correct","matched":true}],"accuracy":0.5}"#;
+        let summary = eval_summary_from_report_json(json).expect("a well-formed report parses");
+        assert_eq!(summary, EvalSummary::Validated { accuracy: 0.5 });
+    }
+
+    #[test]
+    fn eval_summary_from_report_json_rejects_a_malformed_report() {
+        // A present-but-unreadable report is a loud error, not a silent drop to
+        // not-validated — a corrupt artifact must never quietly unvalidate a course.
+        assert!(eval_summary_from_report_json("{ not json").is_err());
+        // Missing the accuracy field is equally unreadable for the page's purpose.
+        assert!(eval_summary_from_report_json(r#"{"cases":[]}"#).is_err());
+    }
+
+    #[test]
+    fn plan_site_folds_the_eval_results_page_for_each_state() {
+        // The eval-results page rides every built site (§4.1), in whichever state
+        // the EvalSummary carries — the same plan_site path handles both states.
+        let validated = plan_site(
+            &r_course(),
+            BuildTarget::Webr,
+            &EvalSummary::Validated {
+                accuracy: 0.6666666666666666,
+            },
+        )
+        .expect("plans");
+        let validated_page = file(&validated, "eval-results.html").contents.clone();
+        assert!(validated_page.contains("67%"));
+        assert!(validated_page.contains(EvalSummary::VALIDATED_MARKER));
+        assert!(!validated_page.contains(EvalSummary::NOT_VALIDATED_MARKER));
+
+        let unvalidated =
+            plan_site(&r_course(), BuildTarget::Webr, &EvalSummary::NotValidated).expect("plans");
+        assert!(
+            file(&unvalidated, "eval-results.html")
+                .contents
+                .contains(EvalSummary::NOT_VALIDATED_MARKER)
+        );
+
+        // Target-independent: the same summary renders the same page whichever
+        // runtime the site serves (§4.1) — the page is not forked per target.
+        let pyodide = plan_site(
+            &python_course(),
+            BuildTarget::Pyodide,
+            &EvalSummary::Validated {
+                accuracy: 0.6666666666666666,
+            },
+        )
+        .expect("plans");
+        assert_eq!(
+            file(&pyodide, "eval-results.html").contents,
+            validated_page,
+            "the eval-results page is identical across targets for the same summary"
+        );
     }
 }

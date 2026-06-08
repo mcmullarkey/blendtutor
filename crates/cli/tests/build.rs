@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 use assert_cmd::Command;
 use blendtutor_core::llm::{CHECKS_LABEL, CLOSE_CODE, OPEN_CODE, OUTPUT_LABEL};
+use blendtutor_core::site::EvalSummary;
 use serde_json::Value;
 
 /// An R-only course: a manifest and two valid R lessons, each carrying checks
@@ -416,14 +417,6 @@ fn build_pyodide_ships_the_same_shared_feedback_seam() {
     );
 }
 
-/// The markers each eval-results state carries. Literals here at red; green
-/// re-anchors both the page renderer and these assertions to single `core::site`
-/// constants so the page model's two states stay observable and can't drift from
-/// their tests (§1.2). The two are mutually exclusive as substrings, so asserting
-/// one present and the other absent pins the state unambiguously.
-const VALIDATED_MARKER: &str = r#"data-eval-status="validated""#;
-const NOT_VALIDATED_MARKER: &str = r#"data-eval-status="not-validated""#;
-
 #[test]
 fn eval_report_page_reflects_actual_accuracy() {
     // Slice 19 AC1: a course bundled with a Slice-13 eval report builds a site
@@ -464,11 +457,11 @@ fn eval_report_page_reflects_actual_accuracy() {
     // present AND the not-validated marker is absent, so a page that emitted
     // neither state — or the wrong one — cannot pass.
     assert!(
-        page.contains(VALIDATED_MARKER),
+        page.contains(EvalSummary::VALIDATED_MARKER),
         "a present report must render the explicit validated state; page={page}"
     );
     assert!(
-        !page.contains(NOT_VALIDATED_MARKER),
+        !page.contains(EvalSummary::NOT_VALIDATED_MARKER),
         "a present report must not render the not-validated marker; page={page}"
     );
 }
@@ -488,11 +481,10 @@ fn missing_report_builds_with_not_validated_page() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let page = std::fs::read_to_string(out.join("eval-results.html")).expect(
-        "the built site must include an eval-results.html page even without a report",
-    );
+    let page = std::fs::read_to_string(out.join("eval-results.html"))
+        .expect("the built site must include an eval-results.html page even without a report");
     assert!(
-        page.contains(NOT_VALIDATED_MARKER),
+        page.contains(EvalSummary::NOT_VALIDATED_MARKER),
         "a report-less build must render the explicit not-validated state; page={page}"
     );
 }

@@ -41,7 +41,9 @@ const KEY_SLOT = "anthropic_api_key";
 // 1:1 to the Rust `Feedback` DTO that becomes a `Verdict`.
 const TOOL_NAME = "respond_with_feedback";
 
-// The feedback model. Fixed, not learner-configurable in v1.
+// The fallback feedback model — the picker's default and the roster it falls back
+// to when the live /v1/models list is empty or unavailable (§1.2). Lifted from a
+// hardcoded request constant to a named fallback the model-source seam reads.
 const MODEL = "claude-opus-4-8";
 
 // --- prompt assembly (pure) ------------------------------------------------------
@@ -117,13 +119,58 @@ function providerBaseUrl() {
   return "https://api.anthropic.com";
 }
 
+// --- model discovery (the picker source seam) ------------------------------------
+
+// Pure: extract the model-id list from an Anthropic `/v1/models` response. Tolerates
+// a missing or empty `data` array (→ []) and ignores non-string ids; the caller
+// applies the fallback roster, so this never has to invent a default.
+function parseModels(json) {
+  const data = (json && json.data) || [];
+  return data
+    .map((entry) => entry && entry.id)
+    .filter((id) => typeof id === "string");
+}
+
+// Pure: the roster the picker renders — the live list when it has any models, else a
+// roster of just the named fallback. Keeps "never a zero-option dead select" as one
+// named policy rather than a guard scattered across the picker.
+function modelRoster(models) {
+  return models.length ? models : [MODEL];
+}
+
+// Effectful: fetch the models this key can reach, through the SAME host-gated base
+// URL as messages — a non-local `?provider=` override is ignored here too, so the
+// picker opens no new key-exfil vector. Returns [] on any failure (non-OK, network,
+// malformed JSON); the pure `modelRoster` turns [] into a usable roster, so a models
+// outage is never a dead end. The key rides `x-api-key` with the direct-browser-
+// access opt-in, exactly as the messages call.
+async function listModels({ baseUrl, apiKey }) {
+  try {
+    const response = await fetch(`${baseUrl}/v1/models`, {
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+    });
+    if (!response.ok) {
+      return [];
+    }
+    return parseModels(await response.json());
+  } catch (_error) {
+    return [];
+  }
+}
+
 // --- the byok-anthropic backend --------------------------------------------------
 
-// Build the Anthropic Messages API request body for `prompt`. Pure: forces the
-// `respond_with_feedback` tool so the model must answer with the typed verdict.
-function feedbackRequest(prompt) {
+// Build the Anthropic Messages API request body for `prompt` with the chosen
+// `model`. Pure: the model is an explicit argument (not the captured constant), and
+// it forces the `respond_with_feedback` tool so the model answers with the typed
+// verdict (§1.2).
+function feedbackRequest(prompt, model) {
   return {
-    model: MODEL,
+    model,
     max_tokens: 1024,
     tool_choice: { type: "tool", name: TOOL_NAME },
     tools: [
@@ -172,7 +219,7 @@ function toVerdict(data) {
 function byokAnthropic({ baseUrl, apiKey }) {
   return {
     name: "byok-anthropic",
-    async getFeedback(prompt) {
+    async getFeedback(prompt, model) {
       const response = await fetch(`${baseUrl}/v1/messages`, {
         method: "POST",
         headers: {
@@ -181,7 +228,7 @@ function byokAnthropic({ baseUrl, apiKey }) {
           "anthropic-version": "2023-06-01",
           "anthropic-dangerous-direct-browser-access": "true",
         },
-        body: JSON.stringify(feedbackRequest(prompt)),
+        body: JSON.stringify(feedbackRequest(prompt, model)),
       });
       if (!response.ok) {
         throw new Error(`the provider returned HTTP ${response.status}`);
@@ -284,8 +331,57 @@ function renderError(container, error) {
   container.replaceChildren(note);
 }
 
-// Orchestrate one submit: no key → prompt for one (dual disclosure); key present →
-// build the prompt, call the backend, render the verdict.
+// Render the model picker into the feedback container: a labeled `<select>`
+// populated from the learner's live model roster, defaulting to the named fallback
+// when present. Scoped to `#feedback` (the page-level `#lesson-select` is a separate
+// concern, §1.5). Effectful only in that it awaits `listModels`; the roster and the
+// default choice are pure.
+async function renderModelPicker(container, source) {
+  const roster = modelRoster(await listModels(source));
+
+  const picker = document.createElement("div");
+  picker.dataset.byok = "model-picker";
+
+  const label = document.createElement("label");
+  label.textContent = "Feedback model: ";
+  const select = document.createElement("select");
+  select.dataset.byok = "model";
+  for (const id of roster) {
+    const option = document.createElement("option");
+    option.value = id;
+    option.textContent = id;
+    select.append(option);
+  }
+  // Default to the named fallback when the roster carries it, else the first model —
+  // never an empty value, so submit always has a model to send.
+  select.value = roster.includes(MODEL) ? MODEL : roster[0];
+  label.append(select);
+
+  const hint = document.createElement("p");
+  hint.textContent = "Pick a model, then Submit for feedback.";
+
+  picker.append(label, hint);
+  container.replaceChildren(picker);
+}
+
+// Whether the picker is already showing — the gate between the two submit phases.
+function modelPickerPresent(container) {
+  return Boolean(container.querySelector('[data-byok="model-picker"]'));
+}
+
+// The model the learner has chosen — read straight from the picker at submit time
+// (no module state), falling back to the named default if the select is somehow
+// absent so the request always carries a model.
+function selectedModel(container) {
+  const select = container.querySelector('[data-byok="model"]');
+  return select ? select.value : MODEL;
+}
+
+// Orchestrate one submit, in three named states:
+//   no key       → prompt for one (dual disclosure);
+//   no picker yet → render the model picker from the live roster, then stop so the
+//                   learner can choose (the first submit surfaces the picker);
+//   picker shown  → build the prompt and send feedback with the *chosen* model.
 async function handleSubmit() {
   const container = feedbackContainer();
   if (!container) {
@@ -296,12 +392,18 @@ async function handleSubmit() {
     renderKeyPrompt(container);
     return;
   }
+  const baseUrl = providerBaseUrl();
+  if (!modelPickerPresent(container)) {
+    await renderModelPicker(container, { baseUrl, apiKey });
+    return;
+  }
+  const model = selectedModel(container);
   const submission = currentSubmission();
   const prompt = buildPrompt(submission);
-  const backend = byokAnthropic({ baseUrl: providerBaseUrl(), apiKey });
+  const backend = byokAnthropic({ baseUrl, apiKey });
   renderPending(container);
   try {
-    renderVerdict(container, await backend.getFeedback(prompt));
+    renderVerdict(container, await backend.getFeedback(prompt, model));
   } catch (error) {
     renderError(container, error);
   }

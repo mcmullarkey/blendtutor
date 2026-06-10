@@ -165,9 +165,9 @@ async function listModels({ baseUrl, apiKey }) {
 // --- the byok-anthropic backend --------------------------------------------------
 
 // Build the Anthropic Messages API request body for `prompt` with the chosen
-// `model`. Pure: the model is an explicit argument (not the captured constant), and
-// it forces the `respond_with_feedback` tool so the model answers with the typed
-// verdict (§1.2).
+// `model`. Pure: the model is an explicit argument, not the captured constant
+// (§1.2 — lift the magic literal to a named, threaded value); forcing the
+// `respond_with_feedback` tool makes the model answer with the typed verdict.
 function feedbackRequest(prompt, model) {
   return {
     model,
@@ -333,10 +333,18 @@ function renderError(container, error) {
 
 // Render the model picker into the feedback container: a labeled `<select>`
 // populated from the learner's live model roster, defaulting to the named fallback
-// when present. Scoped to `#feedback` (the page-level `#lesson-select` is a separate
-// concern, §1.5). Effectful only in that it awaits `listModels`; the roster and the
-// default choice are pure.
+// when present. The select carries a distinct `data-byok="model"` marker and lives
+// under `#feedback`, so the `#feedback select` test predicate pins it without prefix-
+// colliding with the page-level `#lesson-select` (§1.5). Effectful only in that it
+// awaits `listModels`; the roster and the default choice are pure.
 async function renderModelPicker(container, source) {
+  // A loading note while the live list is in flight, so a slow models query doesn't
+  // read as a dead click; the roster replaces it the moment it resolves.
+  const loading = document.createElement("p");
+  loading.dataset.byok = "models-loading";
+  loading.textContent = "Loading models…";
+  container.replaceChildren(loading);
+
   const roster = modelRoster(await listModels(source));
 
   const picker = document.createElement("div");

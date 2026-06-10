@@ -360,6 +360,40 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
         );
     }
 
+    // Slice (issue #46) — the live Anthropic model picker. The hardcoded MODEL is
+    // lifted to a named *fallback* feeding a `<select>` populated from a live
+    // `/v1/models` query; the request builder takes the chosen model as an explicit
+    // argument; and the models query reuses the SAME host-gated `providerBaseUrl()`
+    // seam as messages. JS has no unit harness, so these shipped-contract tokens are
+    // the regression gate — the live behavior (populate, default, fallback,
+    // override-routing) is the rodney arm in the PR evidence.
+    for token in [
+        "parseModels(",                   // §2.2 pure model-list extraction
+        "listModels(",                    // §2.2 effectful fetch wrapping parseModels
+        "${baseUrl}/v1/models",           // AC4 §3.4 models URL derives from providerBaseUrl()
+        r#"createElement("select")"#,     // AC1 the picker `<select>` is built dynamically
+        "feedbackRequest(prompt, model)", // AC2 §1.2 model is an explicit request argument
+    ] {
+        assert!(
+            feedback.contains(token),
+            "feedback.js must ship the live model-picker seam token `{token}`; feedback={feedback}"
+        );
+    }
+    // AC1/AC3 §1.2: the fallback literal stays the named default the empty- or
+    // failed-query branch resolves to (also pinned alive by the no-`sk-ant` scan).
+    assert!(
+        feedback.contains("claude-opus-4-8"),
+        "feedback.js must keep claude-opus-4-8 as the named fallback model"
+    );
+    // AC2 adversarial: the builder must NOT close over the bare module constant — a
+    // picker rendered for show while the body still ships `model: MODEL` would pass a
+    // default-only test vacuously. Pin the absence of the old hardcoded binding so a
+    // non-default selection is the only thing that can drive the request `model`.
+    assert!(
+        !feedback.contains("model: MODEL"),
+        "feedbackRequest must take the model as an argument, not close over MODEL"
+    );
+
     // §1.2/§3.2: the JS request mirrors the Rust contract. The prompt delimiters are
     // pinned to the *same exported constants* `build_prompt` emits, so the
     // learner-side prompt structure cannot drift from the author-side one — and the

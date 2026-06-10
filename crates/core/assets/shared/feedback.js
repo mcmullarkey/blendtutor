@@ -402,7 +402,15 @@ async function handleSubmit() {
   }
   const baseUrl = providerBaseUrl();
   if (!modelPickerPresent(container)) {
-    await renderModelPicker(container, { baseUrl, apiKey });
+    // Symmetric with the feedback-request path below: surface any picker-render
+    // failure as an error rather than leaving the loading note stuck. listModels
+    // already swallows fetch/parse failures (→ fallback roster), so this guards the
+    // DOM-build path through the same renderError exit the /v1/messages branch uses.
+    try {
+      await renderModelPicker(container, { baseUrl, apiKey });
+    } catch (error) {
+      renderError(container, error);
+    }
     return;
   }
   const model = selectedModel(container);

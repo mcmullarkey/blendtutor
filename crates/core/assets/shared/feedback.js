@@ -402,15 +402,13 @@ async function handleSubmit() {
   }
   const baseUrl = providerBaseUrl();
   if (!modelPickerPresent(container)) {
-    // Symmetric with the feedback-request path below: surface any picker-render
-    // failure as an error rather than leaving the loading note stuck. listModels
-    // already swallows fetch/parse failures (→ fallback roster), so this guards the
-    // DOM-build path through the same renderError exit the /v1/messages branch uses.
-    try {
-      await renderModelPicker(container, { baseUrl, apiKey });
-    } catch (error) {
-      renderError(container, error);
-    }
+    // No try/catch twin of the /v1/messages branch below, by design: renderModelPicker
+    // cannot throw. listModels swallows every fetch/parse failure into the fallback
+    // roster (modelRoster guarantees a non-empty list), and the rest is pure DOM
+    // construction — there is no reachable error to surface, so the loading note is
+    // always replaced. If a future provider adds throwing logic *outside* listModels,
+    // add the renderError guard here then.
+    await renderModelPicker(container, { baseUrl, apiKey });
     return;
   }
   const model = selectedModel(container);

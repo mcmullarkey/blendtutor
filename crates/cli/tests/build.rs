@@ -372,15 +372,15 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
         "listModels(",                    // §2.2 effectful fetch wrapping parseModels
         "${baseUrl}/v1/models",           // AC4 §3.4 models URL derives from providerBaseUrl()
         r#"createElement("select")"#,     // AC1 the picker `<select>` is built dynamically
-        "feedbackRequest(prompt, model)", // AC2 §1.2 model is an explicit request argument
+        "feedbackRequest(prompt, model)", // AC2 the model is an explicit request argument
     ] {
         assert!(
             feedback.contains(token),
             "feedback.js must ship the live model-picker seam token `{token}`; feedback={feedback}"
         );
     }
-    // AC1/AC3 §1.2: the fallback literal stays the named default the empty- or
-    // failed-query branch resolves to (also pinned alive by the no-`sk-ant` scan).
+    // AC1/AC3: the fallback literal stays the named default the empty- or failed-
+    // query branch resolves to (also pinned alive by the no-`sk-ant` scan).
     assert!(
         feedback.contains("claude-opus-4-8"),
         "feedback.js must keep claude-opus-4-8 as the named fallback model"

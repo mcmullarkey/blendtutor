@@ -57,8 +57,8 @@ has no rig and no server, and the host-gate is its key-exfil defense.
 - The list reflects the learner's actual key entitlements and never drifts with
   Anthropic's catalog; no roster is maintained in source.
 - `parseModels`/`modelRoster` are pure and behavior-tested; `listModels` is the thin
-  effectful shell (§2.2). The model is a named, threaded value, not a magic
-  constant (§1.2).
+  effectful shell (§2.2). The model is a named, threaded value, not a magic constant
+  the request builder closes over.
 - The models query inherits the localhost-only, credential-rejecting host-gate for
   free (§3.4): a non-local `?provider=` override is ignored for `/v1/models` exactly
   as for `/v1/messages`, so the picker opens no new key-exfil vector.

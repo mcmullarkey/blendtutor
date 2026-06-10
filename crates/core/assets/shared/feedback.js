@@ -42,8 +42,8 @@ const KEY_SLOT = "anthropic_api_key";
 const TOOL_NAME = "respond_with_feedback";
 
 // The fallback feedback model — the picker's default and the roster it falls back
-// to when the live /v1/models list is empty or unavailable (§1.2). Lifted from a
-// hardcoded request constant to a named fallback the model-source seam reads.
+// to when the live /v1/models list is empty or unavailable. Lifted from a hardcoded
+// request constant to a named fallback the model-source seam reads.
 const MODEL = "claude-opus-4-8";
 
 // --- prompt assembly (pure) ------------------------------------------------------
@@ -165,9 +165,9 @@ async function listModels({ baseUrl, apiKey }) {
 // --- the byok-anthropic backend --------------------------------------------------
 
 // Build the Anthropic Messages API request body for `prompt` with the chosen
-// `model`. Pure: the model is an explicit argument, not the captured constant
-// (§1.2 — lift the magic literal to a named, threaded value); forcing the
-// `respond_with_feedback` tool makes the model answer with the typed verdict.
+// `model`. Pure: the model is an explicit argument, not a captured module constant,
+// so the picker's selection is the only thing that drives the request model; forcing
+// the `respond_with_feedback` tool makes the model answer with the typed verdict.
 function feedbackRequest(prompt, model) {
   return {
     model,

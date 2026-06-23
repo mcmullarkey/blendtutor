@@ -1,7 +1,7 @@
 ---
 topic: feedback
 created: 2026-06-08
-slices: [18]
+slices: [18, 46]
 ---
 
 In-browser LLM feedback in a built site (`assets/shared/feedback.js`). A learner
@@ -72,3 +72,32 @@ contract this mirrors.
   *not* an `sk-ant-…` example — an example string would trip the AC1/AC2 negative
   (`rg -l 'sk-ant' crates/core/assets out`) that guards against a key baked into a
   shipped file.
+- 2026-06-09 (#46): **Live Anthropic model picker — the model-source seam + the
+  two-phase submit.** `MODEL` is now a *named fallback*, not the model. The seam
+  splits pure from effectful: `parseModels(json)` extracts ids (tolerates `{}` /
+  `{data:[]}` → `[]`), `modelRoster(models)` applies the never-zero-option policy
+  (`models.length ? models : [MODEL]`), and `listModels({baseUrl, apiKey})` is the
+  thin fetch shell returning `[]` on any failure (non-OK / network / malformed). The
+  picker fetches `/v1/models` through the SAME host-gated `providerBaseUrl()` as
+  messages, so a non-local `?provider=` override is ignored for the models endpoint
+  too (verified: an `attacker.example` override routes BOTH `/v1/models` and
+  `/v1/messages` to api.anthropic.com — the key-exfil gate covers the new endpoint).
+  The model is an explicit argument — `feedbackRequest(prompt, model)` — so the
+  picker's selection, not a module constant, drives the request. `handleSubmit` is a
+  three-state orchestrator: no key → key prompt; key but no picker → render the picker
+  (the *first* submit surfaces it, fetching the live list); picker shown → send with
+  `selectedModel()`. ADR-0009.
+- 2026-06-09 (#46): **rodney must serve the built site over HTTP, not `file://` —
+  this supersedes the #18 `file://…?provider=` probe shape for the module path.**
+  feedback.js ships as `<script type="module">`, and current Chrome (via `uvx rodney`)
+  CORS-blocks ES modules loaded over `file://` (origin "null"): the module silently
+  never executes, the submit listener never attaches, and a click does nothing — *no*
+  JS error fires, so it reads like a dead button. Fix: neuter `out/coi-serviceworker.js`
+  to a no-op (kills the reload-reset; `out/` is gitignored, the shipped artifact keeps
+  the real shim), serve with `uv run --no-project python -m http.server <port>
+  --directory out`, and open `http://localhost:<port>/index.html?provider=http://localhost:9099`.
+  The in-browser fetch spy + two-call async flush (install spy → click → read the
+  select/verdict in a *separate* `js` call) are unchanged. Quick triage for "click does
+  nothing": assert the *synchronous* render (e.g. the `data-byok="models-loading"`
+  note) in the SAME `js` call as the click — if `#feedback` stays empty, the module
+  didn't load (you're on `file://`), not a logic bug.

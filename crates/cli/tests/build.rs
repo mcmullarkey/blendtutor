@@ -360,6 +360,40 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
         );
     }
 
+    // Slice (issue #46) — the live Anthropic model picker. The hardcoded MODEL is
+    // lifted to a named *fallback* feeding a `<select>` populated from a live
+    // `/v1/models` query; the request builder takes the chosen model as an explicit
+    // argument; and the models query reuses the SAME host-gated `providerBaseUrl()`
+    // seam as messages. JS has no unit harness, so these shipped-contract tokens are
+    // the regression gate — the live behavior (populate, default, fallback,
+    // override-routing) is the rodney arm in the PR evidence.
+    for token in [
+        "parseModels(",                   // §2.2 pure model-list extraction
+        "listModels(",                    // §2.2 effectful fetch wrapping parseModels
+        "${baseUrl}/v1/models",           // AC4 §3.4 models URL derives from providerBaseUrl()
+        r#"createElement("select")"#,     // AC1 the picker `<select>` is built dynamically
+        "feedbackRequest(prompt, model)", // AC2 the model is an explicit request argument
+    ] {
+        assert!(
+            feedback.contains(token),
+            "feedback.js must ship the live model-picker seam token `{token}`; feedback={feedback}"
+        );
+    }
+    // AC1/AC3: the fallback literal stays the named default the empty- or failed-
+    // query branch resolves to (also pinned alive by the no-`sk-ant` scan).
+    assert!(
+        feedback.contains("claude-opus-4-8"),
+        "feedback.js must keep claude-opus-4-8 as the named fallback model"
+    );
+    // AC2 adversarial: the builder must NOT close over the bare module constant — a
+    // picker rendered for show while the body still ships `model: MODEL` would pass a
+    // default-only test vacuously. Pin the absence of the old hardcoded binding so a
+    // non-default selection is the only thing that can drive the request `model`.
+    assert!(
+        !feedback.contains("model: MODEL"),
+        "feedbackRequest must take the model as an argument, not close over MODEL"
+    );
+
     // §1.2/§3.2: the JS request mirrors the Rust contract. The prompt delimiters are
     // pinned to the *same exported constants* `build_prompt` emits, so the
     // learner-side prompt structure cannot drift from the author-side one — and the
@@ -384,6 +418,150 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
             !contents.contains("sk-ant"),
             "an Anthropic key literal must never ship; found in {path:?}"
         );
+    }
+}
+
+#[test]
+fn build_webr_ships_the_byok_fireworks_feedback_seam() {
+    // AC1: a built site carries the byokFireworks FeedbackBackend alongside
+    // byokAnthropic — interchangeable contract, OpenAI-compatible Fireworks
+    // backend (issue #50). The 9 anti-copy-paste tripwires guard against a
+    // verbatim Anthropic clone that swapped only the URL/auth.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build("webr", R_COURSE, &out);
+    assert!(
+        output.status.success(),
+        "`build --target webr` should exit 0, got {:?}; stderr={:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let feedback = std::fs::read_to_string(out.join("feedback.js"))
+        .expect("the built site must ship feedback.js");
+
+    // AC1: the 9 anti-copy-paste tripwires — a verbatim Anthropic clone would
+    // miss these tokens (the Negative case):
+
+    // 1. The factory function must be named byokFireworks, not a copy of byokAnthropic
+    assert!(
+        feedback.contains("byokFireworks("),
+        "feedback.js must define the byokFireworks factory; feedback={feedback}"
+    );
+
+    // 2. The endpoint must be /chat/completions, not /v1/messages
+    assert!(
+        feedback.contains("/chat/completions"),
+        "byokFireworks must POST /chat/completions; feedback={feedback}"
+    );
+
+    // 3. The auth scheme is Bearer, not x-api-key
+    assert!(
+        feedback.contains("Bearer"),
+        "byokFireworks must send the key as a Bearer token; feedback={feedback}"
+    );
+
+    // 4. The header name is "Authorization", not "x-api-key"
+    assert!(
+        feedback.contains("\"Authorization\""),
+        "byokFireworks must use the Authorization header; feedback={feedback}"
+    );
+
+    // 5. The tool definition uses parameters (OpenAI shape), not input_schema (Anthropic)
+    assert!(
+        feedback.contains("parameters"),
+        "byokFireworks must use parameters (not input_schema); feedback={feedback}"
+    );
+
+    // 6. tool_choice uses type: function (OpenAI), not type: tool (Anthropic)
+    assert!(
+        feedback.contains("\"type\": \"function\""),
+        "byokFireworks must use type: function in tool_choice; feedback={feedback}"
+    );
+
+    // 7. Response parsing accesses tool_calls (OpenAI), not content[] (Anthropic)
+    assert!(
+        feedback.contains("tool_calls"),
+        "byokFireworks must read tool_calls from the response; feedback={feedback}"
+    );
+
+    // 8. Response parsing accesses choices (OpenAI), not data.content (Anthropic)
+    assert!(
+        feedback.contains("choices"),
+        "byokFireworks must read choices from the response; feedback={feedback}"
+    );
+
+    // 9. The arguments field is a JSON string — JSON.parse is mandatory
+    assert!(
+        feedback.contains("JSON.parse"),
+        "byokFireworks must JSON.parse the function arguments; feedback={feedback}"
+    );
+
+    // Named fallback model const (mirrors MODEL = "claude-opus-4-8"). Pins both
+    // the const name so a regression that inlines the value still names the const,
+    // and the absence of the inline literal so the request always reads from the
+    // const (mirrors the Anthropic `!model: MODEL` pin).
+    assert!(
+        feedback.contains("FIREWORKS_MODEL"),
+        "byokFireworks must define a FIREWORKS_MODEL const; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("accounts/fireworks/models/deepseek-v4-flash"),
+        "byokFireworks must carry the named fallback model const; feedback={feedback}"
+    );
+    assert!(
+        !feedback.contains("model: \"accounts/fireworks/models/deepseek-v4-flash\""),
+        "the Fireworks request must read the model from a const, not an inline literal; feedback={feedback}"
+    );
+
+    // The tool name constant is reused (not forked)
+    assert!(
+        feedback.contains("respond_with_feedback"),
+        "byokFireworks must reuse the shared TOOL_NAME; feedback={feedback}"
+    );
+
+    // Structural pins (dead-function guard): name: and getFeedback must appear
+    // in the byokFireworks factory return
+    assert!(
+        feedback.contains("name:"),
+        "byokFireworks must return an object with a name field; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("getFeedback"),
+        "byokFireworks must expose a getFeedback method; feedback={feedback}"
+    );
+
+    // The request builder must take the model as an explicit argument, not close
+    // over FIREWORKS_MODEL (mirrors the `feedbackRequest(prompt, model)` pin in
+    // the Anthropic test).
+    assert!(
+        feedback.contains("fireworksRequest(prompt, model)"),
+        "fireworksRequest must take the model as an argument, not close over FIREWORKS_MODEL; feedback={feedback}"
+    );
+
+    // Mapping pins (bidirectional-contract guard): the response mapper returns
+    // correct: and message: (mirrors the Rust Verdict contract)
+    assert!(
+        feedback.contains("correct:"),
+        "byokFireworks response mapper must return correct:; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("message:"),
+        "byokFireworks response mapper must return message:; feedback={feedback}"
+    );
+
+    // AC1 + AC2 negative: no emitted file may contain `fireworks_api_key` (the key
+    // is a parameter, not a slot literal) or `/v1/v1/chat/completions` (doubled path).
+    // Scan the *whole* emitted site, not just feedback.js (mirrors the Anthropic
+    // `sk-ant` whole-site scan).
+    for (path, contents) in emitted_files(&out) {
+        for forbidden in ["fireworks_api_key", "/v1/v1/chat/completions"] {
+            assert!(
+                !contents.contains(forbidden),
+                "no emitted file may contain `{forbidden}`; found in {path:?}"
+            );
+        }
     }
 }
 

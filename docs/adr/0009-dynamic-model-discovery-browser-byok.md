@@ -1,7 +1,7 @@
 # ADR-0009: Dynamic model discovery for browser BYOK feedback
 
-- Status: Accepted
-- Date: 2026-06-09
+- Status: Extended
+- Date: 2026-06-09 (extended 2026-06-23 with multi-provider chooser)
 
 ## Context
 
@@ -16,6 +16,11 @@ the list can't be fetched. This must preserve the existing security posture: the
 key is sent only to a host that passes the `providerBaseUrl()` localhost-only,
 credential-rejecting gate (ADR-0006's browser consequence), and no model list or
 key is ever baked into a shipped file.
+
+**Extended in AC2 (issue #51):** the provider-agnostic seam foreshadowed in the
+original Decision is now realized. A provider chooser precedes the model picker,
+the PROViDERS map drives per-provider key slots / base URLs / fallback models /
+factories, and Fireworks is the pre-selected default.
 
 ## Options
 
@@ -71,3 +76,34 @@ has no rig and no server, and the host-gate is its key-exfil defense.
   render the picker eagerly on key entry.
 - Sets up the provider-agnostic picker seam Slices 2–3 (Fireworks provider +
   serverless filtering) plug into.
+- **Extended in AC2 (issue #51): multi-provider architecture with chooser.**
+  The single-provider model picker is preceded by a provider chooser: a
+  `<select data-byok="provider">` with Fireworks pre-selected as the default
+  and Anthropic as the alternative. A closed-set `PROVIDERS` map carries each
+  provider's key slot (`fireworks_api_key` / `anthropic_api_key`), base URL
+  (`https://api.fireworks.ai/inference/v1` / `https://api.anthropic.com`),
+  fallback model, and FeedbackBackend factory (`byokFireworks` / `byokAnthropic`).
+  Submit is now four-phase: no key → key prompt with chooser; key + no picker
+  → model picker; picker shown → submit through `PROVIDERS[id].factory`.
+- **Host-gate extension (AC2).** `providerBaseUrl()` gains a `providerId`
+  parameter and returns the selected provider's base URL as its hard default.
+  The `?provider=` override remains a URL test-seam parsed via `new URL()` — it
+  is NEVER compared against provider names, so the localhost-only, credential-
+  rejecting gate (unchanged) cannot be bypassed by supplying a provider id in
+  the query string. This preserves the security invariant: a crafted production
+  link cannot redirect the key off the intended provider.
+- **Per-provider disclosure (AC2).** The key prompt renders a disclosure text
+  matching the selected provider — "sent only to Fireworks" / "sent only to
+  Anthropic" — so the disclosure is never a stale lie. Both texts are literal
+  strings in the source (scanned by the build test).
+- **Key-slot isolation (AC2).** Each provider has its own `sessionStorage` slot
+  (`fireworks_api_key`, `anthropic_api_key`), so a key stored for one provider
+  is never leaked to the other. The selected provider is stored separately
+  (`byok_provider`).
+- **Dead-chooser guard (AC2).** The build test asserts BOTH `byokAnthropic(`
+  and `byokFireworks(` appear in `handleSubmit`'s conditional routing — the
+  chooser is not decorative. A regression that hardcodes one backend would
+  fail the test.
+- **Negative scan extended (AC2).** The `fw_` key prefix is scanned across all
+  emitted files (symmetric to the existing `sk-ant` scan), ensuring no
+  Fireworks key literal is ever baked into a shipped file.

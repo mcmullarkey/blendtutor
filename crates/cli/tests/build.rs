@@ -498,10 +498,21 @@ fn build_webr_ships_the_byok_fireworks_feedback_seam() {
         "byokFireworks must JSON.parse the function arguments; feedback={feedback}"
     );
 
-    // Named fallback model const (mirrors MODEL = "claude-opus-4-8")
+    // Named fallback model const (mirrors MODEL = "claude-opus-4-8"). Pins both
+    // the const name so a regression that inlines the value still names the const,
+    // and the absence of the inline literal so the request always reads from the
+    // const (mirrors the Anthropic `!model: MODEL` pin).
+    assert!(
+        feedback.contains("FIREWORKS_MODEL"),
+        "byokFireworks must define a FIREWORKS_MODEL const; feedback={feedback}"
+    );
     assert!(
         feedback.contains("accounts/fireworks/models/deepseek-v4-flash"),
         "byokFireworks must carry the named fallback model const; feedback={feedback}"
+    );
+    assert!(
+        !feedback.contains("model: \"accounts/fireworks/models/deepseek-v4-flash\""),
+        "the Fireworks request must read the model from a const, not an inline literal; feedback={feedback}"
     );
 
     // The tool name constant is reused (not forked)
@@ -521,6 +532,14 @@ fn build_webr_ships_the_byok_fireworks_feedback_seam() {
         "byokFireworks must expose a getFeedback method; feedback={feedback}"
     );
 
+    // The request builder must take the model as an explicit argument, not close
+    // over FIREWORKS_MODEL (mirrors the `feedbackRequest(prompt, model)` pin in
+    // the Anthropic test).
+    assert!(
+        feedback.contains("fireworksRequest(prompt, model)"),
+        "fireworksRequest must take the model as an argument, not close over FIREWORKS_MODEL; feedback={feedback}"
+    );
+
     // Mapping pins (bidirectional-contract guard): the response mapper returns
     // correct: and message: (mirrors the Rust Verdict contract)
     assert!(
@@ -532,18 +551,18 @@ fn build_webr_ships_the_byok_fireworks_feedback_seam() {
         "byokFireworks response mapper must return message:; feedback={feedback}"
     );
 
-    // Negative: the shipped file must NOT contain fireworks_api_key (the key is
-    // a parameter, not a slot literal in this issue)
-    assert!(
-        !feedback.contains("fireworks_api_key"),
-        "fireworks_api_key must NOT be baked into feedback.js; it is a parameter, not a slot literal"
-    );
-
-    // Negative: the shipped file must NOT contain /v1/v1/chat/completions (doubled path)
-    assert!(
-        !feedback.contains("/v1/v1/chat/completions"),
-        "the shipped file must NOT contain a doubled /v1/v1/ path; feedback={feedback}"
-    );
+    // AC1 + AC2 negative: no emitted file may contain `fireworks_api_key` (the key
+    // is a parameter, not a slot literal) or `/v1/v1/chat/completions` (doubled path).
+    // Scan the *whole* emitted site, not just feedback.js (mirrors the Anthropic
+    // `sk-ant` whole-site scan).
+    for (path, contents) in emitted_files(&out) {
+        for forbidden in ["fireworks_api_key", "/v1/v1/chat/completions"] {
+            assert!(
+                !contents.contains(forbidden),
+                "no emitted file may contain `{forbidden}`; found in {path:?}"
+            );
+        }
+    }
 }
 
 #[test]

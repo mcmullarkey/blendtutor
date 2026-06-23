@@ -277,10 +277,14 @@ function fireworksRequest(prompt, model) {
 
 // Map the Fireworks (OpenAI-compatible) tool-call response to a Verdict.
 // OpenAI returns `function.arguments` as a JSON *string* (unlike Anthropic's
-// structured `input`), so `JSON.parse` is mandatory.
+// structured `input`), so `JSON.parse` is mandatory. Filters tool calls by
+// name (mirrors `toVerdict`'s `b.name === TOOL_NAME` pattern) — defense in
+// depth: `tool_choice` forces the tool, but if the model ever returns a
+// parallel/foreign tool call, the blind `[0]` would mis-parse it as a verdict.
 function fireworksToVerdict(data) {
   const choice = (data.choices ?? [])[0];
-  const toolCall = (choice?.message?.tool_calls ?? [])[0];
+  const toolCall = (choice?.message?.tool_calls ?? [])
+    .find((c) => c?.function?.name === TOOL_NAME);
   if (!toolCall?.function?.arguments) {
     throw new Error("the provider returned no feedback tool call");
   }

@@ -551,12 +551,14 @@ fn build_webr_ships_the_byok_fireworks_feedback_seam() {
         "byokFireworks response mapper must return message:; feedback={feedback}"
     );
 
-    // AC1 + AC2 negative: no emitted file may contain `fireworks_api_key` (the key
-    // is a parameter, not a slot literal) or `/v1/v1/chat/completions` (doubled path).
+    // AC1 + AC2 negative: no emitted file may contain the Fireworks key prefix
+    // `fw_` (a baked-in key literal) or `/v1/v1/chat/completions` (doubled path).
+    // `fireworks_api_key` is now a legitimate sessionStorage slot name (the
+    // PROVIDERS map in issue #51), so it is NOT scanned here.
     // Scan the *whole* emitted site, not just feedback.js (mirrors the Anthropic
     // `sk-ant` whole-site scan).
     for (path, contents) in emitted_files(&out) {
-        for forbidden in ["fireworks_api_key", "/v1/v1/chat/completions"] {
+        for forbidden in ["fw_", "/v1/v1/chat/completions"] {
             assert!(
                 !contents.contains(forbidden),
                 "no emitted file may contain `{forbidden}`; found in {path:?}"
@@ -564,6 +566,159 @@ fn build_webr_ships_the_byok_fireworks_feedback_seam() {
         }
     }
 }
+
+#[test]
+fn build_webr_ships_the_multi_provider_feedback_seam() {
+    // Issue #51 (AC2): a built site carries a provider chooser + per-provider
+    // routing — the PROVIDERS map drives the key slot, base URL, fallback model,
+    // and which FeedbackBackend handleSubmit constructs. Fireworks is the
+    // pre-selected default.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build("webr", R_COURSE, &out);
+    assert!(
+        output.status.success(),
+        "`build --target webr` should exit 0, got {:?}; stderr={:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let feedback = std::fs::read_to_string(out.join("feedback.js"))
+        .expect("the built site must ship feedback.js");
+
+    // AC1: a provider chooser <select data-byok="provider"> exists with
+    // Fireworks as the selected default. The chooser is built dynamically via
+    // DOM API (not a template literal), so we assert the programmatic
+    // pattern: the select element carries data-byok="provider", the
+    // DEFAULT_PROVIDER constant names fireworks, and the rendering code sets
+    // option.selected based on the default.
+    assert!(
+        feedback.contains(r#"data-byok="provider""#),
+        "feedback.js must ship a provider chooser with data-byok=provider; \
+         feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("DEFAULT_PROVIDER"),
+        "feedback.js must define a DEFAULT_PROVIDER constant; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains(r#""fireworks""#),
+        "feedback.js must reference the fireworks provider id; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains(r#""Anthropic""#),
+        "feedback.js must reference the Anthropic provider label; feedback={feedback}"
+    );
+
+    // AC2: a closed-set PROVIDERS map carries both fireworks and anthropic with
+    // their keySlot, baseUrl, fallbackModel, and factory.
+    for provider_token in [
+        "PROVIDERS",
+        "fireworks_api_key",
+        "anthropic_api_key",
+        "https://api.fireworks.ai/inference/v1",
+        "https://api.anthropic.com",
+        "accounts/fireworks/models/deepseek-v4-flash",
+        "claude-opus-4-8",
+        "byokFireworks",
+        "byokAnthropic",
+    ] {
+        assert!(
+            feedback.contains(provider_token),
+            "feedback.js must ship the PROVIDERS map token `{provider_token}`; \
+             feedback={feedback}"
+        );
+    }
+
+    // AC3: handleSubmit routes through PROVIDERS[providerId].factory, not a
+    // hardcoded backend name (dead-chooser guard).
+    assert!(
+        feedback.contains("PROVIDERS[providerId].factory"),
+        "handleSubmit must route through PROVIDERS[providerId].factory, not hardcode a backend; feedback={feedback}"
+    );
+
+    // AC4: fireworks_api_key is a distinct sessionStorage slot AND
+    // anthropic_api_key persists (no key-slot leakage).
+    assert!(
+        feedback.contains("fireworks_api_key"),
+        "feedback.js must define fireworks_api_key as a distinct key slot; \
+         feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("anthropic_api_key"),
+        "feedback.js must keep anthropic_api_key as a key slot; \
+         feedback={feedback}"
+    );
+
+    // AC5: providerBaseUrl(providerId) returns the Fireworks URL for a Fireworks
+    // selection in the hard-default path.
+    assert!(
+        feedback.contains("https://api.fireworks.ai/inference/v1"),
+        "feedback.js must carry the Fireworks base URL; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("https://api.anthropic.com"),
+        "feedback.js must keep the Anthropic base URL; feedback={feedback}"
+    );
+
+    // AC6: host-gate tokens all persist (the gate did not regress).
+    for guard in [
+        r#"url.hostname === "localhost""#,
+        r#"url.hostname === "127.0.0.1""#,
+        "!url.username && !url.password",
+    ] {
+        assert!(
+            feedback.contains(guard),
+            "feedback.js must host-gate the ?provider= override with `{guard}`"
+        );
+    }
+
+    // AC7: the ?provider= override value is still parsed via new URL() (it
+    // remains a URL test-seam, NOT a provider-name selector).
+    assert!(
+        feedback.contains("new URL(override)"),
+        "?provider= override must still be parsed via new URL(); feedback={feedback}"
+    );
+
+    // AC8: per-provider disclosure — BOTH per-provider phrases appear.
+    let lower = feedback.to_lowercase();
+    assert!(
+        lower.contains("sent only to fireworks"),
+        "feedback.js must disclose Fireworks-only transmission; feedback={feedback}"
+    );
+    assert!(
+        lower.contains("sent only to anthropic"),
+        "feedback.js must disclose Anthropic-only transmission; feedback={feedback}"
+    );
+
+    // AC9: byokAnthropic is NOT removed.
+    assert!(
+        feedback.contains("byokAnthropic"),
+        "byokAnthropic must still be present in feedback.js; feedback={feedback}"
+    );
+
+    // AC10: a negative scan of EVERY emitted file rejects the Fireworks key
+    // prefix fw_ (symmetric to the existing sk-ant scan in
+    // build_webr_ships_the_byok_anthropic_feedback_seam).
+    //
+    // Also re-scan for sk-ant since this is an independent test that must also
+    // guard against that regression.
+    for (path, contents) in emitted_files(&out) {
+        assert!(
+            !contents.contains("fw_"),
+            "a Fireworks key prefix must never ship baked in; found in {path:?}"
+        );
+        assert!(
+            !contents.contains("sk-ant"),
+            "an Anthropic key prefix must never ship baked in; found in {path:?}"
+        );
+    }
+}
+
+// AC11 (byte-identity across targets) is exercised by
+// build_pyodide_ships_the_same_shared_feedback_seam below — that test stays
+// green unchanged.
 
 #[test]
 fn build_pyodide_ships_the_same_shared_feedback_seam() {

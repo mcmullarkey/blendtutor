@@ -1,5 +1,6 @@
-// blendtutor in-browser LLM feedback — the FeedbackBackend seam + byok-anthropic
-// + byok-fireworks impls (Slice 18/ADR-0006/0008 consequence; Slice AC1/issue #50).
+// blendtutor in-browser LLM feedback — the FeedbackBackend seam + provider-chooser
+// + byok-fireworks / byok-anthropic impls (Slice 18/ADR-0006/0008/0009 consequence;
+// Slices AC1/issue #50, AC2/issue #51).
 //
 // Where this fits: a built site runs and grades lessons locally (lesson-runner-
 // core.js); *this* module is the separate concern of fetching written feedback on
@@ -7,15 +8,16 @@
 //   1. The `FeedbackBackend` contract — `getFeedback(prompt) -> Promise<Verdict>`,
 //      the one seam a future backend (WebLLM, Slice 21) plugs into with no change
 //      to lesson rendering or execution (§3.3, §3.4).
-//   2. The `byok-anthropic` impl (v1) and the `byok-fireworks` impl (v2): the
-//      learner brings their own key. The key is read from this tab's sessionStorage
-//      and sent only to the chosen provider — header injection and key handling are
-//      isolated here, never in the render/exec layers (§4.2). No key literal is ever
-//      baked into a shipped file.
-//   3. The submit-flow wiring: prompt for a key when absent (with the dual
-//      disclosure), otherwise build the prompt, call the backend, render the
-//      verdict — reading the runner's already-exposed `window.__bt` seam rather
-//      than reaching into its internals.
+//   2. A `PROVIDERS` map carrying each provider's key slot, base URL, fallback
+//      model, and factory — the chooser drives routing. The learner brings their
+//      own key. The key is read from this tab's sessionStorage and sent only to
+//      the chosen provider — header injection and key handling are isolated here,
+//      never in the render/exec layers (§4.2). No key literal is ever baked into
+//      a shipped file.
+//   3. The submit-flow wiring: prompt for a provider + key when absent (with
+//      per-provider disclosure), otherwise build the prompt, call the backend,
+//      render the verdict — reading the runner's already-exposed `window.__bt`
+//      seam rather than reaching into its internals.
 //
 // `Verdict` mirrors the Rust `core::llm::Verdict` contract (`{ correct, message }`
 // ↔ `Correct{message}/Incorrect{message}`), so author-side evals and learner-side
@@ -33,9 +35,42 @@ const OUTPUT_LABEL = "<<<CAPTURED_OUTPUT>>>";
 const CHECKS_LABEL = "<<<CHECK_RESULTS>>>";
 const NEUTRALIZED = "[neutralized-delimiter]";
 
-// The tab-scoped slot the learner's key lives in — sessionStorage, so it is gone
-// when the tab closes and never shared with another tab/origin.
-const KEY_SLOT = "anthropic_api_key";
+// --- provider map + key handling (sessionStorage, tab-scoped) --------------------
+
+// The closed set of providers the chooser renders and handleSubmit routes to.
+// Each entry carries the tab-scoped sessionStorage slot for the learner's key,
+// the base URL for API calls, the fallback model, and the FeedbackBackend factory
+// that builds the provider-specific backend.
+const PROVIDERS = {
+  fireworks: {
+    label: "Fireworks",
+    keySlot: "fireworks_api_key",
+    baseUrl: "https://api.fireworks.ai/inference/v1",
+    fallbackModel: "accounts/fireworks/models/deepseek-v4-flash",
+    factory: byokFireworks,
+  },
+  anthropic: {
+    label: "Anthropic",
+    keySlot: "anthropic_api_key",
+    baseUrl: "https://api.anthropic.com",
+    fallbackModel: "claude-opus-4-8",
+    factory: byokAnthropic,
+  },
+};
+const DEFAULT_PROVIDER = "fireworks";
+
+// Per-provider disclosure texts — literal strings so the build-test static scan
+// can verify BOTH are present (the test lowercases the source and looks for the
+// provider name). Each matches the dynamic disclosure renderKeyPrompt builds from
+// PROVIDERS[id].label so the disclosure is never stale.
+const PROVIDER_DISCLOSURES = {
+  fireworks: "Your Fireworks API key is stored only in this tab (this browser " +
+    "tab's sessionStorage) and sent only to Fireworks to fetch feedback — never " +
+    "to this site's server or any third party.",
+  anthropic: "Your Anthropic API key is stored only in this tab (this browser " +
+    "tab's sessionStorage) and sent only to Anthropic to fetch feedback — never " +
+    "to this site's server or any third party.",
+};
 
 // The Anthropic tool the model answers through — the same contract the R package
 // pinned (`respond_with_feedback(is_correct, feedback_message)`); its input maps
@@ -91,22 +126,36 @@ function buildPrompt({ task, code, output, checks }) {
 
 // --- key handling (sessionStorage, tab-scoped) -----------------------------------
 
-function readKey() {
-  return window.sessionStorage.getItem(KEY_SLOT);
+function readKey(providerId) {
+  return window.sessionStorage.getItem(PROVIDERS[providerId].keySlot);
 }
 
-function storeKey(key) {
-  window.sessionStorage.setItem(KEY_SLOT, key);
+function storeKey(key, providerId) {
+  window.sessionStorage.setItem(PROVIDERS[providerId].keySlot, key);
 }
 
-// The provider base URL. Defaults to Anthropic. A `?provider=` override is the
+function readProvider() {
+  const stored = window.sessionStorage.getItem("byok_provider");
+  return stored && stored in PROVIDERS ? stored : DEFAULT_PROVIDER;
+}
+
+function storeProvider(providerId) {
+  window.sessionStorage.setItem("byok_provider", providerId);
+}
+
+// The provider base URL. Takes the selected provider id and returns the
+// provider's base URL from the PROVIDERS map. A `?provider=` override is the
 // test seam (point rodney at a local stub), but it is honored *only* when it
 // resolves to a local host — so a crafted production link
 // (`?provider=https://attacker.example`) can never redirect a real learner's key
-// off-Anthropic. This *enforces* the AC1 disclosure ("sent only to Anthropic") in
-// code rather than merely asserting it: a non-local override is ignored, and the
-// key still reaches only api.anthropic.com.
-function providerBaseUrl() {
+// off the intended provider. This *enforces* the disclosure ("sent only to
+// {provider}") in code rather than merely asserting it: a non-local override is
+// ignored, and the key still reaches only the chosen provider's base URL. The
+// `?provider=` parameter is parsed as a URL (new URL(override)) — not compared
+// against provider names — so the gate cannot be bypassed by supplying a provider
+// id in the query string (§1.5). Falls back to PROVIDERS.anthropic.baseUrl for an
+// unknown provider id (defense in depth).
+function providerBaseUrl(providerId) {
   const override = new URLSearchParams(window.location.search).get("provider");
   if (override) {
     try {
@@ -122,7 +171,9 @@ function providerBaseUrl() {
       // A malformed override is ignored — fall through to the default.
     }
   }
-  return "https://api.anthropic.com";
+  // Hard default based on selected provider, falling back to Anthropic.
+  const provider = PROVIDERS[providerId];
+  return provider ? provider.baseUrl : PROVIDERS.anthropic.baseUrl;
 }
 
 // --- model discovery (the picker source seam) ------------------------------------
@@ -342,40 +393,65 @@ function currentSubmission() {
   };
 }
 
-// Prompt the learner for a key, with the dual disclosure: stored only in this tab,
-// sent only to Anthropic. Rendered here (not baked into index.html) so the whole
-// prompt-for-key path lives in the impl, isolated from the page shell (§3.3, §4.1).
+// Prompt the learner for a provider + key, with per-provider disclosure: stored
+// only in this tab, sent only to the selected provider. The provider chooser
+// renders a `<select data-byok="provider">` with Fireworks pre-selected as the
+// default. The key is stored in the selected provider's sessionStorage slot.
+// Rendered here (not baked into index.html) so the whole prompt-for-key path
+// lives in the impl, isolated from the page shell (§3.3, §4.1).
 function renderKeyPrompt(container) {
   const form = document.createElement("form");
   form.dataset.byok = "key-prompt";
 
   const disclosure = document.createElement("p");
-  disclosure.textContent =
-    "Your Anthropic API key is stored only in this tab (this browser tab's " +
-    "sessionStorage) and sent only to Anthropic to fetch feedback — never to this " +
-    "site's server or any third party.";
+  disclosure.id = "byok-disclosure";
 
-  const label = document.createElement("label");
-  label.textContent = "Anthropic API key: ";
-  const input = document.createElement("input");
-  input.type = "password";
-  input.name = "anthropic-key";
-  input.autocomplete = "off";
-  input.placeholder = "Paste your Anthropic API key";
-  label.append(input);
+  const provLabel = document.createElement("label");
+  provLabel.textContent = "Provider: ";
+  const provSelect = document.createElement("select");
+  provSelect.dataset.byok = "provider";
+  for (const [id, provider] of Object.entries(PROVIDERS)) {
+    const option = document.createElement("option");
+    option.value = id;
+    option.textContent = provider.label;
+    if (id === DEFAULT_PROVIDER) {
+      option.selected = true;
+    }
+    provSelect.append(option);
+  }
+  provLabel.append(provSelect);
+
+  const keyLabel = document.createElement("label");
+  keyLabel.textContent = "API key: ";
+  const keyInput = document.createElement("input");
+  keyInput.type = "password";
+  keyInput.name = "provider-key";
+  keyInput.autocomplete = "off";
+  keyLabel.append(keyInput);
+
+  function updateDisclosure() {
+    const prov = PROVIDERS[provSelect.value];
+    disclosure.textContent = PROVIDER_DISCLOSURES[provSelect.value];
+    keyInput.placeholder = "Paste your " + prov.label + " API key";
+    keyInput.value = "";  // never let a key typed for one provider be saved to another slot
+  }
+  provSelect.addEventListener("change", updateDisclosure);
+  updateDisclosure();
 
   const save = document.createElement("button");
   save.type = "submit";
   save.textContent = "Save key & get feedback";
 
-  form.append(disclosure, label, save);
+  form.append(disclosure, provLabel, keyLabel, save);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    const key = input.value.trim();
+    const key = keyInput.value.trim();
     if (!key) {
       return;
     }
-    storeKey(key);
+    const providerId = provSelect.value;
+    storeProvider(providerId);
+    storeKey(key, providerId);
     handleSubmit();
   });
 
@@ -467,22 +543,27 @@ function selectedModel(container) {
   return select ? select.value : MODEL;
 }
 
-// Orchestrate one submit, in three named states:
-//   no key       → prompt for one (dual disclosure);
-//   no picker yet → render the model picker from the live roster, then stop so the
-//                   learner can choose (the first submit surfaces the picker);
-//   picker shown  → build the prompt and send feedback with the *chosen* model.
+// Orchestrate one submit, in four named states:
+//   no key           → prompt for provider + key (per-provider disclosure);
+//   key + no picker  → render the model picker from the live roster, then stop so
+//                      the learner can choose (the first submit surfaces the picker);
+//   picker shown     → build the prompt and send feedback through the *chosen*
+//                      provider's backend, using the *chosen* model.
+// The provider is read from sessionStorage (set at key-prompt time), defaulting to
+// Fireworks. The key is read from the selected provider's slot. The backend is
+// constructed from PROVIDERS[id].factory to enforce the dead-chooser guard.
 async function handleSubmit() {
   const container = feedbackContainer();
   if (!container) {
     return;
   }
-  const apiKey = readKey();
+  const providerId = readProvider();
+  const apiKey = readKey(providerId);
   if (!apiKey) {
     renderKeyPrompt(container);
     return;
   }
-  const baseUrl = providerBaseUrl();
+  const baseUrl = providerBaseUrl(providerId);
   if (!modelPickerPresent(container)) {
     // No try/catch twin of the /v1/messages branch below, by design: renderModelPicker
     // cannot throw. listModels swallows every fetch/parse failure into the fallback
@@ -496,7 +577,7 @@ async function handleSubmit() {
   const model = selectedModel(container);
   const submission = currentSubmission();
   const prompt = buildPrompt(submission);
-  const backend = byokAnthropic({ baseUrl, apiKey });
+  const backend = PROVIDERS[providerId].factory({ baseUrl, apiKey });
   renderPending(container);
   try {
     renderVerdict(container, await backend.getFeedback(prompt, model));

@@ -368,10 +368,9 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
     // the regression gate — the live behavior (populate, default, fallback,
     // override-routing) is the rodney arm in the PR evidence.
     for token in [
-        "parseModels(",                   // §2.2 pure model-list extraction
         "listModels(",                    // §2.2 effectful fetch wrapping parseModels
-        "${baseUrl}/v1/models",           // AC4 §3.4 models URL derives from providerBaseUrl()
-        r#"createElement("select")"#,     // AC1 the picker `<select>` is built dynamically
+        "${baseUrl}${modelsPath}", // AC4 §3.4 models URL derives from providerBaseUrl() via variable
+        r#"createElement("select")"#, // AC1 the picker `<select>` is built dynamically
         "feedbackRequest(prompt, model)", // AC2 the model is an explicit request argument
     ] {
         assert!(
@@ -379,6 +378,14 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
             "feedback.js must ship the live model-picker seam token `{token}`; feedback={feedback}"
         );
     }
+    // AC5: parseModels must stay provider-agnostic — the function signature takes
+    // only `json`, not a `provider` parameter, so it returns the same sorted model
+    // list regardless of provider (filtering is the caller's book).
+    assert!(
+        feedback.contains("function parseModels(json) {"),
+        "parseModels must stay provider-agnostic (AC5); feedback={feedback}"
+    );
+
     // AC1/AC3: the fallback literal stays the named default the empty- or failed-
     // query branch resolves to (also pinned alive by the no-`sk-ant` scan).
     assert!(
@@ -392,6 +399,98 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
     assert!(
         !feedback.contains("model: MODEL"),
         "feedbackRequest must take the model as an argument, not close over MODEL"
+    );
+
+    // Issue #52: the model picker is provider-aware — both auth shapes coexist
+    // in the file; selection is provider-conditional, not global (predicate 1).
+    assert!(
+        feedback.contains("Bearer"),
+        "feedback.js must carry Bearer auth (Fireworks) alongside x-api-key (Anthropic); feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("x-api-key"),
+        "feedback.js must retain x-api-key auth (Anthropic) alongside Bearer (Fireworks); feedback={feedback}"
+    );
+
+    // Issue #52: fallback model is provider-conditional — both Fireworks and
+    // Anthropic fallbacks coexist (predicate 2).
+    assert!(
+        feedback.contains("accounts/fireworks/models/deepseek-v4-flash"),
+        "feedback.js must carry the Fireworks fallback model alongside claude-opus-4-8; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("claude-opus-4-8"),
+        "feedback.js must retain claude-opus-4-8 as the Anthropic fallback model; feedback={feedback}"
+    );
+
+    // Issue #52: models URL is provider-aware — the doubled /v1/v1 path must not
+    // appear (predicate 3: Fireworks base URL already carries /v1, so /v1/models
+    // would double).
+    assert!(
+        !feedback.contains("/v1/v1/models"),
+        "feedback.js must NOT contain the doubled /v1/v1/models path; feedback={feedback}"
+    );
+    // Positive pin: modelsPath is provider-conditional — a regression to a
+    // hardcoded "/v1/models" would pass the negative /v1/v1 check while breaking
+    // Fireworks at runtime (Fireworks base URL already carries /v1).
+    assert!(
+        feedback.contains("provider === \"fireworks\" ? \"/models\" : \"/v1/models\""),
+        "modelsPath must be provider-conditional (Fireworks /models, Anthropic /v1/models); \
+         feedback={feedback}"
+    );
+
+    // Issue #52: the provider discriminator threads end-to-end through the model
+    // picker — listModels receives a `provider` field (predicate 4).
+    assert!(
+        feedback.contains("listModels({ baseUrl, apiKey, provider")
+            || feedback.contains("listModels({ baseUrl, apiKey, provider,"),
+        "listModels must receive the provider discriminator; feedback={feedback}"
+    );
+
+    // Issue #52 sneaky-pass 1 guard: handleSubmit must thread providerId into
+    // renderModelPicker — dropping `provider: providerId` from the call site
+    // (line ~586) passes every other assertion (listModels and renderModelPicker
+    // still reference `provider` as a parameter) but at runtime `source.provider`
+    // is undefined → Anthropic fallback → Fireworks key sent as x-api-key → 401
+    // → empty roster → claude-opus-4-8 regardless of provider.
+    assert!(
+        feedback.contains("provider: providerId"),
+        "handleSubmit must thread providerId into renderModelPicker (sneaky-pass 1 guard); \
+         feedback={feedback}"
+    );
+
+    // Issue #52 sneaky-pass 3 guard: modelRoster must take a provider parameter
+    // AND the call site must thread it — reverting to `modelRoster(models)`
+    // silently returns [MODEL] for the Fireworks picker, hiding all
+    // non-Anthropic models even when the function definition still nominally
+    // names the parameter.
+    assert!(
+        feedback.contains("modelRoster(models, provider)"),
+        "modelRoster must take a provider parameter (sneaky-pass 3 guard); \
+         feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("modelRoster(await listModels"),
+        "modelRoster call site must thread provider from listModels result \
+         (sneaky-pass 3 call-site guard); feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("}), provider)"),
+        "modelRoster call site must thread provider as the 2nd arg (sneaky-pass 3); feedback={feedback}"
+    );
+
+    // Terminal sneaky-pass-3 guard: the provider-conditional fallback ternary
+    // must appear in BOTH modelRoster (line ~197) and renderModelPicker (line
+    // ~522) — a regression that removes it from either function while leaving
+    // the other copy intact would pass a `feedback.contains(...)` vacuously.
+    // Count >= 2 pins the actual fallback *behavior* (not just seams).
+    let fallback_ternary = "provider === \"fireworks\" ? FIREWORKS_MODEL : MODEL";
+    let ternary_count = feedback.matches(fallback_ternary).count();
+    assert!(
+        ternary_count >= 2,
+        "the provider-conditional fallback ternary must appear in BOTH modelRoster and \
+         renderModelPicker (count {}); feedback={feedback}",
+        ternary_count
     );
 
     // §1.2/§3.2: the JS request mirrors the Rust contract. The prompt delimiters are
@@ -609,6 +708,17 @@ fn build_webr_ships_the_multi_provider_feedback_seam() {
     assert!(
         feedback.contains(r#""Anthropic""#),
         "feedback.js must reference the Anthropic provider label; feedback={feedback}"
+    );
+    // Opportunistic (#51 review): pin the full assignment so a default-swap
+    // regression that changes the constant without updating the wiring is caught.
+    assert!(
+        feedback.contains(r#"DEFAULT_PROVIDER = "fireworks""#),
+        "feedback.js must set DEFAULT_PROVIDER to fireworks; feedback={feedback}"
+    );
+    // The option.selected wiring makes the default effective at render time.
+    assert!(
+        feedback.contains("id === DEFAULT_PROVIDER") && feedback.contains("option.selected = true"),
+        "feedback.js must wire id === DEFAULT_PROVIDER to option.selected; feedback={feedback}"
     );
 
     // AC2: a closed-set PROVIDERS map carries both fireworks and anthropic with

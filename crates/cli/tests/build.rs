@@ -370,8 +370,8 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
     for token in [
         "parseModels(",                   // §2.2 pure model-list extraction
         "listModels(",                    // §2.2 effectful fetch wrapping parseModels
-        "${baseUrl}/v1/models",           // AC4 §3.4 models URL derives from providerBaseUrl()
-        r#"createElement("select")"#,     // AC1 the picker `<select>` is built dynamically
+        "${baseUrl}${modelsPath}", // AC4 §3.4 models URL derives from providerBaseUrl() via variable
+        r#"createElement("select")"#, // AC1 the picker `<select>` is built dynamically
         "feedbackRequest(prompt, model)", // AC2 the model is an explicit request argument
     ] {
         assert!(
@@ -430,6 +430,34 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
         feedback.contains("listModels({ baseUrl, apiKey, provider")
             || feedback.contains("listModels({ baseUrl, apiKey, provider,"),
         "listModels must receive the provider discriminator; feedback={feedback}"
+    );
+
+    // Issue #52 sneaky-pass 1 guard: handleSubmit must thread providerId into
+    // renderModelPicker — dropping `provider: providerId` from the call site
+    // (line ~586) passes every other assertion (listModels and renderModelPicker
+    // still reference `provider` as a parameter) but at runtime `source.provider`
+    // is undefined → Anthropic fallback → Fireworks key sent as x-api-key → 401
+    // → empty roster → claude-opus-4-8 regardless of provider.
+    assert!(
+        feedback.contains("provider: providerId"),
+        "handleSubmit must thread providerId into renderModelPicker (sneaky-pass 1 guard); \
+         feedback={feedback}"
+    );
+
+    // Issue #52 sneaky-pass 3 guard: modelRoster must take a provider parameter
+    // AND the call site must thread it — reverting to `modelRoster(models)`
+    // silently returns [MODEL] for the Fireworks picker, hiding all
+    // non-Anthropic models even when the function definition still nominally
+    // names the parameter.
+    assert!(
+        feedback.contains("modelRoster(models, provider)"),
+        "modelRoster must take a provider parameter (sneaky-pass 3 guard); \
+         feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("modelRoster(await listModels"),
+        "modelRoster call site must thread provider from listModels result \
+         (sneaky-pass 3 call-site guard); feedback={feedback}"
     );
 
     // §1.2/§3.2: the JS request mirrors the Rust contract. The prompt delimiters are

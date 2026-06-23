@@ -368,7 +368,6 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
     // the regression gate — the live behavior (populate, default, fallback,
     // override-routing) is the rodney arm in the PR evidence.
     for token in [
-        "parseModels(",                   // §2.2 pure model-list extraction
         "listModels(",                    // §2.2 effectful fetch wrapping parseModels
         "${baseUrl}${modelsPath}", // AC4 §3.4 models URL derives from providerBaseUrl() via variable
         r#"createElement("select")"#, // AC1 the picker `<select>` is built dynamically
@@ -379,6 +378,14 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
             "feedback.js must ship the live model-picker seam token `{token}`; feedback={feedback}"
         );
     }
+    // AC5: parseModels must stay provider-agnostic — the function signature takes
+    // only `json`, not a `provider` parameter, so it returns the same sorted model
+    // list regardless of provider (filtering is the caller's book).
+    assert!(
+        feedback.contains("function parseModels(json) {"),
+        "parseModels must stay provider-agnostic (AC5); feedback={feedback}"
+    );
+
     // AC1/AC3: the fallback literal stays the named default the empty- or failed-
     // query branch resolves to (also pinned alive by the no-`sk-ant` scan).
     assert!(
@@ -470,6 +477,20 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
     assert!(
         feedback.contains("}), provider)"),
         "modelRoster call site must thread provider as the 2nd arg (sneaky-pass 3); feedback={feedback}"
+    );
+
+    // Terminal sneaky-pass-3 guard: the provider-conditional fallback ternary
+    // must appear in BOTH modelRoster (line ~197) and renderModelPicker (line
+    // ~522) — a regression that removes it from either function while leaving
+    // the other copy intact would pass a `feedback.contains(...)` vacuously.
+    // Count >= 2 pins the actual fallback *behavior* (not just seams).
+    let fallback_ternary = "provider === \"fireworks\" ? FIREWORKS_MODEL : MODEL";
+    let ternary_count = feedback.matches(fallback_ternary).count();
+    assert!(
+        ternary_count >= 2,
+        "the provider-conditional fallback ternary must appear in BOTH modelRoster and \
+         renderModelPicker (count {}); feedback={feedback}",
+        ternary_count
     );
 
     // §1.2/§3.2: the JS request mirrors the Rust contract. The prompt delimiters are

@@ -422,6 +422,131 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
 }
 
 #[test]
+fn build_webr_ships_the_byok_fireworks_feedback_seam() {
+    // AC1: a built site carries the byokFireworks FeedbackBackend alongside
+    // byokAnthropic — interchangeable contract, OpenAI-compatible Fireworks
+    // backend (issue #50). The 9 anti-copy-paste tripwires guard against a
+    // verbatim Anthropic clone that swapped only the URL/auth.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build("webr", R_COURSE, &out);
+    assert!(
+        output.status.success(),
+        "`build --target webr` should exit 0, got {:?}; stderr={:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let feedback = std::fs::read_to_string(out.join("feedback.js"))
+        .expect("the built site must ship feedback.js");
+
+    // AC1: the 9 anti-copy-paste tripwires — a verbatim Anthropic clone would
+    // miss these tokens (the Negative case):
+
+    // 1. The factory function must be named byokFireworks, not a copy of byokAnthropic
+    assert!(
+        feedback.contains("byokFireworks("),
+        "feedback.js must define the byokFireworks factory; feedback={feedback}"
+    );
+
+    // 2. The endpoint must be /chat/completions, not /v1/messages
+    assert!(
+        feedback.contains("/chat/completions"),
+        "byokFireworks must POST /chat/completions; feedback={feedback}"
+    );
+
+    // 3. The auth scheme is Bearer, not x-api-key
+    assert!(
+        feedback.contains("Bearer"),
+        "byokFireworks must send the key as a Bearer token; feedback={feedback}"
+    );
+
+    // 4. The header name is "Authorization", not "x-api-key"
+    assert!(
+        feedback.contains("\"Authorization\""),
+        "byokFireworks must use the Authorization header; feedback={feedback}"
+    );
+
+    // 5. The tool definition uses parameters (OpenAI shape), not input_schema (Anthropic)
+    assert!(
+        feedback.contains("parameters"),
+        "byokFireworks must use parameters (not input_schema); feedback={feedback}"
+    );
+
+    // 6. tool_choice uses type: function (OpenAI), not type: tool (Anthropic)
+    assert!(
+        feedback.contains("\"type\": \"function\""),
+        "byokFireworks must use type: function in tool_choice; feedback={feedback}"
+    );
+
+    // 7. Response parsing accesses tool_calls (OpenAI), not content[] (Anthropic)
+    assert!(
+        feedback.contains("tool_calls"),
+        "byokFireworks must read tool_calls from the response; feedback={feedback}"
+    );
+
+    // 8. Response parsing accesses choices (OpenAI), not data.content (Anthropic)
+    assert!(
+        feedback.contains("choices"),
+        "byokFireworks must read choices from the response; feedback={feedback}"
+    );
+
+    // 9. The arguments field is a JSON string — JSON.parse is mandatory
+    assert!(
+        feedback.contains("JSON.parse"),
+        "byokFireworks must JSON.parse the function arguments; feedback={feedback}"
+    );
+
+    // Named fallback model const (mirrors MODEL = "claude-opus-4-8")
+    assert!(
+        feedback.contains("accounts/fireworks/models/deepseek-v4-flash"),
+        "byokFireworks must carry the named fallback model const; feedback={feedback}"
+    );
+
+    // The tool name constant is reused (not forked)
+    assert!(
+        feedback.contains("respond_with_feedback"),
+        "byokFireworks must reuse the shared TOOL_NAME; feedback={feedback}"
+    );
+
+    // Structural pins (dead-function guard): name: and getFeedback must appear
+    // in the byokFireworks factory return
+    assert!(
+        feedback.contains("name:"),
+        "byokFireworks must return an object with a name field; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("getFeedback"),
+        "byokFireworks must expose a getFeedback method; feedback={feedback}"
+    );
+
+    // Mapping pins (bidirectional-contract guard): the response mapper returns
+    // correct: and message: (mirrors the Rust Verdict contract)
+    assert!(
+        feedback.contains("correct:"),
+        "byokFireworks response mapper must return correct:; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("message:"),
+        "byokFireworks response mapper must return message:; feedback={feedback}"
+    );
+
+    // Negative: the shipped file must NOT contain fireworks_api_key (the key is
+    // a parameter, not a slot literal in this issue)
+    assert!(
+        !feedback.contains("fireworks_api_key"),
+        "fireworks_api_key must NOT be baked into feedback.js; it is a parameter, not a slot literal"
+    );
+
+    // Negative: the shipped file must NOT contain /v1/v1/chat/completions (doubled path)
+    assert!(
+        !feedback.contains("/v1/v1/chat/completions"),
+        "the shipped file must NOT contain a doubled /v1/v1/ path; feedback={feedback}"
+    );
+}
+
+#[test]
 fn build_pyodide_ships_the_same_shared_feedback_seam() {
     // feedback.js is target-agnostic — the Anthropic BYOK call is identical whether
     // the lesson runs in webR or Pyodide — so it is a *shared* asset (§4.2): the

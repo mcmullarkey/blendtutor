@@ -1,5 +1,5 @@
 // blendtutor in-browser LLM feedback — the FeedbackBackend seam + byok-anthropic
-// impl (Slice 18, ADR-0006/0008 consequence).
+// + byok-fireworks impls (Slice 18/ADR-0006/0008 consequence; Slice AC1/issue #50).
 //
 // Where this fits: a built site runs and grades lessons locally (lesson-runner-
 // core.js); *this* module is the separate concern of fetching written feedback on
@@ -7,10 +7,11 @@
 //   1. The `FeedbackBackend` contract — `getFeedback(prompt) -> Promise<Verdict>`,
 //      the one seam a future backend (WebLLM, Slice 21) plugs into with no change
 //      to lesson rendering or execution (§3.3, §3.4).
-//   2. The `byok-anthropic` impl (v1): the learner brings their own key. The key
-//      is read from this tab's sessionStorage and sent only to Anthropic — header
-//      injection and key handling are isolated here, never in the render/exec
-//      layers (§4.2). No key literal is ever baked into a shipped file.
+//   2. The `byok-anthropic` impl (v1) and the `byok-fireworks` impl (v2): the
+//      learner brings their own key. The key is read from this tab's sessionStorage
+//      and sent only to the chosen provider — header injection and key handling are
+//      isolated here, never in the render/exec layers (§4.2). No key literal is ever
+//      baked into a shipped file.
 //   3. The submit-flow wiring: prompt for a key when absent (with the dual
 //      disclosure), otherwise build the prompt, call the backend, render the
 //      verdict — reading the runner's already-exposed `window.__bt` seam rather
@@ -45,6 +46,11 @@ const TOOL_NAME = "respond_with_feedback";
 // to when the live /v1/models list is empty or unavailable. Lifted from a hardcoded
 // request constant to a named fallback the model-source seam reads.
 const MODEL = "claude-opus-4-8";
+
+// The Fireworks fallback model — mirrors MODEL. The accounts/ prefix is the
+// Fireworks model naming convention; this const is the single source of the
+// default, never an inline literal.
+const FIREWORKS_MODEL = "accounts/fireworks/models/deepseek-v4-flash";
 
 // --- prompt assembly (pure) ------------------------------------------------------
 
@@ -234,6 +240,78 @@ function byokAnthropic({ baseUrl, apiKey }) {
         throw new Error(`the provider returned HTTP ${response.status}`);
       }
       return toVerdict(await response.json());
+    },
+  };
+}
+
+// --- the byok-fireworks backend --------------------------------------------------
+
+// Build the Fireworks (OpenAI-compatible) chat completions request body for
+// `prompt` with the chosen `model`. Pure: mirrors `feedbackRequest` in structure
+// but uses the OpenAI tool-call shape — `parameters` (not `input_schema`) and
+// `{ type: "function", function: { name } }` (not `{ type: "tool", name }`).
+function fireworksRequest(prompt, model) {
+  return {
+    model,
+    messages: [{ role: "user", content: prompt }],
+    tools: [
+      {
+        "type": "function",
+        "function": {
+          "name": TOOL_NAME,
+          "description": "Respond with a verdict on the student's submission.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "is_correct": { "type": "boolean" },
+              "feedback_message": { "type": "string" },
+            },
+            "required": ["is_correct", "feedback_message"],
+          },
+        },
+      },
+    ],
+    "tool_choice": { "type": "function", "function": { "name": TOOL_NAME } },
+  };
+}
+
+// Map the Fireworks (OpenAI-compatible) tool-call response to a Verdict.
+// OpenAI returns `function.arguments` as a JSON *string* (unlike Anthropic's
+// structured `input`), so `JSON.parse` is mandatory.
+function fireworksToVerdict(data) {
+  const choice = (data.choices ?? [])[0];
+  const toolCall = (choice?.message?.tool_calls ?? [])[0];
+  if (!toolCall?.function?.arguments) {
+    throw new Error("the provider returned no feedback tool call");
+  }
+  const args = JSON.parse(toolCall.function.arguments);
+  return {
+    correct: Boolean(args.is_correct),
+    message: String(args.feedback_message ?? ""),
+  };
+}
+
+// The v2 FeedbackBackend: calls Fireworks (OpenAI-compatible) directly from the
+// browser with the learner's key. The key rides the `Authorization: Bearer`
+// header; there are no Anthropic-specific headers. The endpoint is
+// `${baseUrl}/chat/completions` (not `/v1/chat/completions` — the Fireworks base
+// URL already carries `/v1`).
+function byokFireworks({ baseUrl, apiKey }) {
+  return {
+    name: "byok-fireworks",
+    async getFeedback(prompt, model) {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "Authorization": "Bearer " + apiKey,
+        },
+        body: JSON.stringify(fireworksRequest(prompt, model)),
+      });
+      if (!response.ok) {
+        throw new Error(`the provider returned HTTP ${response.status}`);
+      }
+      return fireworksToVerdict(await response.json());
     },
   };
 }

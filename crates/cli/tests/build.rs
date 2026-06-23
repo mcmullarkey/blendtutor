@@ -394,6 +394,44 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
         "feedbackRequest must take the model as an argument, not close over MODEL"
     );
 
+    // Issue #52: the model picker is provider-aware — both auth shapes coexist
+    // in the file; selection is provider-conditional, not global (predicate 1).
+    assert!(
+        feedback.contains("Bearer"),
+        "feedback.js must carry Bearer auth (Fireworks) alongside x-api-key (Anthropic); feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("x-api-key"),
+        "feedback.js must retain x-api-key auth (Anthropic) alongside Bearer (Fireworks); feedback={feedback}"
+    );
+
+    // Issue #52: fallback model is provider-conditional — both Fireworks and
+    // Anthropic fallbacks coexist (predicate 2).
+    assert!(
+        feedback.contains("accounts/fireworks/models/deepseek-v4-flash"),
+        "feedback.js must carry the Fireworks fallback model alongside claude-opus-4-8; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("claude-opus-4-8"),
+        "feedback.js must retain claude-opus-4-8 as the Anthropic fallback model; feedback={feedback}"
+    );
+
+    // Issue #52: models URL is provider-aware — the doubled /v1/v1 path must not
+    // appear (predicate 3: Fireworks base URL already carries /v1, so /v1/models
+    // would double).
+    assert!(
+        !feedback.contains("/v1/v1/models"),
+        "feedback.js must NOT contain the doubled /v1/v1/models path; feedback={feedback}"
+    );
+
+    // Issue #52: the provider discriminator threads end-to-end through the model
+    // picker — listModels receives a `provider` field (predicate 4).
+    assert!(
+        feedback.contains("listModels({ baseUrl, apiKey, provider")
+            || feedback.contains("listModels({ baseUrl, apiKey, provider,"),
+        "listModels must receive the provider discriminator; feedback={feedback}"
+    );
+
     // §1.2/§3.2: the JS request mirrors the Rust contract. The prompt delimiters are
     // pinned to the *same exported constants* `build_prompt` emits, so the
     // learner-side prompt structure cannot drift from the author-side one — and the
@@ -609,6 +647,17 @@ fn build_webr_ships_the_multi_provider_feedback_seam() {
     assert!(
         feedback.contains(r#""Anthropic""#),
         "feedback.js must reference the Anthropic provider label; feedback={feedback}"
+    );
+    // Opportunistic (#51 review): pin the full assignment so a default-swap
+    // regression that changes the constant without updating the wiring is caught.
+    assert!(
+        feedback.contains(r#"DEFAULT_PROVIDER = "fireworks""#),
+        "feedback.js must set DEFAULT_PROVIDER to fireworks; feedback={feedback}"
+    );
+    // The option.selected wiring makes the default effective at render time.
+    assert!(
+        feedback.contains("id === DEFAULT_PROVIDER") && feedback.contains("option.selected = true"),
+        "feedback.js must wire id === DEFAULT_PROVIDER to option.selected; feedback={feedback}"
     );
 
     // AC2: a closed-set PROVIDERS map carries both fireworks and anthropic with

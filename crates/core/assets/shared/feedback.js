@@ -136,7 +136,7 @@ function storeKey(key, providerId) {
 
 function readProvider() {
   const stored = window.sessionStorage.getItem("byok_provider");
-  return stored && stored in PROVIDERS ? stored : DEFAULT_PROVIDER;
+  return stored && Object.hasOwn(PROVIDERS, stored) ? stored : DEFAULT_PROVIDER;
 }
 
 function storeProvider(providerId) {
@@ -178,9 +178,11 @@ function providerBaseUrl(providerId) {
 
 // --- model discovery (the picker source seam) ------------------------------------
 
-// Pure: extract the model-id list from an Anthropic `/v1/models` response. Tolerates
-// a missing or empty `data` array (→ []) and ignores non-string ids; the caller
-// applies the fallback roster, so this never has to invent a default.
+// Pure: extract the model-id list from a `/v1/models` (or `/models`) response.
+// Both Anthropic and Fireworks return `{data:[{id}]}` — the shared shape is
+// extracted once, provider-agnostic (§1.1, §2.2). Tolerates a missing or empty
+// `data` array (→ []) and ignores non-string ids; the caller applies the
+// fallback roster, so this never has to invent a default.
 function parseModels(json) {
   const data = (json && json.data) || [];
   return data
@@ -189,27 +191,33 @@ function parseModels(json) {
 }
 
 // Pure: the roster the picker renders — the live list when it has any models, else a
-// roster of just the named fallback. Keeps "never a zero-option dead select" as one
-// named policy rather than a guard scattered across the picker.
-function modelRoster(models) {
-  return models.length ? models : [MODEL];
+// roster of just the provider-specific fallback. Keeps "never a zero-option dead
+// select" as one named policy rather than a guard scattered across the picker.
+function modelRoster(models, provider) {
+  const fallback = provider === "fireworks" ? FIREWORKS_MODEL : MODEL;
+  return models.length ? models : [fallback];
 }
 
 // Effectful: fetch the models this key can reach, through the SAME host-gated base
 // URL as messages — a non-local `?provider=` override is ignored here too, so the
 // picker opens no new key-exfil vector. Returns [] on any failure (non-OK, network,
 // malformed JSON); the pure `modelRoster` turns [] into a usable roster, so a models
-// outage is never a dead end. The key rides `x-api-key` with the direct-browser-
-// access opt-in, exactly as the messages call.
-async function listModels({ baseUrl, apiKey }) {
+// outage is never a dead end. Auth headers and models path switch on `provider`:
+//   - Anthropic: `x-api-key` + `anthropic-version` + `anthropic-dangerous-direct-
+//     browser-access`, path `${baseUrl}/v1/models` (base has no /v1).
+//   - Fireworks: `Authorization: Bearer`, path `${baseUrl}/models` (base already
+//     carries /v1 — concatenating /v1/models would double the path → 404).
+async function listModels({ baseUrl, apiKey, provider }) {
   try {
-    const response = await fetch(`${baseUrl}/v1/models`, {
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      },
-    });
+    const headers = provider === "fireworks"
+      ? { "Authorization": "Bearer " + apiKey }
+      : {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        };
+    const modelsPath = provider === "fireworks" ? "/models" : "/v1/models";
+    const response = await fetch(`${baseUrl}${modelsPath}`, { headers });
     if (!response.ok) {
       return [];
     }
@@ -494,7 +502,9 @@ function renderError(container, error) {
 // when present. The select carries a distinct `data-byok="model"` marker and lives
 // under `#feedback`, so the `#feedback select` test predicate pins it without prefix-
 // colliding with the page-level `#lesson-select` (§1.5). Effectful only in that it
-// awaits `listModels`; the roster and the default choice are pure.
+// awaits `listModels`; the roster and the default choice are pure. The `source`
+// object carries a `provider` field that flows into `listModels` (auth + path) and
+// `modelRoster` (fallback model).
 async function renderModelPicker(container, source) {
   // A loading note while the live list is in flight, so a slow models query doesn't
   // read as a dead click; the roster replaces it the moment it resolves.
@@ -503,11 +513,13 @@ async function renderModelPicker(container, source) {
   loading.textContent = "Loading models…";
   container.replaceChildren(loading);
 
-  const roster = modelRoster(await listModels(source));
+  const { baseUrl, apiKey, provider } = source;
+  const roster = modelRoster(await listModels({ baseUrl, apiKey, provider }), provider);
 
   const picker = document.createElement("div");
   picker.dataset.byok = "model-picker";
 
+  const fallbackModel = provider === "fireworks" ? FIREWORKS_MODEL : MODEL;
   const label = document.createElement("label");
   label.textContent = "Feedback model: ";
   const select = document.createElement("select");
@@ -520,7 +532,7 @@ async function renderModelPicker(container, source) {
   }
   // Default to the named fallback when the roster carries it, else the first model —
   // never an empty value, so submit always has a model to send.
-  select.value = roster.includes(MODEL) ? MODEL : roster[0];
+  select.value = roster.includes(fallbackModel) ? fallbackModel : roster[0];
   label.append(select);
 
   const hint = document.createElement("p");
@@ -571,7 +583,7 @@ async function handleSubmit() {
     // construction — there is no reachable error to surface, so the loading note is
     // always replaced. If a future provider adds throwing logic *outside* listModels,
     // add the renderError guard here then.
-    await renderModelPicker(container, { baseUrl, apiKey });
+    await renderModelPicker(container, { baseUrl, apiKey, provider: providerId });
     return;
   }
   const model = selectedModel(container);

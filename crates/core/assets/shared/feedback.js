@@ -135,7 +135,8 @@ function storeKey(key, providerId) {
 }
 
 function readProvider() {
-  return window.sessionStorage.getItem("byok_provider") || DEFAULT_PROVIDER;
+  const stored = window.sessionStorage.getItem("byok_provider");
+  return stored && stored in PROVIDERS ? stored : DEFAULT_PROVIDER;
 }
 
 function storeProvider(providerId) {
@@ -421,6 +422,7 @@ function renderKeyPrompt(container) {
   provLabel.append(provSelect);
 
   const keyLabel = document.createElement("label");
+  keyLabel.textContent = "API key: ";
   const keyInput = document.createElement("input");
   keyInput.type = "password";
   keyInput.name = "provider-key";
@@ -431,6 +433,7 @@ function renderKeyPrompt(container) {
     const prov = PROVIDERS[provSelect.value];
     disclosure.textContent = PROVIDER_DISCLOSURES[provSelect.value];
     keyInput.placeholder = "Paste your " + prov.label + " API key";
+    keyInput.value = "";  // never let a key typed for one provider be saved to another slot
   }
   provSelect.addEventListener("change", updateDisclosure);
   updateDisclosure();

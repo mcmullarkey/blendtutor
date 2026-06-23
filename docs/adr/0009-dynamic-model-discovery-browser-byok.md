@@ -19,7 +19,7 @@ key is ever baked into a shipped file.
 
 **Extended in AC2 (issue #51):** the provider-agnostic seam foreshadowed in the
 original Decision is now realized. A provider chooser precedes the model picker,
-the PROViDERS map drives per-provider key slots / base URLs / fallback models /
+the PROVIDERS map drives per-provider key slots / base URLs / fallback models /
 factories, and Fireworks is the pre-selected default.
 
 ## Options
@@ -100,10 +100,11 @@ has no rig and no server, and the host-gate is its key-exfil defense.
   (`fireworks_api_key`, `anthropic_api_key`), so a key stored for one provider
   is never leaked to the other. The selected provider is stored separately
   (`byok_provider`).
-- **Dead-chooser guard (AC2).** The build test asserts BOTH `byokAnthropic(`
-  and `byokFireworks(` appear in `handleSubmit`'s conditional routing — the
-  chooser is not decorative. A regression that hardcodes one backend would
-  fail the test.
+- **Dead-chooser guard (AC2).** The build test asserts
+  `PROVIDERS[providerId].factory` appears in `handleSubmit` — the chooser is
+  not decorative, and the routing mechanism is pinned at the seam. A regression
+  that hardcodes a specific backend (bypassing the PROVIDERS map) fails the
+  test.
 - **Negative scan extended (AC2).** The `fw_` key prefix is scanned across all
   emitted files (symmetric to the existing `sk-ant` scan), ensuring no
   Fireworks key literal is ever baked into a shipped file.

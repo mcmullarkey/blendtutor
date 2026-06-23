@@ -631,15 +631,11 @@ fn build_webr_ships_the_multi_provider_feedback_seam() {
         );
     }
 
-    // AC3: handleSubmit constructs BOTH byokAnthropic( AND byokFireworks(
-    // conditionally off the selection (dead-chooser guard).
+    // AC3: handleSubmit routes through PROVIDERS[providerId].factory, not a
+    // hardcoded backend name (dead-chooser guard).
     assert!(
-        feedback.contains("byokAnthropic("),
-        "handleSubmit must conditionally construct byokAnthropic(; feedback={feedback}"
-    );
-    assert!(
-        feedback.contains("byokFireworks("),
-        "handleSubmit must conditionally construct byokFireworks(; feedback={feedback}"
+        feedback.contains("PROVIDERS[providerId].factory"),
+        "handleSubmit must route through PROVIDERS[providerId].factory, not hardcode a backend; feedback={feedback}"
     );
 
     // AC4: fireworks_api_key is a distinct sessionStorage slot AND

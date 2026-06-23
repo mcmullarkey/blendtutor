@@ -423,6 +423,14 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
         !feedback.contains("/v1/v1/models"),
         "feedback.js must NOT contain the doubled /v1/v1/models path; feedback={feedback}"
     );
+    // Positive pin: modelsPath is provider-conditional — a regression to a
+    // hardcoded "/v1/models" would pass the negative /v1/v1 check while breaking
+    // Fireworks at runtime (Fireworks base URL already carries /v1).
+    assert!(
+        feedback.contains("provider === \"fireworks\" ? \"/models\" : \"/v1/models\""),
+        "modelsPath must be provider-conditional (Fireworks /models, Anthropic /v1/models); \
+         feedback={feedback}"
+    );
 
     // Issue #52: the provider discriminator threads end-to-end through the model
     // picker — listModels receives a `provider` field (predicate 4).
@@ -458,6 +466,10 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
         feedback.contains("modelRoster(await listModels"),
         "modelRoster call site must thread provider from listModels result \
          (sneaky-pass 3 call-site guard); feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("}), provider)"),
+        "modelRoster call site must thread provider as the 2nd arg (sneaky-pass 3); feedback={feedback}"
     );
 
     // §1.2/§3.2: the JS request mirrors the Rust contract. The prompt delimiters are

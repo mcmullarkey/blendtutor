@@ -548,11 +548,11 @@ function modelPickerPresent(container) {
 }
 
 // The model the learner has chosen — read straight from the picker at submit time
-// (no module state), falling back to the named default if the select is somehow
-// absent so the request always carries a model.
-function selectedModel(container) {
+// (no module state), falling back to the provider-specific fallback if the select
+// is somehow absent so the request always carries a model the provider can serve.
+function selectedModel(container, providerId) {
   const select = container.querySelector('[data-byok="model"]');
-  return select ? select.value : MODEL;
+  return select ? select.value : PROVIDERS[providerId].fallbackModel;
 }
 
 // Orchestrate one submit, in four named states:
@@ -586,7 +586,7 @@ async function handleSubmit() {
     await renderModelPicker(container, { baseUrl, apiKey, provider: providerId });
     return;
   }
-  const model = selectedModel(container);
+  const model = selectedModel(container, providerId);
   const submission = currentSubmission();
   const prompt = buildPrompt(submission);
   const backend = PROVIDERS[providerId].factory({ baseUrl, apiKey });

@@ -119,9 +119,11 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
         index.contains(r#"<footer class="site-footer">"#),
         "index.html must contain <footer class=\"site-footer\">"
     );
-    let coi_pos = index.find(r#"src="coi-serviceworker.js""#)
+    let coi_pos = index
+        .find(r#"src="coi-serviceworker.js""#)
         .expect("coi-serviceworker.js must be referenced");
-    let link_pos = index.find(r#"href="styles.css""#)
+    let link_pos = index
+        .find(r#"href="styles.css""#)
         .expect("styles.css link must be present");
     assert!(
         coi_pos < link_pos,
@@ -136,7 +138,10 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
         css.contains(workspace_marker),
         "styles.css must have a workspace section marker"
     );
-    let after_marker = css.split(workspace_marker).nth(1).expect("workspace section");
+    let after_marker = css
+        .split(workspace_marker)
+        .nth(1)
+        .expect("workspace section");
     let workspace_var_refs: Vec<&str> = after_marker
         .lines()
         .filter(|l| l.contains("var(--bt-"))
@@ -154,7 +159,9 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
         "styles.css must not contain .status-* class selectors"
     );
     let status_selector_count = css.matches(r#"#lesson-status[data-status="idle"]"#).count()
-        + css.matches(r#"#lesson-status[data-status="running"]"#).count()
+        + css
+            .matches(r#"#lesson-status[data-status="running"]"#)
+            .count()
         + css.matches(r#"#lesson-status[data-status="pass"]"#).count()
         + css.matches(r#"#lesson-status[data-status="fail"]"#).count();
     assert_eq!(
@@ -163,10 +170,8 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
     );
     // No hardcoded hex in workspace rules — scan only the workspace section.
     // Match exactly 3, 6, or 8 hex digits (full color, shorthand, or alpha).
-    let hex_pat = regex_lite::Regex::new(
-        r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b",
-    )
-    .unwrap();
+    let hex_pat =
+        regex_lite::Regex::new(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b").unwrap();
     assert!(
         !hex_pat.is_match(after_marker),
         "workspace rules must not contain hardcoded hex color literals"
@@ -267,9 +272,11 @@ fn build_pyodide_emits_a_deployable_python_lesson_site() {
         index.contains(r#"<footer class="site-footer">"#),
         "index.html must contain <footer class=\"site-footer\">"
     );
-    let coi_pos = index.find(r#"src="coi-serviceworker.js""#)
+    let coi_pos = index
+        .find(r#"src="coi-serviceworker.js""#)
         .expect("coi-serviceworker.js must be referenced");
-    let link_pos = index.find(r#"href="styles.css""#)
+    let link_pos = index
+        .find(r#"href="styles.css""#)
         .expect("styles.css link must be present");
     assert!(
         coi_pos < link_pos,
@@ -283,7 +290,10 @@ fn build_pyodide_emits_a_deployable_python_lesson_site() {
         css.contains(workspace_marker),
         "styles.css must have a workspace section marker"
     );
-    let after_marker = css.split(workspace_marker).nth(1).expect("workspace section");
+    let after_marker = css
+        .split(workspace_marker)
+        .nth(1)
+        .expect("workspace section");
     let workspace_var_refs: Vec<&str> = after_marker
         .lines()
         .filter(|l| l.contains("var(--bt-"))
@@ -301,17 +311,17 @@ fn build_pyodide_emits_a_deployable_python_lesson_site() {
         "styles.css must not contain .status-* class selectors"
     );
     let status_selector_count = css.matches(r#"#lesson-status[data-status="idle"]"#).count()
-        + css.matches(r#"#lesson-status[data-status="running"]"#).count()
+        + css
+            .matches(r#"#lesson-status[data-status="running"]"#)
+            .count()
         + css.matches(r#"#lesson-status[data-status="pass"]"#).count()
         + css.matches(r#"#lesson-status[data-status="fail"]"#).count();
     assert_eq!(
         status_selector_count, 4,
         "expected exactly 4 #lesson-status[data-status=\"...\"] rules"
     );
-    let hex_pat = regex_lite::Regex::new(
-        r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b",
-    )
-    .unwrap();
+    let hex_pat =
+        regex_lite::Regex::new(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b").unwrap();
     assert!(
         !hex_pat.is_match(after_marker),
         "workspace rules must not contain hardcoded hex color literals"

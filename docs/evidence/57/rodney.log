@@ -1,0 +1,64 @@
+Rodney probe log for issue #57 (AC-2 workspace styling)
+============================================================
+
+rodney version: 0.4.0
+branch: 57-site-design-v1-workspace
+build commands:
+  cargo run -p blendtutor-cli -- build --target webr crates/core/tests/fixtures/r-course -o /tmp/bt-vision-57-webr
+  cargo run -p blendtutor-cli -- build --target pyodide crates/core/tests/fixtures/python-course -o /tmp/bt-vision-57-pyodide
+serve commands:
+  (cd /tmp/bt-vision-57-webr && uv run --no-project python -m http.server 8765)
+  (cd /tmp/bt-vision-57-pyodide && uv run --no-project python -m http.server 8766)
+probe prep:
+  coi-serviceworker.js overwritten with no-op in both output dirs
+
+Deterministic check (IIFE) — webr @ http://localhost:8765/index.html
+  Result: PASS
+  Sub-checks:
+    badgeOk: true
+    distinct status colors: true (4 distinct bg values)
+    alive (idle != pass): true
+    buttonsDistinct: true
+    subMono: true
+    output whiteSpace pre/pre-wrap: true
+    output minHeight not 0px/auto: true
+    controls flex row: true
+    lesson-picker flex/gap: true
+  Computed status badge backgrounds:
+    idle:    rgb(232, 232, 232)
+    running: rgb(176, 106, 0)
+    pass:    rgb(10, 125, 40)
+    fail:    rgb(192, 32, 42)
+
+Layout assertions — webr
+  controls display:flex + flex-direction:row         PASS
+  lesson-picker display:flex/inline-flex or gap>0    PASS
+  #lesson-status width >= 24px                       PASS  (26.89px)
+  #lesson-status height >= 18px                      FAIL  (got 12px)
+  #lesson-status border-radius >= 999px              PASS
+  #lesson-status bg non-transparent + padding + pill PASS
+  #run bg non-transparent                            PASS
+  #run bg != #submit bg                              PASS
+  #submission font-family includes mono              PASS
+  #output white-space pre/pre-wrap                   PASS
+  #output min-height != 0px/auto                     PASS
+
+Deterministic check (IIFE) — pyodide @ http://localhost:8766/index.html
+  Result: PASS
+  Sub-checks: same as webr, all true
+  Computed status badge backgrounds: same as webr
+  Computed status size: width 26.89px, height 12px
+
+Layout assertions — pyodide
+  All PASS except:
+  #lesson-status height >= 18px                      FAIL  (got 12px)
+
+Issue: #lesson-status rendered height is 12px, failing the AC layout assertion
+that requires height >= 18px. The rule at styles.css:223-232 sets
+  font-size: 0.75rem; line-height: 1;
+with padding var(--bt-space-xs) (0.25rem) vertical, but getComputedStyle height
+returns the content-box height of 12px. Deterministic IIFE itself did not check
+height, so it passed; the layout assertion did and failed.
+
+Screenshots: not captured because layout assertion failed — builder should fix
+before re-running probes.

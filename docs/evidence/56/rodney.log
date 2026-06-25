@@ -57,7 +57,6 @@ All screenshots captured via Chrome DevTools Protocol (`Page.captureScreenshot`)
 | webr-1024x768-boot.png | webR target, boot state, 1024x768 viewport |
 | webr-1024x768-full.png | webR target, loaded/idle state, 1024x768 viewport |
 | webr-375x812-full.png  | webR target, loaded/idle state, 375x812 viewport |
-| pyodide-1024x768-boot.png | Pyodide target, boot state, 1024x768 viewport |
 | pyodide-1024x768-full.png | Pyodide target, loaded/idle state, 1024x768 viewport |
 | pyodide-375x812-full.png  | Pyodide target, loaded/idle state, 375x812 viewport |
 
@@ -66,4 +65,5 @@ All screenshots captured via Chrome DevTools Protocol (`Page.captureScreenshot`)
 - No `<style>` element present in either target; stylesheet loads via `<link rel="stylesheet" href="styles.css">`.
 - CSS custom property `--bt-font-family-ui` resolves in both targets, confirming `styles.css` loaded.
 - Header/main/footer semantic layout is visible and ordered correctly in both targets.
+- Pyodide boot screenshot was NOT captured separately — pyodide boots fast (Python runner, no native download), and the boot frame is timing-dependent. The boot-state text `<p id="boot-status">Booting Pyodide…</p>` IS verified present in static HTML via the build test. The `pyodide-1024x768-full.png` screenshot shows the loaded state.
 - Subjective visual residual (color/spacing/typography/polish) was NOT evaluated; left for builder-vision-eval Phase 2.

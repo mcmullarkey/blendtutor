@@ -40,9 +40,11 @@ curl -o /dev/null -w "%{http_code}" http://localhost:8765/index.html     # 200
 
 ## Token system summary
 
-18 tokens declared in `:root`, all used by ≥1 rule. 10 `var(--bt-` references
-across rules (well above the 4-usage floor). Light theme, WCAG 4.5:1 normal text
-contrast, system UI font stack with zero network dependencies.
+20 tokens declared in `:root` (15 foundation + 5 AC-1 additions); 11 consumed
+by AC-1 shell rules; 9 forward-declared for AC-2 (workspace) and AC-3
+(feedback) per the spec's token contract. 17 `var(--bt-` references across rules
+(well above the 4-usage floor). Light theme, WCAG 4.5:1 normal text contrast,
+system UI font stack with zero network dependencies.
 
 ## Test suite output (captured)
 

@@ -18,5 +18,6 @@ toml = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }
+regex-lite = { workspace = true }
 serial_test = { workspace = true }
 wiremock = { workspace = true }

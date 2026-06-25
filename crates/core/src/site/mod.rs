@@ -757,10 +757,7 @@ mod tests {
         // not declared-dead.
         let site = plan(&r_course(), BuildTarget::Webr).expect("plans");
         let css = &file(&site, "styles.css").contents;
-        assert!(
-            css.contains(":root"),
-            "styles.css must have a :root block"
-        );
+        assert!(css.contains(":root"), "styles.css must have a :root block");
         assert!(
             css.contains("--bt-"),
             "styles.css must declare --bt- custom properties"
@@ -778,6 +775,123 @@ mod tests {
     }
 
     #[test]
+    fn plan_site_workspace_styles_use_tokens_and_status_renders_as_pill() {
+        // AC-2: workspace CSS contract — selectors present, token usage floor,
+        // no hardcoded hex, badge/pill via data-status attribute selectors (not
+        // class selectors), every AC-2-added token consumed outside :root.
+        let site = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let css = &file(&site, "styles.css").contents;
+
+        // 1. Workspace selectors present
+        for selector in [
+            ".lesson-picker",
+            "#lesson-title",
+            "#lesson-prompt",
+            "#submission",
+            ".controls",
+            "#run",
+            "#submit",
+            "#lesson-status",
+            "#output",
+        ] {
+            assert!(
+                css.contains(selector),
+                "styles.css must contain selector `{selector}`"
+            );
+        }
+
+        // 2. ≥6 var(--bt-) references within workspace rules (exclude :root).
+        // Split on the workspace section marker to isolate workspace rules.
+        let workspace_marker = "/* === workspace === */";
+        assert!(
+            css.contains(workspace_marker),
+            "styles.css must have a workspace section marker"
+        );
+        let after_marker = css
+            .split(workspace_marker)
+            .nth(1)
+            .expect("workspace section exists");
+        // Only count lines in the workspace section that contain var(--bt-)
+        let workspace_var_refs: Vec<&str> = after_marker
+            .lines()
+            .filter(|line| line.contains("var(--bt-"))
+            .collect();
+        assert!(
+            workspace_var_refs.len() >= 6,
+            "styles.css workspace section must have >= 6 var(--bt-) references, got {}: {:?}",
+            workspace_var_refs.len(),
+            workspace_var_refs
+        );
+
+        // 3. No hardcoded hex in workspace rules
+        // Match exactly 3, 6, or 8 hex digits after # (full color or shorthand,
+        // with optional alpha). Avoids matching non-color hex patterns like
+        // "#feedback" in comments (7 chars, but {6} and {3} won't match 7).
+        let hex_re =
+            regex_lite::Regex::new(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b")
+                .unwrap();
+        if let Some(hit) = hex_re.find(after_marker) {
+            panic!(
+                "workspace rules must not contain hardcoded hex literals, found `{}`",
+                hit.as_str()
+            );
+        }
+
+        // 4. Exactly 4 #lesson-status[data-status="..."] rules
+        let status_selector_re =
+            regex_lite::Regex::new(r#"#lesson-status\[data-status="[^"]+"\]"#).unwrap();
+        let status_matches: Vec<_> = status_selector_re.find_iter(css).collect();
+        assert_eq!(
+            status_matches.len(),
+            4,
+            "expected exactly 4 `#lesson-status[data-status=\"...\"]` rules, got {}: {:?}",
+            status_matches.len(),
+            status_matches
+        );
+
+        // 5. No .status-* class selectors
+        let status_class_re = regex_lite::Regex::new(r"\.status-(idle|running|pass|fail)").unwrap();
+        assert!(
+            !status_class_re.is_match(css),
+            "styles.css must not contain .status-* class selectors"
+        );
+
+        // 6. Every AC-2-added token used >= 1 outside :root.
+        // The 9 tokens from the AC-2 token table — some may already be declared
+        // by AC-1 as forward-declarations. We check each declared in :root has
+        // a var(--bt-...) consumer outside :root.
+        let ac2_tokens = [
+            "--bt-color-status-idle",
+            "--bt-color-border",
+            "--bt-color-brand-hover",
+            "--bt-space-xs",
+            "--bt-space-sm",
+            "--bt-space-md",
+            "--bt-space-lg",
+            "--bt-shadow-sm",
+            "--bt-radius-pill",
+        ];
+        // Parse the :root block to find which tokens AC-2's section adds.
+        // We use the workspace marker to split: tokens in :root but consumed
+        // by workspace rules are AC-2's responsibility.
+        let root_block: &str = &css[..css.find(":root").unwrap_or(0)];
+        let _root_block = root_block; // suppress unused warning in red phase
+        let outside_root = &css[css.find("}").map(|i| i + 1).unwrap_or(0)..];
+
+        for token in &ac2_tokens {
+            let token_declared = css.contains(&format!("{token}:"));
+            let token_consumed = outside_root.contains(&format!("var({token}"));
+            if token_declared {
+                assert!(
+                    token_consumed,
+                    "AC-2-added token {token} is declared in :root but never used via var() \
+                     outside :root (dead token)"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn plan_site_shells_contain_semantic_regions() {
         // AC-1 predicate 4: both shells have the required semantic layout regions
         // with the expected structure.
@@ -792,9 +906,18 @@ mod tests {
             let header_count = html.matches(r#"<header class="site-header">"#).count();
             let main_count = html.matches(r#"<main class="workspace">"#).count();
             let footer_count = html.matches(r#"<footer class="site-footer">"#).count();
-            assert_eq!(header_count, 1, "{target}: expected 1 <header class=\"site-header\">");
-            assert_eq!(main_count, 1, "{target}: expected 1 <main class=\"workspace\">");
-            assert_eq!(footer_count, 1, "{target}: expected 1 <footer class=\"site-footer\">");
+            assert_eq!(
+                header_count, 1,
+                "{target}: expected 1 <header class=\"site-header\">"
+            );
+            assert_eq!(
+                main_count, 1,
+                "{target}: expected 1 <main class=\"workspace\">"
+            );
+            assert_eq!(
+                footer_count, 1,
+                "{target}: expected 1 <footer class=\"site-footer\">"
+            );
 
             // Header contains <h1>blendtutor</h1>
             assert!(
@@ -803,7 +926,14 @@ mod tests {
             );
 
             // All 6 data-test hooks present
-            for hook in ["lesson-select", "submission", "run", "lesson-status", "output", "feedback"] {
+            for hook in [
+                "lesson-select",
+                "submission",
+                "run",
+                "lesson-status",
+                "output",
+                "feedback",
+            ] {
                 let attr = format!(r#"data-test="{}""#, hook);
                 assert!(
                     html.contains(&attr),
@@ -824,14 +954,20 @@ mod tests {
             );
 
             // All JS-required IDs present
-            for id in ["boot-status", "lesson-title", "lesson-prompt", "submission",
-                        "lesson-select", "output", "run", "feedback", "submit", "lesson-status"]
-            {
+            for id in [
+                "boot-status",
+                "lesson-title",
+                "lesson-prompt",
+                "submission",
+                "lesson-select",
+                "output",
+                "run",
+                "feedback",
+                "submit",
+                "lesson-status",
+            ] {
                 let attr = format!(r#"id="{}""#, id);
-                assert!(
-                    html.contains(&attr),
-                    "{target}: missing id=\"{id}\""
-                );
+                assert!(html.contains(&attr), "{target}: missing id=\"{id}\"");
             }
         }
     }
@@ -847,9 +983,11 @@ mod tests {
             let site = plan(&course, target).expect("plans");
             let html = &file(&site, "index.html").contents;
 
-            let coi_pos = html.find(r#"src="coi-serviceworker.js""#)
+            let coi_pos = html
+                .find(r#"src="coi-serviceworker.js""#)
                 .expect("coi-serviceworker.js must be referenced");
-            let link_pos = html.find(r#"href="styles.css""#)
+            let link_pos = html
+                .find(r#"href="styles.css""#)
                 .expect("styles.css link must be present");
             assert!(
                 coi_pos < link_pos,
@@ -857,10 +995,12 @@ mod tests {
             );
 
             // Module scripts come after the stylesheet link (in body-end)
-            let link_close_pos = html[link_pos..].find('>')
+            let link_close_pos = html[link_pos..]
+                .find('>')
                 .map(|p| link_pos + p)
                 .expect("link tag closes");
-            let runner_pos = html.find(r#"src="lesson-runner.js""#)
+            let runner_pos = html
+                .find(r#"src="lesson-runner.js""#)
                 .expect("lesson-runner.js must be referenced");
             assert!(
                 link_close_pos < runner_pos,
@@ -887,21 +1027,15 @@ mod tests {
             // Strip <title> content (keep the tags)
             s = s.replace(
                 "<title>blendtutor — interactive R lessons</title>",
-                "<title></title>"
+                "<title></title>",
             );
             s = s.replace(
                 "<title>blendtutor — interactive Python lessons</title>",
-                "<title></title>"
+                "<title></title>",
             );
             // Strip boot-status text
-            s = s.replace(
-                "Booting webR…",
-                ""
-            );
-            s = s.replace(
-                "Booting Pyodide…",
-                ""
-            );
+            s = s.replace("Booting webR…", "");
+            s = s.replace("Booting Pyodide…", "");
             // Strip the pyodide CDN comment + script block (only present in pyodide),
             // including the indentation whitespace and newline before the comment.
             let pyodide_block_start = "<!--\n      The Pyodide runtime";

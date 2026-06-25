@@ -70,3 +70,70 @@ Fix applied (commit <pending>):
 
 Status: FIXED. Re-run probes to verify layout assertion passes.
   Expected getComputedStyle(#lesson-status).height ≥ 18px (expect ~21px).
+
+================================================================================
+Re-probe log — retry 1 verification (2026-06-25)
+================================================================================
+
+rodney version: 0.4.0
+branch: 57-site-design-v1-workspace
+build commands:
+  cargo run -p blendtutor-cli -- build --target webr crates/core/tests/fixtures/r-course -o /tmp/bt-vision-57-webr
+  cargo run -p blendtutor-cli -- build --target pyodide crates/core/tests/fixtures/python-course -o /tmp/bt-vision-57-pyodide
+serve commands:
+  uv run --no-project python -m http.server 8090 --directory /tmp/bt-vision-57-webr
+  uv run --no-project python -m http.server 8091 --directory /tmp/bt-vision-57-pyodide
+probe prep:
+  coi-serviceworker.js overwritten with no-op in both output dirs
+
+Deterministic check (IIFE) — webr @ http://localhost:8090/index.html
+  Result: PASS
+  Sub-checks:
+    badgeOk: true
+    distinct status colors: true (4 distinct bg values)
+    alive (idle != pass): true
+    buttonsDistinct: true
+    subMono: true
+    output whiteSpace pre/pre-wrap: true
+    output minHeight not 0px/auto: true
+    controls flex row: true
+    lesson-picker flex/gap: true
+  Computed status badge backgrounds:
+    idle:    rgb(232, 232, 232)
+    running: rgb(176, 106, 0)
+    pass:    rgb(10, 125, 40)
+    fail:    rgb(192, 32, 42)
+
+Layout assertions — webr
+  controls display:flex + flex-direction:row         PASS
+  lesson-picker display:flex/inline-flex or gap>0    PASS
+  #lesson-status width >= 24px                       PASS  (42.89px)
+  #lesson-status height >= 18px                      PASS  (29px)
+  #lesson-status border-radius >= 999px              PASS  (9999px)
+  #lesson-status bg non-transparent + padding + pill PASS
+  #run bg non-transparent                            PASS
+  #run bg != #submit bg                              PASS
+  #submission font-family includes mono              PASS
+  #output white-space pre/pre-wrap                   PASS
+  #output min-height != 0px/auto                     PASS  (64px)
+
+Deterministic check (IIFE) — pyodide @ http://localhost:8091/index.html
+  Result: PASS
+  Sub-checks: same as webr, all true
+  Computed status badge backgrounds: same as webr
+  Computed status size: width 42.89px, height 29px
+
+Layout assertions — pyodide
+  All PASS (including #lesson-status height >= 18px, got 29px)
+
+Screenshots captured:
+  docs/evidence/57/webr-1024x768-idle.png     (1024x768, idle)
+  docs/evidence/57/webr-375x812-idle.png      (375x812, idle)
+  docs/evidence/57/webr-badge-running.png     (1024x768, data-status="running")
+  docs/evidence/57/webr-badge-pass.png        (1024x768, data-status="pass")
+  docs/evidence/57/webr-badge-fail.png        (1024x768, data-status="fail")
+  docs/evidence/57/pyodide-1024x768-idle.png  (1024x768, idle)
+  docs/evidence/57/pyodide-375x812-idle.png   (375x812, idle)
+
+Status: PROBES_PASS. Deterministic check and all layout assertions green on both targets.
+Badge height now 29px (was 12px). Ready for Phase 2 visual evaluation.

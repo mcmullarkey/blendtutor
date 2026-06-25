@@ -6,8 +6,8 @@
     <title>blendtutor — interactive Python lessons</title>
     <!--
       COOP/COEP shim, loaded first. It registers a service worker that re-serves
-      this site cross-origin isolated, so a runtime that wants SharedArrayBuffer
-      works on GitHub Pages (which cannot set the headers itself). Must run before
+      this site cross-origin isolated, so SharedArrayBuffer works on
+      GitHub Pages (which cannot set the headers itself). Must run before
       anything that depends on isolation.
     -->
     <script src="coi-serviceworker.js"></script>
@@ -17,95 +17,35 @@
       build so the site is reproducible.
     -->
     <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
-    <style>
-      body {
-        font-family: system-ui, sans-serif;
-        max-width: 50rem;
-        margin: 2rem auto;
-        padding: 0 1rem;
-        line-height: 1.5;
-      }
-      h1 {
-        margin-bottom: 0;
-      }
-      select,
-      textarea,
-      button {
-        font: inherit;
-      }
-      textarea {
-        width: 100%;
-        min-height: 9rem;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        padding: 0.5rem;
-        box-sizing: border-box;
-      }
-      .controls {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0.75rem 0;
-      }
-      button {
-        padding: 0.4rem 0.9rem;
-        cursor: pointer;
-      }
-      #lesson-status {
-        padding: 0.25rem 0.6rem;
-        border-radius: 0.25rem;
-      }
-      #lesson-status[data-status="idle"] {
-        color: #555;
-      }
-      #lesson-status[data-status="running"] {
-        color: #b06a00;
-      }
-      #lesson-status[data-status="pass"] {
-        color: #0a7d28;
-        font-weight: 600;
-      }
-      #lesson-status[data-status="fail"] {
-        color: #c0202a;
-        font-weight: 600;
-      }
-      #output {
-        background: #f5f5f5;
-        padding: 0.75rem;
-        border-radius: 0.25rem;
-        white-space: pre-wrap;
-        min-height: 1.5rem;
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <h1>blendtutor</h1>
-    <p id="boot-status">Booting Pyodide…</p>
-
-    <p>
-      <label for="lesson-select">Lesson:</label>
-      <select id="lesson-select" data-test="lesson-select"></select>
-    </p>
-
-    <h2 id="lesson-title"></h2>
-    <p id="lesson-prompt"></p>
-
-    <textarea id="submission" data-test="submission" spellcheck="false"></textarea>
-
-    <div class="controls">
-      <button id="run" type="button" data-test="run">Run checks</button>
-      <button id="submit" type="button" data-action="submit">Submit for feedback</button>
-      <span id="lesson-status" data-test="lesson-status" data-status="idle">idle</span>
-    </div>
-
-    <pre id="output" data-test="output"></pre>
-
-    <!--
-      BYOK feedback mount. feedback.js renders the key-entry prompt (with the
-      stored-only-in-this-tab / sent-only-to-Anthropic disclosure) and the verdict
-      here; the key-handling concern lives in that module, not this shell.
-    -->
-    <section id="feedback" data-test="feedback"></section>
-
+    <header class="site-header">
+      <h1>blendtutor</h1>
+      <p id="boot-status">Booting Pyodide…</p>
+    </header>
+    <main class="workspace">
+      <div class="lesson-picker">
+        <label for="lesson-select">Lesson:</label>
+        <select id="lesson-select" data-test="lesson-select"></select>
+      </div>
+      <h2 id="lesson-title"></h2>
+      <p id="lesson-prompt"></p>
+      <textarea id="submission" data-test="submission" spellcheck="false"></textarea>
+      <div class="controls">
+        <button id="run" type="button" data-test="run">Run checks</button>
+        <button id="submit" type="button" data-action="submit">Submit for feedback</button>
+        <span id="lesson-status" data-test="lesson-status" data-status="idle">idle</span>
+      </div>
+      <pre id="output" data-test="output"></pre>
+      <!--
+        BYOK feedback mount. feedback.js renders the key-entry prompt (with the
+        stored-only-in-this-tab / sent-only-to-Anthropic disclosure) and the verdict
+        here; the key-handling concern lives in that module, not this shell.
+      -->
+      <section id="feedback" data-test="feedback"></section>
+    </main>
+    <footer class="site-footer"></footer>
     <script type="module" src="lesson-runner.js"></script>
     <script type="module" src="feedback.js"></script>
   </body>

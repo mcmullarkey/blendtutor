@@ -81,6 +81,7 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
         "lesson-runner.js",
         "lesson-runner-core.js",
         "coi-serviceworker.js",
+        "styles.css",
     ] {
         assert!(out.join(name).is_file(), "the built site is missing {name}");
     }
@@ -91,6 +92,40 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
     assert!(
         index.contains("coi-serviceworker.js"),
         "index.html must reference the coi-serviceworker shim; index.html={index}"
+    );
+
+    // AC-1: styles.css is linked, no inline <style>, semantic regions present,
+    // load order preserved.
+    // Accept both self-closing <link ... /> and HTML5 <link ... >
+    let link_self_closing = index.contains(r#"<link rel="stylesheet" href="styles.css" />"#);
+    let link_html5 = index.contains(r#"<link rel="stylesheet" href="styles.css">"#);
+    assert!(
+        link_self_closing || link_html5,
+        "index.html must link styles.css; index={index}"
+    );
+    assert!(
+        !index.contains("<style>"),
+        "index.html must not contain inline <style>; index={index}"
+    );
+    assert!(
+        index.contains(r#"<header class="site-header">"#),
+        "index.html must contain <header class=\"site-header\">"
+    );
+    assert!(
+        index.contains(r#"<main class="workspace">"#),
+        "index.html must contain <main class=\"workspace\">"
+    );
+    assert!(
+        index.contains(r#"<footer class="site-footer">"#),
+        "index.html must contain <footer class=\"site-footer\">"
+    );
+    let coi_pos = index.find(r#"src="coi-serviceworker.js""#)
+        .expect("coi-serviceworker.js must be referenced");
+    let link_pos = index.find(r#"href="styles.css""#)
+        .expect("styles.css link must be present");
+    assert!(
+        coi_pos < link_pos,
+        "coi-serviceworker.js must appear before styles.css link"
     );
 
     // The webR boot is wired into the runner (not a separate file, per the spec).
@@ -157,11 +192,45 @@ fn build_pyodide_emits_a_deployable_python_lesson_site() {
         "lesson-runner.js",
         "lesson-runner-core.js",
         "coi-serviceworker.js",
+        "styles.css",
     ] {
         assert!(out.join(name).is_file(), "the built site is missing {name}");
     }
 
     let index = std::fs::read_to_string(out.join("index.html")).unwrap();
+
+    // AC-1: styles.css is linked, no inline <style>, semantic regions present,
+    // load order preserved.
+    let link_self_closing = index.contains(r#"<link rel="stylesheet" href="styles.css" />"#);
+    let link_html5 = index.contains(r#"<link rel="stylesheet" href="styles.css">"#);
+    assert!(
+        link_self_closing || link_html5,
+        "index.html must link styles.css; index={index}"
+    );
+    assert!(
+        !index.contains("<style>"),
+        "index.html must not contain inline <style>; index={index}"
+    );
+    assert!(
+        index.contains(r#"<header class="site-header">"#),
+        "index.html must contain <header class=\"site-header\">"
+    );
+    assert!(
+        index.contains(r#"<main class="workspace">"#),
+        "index.html must contain <main class=\"workspace\">"
+    );
+    assert!(
+        index.contains(r#"<footer class="site-footer">"#),
+        "index.html must contain <footer class=\"site-footer\">"
+    );
+    let coi_pos = index.find(r#"src="coi-serviceworker.js""#)
+        .expect("coi-serviceworker.js must be referenced");
+    let link_pos = index.find(r#"href="styles.css""#)
+        .expect("styles.css link must be present");
+    assert!(
+        coi_pos < link_pos,
+        "coi-serviceworker.js must appear before styles.css link"
+    );
 
     // index.html boots the Pyodide runtime — not webR. A pyodide build that copied
     // webR's shell verbatim would miss this (the AC1 negative).

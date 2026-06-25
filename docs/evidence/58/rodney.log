@@ -1,0 +1,76 @@
+# Issue #58 Rodney probe log
+
+Date: 2026-06-25
+Branch: 58-site-design-v1-feedback
+Rodney: uvx rodney (headless Chrome)
+
+## Build
+
+cargo run -p blendtutor-cli --bin blendtutor -- build --target webr crates/core/tests/fixtures/r-course -o /tmp/bt-vision-58-webr
+cargo run -p blendtutor-cli --bin blendtutor -- build --target pyodide crates/core/tests/fixtures/python-course -o /tmp/bt-vision-58-pyodide
+
+Neutered coi-serviceworker.js in both output dirs (no-op for probes).
+Served:
+- webr: http://localhost:58080
+- pyodide: http://localhost:58081
+
+## Deterministic checks
+
+### webR target
+- Phase 1 (key-prompt, click submit): PASS
+- Phase 2 (verdict correct injected): PASS
+- Phase 3 (verdict incorrect bg != correct bg): PASS
+
+### Pyodide target
+- Phase 1 (key-prompt, click submit): PASS
+- Phase 2 (verdict correct injected): PASS
+- Phase 3 (verdict incorrect bg != correct bg): PASS
+
+## Layout assertions
+
+### webR target
+- card visible bg: PASS
+- card elevated: PASS
+- card not hidden: PASS
+- card paddingTop > 0: PASS
+- card borderRadius > 0: PASS
+- disclosure distinct from button: PASS
+- verdict correct visible bg: PASS
+- verdict incorrect visible bg: PASS
+- verdict states visually differ: PASS
+- verdict strong present: PASS
+
+### Pyodide target
+- card visible bg: PASS
+- card elevated: PASS
+- card not hidden: PASS
+- card paddingTop > 0: PASS
+- card borderRadius > 0: PASS
+- disclosure distinct from button: PASS
+- verdict correct visible bg: PASS
+- verdict incorrect visible bg: PASS
+- verdict states visually differ: PASS
+- verdict strong present: PASS
+
+## Computed values (webR)
+
+- page background: rgb(255, 255, 255)
+- key-prompt card background: rgb(255, 255, 255)
+- verdict true background: rgb(232, 245, 233)
+- verdict false background: rgb(255, 243, 224)
+- disclosure color: rgb(85, 85, 85)
+- submit button color: rgb(255, 255, 255)
+
+## Screenshots
+
+- docs/evidence/58/webr-1024x768-keyprompt.png
+- docs/evidence/58/webr-375x812-keyprompt.png
+- docs/evidence/58/webr-verdict-correct.png
+- docs/evidence/58/webr-verdict-incorrect.png
+- docs/evidence/58/webr-pending.png
+- docs/evidence/58/webr-error.png
+- docs/evidence/58/pyodide-1024x768-keyprompt.png
+
+## Verdict
+
+PROBES_PASS

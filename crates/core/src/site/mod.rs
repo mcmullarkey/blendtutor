@@ -254,6 +254,16 @@ const FEEDBACK_JS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/assets/shared/feedback.js"
 ));
+/// The shared design-token stylesheet: the `--bt-` custom-property system and
+/// semantic region rules embedded at compile time and loaded by both targets'
+/// page shells via `<link rel="stylesheet" href="styles.css">`. Shared, not
+/// duplicated per target (§4.2): a single source of truth for the cross-target
+/// visual vocabulary, so a token-value change touches one `:root` declaration
+/// and both targets pick it up without touching Rust or JS.
+const STYLES_CSS: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/shared/styles.css"
+));
 
 /// A build target's own client assets: its page shell and its runner adapter.
 ///
@@ -284,6 +294,7 @@ fn assemble(assets: TargetAssets<'_>, lessons: &[(LessonSlug, Lesson)]) -> SiteF
         asset("lesson-runner-core.js", LESSON_RUNNER_CORE_JS),
         asset("coi-serviceworker.js", COI_SERVICEWORKER_JS),
         asset("feedback.js", FEEDBACK_JS),
+        asset("styles.css", STYLES_CSS),
     ];
 
     let mut slugs = Vec::new();
@@ -684,18 +695,236 @@ mod tests {
         // shared scaffolding instead of reusing it.
         let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
         let pyodide = plan(&python_course(), BuildTarget::Pyodide).expect("plans");
-        for shared in ["lesson-runner-core.js", "coi-serviceworker.js"] {
+        for shared in [
+            "lesson-runner-core.js",
+            "coi-serviceworker.js",
+            "styles.css",
+        ] {
             assert_eq!(
                 file(&webr, shared).contents,
                 file(&pyodide, shared).contents,
                 "{shared} must be identical across targets"
             );
         }
-        // ...while the per-target shell genuinely differs (R vs Python boot).
+        // ...while the per-target shell genuinely differs (R vs Python boot) —
+        // but only by the 3 known diffs (title, boot text, CDN script).
         assert_ne!(
             file(&webr, "index.html").contents,
             file(&pyodide, "index.html").contents,
             "each target carries its own shell"
+        );
+    }
+
+    #[test]
+    fn plan_site_styles_css_is_present_for_both_targets() {
+        // AC-1 predicate 1: styles.css lands as a planned file for both targets,
+        // not just one — a target that forgot to include it would miss here.
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let pyodide = plan(&python_course(), BuildTarget::Pyodide).expect("plans");
+        let _ = file(&webr, "styles.css");
+        let _ = file(&pyodide, "styles.css");
+    }
+
+    #[test]
+    fn plan_site_shells_have_link_and_no_inline_style() {
+        // AC-1 predicate 2: both shells reference the external stylesheet and
+        // have zero inline <style> blocks. A shell that keeps the old inline
+        // <style> AND adds the <link> would be caught here.
+        for (target, course) in [
+            (BuildTarget::Webr, r_course()),
+            (BuildTarget::Pyodide, python_course()),
+        ] {
+            let site = plan(&course, target).expect("plans");
+            let html = &file(&site, "index.html").contents;
+            // Accept both self-closing <link ... /> and HTML5 <link ... >
+            let link_self_closing = html.contains(r#"<link rel="stylesheet" href="styles.css" />"#);
+            let link_html5 = html.contains(r#"<link rel="stylesheet" href="styles.css">"#);
+            assert!(
+                link_self_closing || link_html5,
+                "{target} index.html must link styles.css"
+            );
+            assert!(
+                !html.contains("<style>"),
+                "{target} index.html must not contain inline <style>"
+            );
+        }
+    }
+
+    #[test]
+    fn plan_site_styles_css_declares_tokens_and_uses_them() {
+        // AC-1 predicate 3: styles.css declares --bt- custom properties in :root
+        // and has >=4 rules referencing var(--bt-). This proves tokens are used,
+        // not declared-dead.
+        let site = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let css = &file(&site, "styles.css").contents;
+        assert!(
+            css.contains(":root"),
+            "styles.css must have a :root block"
+        );
+        assert!(
+            css.contains("--bt-"),
+            "styles.css must declare --bt- custom properties"
+        );
+        let var_refs: Vec<&str> = css
+            .lines()
+            .filter(|line| line.contains("var(--bt-"))
+            .collect();
+        assert!(
+            var_refs.len() >= 4,
+            "styles.css must have >= 4 rules referencing var(--bt-), got {}: {:?}",
+            var_refs.len(),
+            var_refs
+        );
+    }
+
+    #[test]
+    fn plan_site_shells_contain_semantic_regions() {
+        // AC-1 predicate 4: both shells have the required semantic layout regions
+        // with the expected structure.
+        for (target, course) in [
+            (BuildTarget::Webr, r_course()),
+            (BuildTarget::Pyodide, python_course()),
+        ] {
+            let site = plan(&course, target).expect("plans");
+            let html = &file(&site, "index.html").contents;
+
+            // Exactly one of each semantic region
+            let header_count = html.matches(r#"<header class="site-header">"#).count();
+            let main_count = html.matches(r#"<main class="workspace">"#).count();
+            let footer_count = html.matches(r#"<footer class="site-footer">"#).count();
+            assert_eq!(header_count, 1, "{target}: expected 1 <header class=\"site-header\">");
+            assert_eq!(main_count, 1, "{target}: expected 1 <main class=\"workspace\">");
+            assert_eq!(footer_count, 1, "{target}: expected 1 <footer class=\"site-footer\">");
+
+            // Header contains <h1>blendtutor</h1>
+            assert!(
+                html.contains("<h1>blendtutor</h1>"),
+                "{target}: header must contain <h1>blendtutor</h1>"
+            );
+
+            // All 6 data-test hooks present
+            for hook in ["lesson-select", "submission", "run", "lesson-status", "output", "feedback"] {
+                let attr = format!(r#"data-test="{}""#, hook);
+                assert!(
+                    html.contains(&attr),
+                    "{target}: missing data-test=\"{hook}\""
+                );
+            }
+
+            // submit carries data-action="submit"
+            assert!(
+                html.contains(r#"data-action="submit""#),
+                "{target}: submit must carry data-action=\"submit\""
+            );
+
+            // lesson-status has data-status="idle"
+            assert!(
+                html.contains(r#"data-status="idle""#),
+                "{target}: lesson-status must have data-status=\"idle\""
+            );
+
+            // All JS-required IDs present
+            for id in ["boot-status", "lesson-title", "lesson-prompt", "submission",
+                        "lesson-select", "output", "run", "feedback", "submit", "lesson-status"]
+            {
+                let attr = format!(r#"id="{}""#, id);
+                assert!(
+                    html.contains(&attr),
+                    "{target}: missing id=\"{id}\""
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn plan_site_shells_have_correct_head_load_order() {
+        // AC-1 predicate 5: head load order preserved — coi-serviceworker.js
+        // before styles.css link, and the link is before the body-end module scripts.
+        for (target, course) in [
+            (BuildTarget::Webr, r_course()),
+            (BuildTarget::Pyodide, python_course()),
+        ] {
+            let site = plan(&course, target).expect("plans");
+            let html = &file(&site, "index.html").contents;
+
+            let coi_pos = html.find(r#"src="coi-serviceworker.js""#)
+                .expect("coi-serviceworker.js must be referenced");
+            let link_pos = html.find(r#"href="styles.css""#)
+                .expect("styles.css link must be present");
+            assert!(
+                coi_pos < link_pos,
+                "{target}: coi-serviceworker.js must appear before styles.css link"
+            );
+
+            // Module scripts come after the stylesheet link (in body-end)
+            let link_close_pos = html[link_pos..].find('>')
+                .map(|p| link_pos + p)
+                .expect("link tag closes");
+            let runner_pos = html.find(r#"src="lesson-runner.js""#)
+                .expect("lesson-runner.js must be referenced");
+            assert!(
+                link_close_pos < runner_pos,
+                "{target}: styles.css link must appear before lesson-runner.js script"
+            );
+        }
+    }
+
+    #[test]
+    fn plan_site_shells_differ_only_by_three_known_diffs() {
+        // AC-1 predicate 6: after normalizing (stripping) the 3 known diffs,
+        // the two shells are byte-identical. This catches a 4th unintended
+        // divergence between targets.
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let pyodide = plan(&python_course(), BuildTarget::Pyodide).expect("plans");
+
+        let webr_html = &file(&webr, "index.html").contents;
+        let pyodide_html = &file(&pyodide, "index.html").contents;
+
+        // Normalize: strip <title> contents, #boot-status text, and pyodide CDN
+        // script block (comment + script tag, only present in pyodide shell).
+        let normalize = |html: &str| -> String {
+            let mut s = html.to_string();
+            // Strip <title> content (keep the tags)
+            s = s.replace(
+                "<title>blendtutor — interactive R lessons</title>",
+                "<title></title>"
+            );
+            s = s.replace(
+                "<title>blendtutor — interactive Python lessons</title>",
+                "<title></title>"
+            );
+            // Strip boot-status text
+            s = s.replace(
+                "Booting webR…",
+                ""
+            );
+            s = s.replace(
+                "Booting Pyodide…",
+                ""
+            );
+            // Strip the pyodide CDN comment + script block (only present in pyodide),
+            // including the indentation whitespace and newline before the comment.
+            let pyodide_block_start = "<!--\n      The Pyodide runtime";
+            if let Some(start) = s.find(pyodide_block_start) {
+                // Back up to the preceding newline to drop the indentation too
+                let preceding = s[..start].rfind('\n').map(|i| i + 1).unwrap_or(start);
+                // Find the closing </script> after the block start
+                if let Some(end) = s[start..].find("</script>") {
+                    let block_end = start + end + "</script>".len();
+                    // Strip the trailing newline after the script tag
+                    let after = &s[block_end..];
+                    let strip_newline = after.strip_prefix('\n').unwrap_or(after);
+                    s = format!("{}{}", &s[..preceding], strip_newline);
+                }
+            }
+            s
+        };
+
+        assert_eq!(
+            normalize(webr_html),
+            normalize(pyodide_html),
+            "after normalizing 3 known diffs (title, boot text, CDN script), \
+             shells must be byte-identical"
         );
     }
 

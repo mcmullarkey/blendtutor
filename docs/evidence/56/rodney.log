@@ -1,0 +1,69 @@
+# Issue #56 — Rodney probes + screenshots
+
+- rodney version: 0.4.0
+- branch: 56-site-design-v1-foundation
+- build commands:
+  - cargo run -p blendtutor-cli -- build --target webr crates/core/tests/fixtures/r-course -o /tmp/bt-vision-56-webr
+  - cargo run -p blendtutor-cli -- build --target pyodide crates/core/tests/fixtures/python-course -o /tmp/bt-vision-56-pyodide
+- serve commands:
+  - uv run --no-project python -m http.server 8056 --directory /tmp/bt-vision-56-webr
+  - uv run --no-project python -m http.server 8057 --directory /tmp/bt-vision-56-pyodide
+- coi-serviceworker.js neutered in both output dirs for rodney (empty files)
+
+## Deterministic checks
+
+Expression:
+getComputedStyle(document.body).getPropertyValue("--bt-font-family-ui").trim() !== "" && document.querySelector("style") === null && document.querySelector("link[rel=\"stylesheet\"][href=\"styles.css\"]") !== null
+
+| target | result |
+|--------|--------|
+| webr    | PASS |
+| pyodide | PASS |
+
+## Layout assertions
+
+Expression:
+getComputedStyle(document.body).getPropertyValue("--bt-font-family-ui").trim() !== "" &&
+getComputedStyle(document.querySelector("main.workspace")).display !== "none" &&
+getComputedStyle(document.querySelector("header.site-header")).display !== "none" &&
+getComputedStyle(document.querySelector("footer.site-footer")).display !== "none" &&
+document.querySelector("header.site-header").getBoundingClientRect().top < document.querySelector("main.workspace").getBoundingClientRect().top &&
+document.querySelector("footer.site-footer").getBoundingClientRect().top > document.querySelector("main.workspace").getBoundingClientRect().bottom - 1
+
+| target | result |
+|--------|--------|
+| webr    | PASS |
+| pyodide | PASS |
+
+## Lesson-loaded probe
+
+Expression:
+document.querySelector("#lesson-title").textContent.trim() !== "" &&
+document.querySelector("#lesson-prompt").textContent.trim() !== "" &&
+document.querySelector("#submission").value.trim() !== "" &&
+document.querySelector("#lesson-status").getAttribute("data-status") === "idle"
+
+| target | result |
+|--------|--------|
+| webr    | PASS |
+| pyodide | PASS |
+
+## Screenshots
+
+All screenshots captured via Chrome DevTools Protocol (`Page.captureScreenshot`) with explicit device-metrics override to the requested viewport widths (1024 / 375), because `uvx rodney screenshot` does not expose a viewport option and `window.resizeTo` has no effect under headless Chrome.
+
+| file | description |
+|------|-------------|
+| webr-1024x768-boot.png | webR target, boot state, 1024x768 viewport |
+| webr-1024x768-full.png | webR target, loaded/idle state, 1024x768 viewport |
+| webr-375x812-full.png  | webR target, loaded/idle state, 375x812 viewport |
+| pyodide-1024x768-full.png | Pyodide target, loaded/idle state, 1024x768 viewport |
+| pyodide-375x812-full.png  | Pyodide target, loaded/idle state, 375x812 viewport |
+
+## Notes
+
+- No `<style>` element present in either target; stylesheet loads via `<link rel="stylesheet" href="styles.css">`.
+- CSS custom property `--bt-font-family-ui` resolves in both targets, confirming `styles.css` loaded.
+- Header/main/footer semantic layout is visible and ordered correctly in both targets.
+- Pyodide boot screenshot was NOT captured separately — pyodide boots fast (Python runner, no native download), and the boot frame is timing-dependent. The boot-state text `<p id="boot-status">Booting Pyodide…</p>` IS verified present in static HTML via the build test. The `pyodide-1024x768-full.png` screenshot shows the loaded state.
+- Subjective visual residual (color/spacing/typography/polish) was NOT evaluated; left for builder-vision-eval Phase 2.

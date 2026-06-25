@@ -43,7 +43,9 @@
   --bt-color-status-fail: #c0202a;
   --bt-color-status-running: #b06a00;
   --bt-color-brand: #1a1a1a;
+  --bt-color-brand-hover: #000000;
   --bt-color-border: #d4d4d4;
+  --bt-color-status-idle: #e8e8e8;
 
   /* Spacing */
   --bt-space-page-width: 50rem;
@@ -52,9 +54,13 @@
   --bt-space-md: 0.75rem;
   --bt-space-lg: 1rem;
 
+  /* Shadows */
+  --bt-shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+
   /* Radii */
   --bt-radius-sm: 0.25rem;
   --bt-radius-md: 0.5rem;
+  --bt-radius-pill: 9999px;
 }
 
 /* ── Semantic region rules ─────────────────────────────────────── */
@@ -106,4 +112,155 @@ footer.site-footer {
   font-size: 0.75rem;
   color: var(--bt-color-text-secondary);
   text-align: center;
+}
+
+/* === workspace === */
+/* Lesson workspace region (<main class="workspace">). Component-level rules
+ * for picker, editor, controls, status badge, and output console. Scoped to
+ * workspace-specific selectors — no bare element selectors that bleed into
+ * header/footer.
+ *
+ * What it does NOT do:
+ *  - No dark mode v1 (future AC).
+ *  - No #feedback panel styling (AC-3 owns that region).
+ *  - No header/footer overrides.
+ *  - No JS changes — pure CSS only.
+ */
+
+.lesson-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--bt-space-sm);
+}
+
+.lesson-picker label {
+  color: var(--bt-color-text-secondary);
+}
+
+.lesson-picker select {
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  background: var(--bt-color-surface);
+  color: var(--bt-color-text-primary);
+  font-family: var(--bt-font-family-ui);
+}
+
+#lesson-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--bt-color-text-primary);
+  margin-bottom: var(--bt-space-sm);
+}
+
+#lesson-prompt {
+  line-height: var(--bt-line-height);
+  color: var(--bt-color-text-secondary);
+  margin-bottom: var(--bt-space-md);
+}
+
+#submission {
+  font-family: var(--bt-font-family-code);
+  background: var(--bt-color-surface-code);
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  padding: var(--bt-space-sm);
+  box-shadow: var(--bt-shadow-sm);
+  min-height: 6rem;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  color: var(--bt-color-text-primary);
+  font-size: var(--bt-font-size-base);
+  line-height: var(--bt-line-height);
+}
+
+#submission:focus {
+  outline: none;
+  border-color: var(--bt-color-brand);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--bt-space-md);
+  margin-top: var(--bt-space-sm);
+  margin-bottom: var(--bt-space-sm);
+}
+
+#run {
+  background: var(--bt-color-brand);
+  color: var(--bt-color-surface);
+  border: none;
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  font-family: var(--bt-font-family-ui);
+  font-size: var(--bt-font-size-base);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#run:hover {
+  background: var(--bt-color-brand-hover);
+}
+
+#submit {
+  background: transparent;
+  border: 1px solid var(--bt-color-border);
+  color: var(--bt-color-text-primary);
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  font-family: var(--bt-font-family-ui);
+  font-size: var(--bt-font-size-base);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#submit:hover {
+  background: color-mix(in srgb, var(--bt-color-border) 20%, transparent);
+}
+
+#lesson-status {
+  display: inline-block;
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  border-radius: var(--bt-radius-pill);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  box-shadow: var(--bt-shadow-sm);
+  line-height: 1;
+}
+
+#lesson-status[data-status="idle"] {
+  background: var(--bt-color-status-idle);
+  color: var(--bt-color-text-secondary);
+}
+
+#lesson-status[data-status="running"] {
+  background: var(--bt-color-status-running);
+  color: var(--bt-color-surface);
+}
+
+#lesson-status[data-status="pass"] {
+  background: var(--bt-color-status-pass);
+  color: var(--bt-color-surface);
+}
+
+#lesson-status[data-status="fail"] {
+  background: var(--bt-color-status-fail);
+  color: var(--bt-color-surface);
+}
+
+#output {
+  background: var(--bt-color-surface-code);
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  padding: var(--bt-space-sm);
+  box-shadow: var(--bt-shadow-sm);
+  white-space: pre-wrap;
+  min-height: 4rem;
+  font-family: var(--bt-font-family-code);
+  font-size: var(--bt-font-size-base);
+  line-height: var(--bt-line-height);
+  color: var(--bt-color-text-primary);
 }

@@ -994,6 +994,164 @@ fn build_webr_ships_the_multi_provider_feedback_seam() {
 // build_pyodide_ships_the_same_shared_feedback_seam below — that test stays
 // green unchanged.
 
+/// Extract the declaration block (text between `{` and `}`) following `selector`
+/// in `css`. Uses brace-counting for correctness — regex can't reliably match
+/// nested braces.
+fn css_decl_block<'a>(css: &'a str, selector: &str) -> &'a str {
+    let pos = css.find(selector).unwrap_or_else(|| panic!("selector `{selector}` not found"));
+    let rest = &css[pos + selector.len()..];
+    let brace = rest.find('{').unwrap_or_else(|| panic!("selector `{selector}` not followed by {{"));
+    let body = &rest[brace + 1..];
+    let mut depth = 1u32;
+    for (i, ch) in body.char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return &body[..i];
+                }
+            }
+            _ => {}
+        }
+    }
+    panic!("unclosed declaration block after selector `{selector}`");
+}
+
+#[test]
+fn build_webr_styles_byok_feedback_panel() {
+    // AC-3: style the BYOK feedback panel via data-byok / data-correct /
+    // #byok-disclosure attribute selectors. Pure CSS — feedback.js untouched.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+    let output = build("webr", R_COURSE, &out);
+    assert!(
+        output.status.success(),
+        "`build --target webr` should exit 0, got {:?}; stderr={:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let css = std::fs::read_to_string(out.join("styles.css"))
+        .expect("the built site must ship styles.css");
+
+    // (1) — the BYOK/feedback section marker exists
+    let feedback_marker = "/* === feedback / BYOK === */";
+    assert!(
+        css.contains(feedback_marker),
+        "styles.css must have a /* === feedback / BYOK === */ section marker"
+    );
+
+    // Everything after the marker is the BYOK section
+    let byok_section = css
+        .split(feedback_marker)
+        .nth(1)
+        .expect("BYOK section after marker");
+
+    // (1) — all 11 required selectors present
+    let selectors: &[&str] = &[
+        r#"[data-byok="key-prompt"]"#,
+        r#"[data-byok="provider"]"#,
+        r#"[data-byok="model-picker"]"#,
+        r#"[data-byok="model"]"#,
+        r#"[data-byok="models-loading"]"#,
+        r#"[data-byok="pending"]"#,
+        r#"[data-byok="verdict"]"#,
+        r#"[data-byok="verdict"][data-correct="true"]"#,
+        r#"[data-byok="verdict"][data-correct="false"]"#,
+        r#"[data-byok="error"]"#,
+        "#byok-disclosure",
+    ];
+    for selector in selectors {
+        assert!(
+            byok_section.contains(selector),
+            "BYOK section must contain selector `{selector}`"
+        );
+    }
+
+    // (2) — each BYOK selector block references >= 1 var(--bt-*) token
+    let var_pat = regex_lite::Regex::new(r"var\(--bt-").unwrap();
+    let var_count = var_pat.find_iter(byok_section).count();
+    assert!(
+        var_count >= 11,
+        "BYOK section must have >= 11 var(--bt-) refs, got {}",
+        var_count
+    );
+
+    // (4) — verdict true/false selectors produce DIFFERENT declarations
+    let true_block = css_decl_block(byok_section, r#"[data-byok="verdict"][data-correct="true"]"#);
+    let false_block = css_decl_block(byok_section, r#"[data-byok="verdict"][data-correct="false"]"#);
+    assert_ne!(
+        true_block, false_block,
+        "verdict true and false blocks must have different declarations"
+    );
+    // True block references success-bg (green-tinted)
+    assert!(
+        true_block.contains("var(--bt-color-success-bg)"),
+        "verdict true block must reference `--bt-color-success-bg`; block=`{true_block}`"
+    );
+    // False block references danger-bg (amber/red-tinted)
+    assert!(
+        false_block.contains("var(--bt-color-danger-bg)"),
+        "verdict false block must reference `--bt-color-danger-bg`; block=`{false_block}`"
+    );
+
+    // (5) — #byok-disclosure has color or font-size distinct from body
+    let disclosure_block = css_decl_block(&css, "#byok-disclosure");
+    assert!(
+        disclosure_block.contains("color") || disclosure_block.contains("font-size"),
+        "#byok-disclosure block must have 'color' or 'font-size' property; \
+         block=`{disclosure_block}`"
+    );
+
+    // (3) — >= 1 new AC-3 token declared in :root AND referenced in BYOK block
+    assert!(
+        css.contains("--bt-color-success-bg"),
+        "styles.css must declare `--bt-color-success-bg` in :root"
+    );
+    assert!(
+        css.contains("--bt-color-danger-bg"),
+        "styles.css must declare `--bt-color-danger-bg` in :root"
+    );
+    assert!(
+        byok_section.contains("var(--bt-color-success-bg)")
+            || byok_section.contains("var(--bt-color-danger-bg)"),
+        "at least one AC-3 token must be USED in BYOK section"
+    );
+
+    // (2) — no hardcoded hex in BYOK section (tokens must carry color values)
+    let hex_pat =
+        regex_lite::Regex::new(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b").unwrap();
+    assert!(
+        !hex_pat.is_match(byok_section),
+        "BYOK rules must not contain hardcoded hex color literals"
+    );
+
+    // styles.css byte-identical across targets (shared asset invariant)
+    let pyo_tmp = tempfile::tempdir().unwrap();
+    let pyo_out = pyo_tmp.path().join("site");
+    assert!(
+        build("pyodide", PYTHON_COURSE, &pyo_out).status.success(),
+        "pyodide build for byte-identity check should succeed"
+    );
+    let pyo_css = std::fs::read_to_string(pyo_out.join("styles.css"))
+        .expect("pyodide site must ship styles.css");
+    assert_eq!(
+        css, pyo_css,
+        "styles.css must be byte-identical across targets (shared asset)"
+    );
+
+    // feedback.js byte-identity (AC invariant: feedback.js untouched)
+    let webr_feedback = std::fs::read_to_string(out.join("feedback.js"))
+        .expect("the built webr site must ship feedback.js");
+    let pyo_feedback = std::fs::read_to_string(pyo_out.join("feedback.js"))
+        .expect("the built pyodide site must ship feedback.js");
+    assert_eq!(
+        webr_feedback, pyo_feedback,
+        "feedback.js must be byte-identical across targets (shared asset)"
+    );
+}
+
 #[test]
 fn build_pyodide_ships_the_same_shared_feedback_seam() {
     // feedback.js is target-agnostic — the Anthropic BYOK call is identical whether

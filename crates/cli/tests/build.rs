@@ -998,9 +998,13 @@ fn build_webr_ships_the_multi_provider_feedback_seam() {
 /// in `css`. Uses brace-counting for correctness — regex can't reliably match
 /// nested braces.
 fn css_decl_block<'a>(css: &'a str, selector: &str) -> &'a str {
-    let pos = css.find(selector).unwrap_or_else(|| panic!("selector `{selector}` not found"));
+    let pos = css
+        .find(selector)
+        .unwrap_or_else(|| panic!("selector `{selector}` not found"));
     let rest = &css[pos + selector.len()..];
-    let brace = rest.find('{').unwrap_or_else(|| panic!("selector `{selector}` not followed by {{"));
+    let brace = rest
+        .find('{')
+        .unwrap_or_else(|| panic!("selector `{selector}` not followed by {{"));
     let body = &rest[brace + 1..];
     let mut depth = 1u32;
     for (i, ch) in body.char_indices() {
@@ -1079,8 +1083,14 @@ fn build_webr_styles_byok_feedback_panel() {
     );
 
     // (4) — verdict true/false selectors produce DIFFERENT declarations
-    let true_block = css_decl_block(byok_section, r#"[data-byok="verdict"][data-correct="true"]"#);
-    let false_block = css_decl_block(byok_section, r#"[data-byok="verdict"][data-correct="false"]"#);
+    let true_block = css_decl_block(
+        byok_section,
+        r#"[data-byok="verdict"][data-correct="true"]"#,
+    );
+    let false_block = css_decl_block(
+        byok_section,
+        r#"[data-byok="verdict"][data-correct="false"]"#,
+    );
     assert_ne!(
         true_block, false_block,
         "verdict true and false blocks must have different declarations"

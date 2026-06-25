@@ -315,6 +315,11 @@ footer.site-footer {
   font-family: var(--bt-font-family-ui);
 }
 
+#feedback input[type="password"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 #feedback button[type="submit"] {
   background: var(--bt-color-brand);
   color: var(--bt-color-surface);

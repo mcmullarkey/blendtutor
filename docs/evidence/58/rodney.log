@@ -74,3 +74,69 @@ Served:
 ## Verdict
 
 PROBES_PASS
+
+## Fix verification (builder-vision-fix Phase 3)
+
+Date: 2026-06-25
+Branch: 58-site-design-v1-feedback
+CSS change: `crates/core/assets/shared/styles.css` — added `#feedback input[type="password"] { width: 100%; box-sizing: border-box; }`
+
+Build:
+- cargo run -p blendtutor-cli --bin blendtutor -- build --target webr crates/core/tests/fixtures/r-course -o /tmp/bt-fix-58-webr
+- cargo run -p blendtutor-cli --bin blendtutor -- build --target pyodide crates/core/tests/fixtures/python-course -o /tmp/bt-fix-58-pyodide
+
+Neutered coi-serviceworker.js in both output dirs.
+Served:
+- webr: http://localhost:58080
+- pyodide: http://localhost:58081
+
+### Re-run key-prompt probe
+
+webR target:
+- Phase 1 (click #submit, key-prompt present): PASS
+- key-prompt form display !== none: PASS
+- key-prompt form background non-transparent: PASS
+- key-prompt form paddingTop > 0: PASS
+- key-prompt form borderRadius > 0: PASS
+- key-prompt form boxShadow (elevation) present: PASS
+- disclosure color distinct from submit button background: PASS
+
+Pyodide target:
+- Phase 1 (click #submit, key-prompt present): PASS
+- key-prompt form display !== none: PASS
+- key-prompt form background non-transparent: PASS
+- key-prompt form paddingTop > 0: PASS
+- key-prompt form borderRadius > 0: PASS
+- key-prompt form boxShadow (elevation) present: PASS
+- disclosure color distinct from submit button background: PASS
+
+### API-key input dimensions after fix
+
+webR 1024x768:
+- form clientWidth: 798
+- input clientWidth: 780
+- placeholder: "Paste your Fireworks API key"
+
+webR 375x812:
+- form clientWidth: 798
+- input clientWidth: 780
+- placeholder: "Paste your Fireworks API key"
+
+Pyodide 1024x768:
+- form clientWidth: 798
+- input clientWidth: 780
+- placeholder: "Paste your Fireworks API key"
+
+### Updated screenshots
+
+- docs/evidence/58/webr-1024x768-keyprompt.png
+- docs/evidence/58/webr-375x812-keyprompt.png
+- docs/evidence/58/pyodide-1024x768-keyprompt.png
+
+### Regression tests
+
+- cargo test -p blendtutor-core -p blendtutor-cli: PASS
+
+### Verdict after fix
+
+FIXED

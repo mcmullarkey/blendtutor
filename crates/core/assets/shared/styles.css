@@ -228,7 +228,7 @@ footer.site-footer {
   text-transform: uppercase;
   font-size: 0.75rem;
   box-shadow: var(--bt-shadow-sm);
-  line-height: 1;
+  line-height: 1.75;
 }
 
 #lesson-status[data-status="idle"] {

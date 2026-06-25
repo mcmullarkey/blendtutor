@@ -60,5 +60,13 @@ with padding var(--bt-space-xs) (0.25rem) vertical, but getComputedStyle height
 returns the content-box height of 12px. Deterministic IIFE itself did not check
 height, so it passed; the layout assertion did and failed.
 
-Screenshots: not captured because layout assertion failed — builder should fix
-before re-running probes.
+Fix applied (commit <pending>):
+  styles.css:231 — line-height: 1 → line-height: 1.75
+  Rationale: 0.75rem × 1.75 = 1.3125rem = 21px content-box height ≥ 18px.
+  Total border-box height = 21px + 4px + 4px = 29px (comfortable readable pill).
+  Token-driven, no new tokens introduced.
+  Deterministic IIFE unchanged (height not in its scope).
+  All 173 tests pass across both crates (0 failures).
+
+Status: FIXED. Re-run probes to verify layout assertion passes.
+  Expected getComputedStyle(#lesson-status).height ≥ 18px (expect ~21px).

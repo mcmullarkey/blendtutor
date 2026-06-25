@@ -128,6 +128,50 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
         "coi-serviceworker.js must appear before styles.css link"
     );
 
+    // AC-2: workspace CSS contract — token usage, data-status badge selectors,
+    // no class-based status selectors, no hardcoded hex in workspace rules.
+    let css = std::fs::read_to_string(out.join("styles.css")).unwrap();
+    let workspace_marker = "/* === workspace === */";
+    assert!(
+        css.contains(workspace_marker),
+        "styles.css must have a workspace section marker"
+    );
+    let after_marker = css.split(workspace_marker).nth(1).expect("workspace section");
+    let workspace_var_refs: Vec<&str> = after_marker
+        .lines()
+        .filter(|l| l.contains("var(--bt-"))
+        .collect();
+    assert!(
+        workspace_var_refs.len() >= 6,
+        "workspace section must have >= 6 var(--bt-) refs, got {}",
+        workspace_var_refs.len()
+    );
+    assert!(
+        !css.contains(".status-idle")
+            && !css.contains(".status-running")
+            && !css.contains(".status-pass")
+            && !css.contains(".status-fail"),
+        "styles.css must not contain .status-* class selectors"
+    );
+    let status_selector_count = css.matches(r#"#lesson-status[data-status="idle"]"#).count()
+        + css.matches(r#"#lesson-status[data-status="running"]"#).count()
+        + css.matches(r#"#lesson-status[data-status="pass"]"#).count()
+        + css.matches(r#"#lesson-status[data-status="fail"]"#).count();
+    assert_eq!(
+        status_selector_count, 4,
+        "expected exactly 4 #lesson-status[data-status=\"...\"] rules"
+    );
+    // No hardcoded hex in workspace rules — scan only the workspace section.
+    // Match exactly 3, 6, or 8 hex digits (full color, shorthand, or alpha).
+    let hex_pat = regex_lite::Regex::new(
+        r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b",
+    )
+    .unwrap();
+    assert!(
+        !hex_pat.is_match(after_marker),
+        "workspace rules must not contain hardcoded hex color literals"
+    );
+
     // The webR boot is wired into the runner (not a separate file, per the spec).
     let runner = std::fs::read_to_string(out.join("lesson-runner.js")).unwrap();
     assert!(
@@ -230,6 +274,47 @@ fn build_pyodide_emits_a_deployable_python_lesson_site() {
     assert!(
         coi_pos < link_pos,
         "coi-serviceworker.js must appear before styles.css link"
+    );
+
+    // AC-2: workspace CSS contract — same as webr build (shared styles.css).
+    let css = std::fs::read_to_string(out.join("styles.css")).unwrap();
+    let workspace_marker = "/* === workspace === */";
+    assert!(
+        css.contains(workspace_marker),
+        "styles.css must have a workspace section marker"
+    );
+    let after_marker = css.split(workspace_marker).nth(1).expect("workspace section");
+    let workspace_var_refs: Vec<&str> = after_marker
+        .lines()
+        .filter(|l| l.contains("var(--bt-"))
+        .collect();
+    assert!(
+        workspace_var_refs.len() >= 6,
+        "workspace section must have >= 6 var(--bt-) refs, got {}",
+        workspace_var_refs.len()
+    );
+    assert!(
+        !css.contains(".status-idle")
+            && !css.contains(".status-running")
+            && !css.contains(".status-pass")
+            && !css.contains(".status-fail"),
+        "styles.css must not contain .status-* class selectors"
+    );
+    let status_selector_count = css.matches(r#"#lesson-status[data-status="idle"]"#).count()
+        + css.matches(r#"#lesson-status[data-status="running"]"#).count()
+        + css.matches(r#"#lesson-status[data-status="pass"]"#).count()
+        + css.matches(r#"#lesson-status[data-status="fail"]"#).count();
+    assert_eq!(
+        status_selector_count, 4,
+        "expected exactly 4 #lesson-status[data-status=\"...\"] rules"
+    );
+    let hex_pat = regex_lite::Regex::new(
+        r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b",
+    )
+    .unwrap();
+    assert!(
+        !hex_pat.is_match(after_marker),
+        "workspace rules must not contain hardcoded hex color literals"
     );
 
     // index.html boots the Pyodide runtime — not webR. A pyodide build that copied

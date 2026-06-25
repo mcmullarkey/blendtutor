@@ -778,6 +778,129 @@ mod tests {
     }
 
     #[test]
+    fn plan_site_workspace_styles_use_tokens_and_status_renders_as_pill() {
+        // AC-2: workspace CSS contract — selectors present, token usage floor,
+        // no hardcoded hex, badge/pill via data-status attribute selectors (not
+        // class selectors), every AC-2-added token consumed outside :root.
+        let site = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let css = &file(&site, "styles.css").contents;
+
+        // 1. Workspace selectors present
+        for selector in [
+            ".lesson-picker",
+            "#lesson-title",
+            "#lesson-prompt",
+            "#submission",
+            ".controls",
+            "#run",
+            "#submit",
+            "#lesson-status",
+            "#output",
+        ] {
+            assert!(
+                css.contains(selector),
+                "styles.css must contain selector `{selector}`"
+            );
+        }
+
+        // 2. ≥6 var(--bt-) references within workspace rules (exclude :root).
+        // Split on the workspace section marker to isolate workspace rules.
+        let workspace_marker = "/* === workspace === */";
+        assert!(
+            css.contains(workspace_marker),
+            "styles.css must have a workspace section marker"
+        );
+        let after_marker = css
+            .split(workspace_marker)
+            .nth(1)
+            .expect("workspace section exists");
+        // Only count lines in the workspace section that contain var(--bt-)
+        let workspace_var_refs: Vec<&str> = after_marker
+            .lines()
+            .filter(|line| line.contains("var(--bt-"))
+            .collect();
+        assert!(
+            workspace_var_refs.len() >= 6,
+            "styles.css workspace section must have >= 6 var(--bt-) references, got {}: {:?}",
+            workspace_var_refs.len(),
+            workspace_var_refs
+        );
+
+        // 3. No hardcoded hex in workspace rules
+        // Match exactly 3, 6, or 8 hex digits after # (full color or shorthand,
+        // with optional alpha). Avoids matching non-color hex patterns like
+        // "#feedback" in comments (7 chars, but {6} and {3} won't match 7).
+        let hex_re = regex_lite::Regex::new(
+            r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b",
+        )
+        .unwrap();
+        if let Some(hit) = hex_re.find(after_marker) {
+            panic!(
+                "workspace rules must not contain hardcoded hex literals, found `{}`",
+                hit.as_str()
+            );
+        }
+
+        // 4. Exactly 4 #lesson-status[data-status="..."] rules
+        let status_selector_re = regex_lite::Regex::new(
+            r#"#lesson-status\[data-status="[^"]+"\]"#,
+        )
+        .unwrap();
+        let status_matches: Vec<_> = status_selector_re.find_iter(css).collect();
+        assert_eq!(
+            status_matches.len(),
+            4,
+            "expected exactly 4 `#lesson-status[data-status=\"...\"]` rules, got {}: {:?}",
+            status_matches.len(),
+            status_matches
+        );
+
+        // 5. No .status-* class selectors
+        let status_class_re = regex_lite::Regex::new(
+            r"\.status-(idle|running|pass|fail)",
+        )
+        .unwrap();
+        assert!(
+            !status_class_re.is_match(css),
+            "styles.css must not contain .status-* class selectors"
+        );
+
+        // 6. Every AC-2-added token used >= 1 outside :root.
+        // The 9 tokens from the AC-2 token table — some may already be declared
+        // by AC-1 as forward-declarations. We check each declared in :root has
+        // a var(--bt-...) consumer outside :root.
+        let ac2_tokens = [
+            "--bt-color-status-idle",
+            "--bt-color-border",
+            "--bt-color-brand-hover",
+            "--bt-space-xs",
+            "--bt-space-sm",
+            "--bt-space-md",
+            "--bt-space-lg",
+            "--bt-shadow-sm",
+            "--bt-radius-pill",
+        ];
+        // Parse the :root block to find which tokens AC-2's section adds.
+        // We use the workspace marker to split: tokens in :root but consumed
+        // by workspace rules are AC-2's responsibility.
+        let root_block: &str = &css[..css.find(":root").unwrap_or(0)];
+        let _root_block = root_block; // suppress unused warning in red phase
+        let outside_root = &css[css.find("}").map(|i| i + 1).unwrap_or(0)..];
+
+        for token in &ac2_tokens {
+            let token_declared = css.contains(&format!("{token}:"));
+            let token_consumed = outside_root.contains(&format!("var({token}"));
+            if token_declared {
+                assert!(
+                    token_consumed,
+                    "AC-2-added token {token} is declared in :root but never used via var() \
+                     outside :root (dead token)"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn plan_site_shells_contain_semantic_regions() {
         // AC-1 predicate 4: both shells have the required semantic layout regions
         // with the expected structure.

@@ -61,6 +61,10 @@
   --bt-radius-sm: 0.25rem;
   --bt-radius-md: 0.5rem;
   --bt-radius-pill: 9999px;
+
+  /* AC-3: BYOK verdict tint backgrounds — distinct from status-pass/fail accents */
+  --bt-color-success-bg: #e8f5e9;
+  --bt-color-danger-bg: #fff3e0;
 }
 
 /* ── Semantic region rules ─────────────────────────────────────── */
@@ -263,4 +267,112 @@ footer.site-footer {
   font-size: var(--bt-font-size-base);
   line-height: var(--bt-line-height);
   color: var(--bt-color-text-primary);
+}
+
+/* === feedback / BYOK === */
+/* BYOK feedback panel — styled via data-byok / data-correct attribute selectors.
+ * All rules scoped to #feedback-descendant selectors or specific
+ * [data-byok] / #byok-disclosure selectors — never bare element selectors.
+ *
+ * What it does:
+ *  - Cards each #feedback child with surface + border + shadow + radius + padding.
+ *  - Verdict states (correct/incorrect) visually distinct via success-bg/danger-bg.
+ *  - Disclosure (#byok-disclosure) styled as muted privacy note.
+ *  - Form elements consistent with AC-2 workspace styling.
+ *  - Transient states (pending, loading, error) styled with appropriate emphasis.
+ *
+ * What it does NOT do:
+ *  - No JS changes — pure CSS only. feedback.js byte-unchanged.
+ *  - No dark mode v1 (future AC).
+ *  - No className/style./classList manipulation (those are feedback.js's job).
+ *  - No hex color literals in BYOK rules — all colors via var(--bt-*) tokens.
+ */
+
+/* Card container — each phase uses surface + border + shadow for elevation */
+#feedback [data-byok="key-prompt"],
+#feedback [data-byok="model-picker"],
+#feedback [data-byok="verdict"],
+#feedback [data-byok="pending"],
+#feedback [data-byok="error"],
+#feedback [data-byok="models-loading"] {
+  background: var(--bt-color-surface);
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  box-shadow: var(--bt-shadow-sm);
+  padding: var(--bt-space-sm);
+  font-family: var(--bt-font-family-ui);
+}
+
+/* Form elements — consistent with AC-2 workspace input/select/button styling */
+#feedback [data-byok="provider"],
+#feedback [data-byok="model"],
+#feedback input[type="password"] {
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  background: var(--bt-color-surface);
+  color: var(--bt-color-text-primary);
+  font-family: var(--bt-font-family-ui);
+}
+
+#feedback button[type="submit"] {
+  background: var(--bt-color-brand);
+  color: var(--bt-color-surface);
+  border: none;
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  font-family: var(--bt-font-family-ui);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#feedback button[type="submit"]:hover {
+  background: var(--bt-color-brand-hover);
+}
+
+/* Verdict: correct — green-tinted surface, green left accent */
+#feedback [data-byok="verdict"][data-correct="true"] {
+  background: var(--bt-color-success-bg);
+  color: var(--bt-color-text-primary);
+  border-left: 4px solid var(--bt-color-status-pass);
+}
+
+#feedback [data-byok="verdict"][data-correct="true"] strong {
+  color: var(--bt-color-status-pass);
+}
+
+/* Verdict: incorrect — amber-tinted surface, fail left accent */
+#feedback [data-byok="verdict"][data-correct="false"] {
+  background: var(--bt-color-danger-bg);
+  color: var(--bt-color-text-primary);
+  border-left: 4px solid var(--bt-color-status-fail);
+}
+
+#feedback [data-byok="verdict"][data-correct="false"] strong {
+  color: var(--bt-color-status-fail);
+}
+
+/* Disclosure — privacy note, visually distinct from body text */
+#byok-disclosure {
+  color: var(--bt-color-text-secondary);
+  font-size: 0.875em;
+  font-style: italic;
+  margin-bottom: var(--bt-space-sm);
+}
+
+/* Pending / loading — transient states: secondary text with pulsing animation */
+#feedback [data-byok="pending"],
+#feedback [data-byok="models-loading"] {
+  color: var(--bt-color-text-secondary);
+  animation: bt-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes bt-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Error — text-only emphasis: fail color, no background tint (distinct from verdict) */
+#feedback [data-byok="error"] {
+  color: var(--bt-color-status-fail);
 }

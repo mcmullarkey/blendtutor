@@ -1583,6 +1583,36 @@ fn build_dark_mode_token_overrides() {
         );
     }
 
+    // Clause 5b: Syntax-token anti-invisibility (AC-3 carry-over). The 7 syntax
+    // tokens color code-editor syntax spans rendered on the --bt-color-surface-
+    // code background. If a syntax token EQUALS surface-code, the token is
+    // invisible against the code surface (anti-invisibility invariant). This
+    // catches a regression where a syntax token is accidentally set to the
+    // surface-code value in either light or dark mode. Checked for BOTH modes
+    // because a token invisible in one mode defeats the editor's purpose.
+    for token_name in &[
+        "--bt-color-syntax-keyword",
+        "--bt-color-syntax-string",
+        "--bt-color-syntax-number",
+        "--bt-color-syntax-comment",
+        "--bt-color-syntax-variable",
+        "--bt-color-syntax-function",
+        "--bt-color-syntax-operator",
+    ] {
+        let light_syntax = light_map[token_name];
+        let light_surface_code = light_map["--bt-color-surface-code"];
+        assert_ne!(
+            light_syntax, light_surface_code,
+            "light `{token_name}` must not equal surface-code (would be invisible)"
+        );
+        let dark_syntax = dark_map[token_name];
+        let dark_surface_code = dark_map["--bt-color-surface-code"];
+        assert_ne!(
+            dark_syntax, dark_surface_code,
+            "dark `{token_name}` must not equal surface-code (would be invisible)"
+        );
+    }
+
     // Clause 6: No --bt-font-*, --bt-space-*, --bt-shadow-*, --bt-radius-* in dark :root
     let dark_all_tokens: Vec<(String, String)> = parse_css_declarations(dark_root_body);
     for (name, _) in &dark_all_tokens {

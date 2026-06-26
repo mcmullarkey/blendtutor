@@ -1,0 +1,55 @@
+builder-vision-probe — issue #66, AC-3 CM6 editor UX (RETRY after bracket-match fix)
+Generated: 2026-06-26
+Branch: 66-cm6-ux-polish (commit 7e6a7b5)
+Worktree: /Users/carbonite/Documents/coding/portfolio/blendtutor
+Targets served:
+  - webr   : http://localhost:9001/index.html (build: /tmp/bt-ux-vision-webr-2)
+  - pyodide: http://localhost:9002/index.html (build: /tmp/bt-ux-vision-pyodide-2)
+Rodney version: 0.4.0
+Probe source: rodney-probes/cm6-ux.js
+
+Harness notes:
+- Rodney 0.4.0 does NOT have an `eval` subcommand. All JS probes used `uvx rodney js <expr>`.
+- The `rodney-capture.sh` helper calls the non-existent `eval` subcommand, so viewport sizing in
+  that script is non-functional with the installed Rodney version. For probes and screenshots we
+  set the viewport with:
+    uvx rodney js "(() => { window.resizeTo(W, H);
+                           document.documentElement.style.width='${W}px';
+                           document.documentElement.style.height='${H}px';
+                           return 'viewport-set'; })()"
+- For the runtime checks the page must first boot webR/Pyodide (≈15 s) and load a lesson so the
+  editor has a non-empty document.
+
+=== Setup for runtime checks (both targets) ===
+For each target, after page open and ~15 s wait for interpreter boot:
+  await window.__bt.ready;
+  await window.__bt.selectLesson(0);
+  const ed = window.__bt.editorView;
+  ed.focus();
+  ed.dispatch({ changes: { from: 0, to: ed.state.doc.length, insert: 'f(x)' } });
+  ed.dispatch({ selection: { anchor: 1 } });
+
+=== Deterministic checks per clause (webr:9001) ===
+Clause 2  line numbers visible                        PASS
+Clause 3  gutter font monospace                      PASS
+Clause 4  active-line bg distinct from content bg    PASS
+Clause 6  .cm-matchingBracket element present        PASS  (class corrected from .cm-bracket-match)
+Clause 7  spellcheck='false' explicit                PASS
+Clause 9  code font monospace                        PASS
+Clause 12 mobile .cm-scroller width >= 280           PASS  -> width=323px at 375x667 emulation
+
+=== Deterministic checks per clause (pyodide:9002) ===
+Clause 2  line numbers visible                        PASS
+Clause 3  gutter font monospace                      PASS
+Clause 4  active-line bg distinct from content bg    PASS
+Clause 6  .cm-matchingBracket element present        PASS
+Clause 7  spellcheck='false' explicit                PASS
+Clause 9  code font monospace                        PASS
+Clause 12 mobile .cm-scroller width >= 280           PASS  -> width=323px at 375x667 emulation
+
+=== Result summary ===
+webr:     PROBES_PASS
+pyodide:  PROBES_PASS
+
+All deterministic runtime checks passed on both target builds. Screenshots were captured for both
+viewports on both targets and saved under docs/evidence/66/.

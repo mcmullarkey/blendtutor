@@ -1372,6 +1372,9 @@ mod tests {
         // - `python` is the lang-python export name (11 occurrences in the bundle).
         // - lineNumbers, highlightActiveLine, bracketMatching, indentWithTab are
         //   the UX-polish exports AC-3 consumes (AC-1 owns the complete export set).
+        // - keymap is the keymap facet from @codemirror/view — AC-3 composes
+        //   indentWithTab via keymap.of([indentWithTab]) so Tab stays in the
+        //   editor (not browser focus traversal). Re-vendored by AC-3.
         // - syntaxHighlighting + defaultHighlightStyle are the token-styling
         //   exports from @codemirror/language — without these the editor renders
         //   text with no `.tok-*` classes (the builder-vision-probe regression:
@@ -1390,6 +1393,7 @@ mod tests {
             "highlightActiveLine",
             "bracketMatching",
             "indentWithTab",
+            "keymap",
             "syntaxHighlighting",
             "defaultHighlightStyle",
             "HighlightStyle",
@@ -1547,5 +1551,161 @@ mod tests {
             pyodide_runner.contains("language: \"python\""),
             "pyodide/lesson-runner.js must declare language: \"python\""
         );
+    }
+
+    #[test]
+    fn plan_site_cm6_editor_ux_extensions_configured() {
+        // AC-3 (code-editor): the CM6 editor is configured with standard
+        // code-editor UX — line numbers, bracket matching, smart tab handling,
+        // active line highlighting, spellcheck off. This test pins the 5
+        // build-time-checkable clauses (1, 5, 8, 10, 11) of the executable spec
+        // by parsing the assembled SiteFiles content. The rodney browser probes
+        // (clauses 2/3/4/6/7/9/12) are run by @builder-vision-probe — they need
+        // a live browser + CM6 boot to check computed styles.
+        //
+        // 8 clauses pin the build-time invariant (§1.5 — predicates, not
+        // coincident shape):
+        //   1. lineNumbers() wired into the editor extensions
+        //   2. highlightActiveLine() wired
+        //   3. bracketMatching() wired
+        //   4. indentWithTab in a keymap.of([...]) composition (Tab stays in
+        //      editor, not browser focus traversal — sneaky-pass #3)
+        //   5. spellcheck explicitly set to "false" (not absent — absent
+        //      inherits true on contenteditable, sneaky-pass #5)
+        //   6. spellcheck never set to "true"
+        //   7. .cm-matchingBracket CSS rule has a non-transparent visual property
+        //      (background/outline/box-shadow/border-color — sneaky-pass #2:
+        //      bracketMatching() adds the class but no CSS = no visual)
+        //   8. .cm-gutters not hidden via display:none/visibility:hidden
+        //      (sneaky-pass #1: gutter exists but zero pixels)
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+
+        let core = &file(&webr, "lesson-runner-core.js").contents;
+        let css = &file(&webr, "styles.css").contents;
+
+        // Clause 1: lineNumbers() — the gutter extension is wired. A config
+        // that imports lineNumbers but forgets to add it to the extensions
+        // array fails here.
+        assert!(
+            core.contains("lineNumbers()"),
+            "lesson-runner-core.js must wire lineNumbers() into the editor extensions"
+        );
+
+        // Clause 2: highlightActiveLine() — active-line highlighting wired.
+        assert!(
+            core.contains("highlightActiveLine()"),
+            "lesson-runner-core.js must wire highlightActiveLine() into the editor extensions"
+        );
+
+        // Clause 3: bracketMatching() — bracket-match highlighting wired.
+        assert!(
+            core.contains("bracketMatching()"),
+            "lesson-runner-core.js must wire bracketMatching() into the editor extensions"
+        );
+
+        // Clause 4: indentWithTab in a keymap.of([...]) composition. Importing
+        // indentWithTab alone is insufficient — it must be passed to keymap.of
+        // so the Tab key is intercepted by the editor (sneaky-pass #3: imported
+        // but not composed, Tab falls through to browser focus traversal).
+        assert!(
+            core.contains("indentWithTab"),
+            "lesson-runner-core.js must reference indentWithTab"
+        );
+        assert!(
+            core.contains("keymap.of("),
+            "lesson-runner-core.js must compose indentWithTab via keymap.of([...])"
+        );
+
+        // Clause 5: spellcheck explicitly set to "false". The contenteditable
+        // .cm-content inherits spellcheck=true by browser default; an absent
+        // attribute is NOT sufficient (sneaky-pass #5). The explicit "false"
+        // string must appear alongside spellcheck.
+        assert!(
+            core.contains("spellcheck"),
+            "lesson-runner-core.js must set spellcheck on the editor content"
+        );
+        assert!(
+            core.contains("\"false\""),
+            "lesson-runner-core.js must set spellcheck to \"false\" (explicit, not absent)"
+        );
+
+        // Clause 6: spellcheck never set to "true". A config that accidentally
+        // enables spellcheck fails here.
+        assert!(
+            !core.contains("spellcheck: \"true\""),
+            "lesson-runner-core.js must NOT set spellcheck to \"true\""
+        );
+        assert!(
+            !core.contains("spellcheck:'true'"),
+            "lesson-runner-core.js must NOT set spellcheck to 'true'"
+        );
+
+        // Clause 7: .cm-matchingBracket CSS rule has a non-transparent visual
+        // property. bracketMatching() adds the cm-matchingBracket class to the
+        // DOM, but without a CSS rule the class is invisible (sneaky-pass #2).
+        // The rule must set background/outline/box-shadow/border-color to a
+        // non-transparent value. We check the rule exists AND contains one of
+        // the visual properties (a bare `.cm-matchingBracket {}` empty rule fails).
+        assert!(
+            css.contains(".cm-matchingBracket"),
+            "styles.css must contain a .cm-matchingBracket rule"
+        );
+        // Extract the .cm-matchingBracket block and verify it has a visual
+        // property. A transparent-only rule (e.g. background: transparent) is
+        // insufficient — the bracket match must be VISIBLE.
+        let bm_pos = css.find(".cm-matchingBracket").expect("bracket-match rule");
+        let after_bm = &css[bm_pos..];
+        let brace = after_bm
+            .find('{')
+            .expect(".cm-matchingBracket must be followed by a declaration block");
+        let body_start = bm_pos + brace + 1;
+        let body_slice = &css[body_start..];
+        let close = body_slice
+            .find('}')
+            .expect(".cm-matchingBracket block must close");
+        let bm_body = &css[body_start..body_start + close];
+        assert!(
+            bm_body.contains("background")
+                || bm_body.contains("outline")
+                || bm_body.contains("box-shadow")
+                || bm_body.contains("border-color"),
+            ".cm-matchingBracket must have a visual property (background/outline/box-shadow/border-color)"
+        );
+        assert!(
+            !bm_body.contains("transparent"),
+            ".cm-matchingBracket visual property must NOT be transparent"
+        );
+
+        // Clause 8: .cm-gutters not hidden. A rule that sets display:none or
+        // visibility:hidden on .cm-gutters makes the gutter zero-pixels
+        // (sneaky-pass #1: gutter exists in DOM but is invisible).
+        assert!(
+            !css.contains(".cm-gutters") || !gutter_hidden(css),
+            "styles.css must NOT hide .cm-gutters via display:none or visibility:hidden"
+        );
+    }
+
+    /// Detect whether a `.cm-gutters` rule sets display:none or visibility:hidden.
+    fn gutter_hidden(css: &str) -> bool {
+        let mut rest = css;
+        while let Some(pos) = rest.find(".cm-gutters") {
+            let after = &rest[pos..];
+            let Some(brace) = after.find('{') else {
+                rest = &rest[pos + ".cm-gutters".len()..];
+                continue;
+            };
+            let body_start = pos + brace + 1;
+            let body_slice = &rest[body_start..];
+            let Some(close) = body_slice.find('}') else {
+                rest = &rest[pos + ".cm-gutters".len()..];
+                continue;
+            };
+            let body = &rest[body_start..body_start + close];
+            if body.contains("display: none") || body.contains("visibility: hidden") {
+                return true;
+            }
+            rest = &rest[body_start + close..];
+        }
+        false
     }
 }

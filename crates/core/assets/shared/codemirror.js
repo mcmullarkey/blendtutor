@@ -19113,6 +19113,7 @@ export {
   defaultHighlightStyle,
   highlightActiveLine,
   indentWithTab,
+  keymap,
   lineNumbers,
   python,
   r,

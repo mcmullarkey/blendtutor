@@ -388,14 +388,16 @@ function feedbackContainer() {
 // Read the current lesson + the learner's code from the runner's exposed seam and
 // the editor — no reach into runner internals (§3.4). Captured output rides along
 // if the learner ran the checks first; the prompt structure tolerates it empty.
+// The code comes from `window.__bt.getSubmission()` (the CM6 editor doc, or the
+// fallback textarea under graceful degradation) — never `.value` on the
+// submission element, which is now a <div> hosting the editor (§3.4).
 function currentSubmission() {
   const bt = window.__bt;
   const lesson = bt && bt.lessons ? bt.lessons[bt.current] : undefined;
-  const submissionEl = document.getElementById("submission");
   const outputEl = document.getElementById("output");
   return {
     task: lesson ? lesson.prompt : "",
-    code: submissionEl ? submissionEl.value : "",
+    code: bt && bt.getSubmission ? bt.getSubmission() : "",
     output: outputEl ? outputEl.textContent : "",
     checks: lesson && lesson.checks ? lesson.checks : [],
   };

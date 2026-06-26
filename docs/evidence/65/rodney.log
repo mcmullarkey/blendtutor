@@ -1,0 +1,70 @@
+Issue #65 — Rodney probes log (RETRY 2 after custom HighlightStyle fix)
+Date: 2026-06-25
+Branch: 65-integrate-cm6-editor
+Target outputs: /tmp/bt-vision-webr-3 (2 lessons), /tmp/bt-vision-pyodide-3 (1 lesson)
+Servers: http://localhost:9001 (webr), http://localhost:9002 (pyodide)
+COOP/COEP shim: present in built sites
+
+=== Rodney probes: webr (port 9001) ===
+Chrome started (PID 37583)
+Debug URL: ws://127.0.0.1:56289/devtools/browser/d54ff424-3b95-4f95-8b2a-bc94ef6a046c
+blendtutor — interactive R lessons
+null
+pass
+PASS [webr]: ui/submission-is-DIV
+pass
+PASS [webr]: ui/editor-visible
+pass
+PASS [webr]: ui/editor-count-exactly-one
+pass
+PASS [webr]: ui/content-monospace
+pass
+PASS [webr]: ui/getSubmission-function
+pass
+PASS [webr]: ui/syntax-tokens-present
+pass
+PASS [webr]: ui/submission-contains-editor
+pass
+PASS [webr]: cm6/write-path-doc-matches-template
+pass
+PASS [webr]: cm6/read-path-getSubmission-matches-template
+pass
+PASS [webr]: cm6/mono-font
+pass
+PASS [webr]: cm6/syntax-tokens
+null
+pass
+PASS [webr]: cm6/no-editor-leak-after-cycle
+pass
+PASS [webr]: cm6/editorView-still-bound
+Chrome stopped
+ALL PASS [webr]
+=== Rodney probes: pyodide (port 9002) ===
+Chrome started (PID 37731)
+Debug URL: ws://127.0.0.1:56337/devtools/browser/e433e2d5-e946-48af-a10f-860ef8a48677
+blendtutor — interactive Python lessons
+null
+pass
+PASS [pyodide]: ui/submission-is-DIV
+pass
+PASS [pyodide]: ui/editor-visible
+pass
+PASS [pyodide]: ui/editor-count-exactly-one
+pass
+PASS [pyodide]: ui/content-monospace
+pass
+PASS [pyodide]: ui/getSubmission-function
+pass
+PASS [pyodide]: ui/syntax-tokens-present
+pass
+PASS [pyodide]: ui/submission-contains-editor
+pass
+PASS [pyodide]: cm6/write-path-doc-matches-template
+pass
+PASS [pyodide]: cm6/read-path-getSubmission-matches-template
+pass
+PASS [pyodide]: cm6/mono-font
+pass
+PASS [pyodide]: cm6/syntax-tokens
+Chrome stopped
+ALL PASS [pyodide]

@@ -989,6 +989,18 @@ mod tests {
                 let attr = format!(r#"id="{}""#, id);
                 assert!(html.contains(&attr), "{target}: missing id=\"{id}\"");
             }
+
+            // AC-2 clause 2: the submission mount is a <div> (CM6 parent), NOT a
+            // <textarea>. A shell that kept the old textarea fails here; a shell
+            // with both fails here too (exactly one div, zero textarea).
+            assert!(
+                html.contains(r#"<div id="submission""#),
+                "{target}: submission mount must be <div id=\"submission\"> (CM6 parent)"
+            );
+            assert!(
+                !html.contains(r#"<textarea id="submission""#),
+                "{target}: submission mount must NOT be a <textarea> (replaced by CM6 editor)"
+            );
         }
     }
 
@@ -1360,8 +1372,17 @@ mod tests {
         // - `python` is the lang-python export name (11 occurrences in the bundle).
         // - lineNumbers, highlightActiveLine, bracketMatching, indentWithTab are
         //   the UX-polish exports AC-3 consumes (AC-1 owns the complete export set).
+        // - syntaxHighlighting + defaultHighlightStyle are the token-styling
+        //   exports from @codemirror/language — without these the editor renders
+        //   text with no `.tok-*` classes (the builder-vision-probe regression:
+        //   language support parses, highlight style colors).
+        // - HighlightStyle + tags are the custom-style exports: HighlightStyle
+        //   (from @codemirror/language) lets the runner define a HighlightStyle
+        //   with deterministic `.tok-*` class names, and tags (from
+        //   @lezer/highlight) supplies the tag constants the style maps. Without
+        //   these the runner cannot override the default's opaque `ͼa` classes.
         // A core-only bundle missing the language packs, or a bundle missing the
-        // UX exports, fails here.
+        // UX/highlight exports, fails here.
         for needle in [
             "rLanguage",
             "python",
@@ -1369,6 +1390,10 @@ mod tests {
             "highlightActiveLine",
             "bracketMatching",
             "indentWithTab",
+            "syntaxHighlighting",
+            "defaultHighlightStyle",
+            "HighlightStyle",
+            "tags",
         ] {
             assert!(
                 webr_cm.contains(needle),
@@ -1417,5 +1442,110 @@ mod tests {
         // all. include_str! refuses a missing asset at compile time (§1.3.1), so
         // reaching this assertion means the const resolved. No runtime check needed;
         // the test's existence is the proof.
+    }
+
+    #[test]
+    fn plan_site_shells_load_codemirror_as_import() {
+        // AC-2 (code-editor): the lesson runner core wires a CodeMirror 6 editor
+        // into the submission mount via a STATIC ESM import from the vendored
+        // codemirror.js bundle (AC-1), reads the doc back through a
+        // `getSubmission()` contract (not `.value`), never touches `innerHTML`
+        // on the editor DOM, and each target adapter declares its `language`
+        // as a dedicated field (not a string match on `runtime.name`).
+        //
+        // 6 clauses pin the build-time invariant (§1.5):
+        //   3. data-test="submission" + id="submission" preserved on the div;
+        //      the runSubmission contract on window.__bt is unchanged.
+        //   4. lesson-runner-core.js has a static `import { EditorView ... }`
+        //      from "./codemirror.js" (not a dynamic import, not a global).
+        //   5. feedback.js reads the submission via `getSubmission()`, never
+        //      `.value` on a submission element (the old textarea proxy).
+        //   6. lesson-runner-core.js never uses `innerHTML` on the editor DOM
+        //      (untrusted code_template must never be parsed as HTML).
+        //   7. both lesson-runner.js adapters pass a `language:` field (closed
+        //      set: "r" | "python"), not a runtime.name string match.
+        // (Clause 1 — codemirror.js in site output — is pinned by
+        //  plan_site_emits_vendored_codemirror_bundle; clause 2 — div not
+        //  textarea — is pinned in plan_site_shells_contain_semantic_regions.)
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let pyodide = plan(&python_course(), BuildTarget::Pyodide).expect("plans");
+
+        // Clause 3: the rodney test contract survives the textarea→div swap. The
+        // data-test hook and id are still on the submission mount, and the
+        // window.__bt.runSubmission seam is still exported by the runner core.
+        for (target, site) in [(BuildTarget::Webr, &webr), (BuildTarget::Pyodide, &pyodide)] {
+            let html = &file(site, "index.html").contents;
+            assert!(
+                html.contains(r#"data-test="submission""#),
+                "{target}: data-test=\"submission\" hook must be preserved on the div"
+            );
+            assert!(
+                html.contains(r#"id="submission""#),
+                "{target}: id=\"submission\" must be preserved on the div"
+            );
+        }
+        let core = &file(&webr, "lesson-runner-core.js").contents;
+        assert!(
+            core.contains("runSubmission"),
+            "lesson-runner-core.js must still export the runSubmission contract"
+        );
+        assert!(
+            core.contains("window.__bt"),
+            "lesson-runner-core.js must still expose window.__bt"
+        );
+
+        // Clause 4: static ESM import of EditorView from the vendored bundle. A
+        // dynamic import (`import("./codemirror.js")`) or a UMD global fails here
+        // — the static import is what makes the editor a build-time dependency.
+        assert!(
+            core.contains("import { EditorView"),
+            "lesson-runner-core.js must statically import EditorView from codemirror.js"
+        );
+        assert!(
+            core.contains("\"./codemirror.js\""),
+            "lesson-runner-core.js must import from \"./codemirror.js\""
+        );
+
+        // Clause 5: feedback.js reads the submission through the getSubmission()
+        // contract, never the old `.value` textarea proxy. A feedback.js that
+        // still reads `submissionEl.value` or `getElementById(\"submission\").value`
+        // fails here — the div has no `.value`, so that path returns undefined.
+        let feedback = &file(&webr, "feedback.js").contents;
+        assert!(
+            feedback.contains("getSubmission"),
+            "feedback.js must read the submission via getSubmission()"
+        );
+        assert!(
+            !feedback.contains("submissionEl.value"),
+            "feedback.js must NOT read submissionEl.value (the div has no .value)"
+        );
+        assert!(
+            !feedback.contains("getElementById(\"submission\").value"),
+            "feedback.js must NOT read .value on the submission element"
+        );
+
+        // Clause 6: no innerHTML on the editor DOM. The code_template is untrusted
+        // lesson content; parsing it as HTML would be an injection vector (the
+        // same threat model that keeps lesson titles off innerHTML). The runner
+        // core must use EditorView.dispatch / textContent, never innerHTML.
+        assert!(
+            !core.contains("innerHTML"),
+            "lesson-runner-core.js must never use innerHTML (untrusted code_template)"
+        );
+
+        // Clause 7: each target adapter declares a `language:` field (closed set),
+        // not a string match on runtime.name. A webr adapter with `language: \"r\"`
+        // and a pyodide adapter with `language: \"python\"` pass; an adapter that
+        // omits the field (relying on runtime.name matching) fails here.
+        let webr_runner = &file(&webr, "lesson-runner.js").contents;
+        let pyodide_runner = &file(&pyodide, "lesson-runner.js").contents;
+        assert!(
+            webr_runner.contains("language: \"r\""),
+            "webr/lesson-runner.js must declare language: \"r\""
+        );
+        assert!(
+            pyodide_runner.contains("language: \"python\""),
+            "pyodide/lesson-runner.js must declare language: \"python\""
+        );
     }
 }

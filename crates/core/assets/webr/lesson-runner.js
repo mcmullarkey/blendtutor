@@ -17,6 +17,7 @@ const webR = new WebR();
 
 start({
   name: "webR",
+  language: "r",
   async boot() {
     await webR.init();
   },

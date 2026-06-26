@@ -66,6 +66,18 @@
   /* AC-3: BYOK verdict tint backgrounds — distinct from status-pass/fail accents */
   --bt-color-success-bg: #e8f5e9;
   --bt-color-danger-bg: #fff3e0;
+
+  /* Syntax highlighting token colors — CM6 default light-theme palette. Used
+   * by the custom HighlightStyle's `.tok-*` classes (lesson-runner-core.js).
+   * Distinct from the status/surface vocabulary; a fixed syntax palette. Dark-
+   * mode overrides in the @media block below use a VS Code dark-theme palette. */
+  --bt-color-syntax-keyword: #055;
+  --bt-color-syntax-string: #a11;
+  --bt-color-syntax-number: #708;
+  --bt-color-syntax-comment: #999;
+  --bt-color-syntax-variable: #000;
+  --bt-color-syntax-function: #30a;
+  --bt-color-syntax-operator: #000;
 }
 
 /* ── Semantic region rules ─────────────────────────────────────── */
@@ -185,6 +197,46 @@ footer.site-footer {
   outline: none;
   border-color: var(--bt-color-brand);
 }
+
+/* === CodeMirror 6 editor === */
+/* The CM6 editor mounts inside #submission (a <div>, not a textarea). The
+ * .cm-editor is the root CM6 view; .cm-content is the editable surface; .cm-
+ * scroller is the scroll container. Styled to match the old textarea: code
+ * font, surface-code background, border, min-height, and horizontal scroll for
+ * long lines. Token colors use a custom HighlightStyle (lesson-runner-core.js)
+ * that emits deterministic `.tok-*` classes — NOT CM6's default opaque unicode
+ * classes (e.g. `ͼa`) — so the AC-2 deterministic check can grep for them.
+ * Colors are the CM6 default light-theme palette; dark-mode overrides live in
+ * the @media block at the end of this file (AC-3 will refine the theme).
+ */
+.cm-editor {
+  min-height: 6rem;
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  background: var(--bt-color-surface-code);
+}
+
+.cm-content {
+  font-family: var(--bt-font-family-code);
+  padding: var(--bt-space-sm);
+}
+
+.cm-scroller {
+  overflow: auto;
+}
+
+/* Syntax token colors — deterministic `.tok-*` classes emitted by the custom
+ * HighlightStyle in lesson-runner-core.js. CM6's defaultHighlightStyle uses
+ * opaque generated classes (ͼa, ͼb, …) that cannot be grepped; these stable
+ * names make token spans testable (AC-2 deterministic_check). Palette matches
+ * the CM6 default light theme. */
+.tok-keyword { color: var(--bt-color-syntax-keyword); }
+.tok-string { color: var(--bt-color-syntax-string); }
+.tok-number { color: var(--bt-color-syntax-number); }
+.tok-comment { color: var(--bt-color-syntax-comment); font-style: italic; }
+.tok-variableName { color: var(--bt-color-syntax-variable); }
+.tok-function { color: var(--bt-color-syntax-function); }
+.tok-operator { color: var(--bt-color-syntax-operator); }
 
 .controls {
   display: flex;
@@ -386,7 +438,7 @@ footer.site-footer {
 }
 
 /* ── Dark mode ────────────────────────────────────────────────────
- * Overrides all 14 --bt-color-* tokens inside @media (prefers-color-scheme: dark)
+ * Overrides all 20 --bt-color-* tokens inside @media (prefers-color-scheme: dark)
  * for WCAG AA contrast (4.5:1 text, 3:1 UI/large text). No non-color tokens.
  * The :root block is extracted by the test via brace-counting on the @media
  * selector, then brace-counting again on :root within the media block body.
@@ -417,6 +469,15 @@ footer.site-footer {
     --bt-color-status-idle: #888888;
     --bt-color-success-bg: #1b3d1b;
     --bt-color-danger-bg: #3d1b1b;
+
+    /* Syntax highlighting — VS Code dark-theme palette */
+    --bt-color-syntax-keyword: #569cd6;
+    --bt-color-syntax-string: #ce9178;
+    --bt-color-syntax-number: #b5cea8;
+    --bt-color-syntax-comment: #6a9955;
+    --bt-color-syntax-variable: #d4d4d4;
+    --bt-color-syntax-function: #dcdcaa;
+    --bt-color-syntax-operator: #d4d4d4;
   }
 
   /* Idle pill text: surface provides sufficient contrast on dark status-idle */

@@ -1,0 +1,65 @@
+Issue #65 — Rodney probes log
+Branch: 65-integrate-cm6-editor
+Target outputs: /tmp/bt-65-webr, /tmp/bt-65-pyodide
+Servers: http://localhost:9001 (webr), http://localhost:9002 (pyodide)
+
+=== Build ===
+webr:  PASS  — built 2 lesson(s) into /tmp/bt-65-webr
+pyodide: not probed (webr deterministic check failed; stopped per workflow)
+
+=== COOP/COEP shim ===
+webr:   coi-serviceworker.js present in /tmp/bt-65-webr
+pyodide: coi-serviceworker.js present in /tmp/bt-65-pyodide
+
+=== AC-2 deterministic check (webr) ===
+Expression: 
+  (() => {
+    const sub = document.querySelector('[data-test="submission"]');
+    const editor = document.querySelector('.cm-editor');
+    const content = document.querySelector('.cm-content');
+    const isDiv = sub && sub.tagName === 'DIV';
+    const editorVisible = editor && getComputedStyle(editor).display !== 'none' && editor.offsetWidth > 0;
+    const editorCount = document.querySelectorAll('.cm-editor').length;
+    const monoFont = content && getComputedStyle(content).fontFamily.includes('monospace');
+    const submission = typeof window.__bt.getSubmission === 'function' ? window.__bt.getSubmission() : null;
+    const hasTokens = document.querySelector('.cm-content .tok-keyword') !== null;
+    return isDiv && editorVisible && editorCount === 1 && monoFont && submission !== null && hasTokens;
+  })()
+Result: FAIL (assertion returned false)
+
+Per-component breakdown:
+  isDiv:        true
+  editorVisible: true
+  editorCount:   1
+  monoFont:      true (fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace")
+  submission:    non-null (length 31)
+  hasTokens:     false   ← causing failure
+
+DOM evidence:
+  Boot status: "webR ready — pick a lesson, write your answer, run the checks."
+  .cm-content innerHTML:
+    <div class="cm-line">add_two &lt;- function(x, y) {</div>
+    <div class="cm-line"><br></div>
+    <div class="cm-line">}</div>
+    <div class="cm-line"><br></div>
+  No elements inside .cm-content carry tok-* classes (only cm-line).
+
+Interpretation:
+  The CM6 editor is mounted, is a <div>, is visible, uses a monospace font, and
+  getSubmission() works, but syntax highlighting is not being rendered. The
+  deterministic_check requires .tok-keyword tokens inside .cm-content, which
+  fails because no language-specific token classes are produced.
+
+Verdict: PROBES_FAIL (webr)
+
+=== Screenshots ===
+Skipped because the deterministic check failed.
+
+=== Next step ===
+Builder should fix syntax-highlighting in the CM6 editor before re-running
+probes. Probable causes to investigate:
+1. Missing syntaxHighlighting/defaultHighlightStyle extension in the EditorView.
+2. Language extension (r / python) returned from LANG_EXT but not producing a
+   highlight state because theme is absent.
+3. Bundle did not include the necessary highlight style from @codemirror/language
+   or @codemirror/highlight.

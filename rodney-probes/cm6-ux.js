@@ -77,13 +77,13 @@
 
 // --- Clause 6: bracket match element present ------------------------------
 // After injecting code containing brackets (f(x)) and placing the cursor
-// adjacent to a bracket, the .cm-bracket-match element must be present in the
+// adjacent to a bracket, the .cm-matchingBracket element must be present in the
 // DOM. bracketMatching() adds this class; without the extension it is absent.
 //
 // rodney assert (webr + pyodide):
-//   const match = document.querySelector('.cm-bracket-match');
+//   const match = document.querySelector('.cm-matchingBracket');
 //   assert(match !== null,
-//          "clause 6: .cm-bracket-match element must be present after injecting brackets");
+//          "clause 6: .cm-matchingBracket element must be present after injecting brackets");
 
 // --- Clause 7: spellcheck disabled (explicit false) ------------------------
 // The .cm-content (or .cm-editor) must have an EXPLICIT spellcheck="false"

@@ -1573,7 +1573,7 @@ mod tests {
         //   5. spellcheck explicitly set to "false" (not absent — absent
         //      inherits true on contenteditable, sneaky-pass #5)
         //   6. spellcheck never set to "true"
-        //   7. .cm-bracket-match CSS rule has a non-transparent visual property
+        //   7. .cm-matchingBracket CSS rule has a non-transparent visual property
         //      (background/outline/box-shadow/border-color — sneaky-pass #2:
         //      bracketMatching() adds the class but no CSS = no visual)
         //   8. .cm-gutters not hidden via display:none/visibility:hidden
@@ -1640,40 +1640,40 @@ mod tests {
             "lesson-runner-core.js must NOT set spellcheck to 'true'"
         );
 
-        // Clause 7: .cm-bracket-match CSS rule has a non-transparent visual
-        // property. bracketMatching() adds the cm-bracket-match class to the
+        // Clause 7: .cm-matchingBracket CSS rule has a non-transparent visual
+        // property. bracketMatching() adds the cm-matchingBracket class to the
         // DOM, but without a CSS rule the class is invisible (sneaky-pass #2).
         // The rule must set background/outline/box-shadow/border-color to a
         // non-transparent value. We check the rule exists AND contains one of
-        // the visual properties (a bare `.cm-bracket-match {}` empty rule fails).
+        // the visual properties (a bare `.cm-matchingBracket {}` empty rule fails).
         assert!(
-            css.contains(".cm-bracket-match"),
-            "styles.css must contain a .cm-bracket-match rule"
+            css.contains(".cm-matchingBracket"),
+            "styles.css must contain a .cm-matchingBracket rule"
         );
-        // Extract the .cm-bracket-match block and verify it has a visual
+        // Extract the .cm-matchingBracket block and verify it has a visual
         // property. A transparent-only rule (e.g. background: transparent) is
         // insufficient — the bracket match must be VISIBLE.
-        let bm_pos = css.find(".cm-bracket-match").expect("bracket-match rule");
+        let bm_pos = css.find(".cm-matchingBracket").expect("bracket-match rule");
         let after_bm = &css[bm_pos..];
         let brace = after_bm
             .find('{')
-            .expect(".cm-bracket-match must be followed by a declaration block");
+            .expect(".cm-matchingBracket must be followed by a declaration block");
         let body_start = bm_pos + brace + 1;
         let body_slice = &css[body_start..];
         let close = body_slice
             .find('}')
-            .expect(".cm-bracket-match block must close");
+            .expect(".cm-matchingBracket block must close");
         let bm_body = &css[body_start..body_start + close];
         assert!(
             bm_body.contains("background")
                 || bm_body.contains("outline")
                 || bm_body.contains("box-shadow")
                 || bm_body.contains("border-color"),
-            ".cm-bracket-match must have a visual property (background/outline/box-shadow/border-color)"
+            ".cm-matchingBracket must have a visual property (background/outline/box-shadow/border-color)"
         );
         assert!(
             !bm_body.contains("transparent"),
-            ".cm-bracket-match visual property must NOT be transparent"
+            ".cm-matchingBracket visual property must NOT be transparent"
         );
 
         // Clause 8: .cm-gutters not hidden. A rule that sets display:none or

@@ -250,10 +250,10 @@ footer.site-footer {
 
 /* Bracket match highlight — when the cursor sits adjacent to a bracket, the
  * matching bracket is highlighted. bracketMatching() adds the
- * .cm-bracket-match class to the DOM; this rule makes it VISIBLE (sneaky-pass
+ * .cm-matchingBracket class to the DOM; this rule makes it VISIBLE (sneaky-pass
  * #2: class added but no CSS = no visual). The background + outline are
  * non-transparent so the match is unambiguous. */
-.cm-bracket-match {
+.cm-matchingBracket {
   background: rgba(0, 0, 0, 0.12);
   outline: 1px solid rgba(0, 0, 0, 0.2);
 }
@@ -538,7 +538,7 @@ footer.site-footer {
     background: rgba(255, 255, 255, 0.04);
   }
 
-  .cm-bracket-match {
+  .cm-matchingBracket {
     background: rgba(255, 255, 255, 0.12);
     outline-color: rgba(255, 255, 255, 0.2);
   }

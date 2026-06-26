@@ -58,7 +58,7 @@ const tokHighlightStyle = HighlightStyle.define([
 //   - the default + custom HighlightStyles for token coloring (.tok-* classes),
 //   - lineNumbers() for the gutter,
 //   - highlightActiveLine() for the active-line background,
-//   - bracketMatching() for bracket-pair highlighting (.cm-bracket-match),
+//   - bracketMatching() for bracket-pair highlighting (.cm-matchingBracket),
 //   - keymap.of([indentWithTab]) so Tab indents/dedents inside the editor
 //     (NOT browser focus traversal — sneaky-pass #3: importing indentWithTab
 //     alone is insufficient; it must be composed via keymap.of),

@@ -1303,3 +1303,338 @@ fn corrupt_eval_report_fails_the_build_loudly() {
         "a build refused on a corrupt report must not create the output directory"
     );
 }
+
+// ── Dark-mode token overrides (AC-1) ──────────────────────────────
+
+/// Parse a hex color string into (R, G, B) in [0.0, 1.0].
+/// Accepts `#rgb`, `#rrggbb`, or `#rrggbbaa` (alpha ignored).
+fn hex_to_rgb(hex: &str) -> (f64, f64, f64) {
+    let hex = hex.trim_start_matches('#');
+    let (r, g, b) = match hex.len() {
+        3 => {
+            let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).unwrap();
+            let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).unwrap();
+            let b = u8::from_str_radix(&hex[2..3].repeat(2), 16).unwrap();
+            (r, g, b)
+        }
+        6 | 8 => {
+            let r = u8::from_str_radix(&hex[0..2], 16).unwrap();
+            let g = u8::from_str_radix(&hex[2..4], 16).unwrap();
+            let b = u8::from_str_radix(&hex[4..6], 16).unwrap();
+            (r, g, b)
+        }
+        _ => panic!("unexpected hex length: {hex}"),
+    };
+    (r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0)
+}
+
+/// sRGB channel to linear (WCAG 2.1 §1.4.3).
+fn srgb_to_linear(c: f64) -> f64 {
+    if c <= 0.04045 {
+        c / 12.92
+    } else {
+        ((c + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+/// Relative luminance per WCAG 2.1 §1.4.3.
+fn relative_luminance(hex: &str) -> f64 {
+    let (r, g, b) = hex_to_rgb(hex);
+    0.2126 * srgb_to_linear(r) + 0.7152 * srgb_to_linear(g) + 0.0722 * srgb_to_linear(b)
+}
+
+/// WCAG contrast ratio (lighter + 0.05) / (darker + 0.05).
+fn contrast_ratio(l1: f64, l2: f64) -> f64 {
+    let lighter = l1.max(l2);
+    let darker = l1.min(l2);
+    (lighter + 0.05) / (darker + 0.05)
+}
+
+/// Parse CSS declarations from a `{ ... }` block body into (name, value) pairs.
+/// Skips empty lines and comments (lines starting with /*).
+fn parse_css_declarations(block: &str) -> Vec<(String, String)> {
+    block
+        .split(';')
+        .filter_map(|decl| {
+            let trimmed = decl.trim();
+            if trimmed.is_empty() || trimmed.starts_with("/*") {
+                return None;
+            }
+            let mut parts = trimmed.splitn(2, ':');
+            let name = parts.next()?.trim().to_string();
+            let value = parts.next()?.trim().to_string();
+            if name.is_empty() || value.is_empty() {
+                return None;
+            }
+            Some((name, value))
+        })
+        .collect()
+}
+
+/// Return the byte position of the closing `}` for `selector`'s block.
+fn selector_block_end(css: &str, selector: &str) -> usize {
+    let pos = css
+        .find(selector)
+        .unwrap_or_else(|| panic!("selector `{selector}` not found"));
+    let after_sel = &css[pos + selector.len()..];
+    let brace = after_sel
+        .find('{')
+        .unwrap_or_else(|| panic!("selector `{selector}` not followed by {{"));
+    let body = &after_sel[brace + 1..];
+    let mut depth = 1u32;
+    for (i, ch) in body.char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return pos + selector.len() + brace + 1 + i;
+                }
+            }
+            _ => {}
+        }
+    }
+    panic!("unclosed declaration block after selector `{selector}`");
+}
+
+#[test]
+fn build_dark_mode_token_overrides() {
+    // Build both targets
+    let tmp = tempfile::tempdir().unwrap();
+    let webr_out = tmp.path().join("webr");
+    let pyo_out = tmp.path().join("pyodide");
+
+    assert!(
+        build("webr", R_COURSE, &webr_out).status.success(),
+        "webr build should succeed"
+    );
+    assert!(
+        build("pyodide", PYTHON_COURSE, &pyo_out).status.success(),
+        "pyodide build should succeed"
+    );
+
+    // Clause 10: Both index.html shells reference styles.css
+    for (label, out) in [("webr", &webr_out), ("pyodide", &pyo_out)] {
+        let index = std::fs::read_to_string(out.join("index.html")).unwrap();
+        let link_self_closing =
+            index.contains(r#"<link rel="stylesheet" href="styles.css" />"#);
+        let link_html5 = index.contains(r#"<link rel="stylesheet" href="styles.css">"#);
+        assert!(
+            link_self_closing || link_html5,
+            "{label} index.html must link styles.css; index={index}"
+        );
+    }
+
+    let css = std::fs::read_to_string(webr_out.join("styles.css")).unwrap();
+    let pyo_css = std::fs::read_to_string(pyo_out.join("styles.css")).unwrap();
+
+    // Clause 9: Cross-target byte-identity
+    assert_eq!(
+        css, pyo_css,
+        "styles.css must be byte-identical across targets"
+    );
+
+    let hex_pat =
+        regex_lite::Regex::new(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b").unwrap();
+
+    // Clause 1: @media block appears AFTER closing `}` of light :root
+    let light_root_close = selector_block_end(&css, ":root");
+    let media_pos = css
+        .find("@media (prefers-color-scheme: dark)")
+        .expect("@media (prefers-color-scheme: dark) block must exist");
+    assert!(
+        media_pos > light_root_close,
+        "@media block must appear after light :root closing brace; \
+         media_pos={media_pos} <= root_close={light_root_close}"
+    );
+
+    // Clause 2: Media block contains a :root sub-block, extracted via brace-counting
+    let media_body = css_decl_block(&css, "@media (prefers-color-scheme: dark)");
+    let dark_root_body = css_decl_block(media_body, ":root");
+
+    // Parse light :root tokens
+    let light_root_body = css_decl_block(&css, ":root");
+    let light_tokens: Vec<(String, String)> = parse_css_declarations(light_root_body)
+        .into_iter()
+        .filter(|(name, _)| name.starts_with("--bt-color-"))
+        .collect();
+    let dark_tokens: Vec<(String, String)> = parse_css_declarations(dark_root_body)
+        .into_iter()
+        .filter(|(name, _)| name.starts_with("--bt-color-"))
+        .collect();
+
+    // Clause 3: All 13 tokens from light :root declared in dark :root
+    assert_eq!(
+        light_tokens.len(),
+        13,
+        "light :root must have exactly 13 --bt-color-* tokens"
+    );
+    assert_eq!(
+        dark_tokens.len(),
+        13,
+        "dark :root must have exactly 13 --bt-color-* tokens"
+    );
+    for (name, _) in &light_tokens {
+        assert!(
+            dark_tokens.iter().any(|(dn, _)| dn == name),
+            "dark :root must declare `{name}`"
+        );
+    }
+
+    // Build a lookup map for quick access
+    let light_map: std::collections::HashMap<&str, &str> = light_tokens
+        .iter()
+        .map(|(n, v)| (n.as_str(), v.as_str()))
+        .collect();
+    let dark_map: std::collections::HashMap<&str, &str> = dark_tokens
+        .iter()
+        .map(|(n, v)| (n.as_str(), v.as_str()))
+        .collect();
+
+    // Clause 4: Each dark value DIFFERS from its light counterpart
+    for (name, light_val) in &light_tokens {
+        let dark_val = dark_map[name.as_str()];
+        assert_ne!(
+            light_val, dark_val,
+            "dark `{name}` value must differ from light value"
+        );
+    }
+
+    // Clause 5: Directional sanity
+    // surface/bg tokens must darken (RGB sum strictly lower)
+    for token_name in &[
+        "--bt-color-surface",
+        "--bt-color-surface-code",
+        "--bt-color-success-bg",
+        "--bt-color-danger-bg",
+        "--bt-color-status-idle",
+    ] {
+        let light_val = light_map[token_name];
+        let dark_val = dark_map[token_name];
+        let light_rgb = hex_to_rgb(light_val);
+        let dark_rgb = hex_to_rgb(dark_val);
+        let light_total = light_rgb.0 + light_rgb.1 + light_rgb.2;
+        let dark_total = dark_rgb.0 + dark_rgb.1 + dark_rgb.2;
+        assert!(
+            dark_total < light_total,
+            "`{token_name}` must darken (RGB sum {:.3} < {:.3}): \
+             light={light_val}, dark={dark_val}",
+            dark_total,
+            light_total
+        );
+    }
+    // text tokens must lighten (RGB sum strictly higher)
+    for token_name in &[
+        "--bt-color-text-primary",
+        "--bt-color-text-secondary",
+    ] {
+        let light_val = light_map[token_name];
+        let dark_val = dark_map[token_name];
+        let light_rgb = hex_to_rgb(light_val);
+        let dark_rgb = hex_to_rgb(dark_val);
+        let light_total = light_rgb.0 + light_rgb.1 + light_rgb.2;
+        let dark_total = dark_rgb.0 + dark_rgb.1 + dark_rgb.2;
+        assert!(
+            dark_total > light_total,
+            "`{token_name}` must lighten (RGB sum {:.3} > {:.3}): \
+             light={light_val}, dark={dark_val}",
+            dark_total,
+            light_total
+        );
+    }
+
+    // Clause 6: No --bt-font-*, --bt-space-*, --bt-shadow-*, --bt-radius-* in dark :root
+    let dark_all_tokens: Vec<(String, String)> = parse_css_declarations(dark_root_body);
+    for (name, _) in &dark_all_tokens {
+        assert!(
+            !name.starts_with("--bt-font-"),
+            "dark :root must not contain `{name}` (non-color token)"
+        );
+        assert!(
+            !name.starts_with("--bt-space-"),
+            "dark :root must not contain `{name}` (non-color token)"
+        );
+        assert!(
+            !name.starts_with("--bt-shadow-"),
+            "dark :root must not contain `{name}` (non-color token)"
+        );
+        assert!(
+            !name.starts_with("--bt-radius-"),
+            "dark :root must not contain `{name}` (non-color token)"
+        );
+    }
+
+    // Clause 7: Zero hex literals outside both :root blocks
+    // Compute intervals of both :root block bodies
+    let light_body = css_decl_block(&css, ":root");
+    let light_body_start = light_body.as_ptr() as usize - css.as_ptr() as usize;
+    let light_body_end = light_body_start + light_body.len();
+
+    let dark_root_body_in_css =
+        css_decl_block(&css, "@media (prefers-color-scheme: dark)");
+    // The :root inside the media block — need the body range in the original CSS
+    let drb = css_decl_block(dark_root_body_in_css, ":root");
+    let dark_body_start = drb.as_ptr() as usize - css.as_ptr() as usize;
+    let dark_body_end = dark_body_start + drb.len();
+
+    for m in hex_pat.find_iter(&css) {
+        let pos = m.start();
+        let in_light = pos >= light_body_start && pos < light_body_end;
+        let in_dark = pos >= dark_body_start && pos < dark_body_end;
+        assert!(
+            in_light || in_dark,
+            "hex literal `{}` at position {} must be inside a :root block (not outside)",
+            m.as_str(),
+            pos
+        );
+    }
+
+    // Clause 8: WCAG contrast ratios for sampled pairs
+    let pairs: Vec<(&str, &str, &str, f64)> = vec![
+        ("text-primary on surface", "text-primary", "surface", 4.5),
+        ("text-secondary on surface", "text-secondary", "surface", 4.5),
+        (
+            "text-primary on surface-code",
+            "text-primary",
+            "surface-code",
+            4.5,
+        ),
+        (
+            "text-primary on success-bg",
+            "text-primary",
+            "success-bg",
+            4.5,
+        ),
+        (
+            "text-primary on danger-bg",
+            "text-primary",
+            "danger-bg",
+            4.5,
+        ),
+        ("status-pass on surface", "status-pass", "surface", 3.0),
+        ("status-fail on surface", "status-fail", "surface", 3.0),
+        (
+            "status-running on surface",
+            "status-running",
+            "surface",
+            3.0,
+        ),
+        ("status-idle on surface", "status-idle", "surface", 3.0),
+        ("brand on surface", "brand", "surface", 3.0),
+    ];
+    for (label, fg_token, bg_token, min_ratio) in &pairs {
+        // Resolve full token names
+        let fg_name = format!("--bt-color-{fg_token}");
+        let bg_name = format!("--bt-color-{bg_token}");
+        let fg_val = dark_map[fg_name.as_str()];
+        let bg_val = dark_map[bg_name.as_str()];
+        let l_fg = relative_luminance(fg_val);
+        let l_bg = relative_luminance(bg_val);
+        let cr = contrast_ratio(l_fg, l_bg);
+        assert!(
+            cr >= *min_ratio,
+            "{label}: contrast ratio {cr:.2} < {min_ratio} (fg={fg_val}, bg={bg_val}, \
+             L_fg={l_fg:.4}, L_bg={l_bg:.4})"
+        );
+    }
+}

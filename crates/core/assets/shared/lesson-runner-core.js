@@ -24,7 +24,8 @@
 // / editorView / ready) is the test seam the rodney browser probe drives,
 // identical across targets.
 
-import { EditorView, r, python, syntaxHighlighting, defaultHighlightStyle } from "./codemirror.js";
+import { EditorView, r, python, syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from "./codemirror.js";
+import { tags } from "./codemirror.js";
 
 // Language extension lookup: closed set keyed by the runtime adapter's
 // `language` field. An unknown language yields no extension (the editor still
@@ -32,6 +33,23 @@ import { EditorView, r, python, syntaxHighlighting, defaultHighlightStyle } from
 // missing tokens. This is NOT a string match on `runtime.name` (§1.5): a label
 // typo cannot silently load the wrong language.
 const LANG_EXT = { r: r(), python: python() };
+
+// Custom HighlightStyle with deterministic `.tok-*` class names. CM6's
+// defaultHighlightStyle generates opaque unicode classes (e.g. `ͼa`) that the
+// AC-2 deterministic check cannot grep for; this style maps lezer tags to
+// stable `.tok-*` classes so token spans are testable. Added AFTER the default
+// style in the extension list so it takes precedence for the tags it defines
+// (later extensions win on tag-match ties). The default style remains as a
+// fallback for tags not covered here.
+const tokHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, class: "tok-keyword" },
+  { tag: tags.variableName, class: "tok-variableName" },
+  { tag: tags.string, class: "tok-string" },
+  { tag: tags.number, class: "tok-number" },
+  { tag: tags.comment, class: "tok-comment" },
+  { tag: tags.function(tags.variableName), class: "tok-function" },
+  { tag: tags.operator, class: "tok-operator" },
+]);
 
 const statusEl = document.querySelector("[data-test=lesson-status]");
 const bootEl = document.getElementById("boot-status");
@@ -149,9 +167,12 @@ export async function start(runtime) {
         LANG_EXT[runtime.language] ?? [],
         // Token styling — distinct from the language parser above. CM6 needs
         // BOTH: the language support (r()/python()) for parsing into a tree, and
-        // a highlight style for mapping tree nodes to `.tok-*` CSS classes.
-        // Without this, `.cm-content` renders text with no `.tok-keyword` tokens.
+        // a highlight style for mapping tree nodes to CSS classes. The default
+        // style is kept as a fallback; tokHighlightStyle (added after, so it
+        // wins on tag-match ties) overrides it with deterministic `.tok-*`
+        // classes the AC-2 deterministic check can grep for.
         syntaxHighlighting(defaultHighlightStyle),
+        syntaxHighlighting(tokHighlightStyle),
       ],
       parent: submissionEl,
     });

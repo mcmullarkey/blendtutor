@@ -66,6 +66,18 @@
   /* AC-3: BYOK verdict tint backgrounds — distinct from status-pass/fail accents */
   --bt-color-success-bg: #e8f5e9;
   --bt-color-danger-bg: #fff3e0;
+
+  /* Syntax highlighting token colors — CM6 default light-theme palette. Used
+   * by the custom HighlightStyle's `.tok-*` classes (lesson-runner-core.js).
+   * Distinct from the status/surface vocabulary; a fixed syntax palette. Dark-
+   * mode overrides deferred to AC-3 theme refinement. */
+  --bt-color-syntax-keyword: #055;
+  --bt-color-syntax-string: #a11;
+  --bt-color-syntax-number: #708;
+  --bt-color-syntax-comment: #999;
+  --bt-color-syntax-variable: #000;
+  --bt-color-syntax-function: #30a;
+  --bt-color-syntax-operator: #000;
 }
 
 /* ── Semantic region rules ─────────────────────────────────────── */
@@ -191,8 +203,11 @@ footer.site-footer {
  * .cm-editor is the root CM6 view; .cm-content is the editable surface; .cm-
  * scroller is the scroll container. Styled to match the old textarea: code
  * font, surface-code background, border, min-height, and horizontal scroll for
- * long lines. Token colors are CM6 defaults (theme-less build) — only layout
- * and typography are pinned here so the editor matches the workspace vocabulary.
+ * long lines. Token colors use a custom HighlightStyle (lesson-runner-core.js)
+ * that emits deterministic `.tok-*` classes — NOT CM6's default opaque unicode
+ * classes (e.g. `ͼa`) — so the AC-2 deterministic check can grep for them.
+ * Colors are the CM6 default light-theme palette; dark-mode overrides live in
+ * the @media block at the end of this file (AC-3 will refine the theme).
  */
 .cm-editor {
   min-height: 6rem;
@@ -209,6 +224,19 @@ footer.site-footer {
 .cm-scroller {
   overflow: auto;
 }
+
+/* Syntax token colors — deterministic `.tok-*` classes emitted by the custom
+ * HighlightStyle in lesson-runner-core.js. CM6's defaultHighlightStyle uses
+ * opaque generated classes (ͼa, ͼb, …) that cannot be grepped; these stable
+ * names make token spans testable (AC-2 deterministic_check). Palette matches
+ * the CM6 default light theme. */
+.tok-keyword { color: var(--bt-color-syntax-keyword); }
+.tok-string { color: var(--bt-color-syntax-string); }
+.tok-number { color: var(--bt-color-syntax-number); }
+.tok-comment { color: var(--bt-color-syntax-comment); font-style: italic; }
+.tok-variableName { color: var(--bt-color-syntax-variable); }
+.tok-function { color: var(--bt-color-syntax-function); }
+.tok-operator { color: var(--bt-color-syntax-operator); }
 
 .controls {
   display: flex;

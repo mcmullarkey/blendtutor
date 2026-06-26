@@ -1376,6 +1376,11 @@ mod tests {
         //   exports from @codemirror/language — without these the editor renders
         //   text with no `.tok-*` classes (the builder-vision-probe regression:
         //   language support parses, highlight style colors).
+        // - HighlightStyle + tags are the custom-style exports: HighlightStyle
+        //   (from @codemirror/language) lets the runner define a HighlightStyle
+        //   with deterministic `.tok-*` class names, and tags (from
+        //   @lezer/highlight) supplies the tag constants the style maps. Without
+        //   these the runner cannot override the default's opaque `ͼa` classes.
         // A core-only bundle missing the language packs, or a bundle missing the
         // UX/highlight exports, fails here.
         for needle in [
@@ -1387,6 +1392,8 @@ mod tests {
             "indentWithTab",
             "syntaxHighlighting",
             "defaultHighlightStyle",
+            "HighlightStyle",
+            "tags",
         ] {
             assert!(
                 webr_cm.contains(needle),

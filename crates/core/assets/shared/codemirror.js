@@ -19108,6 +19108,7 @@ function python() {
 }
 export {
   EditorView,
+  HighlightStyle,
   bracketMatching,
   defaultHighlightStyle,
   highlightActiveLine,
@@ -19115,5 +19116,6 @@ export {
   lineNumbers,
   python,
   r,
-  syntaxHighlighting
+  syntaxHighlighting,
+  tags
 };

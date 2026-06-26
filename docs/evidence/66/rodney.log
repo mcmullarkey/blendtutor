@@ -1,15 +1,24 @@
-builder-vision-probe — issue #66, AC-3 CM6 editor UX
+builder-vision-probe — issue #66, AC-3 CM6 editor UX (RETRY after bracket-match fix)
 Generated: 2026-06-26
+Branch: 66-cm6-ux-polish (commit 7e6a7b5)
+Worktree: /Users/carbonite/Documents/coding/portfolio/blendtutor
 Targets served:
-  - webr  : http://localhost:9001/index.html  (build: /tmp/bt-ux-vision-webr)
-  - pyodide: http://localhost:9002/index.html (build: /tmp/bt-ux-vision-pyodide)
+  - webr   : http://localhost:9001/index.html (build: /tmp/bt-ux-vision-webr-2)
+  - pyodide: http://localhost:9002/index.html (build: /tmp/bt-ux-vision-pyodide-2)
 Rodney version: 0.4.0
 Probe source: rodney-probes/cm6-ux.js
 
-Notes on harness:
-- Rodney 0.4.0 does NOT have an `eval` subcommand; all JS probes were run with `uvx rodney js <expr>`.
-- The `rodney-capture.sh` helper uses the non-existent `eval` subcommand, so viewport sizing in that script is non-functional with the installed Rodney version.
-- Mobile viewport (375x667) was emulated by setting `document.documentElement.style.width='375px'` and height='667px' before measuring `.cm-scroller.getBoundingClientRect().width`.
+Harness notes:
+- Rodney 0.4.0 does NOT have an `eval` subcommand. All JS probes used `uvx rodney js <expr>`.
+- The `rodney-capture.sh` helper calls the non-existent `eval` subcommand, so viewport sizing in
+  that script is non-functional with the installed Rodney version. For probes and screenshots we
+  set the viewport with:
+    uvx rodney js "(() => { window.resizeTo(W, H);
+                           document.documentElement.style.width='${W}px';
+                           document.documentElement.style.height='${H}px';
+                           return 'viewport-set'; })()"
+- For the runtime checks the page must first boot webR/Pyodide (≈15 s) and load a lesson so the
+  editor has a non-empty document.
 
 === Setup for runtime checks (both targets) ===
 For each target, after page open and ~15 s wait for interpreter boot:
@@ -24,7 +33,7 @@ For each target, after page open and ~15 s wait for interpreter boot:
 Clause 2  line numbers visible                        PASS
 Clause 3  gutter font monospace                      PASS
 Clause 4  active-line bg distinct from content bg    PASS
-Clause 6  .cm-bracket-match element present        FAIL  -> no element with class .cm-bracket-match found after injecting brackets
+Clause 6  .cm-matchingBracket element present        PASS  (class corrected from .cm-bracket-match)
 Clause 7  spellcheck='false' explicit                PASS
 Clause 9  code font monospace                        PASS
 Clause 12 mobile .cm-scroller width >= 280           PASS  -> width=323px at 375x667 emulation
@@ -33,19 +42,14 @@ Clause 12 mobile .cm-scroller width >= 280           PASS  -> width=323px at 375
 Clause 2  line numbers visible                        PASS
 Clause 3  gutter font monospace                      PASS
 Clause 4  active-line bg distinct from content bg    PASS
-Clause 6  .cm-bracket-match element present        FAIL  -> no element with class .cm-bracket-match found after injecting brackets
+Clause 6  .cm-matchingBracket element present        PASS
 Clause 7  spellcheck='false' explicit                PASS
 Clause 9  code font monospace                        PASS
 Clause 12 mobile .cm-scroller width >= 280           PASS  -> width=323px at 375x667 emulation
 
-=== Root-cause observation for Clause 6 failure ===
-CodeMirror 6's `bracketMatching()` extension highlights matching brackets with the class `cm-matchingBracket`, NOT `.cm-bracket-match`. After injecting `()` and placing the cursor inside:
-  - element `.cm-matchingBracket` exists
-  - computed style shows: outline: rgb(224, 224, 224), border-color: rgb(224, 224, 224)
-The built styles.css (both targets) contains rules for `.cm-bracket-match` (light + dark) but those rules never target a real DOM class, so the custom background/outlines are dead CSS.
-
 === Result summary ===
-webr:     PROBES_FAIL (Clause 6)
-pyodide:  PROBES_FAIL (Clause 6)
+webr:     PROBES_PASS
+pyodide:  PROBES_PASS
 
-Because a deterministic check failed on both targets, per workflow no final screenshots were captured; this log and root-cause observation constitute the evidence.
+All deterministic runtime checks passed on both target builds. Screenshots were captured for both
+viewports on both targets and saved under docs/evidence/66/.

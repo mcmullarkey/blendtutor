@@ -8,11 +8,12 @@
  * What it does:
  *  - Declares all --bt- custom properties in :root (typography, color, spacing,
  *    radii) — the single source of truth for cross-target visual vocabulary.
+ *  - Overrides all --bt-color-* tokens inside @media (prefers-color-scheme: dark)
+ *    for WCAG AA dark-mode contrast (4.5:1 text, 3:1 UI / large text).
  *  - Styles the page shell: <header.site-header>, <main.workspace>,
  *    <footer.site-footer>, <body>, <h1> — the foundation AC-2 and AC-3 build on.
  *
  * What it does NOT do:
- *  - No dark mode v1 (future AC).
  *  - No component-level styles for the workspace internals (textarea, controls,
  *    output, feedback panel) — AC-2 and AC-3 own those regions.
  *  - No eval-results styling.
@@ -65,6 +66,33 @@
   /* AC-3: BYOK verdict tint backgrounds — distinct from status-pass/fail accents */
   --bt-color-success-bg: #e8f5e9;
   --bt-color-danger-bg: #fff3e0;
+}
+
+/* ── Dark mode ────────────────────────────────────────────────────
+ * Overrides all 13 --bt-color-* tokens inside @media (prefers-color-scheme: dark)
+ * for WCAG AA contrast (4.5:1 text, 3:1 UI/large text). No non-color tokens.
+ * The :root block is extracted by the test via brace-counting on the @media
+ * selector, then brace-counting again on :root within the media block body.
+ * The media block must appear AFTER light :root's closing `}` (positional
+ * invariant enforced by build_dark_mode_token_overrides clause 1).
+ */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bt-color-surface: #1e1e1e;
+    --bt-color-surface-code: #2d2d2d;
+    --bt-color-text-primary: #e0e0e0;
+    --bt-color-text-secondary: #a0a0a0;
+    --bt-color-status-pass: #4caf50;
+    --bt-color-status-fail: #f44336;
+    --bt-color-status-running: #ff9800;
+    --bt-color-brand: #e0e0e0;
+    --bt-color-brand-hover: #ffffff;
+    --bt-color-border: #444444;
+    --bt-color-status-idle: #888888;
+    --bt-color-success-bg: #1b3d1b;
+    --bt-color-danger-bg: #3d1b1b;
+  }
 }
 
 /* ── Semantic region rules ─────────────────────────────────────── */
@@ -125,10 +153,11 @@ footer.site-footer {
  * header/footer.
  *
  * What it does NOT do:
- *  - No dark mode v1 (future AC).
  *  - No #feedback panel styling (AC-3 owns that region).
  *  - No header/footer overrides.
  *  - No JS changes — pure CSS only.
+ *  - Dark mode is handled by @media (prefers-color-scheme: dark) :root overrides
+ *    at the bottom of this file — workspace rules inherit via var(--bt-*) tokens.
  */
 
 .lesson-picker {
@@ -283,9 +312,10 @@ footer.site-footer {
  *
  * What it does NOT do:
  *  - No JS changes — pure CSS only. feedback.js byte-unchanged.
- *  - No dark mode v1 (future AC).
  *  - No className/style./classList manipulation (those are feedback.js's job).
  *  - No hex color literals in BYOK rules — all colors via var(--bt-*) tokens.
+ *  - Dark mode is handled by @media (prefers-color-scheme: dark) :root overrides
+ *    at the bottom of this file — BYOK rules inherit via var(--bt-*) tokens.
  */
 
 /* Card container — each phase uses surface + border + shadow for elevation */

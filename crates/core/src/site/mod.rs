@@ -1372,8 +1372,12 @@ mod tests {
         // - `python` is the lang-python export name (11 occurrences in the bundle).
         // - lineNumbers, highlightActiveLine, bracketMatching, indentWithTab are
         //   the UX-polish exports AC-3 consumes (AC-1 owns the complete export set).
+        // - syntaxHighlighting + defaultHighlightStyle are the token-styling
+        //   exports from @codemirror/language — without these the editor renders
+        //   text with no `.tok-*` classes (the builder-vision-probe regression:
+        //   language support parses, highlight style colors).
         // A core-only bundle missing the language packs, or a bundle missing the
-        // UX exports, fails here.
+        // UX/highlight exports, fails here.
         for needle in [
             "rLanguage",
             "python",
@@ -1381,6 +1385,8 @@ mod tests {
             "highlightActiveLine",
             "bracketMatching",
             "indentWithTab",
+            "syntaxHighlighting",
+            "defaultHighlightStyle",
         ] {
             assert!(
                 webr_cm.contains(needle),

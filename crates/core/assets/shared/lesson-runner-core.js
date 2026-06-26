@@ -24,7 +24,7 @@
 // / editorView / ready) is the test seam the rodney browser probe drives,
 // identical across targets.
 
-import { EditorView, r, python } from "./codemirror.js";
+import { EditorView, r, python, syntaxHighlighting, defaultHighlightStyle } from "./codemirror.js";
 
 // Language extension lookup: closed set keyed by the runtime adapter's
 // `language` field. An unknown language yields no extension (the editor still
@@ -145,7 +145,14 @@ export async function start(runtime) {
   try {
     editorView = new EditorView({
       doc: "",
-      extensions: [LANG_EXT[runtime.language] ?? []],
+      extensions: [
+        LANG_EXT[runtime.language] ?? [],
+        // Token styling — distinct from the language parser above. CM6 needs
+        // BOTH: the language support (r()/python()) for parsing into a tree, and
+        // a highlight style for mapping tree nodes to `.tok-*` CSS classes.
+        // Without this, `.cm-content` renders text with no `.tok-keyword` tokens.
+        syntaxHighlighting(defaultHighlightStyle),
+      ],
       parent: submissionEl,
     });
   } catch (err) {

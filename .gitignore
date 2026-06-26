@@ -1,5 +1,27 @@
 .Rproj.user
 .Renviron
-evals/
+# The top-level R evals working dir only — anchored so it does not also ignore
+# Rust eval fixtures under crates/*/tests/fixtures/evals/.
+/evals/
 .claude/
 rv/library/
+
+# Rust
+/target
+
+# built site output (blendtutor build -o out); served locally for rodney runs
+/out
+
+# insta pending snapshots (review + accept turns these into committed .snap files)
+*.snap.new
+
+# cargo-mutants run output
+/mutants.out
+/mutants.out.old
+
+# rodney browser screenshots (per CLAUDE.md)
+screenshots/
+
+# mdBook build output (rendered narrative site; rebuilt by scripts/check-docs.sh
+# and the docs workflow, with rustdoc merged under book/api at deploy time)
+/docs/book/book/

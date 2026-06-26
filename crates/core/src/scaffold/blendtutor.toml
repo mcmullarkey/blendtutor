@@ -1,0 +1,6 @@
+# Your course manifest: an ordered list of lessons, each pairing a stable course
+# slug `id` with the lesson file `path` (relative to this manifest). Add lessons
+# with `blendtutor new`, or edit this file by hand and `blendtutor list .`.
+[[lessons]]
+id = "hello"
+path = "lesson_hello.yaml"

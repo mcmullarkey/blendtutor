@@ -1,0 +1,10 @@
+# An example eval suite for lesson_hello.yaml. Each case pairs a sample
+# submission with the verdict you expect a good grader to return (correct or
+# incorrect). Run it with `blendtutor eval lesson_hello.yaml`.
+cases:
+  - submission: |-
+      cat("hello\n")
+    expected: correct
+  - submission: |-
+      cat("goodbye\n")
+    expected: incorrect

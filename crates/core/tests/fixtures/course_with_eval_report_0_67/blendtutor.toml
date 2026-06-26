@@ -1,0 +1,6 @@
+# A one-lesson R course bundled with a Slice-13 eval report. Drives Slice 19 AC1:
+# a build folds the report's accuracy into the site's eval-results page. Identical
+# to `course_without_eval_report` except for the bundled `eval-report.json`.
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"

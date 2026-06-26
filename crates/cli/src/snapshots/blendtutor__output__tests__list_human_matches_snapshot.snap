@@ -1,0 +1,7 @@
+---
+source: crates/cli/src/output.rs
+expression: "render_list(&mixed_report(), OutputFormat::Human)"
+---
+add-two  r        Add Two Numbers
+greet    python   Greet Someone
+broken   ERROR    invalid lesson: missing field `language`

@@ -1,0 +1,23 @@
+lesson_name: "Add Two Numbers"
+language: Python
+description: "Write a function that adds two numbers"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    Write a function called 'add' that takes two numbers (a and b)
+    and returns their sum.
+  code_template: |
+    def add(a, b):
+        ...
+  solution: |
+    def add(a, b):
+        return a + b
+  llm_evaluation_prompt: |
+    Evaluate the student's submission:
+    {student_code}
+    Reply with feedback.
+
+checks:
+  - "assert add(2, 3) == 5"
+  - "assert add(-1, 1) == 0"

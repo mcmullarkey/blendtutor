@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>blendtutor — interactive R lessons</title>
+    <!--
+      COOP/COEP shim, loaded first. It registers a service worker that re-serves
+      this site cross-origin isolated, so SharedArrayBuffer works on
+      GitHub Pages (which cannot set the headers itself). Must run before
+      anything that depends on isolation.
+    -->
+    <script src="coi-serviceworker.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>blendtutor</h1>
+      <p id="boot-status">Booting webR…</p>
+    </header>
+    <main class="workspace">
+      <div class="lesson-picker">
+        <label for="lesson-select">Lesson:</label>
+        <select id="lesson-select" data-test="lesson-select"></select>
+      </div>
+      <h2 id="lesson-title"></h2>
+      <p id="lesson-prompt"></p>
+      <textarea id="submission" data-test="submission" spellcheck="false"></textarea>
+      <div class="controls">
+        <button id="run" type="button" data-test="run">Run checks</button>
+        <button id="submit" type="button" data-action="submit">Submit for feedback</button>
+        <span id="lesson-status" data-test="lesson-status" data-status="idle">idle</span>
+      </div>
+      <pre id="output" data-test="output"></pre>
+      <!--
+        BYOK feedback mount. feedback.js renders the key-entry prompt (with the
+        stored-only-in-this-tab / sent-only-to-Anthropic disclosure) and the verdict
+        here; the key-handling concern lives in that module, not this shell.
+      -->
+      <section id="feedback" data-test="feedback"></section>
+    </main>
+    <footer class="site-footer"></footer>
+    <script type="module" src="lesson-runner.js"></script>
+    <script type="module" src="feedback.js"></script>
+  </body>
+</html>

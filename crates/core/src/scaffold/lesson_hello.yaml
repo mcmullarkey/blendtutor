@@ -1,0 +1,26 @@
+# An example lesson. Edit it, add more with `blendtutor new`, and check your
+# changes with `blendtutor validate lesson_hello.yaml`.
+lesson_name: "Hello, blendtutor"
+language: R
+description: "Print a friendly greeting — your first blendtutor lesson"
+exercise:
+  type: "function_writing"
+  prompt: |
+    Write R code that prints the word "hello" on its own line, using cat().
+  code_template: |
+    # Your code here
+    cat("hello\n")
+  example_usage: |
+    cat("hello\n")  # prints: hello
+  success_criteria: |
+    - Prints exactly the word "hello"
+    - Uses cat()
+  llm_evaluation_prompt: |
+    You are grading a beginner R exercise: print the word "hello" with cat().
+
+    The student submitted this code:
+    {student_code}
+
+    Decide whether it prints "hello" and call respond_with_feedback with your
+    assessment. Set is_correct true when the requirement is met, and give two or
+    three sentences of encouraging feedback.

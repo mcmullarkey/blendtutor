@@ -1,0 +1,23 @@
+[package]
+name = "blendtutor-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+command-group = { workspace = true }
+rig-core = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde-saphyr = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+toml = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+regex-lite = { workspace = true }
+serial_test = { workspace = true }
+wiremock = { workspace = true }

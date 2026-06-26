@@ -231,8 +231,8 @@ footer.site-footer {
  * Background uses surface-code so the gutter is visually distinct from the
  * editable content area. */
 .cm-gutters {
-  background: var(--bt-color-surface-code, #f5f5f5);
-  border-right: 1px solid var(--bt-color-border, #ccc);
+  background: var(--bt-color-surface-code);
+  border-right: 1px solid var(--bt-color-border);
   font-family: var(--bt-font-family-code, monospace);
 }
 

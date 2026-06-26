@@ -264,6 +264,17 @@ const STYLES_CSS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/assets/shared/styles.css"
 ));
+/// The vendored CodeMirror 6 ESM bundle: a pre-built (one-time esbuild authoring,
+/// NOT build-time codegen — ADR-0008) bundle of the CM6 core (`EditorView`) plus
+/// the R and Python language packs and the UX-polish extensions (`lineNumbers`,
+/// `highlightActiveLine`, `bracketMatching`, `indentWithTab`). Shared by every
+/// target — the editor is runtime-agnostic, so the bundle is assembled once here
+/// rather than forked per target (§4.2). Main-thread-only (no web workers) to
+/// avoid COOP/COEP conflicts; the seam AC-2/AC-3 consume read-only.
+const CODEMIRROR_JS: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/shared/codemirror.js"
+));
 
 /// A build target's own client assets: its page shell and its runner adapter.
 ///
@@ -295,6 +306,7 @@ fn assemble(assets: TargetAssets<'_>, lessons: &[(LessonSlug, Lesson)]) -> SiteF
         asset("coi-serviceworker.js", COI_SERVICEWORKER_JS),
         asset("feedback.js", FEEDBACK_JS),
         asset("styles.css", STYLES_CSS),
+        asset("codemirror.js", CODEMIRROR_JS),
     ];
 
     let mut slugs = Vec::new();
@@ -699,6 +711,7 @@ mod tests {
             "lesson-runner-core.js",
             "coi-serviceworker.js",
             "styles.css",
+            "codemirror.js",
         ] {
             assert_eq!(
                 file(&webr, shared).contents,
@@ -1287,5 +1300,122 @@ mod tests {
             validated_page,
             "the eval-results page is identical across targets for the same summary"
         );
+    }
+
+    #[test]
+    fn plan_site_emits_vendored_codemirror_bundle() {
+        // AC-1 (code-editor): a pre-built CodeMirror 6 ESM bundle is vendored as a
+        // committed static asset at assets/shared/codemirror.js, embedded at compile
+        // time via include_str! (CODEMIRROR_JS const) and emitted to built sites for
+        // BOTH targets through the shared `assemble` step — not forked per target.
+        //
+        // 8 clauses pin the invariant (§1.5 — predicates, not coincident shape):
+        //   1. codemirror.js present in SiteFiles for both targets
+        //   2. byte-identical across targets (shared, not forked — §4.2)
+        //   3. contents.len() > 10_000 (catches empty/comment-only stub)
+        //   4. contains EditorView (CM6 core export — catches wrong-library/UMD)
+        //   5. contains evidence of lang-r + lang-python + lineNumbers +
+        //      highlightActiveLine + bracketMatching + indentWithTab
+        //   6. no `new Worker(` (COOP/COEP isolation — no web workers)
+        //   7. deterministic order: after styles.css AND before any lessons/ file
+        //      (full positional invariant, not weak "after styles.css" proxy)
+        //   8. CODEMIRROR_JS const compiles — proved by the test running
+        //      (include_str! refuses a missing asset at compile time — §1.3.1)
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let pyodide = plan(&python_course(), BuildTarget::Pyodide).expect("plans");
+
+        // Clause 1: codemirror.js lands as a planned file for both targets — a
+        // target that forgot to include it (or embedded it in webr.rs/pyodide.rs
+        // instead of shared mod.rs) misses here.
+        let webr_cm = file(&webr, "codemirror.js").contents.clone();
+        let pyodide_cm = file(&pyodide, "codemirror.js").contents.clone();
+
+        // Clause 2: byte-identical across targets — the bundle is shared, not
+        // forked per target (§4.2). A divergence means a target forked the bundle.
+        assert_eq!(
+            webr_cm, pyodide_cm,
+            "codemirror.js must be byte-identical across targets (shared, not forked)"
+        );
+
+        // Clause 3: the bundle is a real CM6 build, not an empty/comment-only stub.
+        // CM6 core + lang-r + lang-python is ~150-250KB minified; a 23-byte stub
+        // fails here.
+        assert!(
+            webr_cm.len() > 10_000,
+            "codemirror.js must be a real bundle (>10_000 bytes), got {} bytes",
+            webr_cm.len()
+        );
+
+        // Clause 4: EditorView — the CM6 core export. A wrong-library or UMD-global
+        // bundle lacking the ESM EditorView export fails here.
+        assert!(
+            webr_cm.contains("EditorView"),
+            "codemirror.js must contain EditorView (CM6 core ESM export)"
+        );
+
+        // Clause 5: evidence of both language packs AND the UX-polish exports.
+        // - `rLanguage` is the R language descriptor name (lang-r evidence —
+        //   distinctive, preserved by esbuild; the bare export name `r` is too
+        //   short to grep reliably).
+        // - `python` is the lang-python export name (11 occurrences in the bundle).
+        // - lineNumbers, highlightActiveLine, bracketMatching, indentWithTab are
+        //   the UX-polish exports AC-3 consumes (AC-1 owns the complete export set).
+        // A core-only bundle missing the language packs, or a bundle missing the
+        // UX exports, fails here.
+        for needle in [
+            "rLanguage",
+            "python",
+            "lineNumbers",
+            "highlightActiveLine",
+            "bracketMatching",
+            "indentWithTab",
+        ] {
+            assert!(
+                webr_cm.contains(needle),
+                "codemirror.js must contain `{needle}` (language pack or UX export evidence)"
+            );
+        }
+
+        // Clause 6: no web workers — CM6 must be main-thread-only to avoid COOP/COEP
+        // conflicts. A bundler-emitted `new Worker(` (e.g. a future WASM-parser
+        // extension) fails here.
+        assert!(
+            !webr_cm.contains("new Worker("),
+            "codemirror.js must not contain `new Worker(` (COOP/COEP isolation)"
+        );
+
+        // Clause 7: full positional invariant — codemirror.js sits after styles.css
+        // AND before any lessons/ file in the deterministic files vector. This is
+        // the sufficient condition (not the weak "after styles.css" proxy): a rule
+        // appended after codemirror.js but before lessons/ would still pass the weak
+        // proxy but break the intended order. Checking both bounds pins the full
+        // invariant.
+        let webr_files = webr.files();
+        let pos = |name: &str| -> usize {
+            webr_files
+                .iter()
+                .position(|f| f.path == Path::new(name))
+                .unwrap_or_else(|| panic!("{name} must be in the planned site"))
+        };
+        let cm_pos = pos("codemirror.js");
+        let styles_pos = pos("styles.css");
+        let first_lesson_pos = webr_files
+            .iter()
+            .position(|f| f.path.starts_with("lessons/"))
+            .expect("at least one lessons/ file exists");
+        assert!(
+            cm_pos > styles_pos,
+            "codemirror.js (index {cm_pos}) must come after styles.css (index {styles_pos})"
+        );
+        assert!(
+            cm_pos < first_lesson_pos,
+            "codemirror.js (index {cm_pos}) must come before the first lessons/ file \
+             (index {first_lesson_pos})"
+        );
+
+        // Clause 8: CODEMIRROR_JS const compiles — proved by the test running at
+        // all. include_str! refuses a missing asset at compile time (§1.3.1), so
+        // reaching this assertion means the const resolved. No runtime check needed;
+        // the test's existence is the proof.
     }
 }

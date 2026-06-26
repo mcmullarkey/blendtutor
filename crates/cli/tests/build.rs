@@ -1350,14 +1350,35 @@ fn contrast_ratio(l1: f64, l2: f64) -> f64 {
     (lighter + 0.05) / (darker + 0.05)
 }
 
+/// Strip `/* ... */` CSS comments from a string (non-nestable per CSS spec).
+fn strip_css_comments(s: &str) -> String {
+    let mut result = String::new();
+    let mut in_comment = false;
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '/' && chars.peek() == Some(&'*') && !in_comment {
+            in_comment = true;
+            chars.next(); // consume '*'
+        } else if c == '*' && chars.peek() == Some(&'/') && in_comment {
+            in_comment = false;
+            chars.next(); // consume '/'
+        } else if !in_comment {
+            result.push(c);
+        }
+    }
+    result
+}
+
 /// Parse CSS declarations from a `{ ... }` block body into (name, value) pairs.
-/// Skips empty lines and comments (lines starting with /*).
+/// Strips CSS comments before parsing (a comment and declaration may share a
+/// `;`-delimited segment if no `;` sits between them).
 fn parse_css_declarations(block: &str) -> Vec<(String, String)> {
     block
         .split(';')
         .filter_map(|decl| {
-            let trimmed = decl.trim();
-            if trimmed.is_empty() || trimmed.starts_with("/*") {
+            let cleaned = strip_css_comments(decl);
+            let trimmed = cleaned.trim();
+            if trimmed.is_empty() {
                 return None;
             }
             let mut parts = trimmed.splitn(2, ':');
@@ -1416,8 +1437,7 @@ fn build_dark_mode_token_overrides() {
     // Clause 10: Both index.html shells reference styles.css
     for (label, out) in [("webr", &webr_out), ("pyodide", &pyo_out)] {
         let index = std::fs::read_to_string(out.join("index.html")).unwrap();
-        let link_self_closing =
-            index.contains(r#"<link rel="stylesheet" href="styles.css" />"#);
+        let link_self_closing = index.contains(r#"<link rel="stylesheet" href="styles.css" />"#);
         let link_html5 = index.contains(r#"<link rel="stylesheet" href="styles.css">"#);
         assert!(
             link_self_closing || link_html5,
@@ -1437,19 +1457,21 @@ fn build_dark_mode_token_overrides() {
     let hex_pat =
         regex_lite::Regex::new(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b").unwrap();
 
-    // Clause 1: @media block appears AFTER closing `}` of light :root
+    // Clause 1: @media block appears AFTER closing `}` of light :root.
+    // Search from after the light :root block to avoid matching the selector
+    // in the file header comment.
     let light_root_close = selector_block_end(&css, ":root");
-    let media_pos = css
+    let after_root = &css[light_root_close..];
+    let media_pos = after_root
         .find("@media (prefers-color-scheme: dark)")
         .expect("@media (prefers-color-scheme: dark) block must exist");
     assert!(
-        media_pos > light_root_close,
-        "@media block must appear after light :root closing brace; \
-         media_pos={media_pos} <= root_close={light_root_close}"
+        media_pos > 0,
+        "@media block must appear after light :root closing brace (searched from post-root slice)"
     );
 
     // Clause 2: Media block contains a :root sub-block, extracted via brace-counting
-    let media_body = css_decl_block(&css, "@media (prefers-color-scheme: dark)");
+    let media_body = css_decl_block(after_root, "@media (prefers-color-scheme: dark)");
     let dark_root_body = css_decl_block(media_body, ":root");
 
     // Parse light :root tokens
@@ -1524,10 +1546,7 @@ fn build_dark_mode_token_overrides() {
         );
     }
     // text tokens must lighten (RGB sum strictly higher)
-    for token_name in &[
-        "--bt-color-text-primary",
-        "--bt-color-text-secondary",
-    ] {
+    for token_name in &["--bt-color-text-primary", "--bt-color-text-secondary"] {
         let light_val = light_map[token_name];
         let dark_val = dark_map[token_name];
         let light_rgb = hex_to_rgb(light_val);
@@ -1570,10 +1589,10 @@ fn build_dark_mode_token_overrides() {
     let light_body_start = light_body.as_ptr() as usize - css.as_ptr() as usize;
     let light_body_end = light_body_start + light_body.len();
 
-    let dark_root_body_in_css =
-        css_decl_block(&css, "@media (prefers-color-scheme: dark)");
+    // Use after_root slice to avoid matching @media comment in header
+    let media_body_in_css = css_decl_block(after_root, "@media (prefers-color-scheme: dark)");
     // The :root inside the media block — need the body range in the original CSS
-    let drb = css_decl_block(dark_root_body_in_css, ":root");
+    let drb = css_decl_block(media_body_in_css, ":root");
     let dark_body_start = drb.as_ptr() as usize - css.as_ptr() as usize;
     let dark_body_end = dark_body_start + drb.len();
 
@@ -1592,7 +1611,12 @@ fn build_dark_mode_token_overrides() {
     // Clause 8: WCAG contrast ratios for sampled pairs
     let pairs: Vec<(&str, &str, &str, f64)> = vec![
         ("text-primary on surface", "text-primary", "surface", 4.5),
-        ("text-secondary on surface", "text-secondary", "surface", 4.5),
+        (
+            "text-secondary on surface",
+            "text-secondary",
+            "surface",
+            4.5,
+        ),
         (
             "text-primary on surface-code",
             "text-primary",

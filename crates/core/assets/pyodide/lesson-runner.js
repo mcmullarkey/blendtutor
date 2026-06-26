@@ -15,6 +15,7 @@ let pyodide;
 
 start({
   name: "Pyodide",
+  language: "python",
   async boot() {
     pyodide = await loadPyodide();
   },

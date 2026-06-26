@@ -186,6 +186,30 @@ footer.site-footer {
   border-color: var(--bt-color-brand);
 }
 
+/* === CodeMirror 6 editor === */
+/* The CM6 editor mounts inside #submission (a <div>, not a textarea). The
+ * .cm-editor is the root CM6 view; .cm-content is the editable surface; .cm-
+ * scroller is the scroll container. Styled to match the old textarea: code
+ * font, surface-code background, border, min-height, and horizontal scroll for
+ * long lines. Token colors are CM6 defaults (theme-less build) — only layout
+ * and typography are pinned here so the editor matches the workspace vocabulary.
+ */
+.cm-editor {
+  min-height: 6rem;
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  background: var(--bt-color-surface-code);
+}
+
+.cm-content {
+  font-family: var(--bt-font-family-code);
+  padding: var(--bt-space-sm);
+}
+
+.cm-scroller {
+  overflow: auto;
+}
+
 .controls {
   display: flex;
   align-items: center;

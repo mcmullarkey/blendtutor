@@ -7,16 +7,31 @@
 // supplies that as a small `runtime` adapter and calls `start(runtime)`; this is
 // the §5.1 cut that keeps language-specific wiring minimal atop shared assembly.
 //
-// A `runtime` adapter is `{ name, boot(), run(code, checks) }`:
-//   - `name`    : label shown in the boot status line (e.g. "webR", "Pyodide").
-//   - `boot()`  : async, initializes the runtime; resolve when ready to run.
+// A `runtime` adapter is `{ name, language, boot(), run(code, checks) }`:
+//   - `name`     : label shown in the boot status line (e.g. "webR", "Pyodide").
+//   - `language` : "r" | "python" — selects the CodeMirror 6 language extension
+//                  loaded into the editor (closed set, §1.5). NOT a string match
+//                  on `name`; a dedicated field so an adapter cannot accidentally
+//                  get the wrong highlighting by a label typo.
+//   - `boot()`   : async, initializes the runtime; resolve when ready to run.
 //   - `run(code, checks)` : async, evaluates the submission followed by the
 //                 lesson's checks and resolves to `{ output, ok }` — `ok` true
 //                 when nothing raised (a pass), false when anything did (a fail).
-//                 The core never inspects the language; the adapter owns grading.
+//                 The core never inspects the language for grading; the adapter
+//                 owns grading. The `language` field is for the editor only.
 //
-// The `window.__bt` handle (lessons / selectLesson / runSubmission / ready) is the
-// test seam the rodney browser probe drives, identical across targets.
+// The `window.__bt` handle (lessons / selectLesson / runSubmission / getSubmission
+// / editorView / ready) is the test seam the rodney browser probe drives,
+// identical across targets.
+
+import { EditorView, r, python } from "./codemirror.js";
+
+// Language extension lookup: closed set keyed by the runtime adapter's
+// `language` field. An unknown language yields no extension (the editor still
+// works, just without syntax highlighting) — the rodney probe catches the
+// missing tokens. This is NOT a string match on `runtime.name` (§1.5): a label
+// typo cannot silently load the wrong language.
+const LANG_EXT = { r: r(), python: python() };
 
 const statusEl = document.querySelector("[data-test=lesson-status]");
 const bootEl = document.getElementById("boot-status");
@@ -45,17 +60,40 @@ async function loadLessons() {
   return lessons;
 }
 
+// The CodeMirror 6 editor instance — a module-level singleton created once in
+// start() and reused across lesson switches. Null until start() runs, or when
+// graceful degradation fell back to a textarea (CM6 construction failure).
+let editorView = null;
+
+// Replace the editor's doc in one transaction. Singleton: the EditorView is
+// created once in start(); switching lessons dispatches a full-doc replace
+// (from 0 to doc.length) rather than destroying and recreating the editor — the
+// pattern that would leak an editor per switch (§5.1). Under graceful
+// degradation (editorView null), writes to the fallback textarea instead.
+function setEditorContent(code) {
+  if (editorView) {
+    editorView.dispatch({
+      changes: { from: 0, to: editorView.state.doc.length, insert: code },
+    });
+    return;
+  }
+  const ta = submissionEl.querySelector("textarea");
+  if (ta) {
+    ta.value = code;
+  }
+}
+
 function renderLesson(lesson) {
   titleEl.textContent = lesson.title;
   promptEl.textContent = lesson.prompt;
-  submissionEl.value = lesson.code_template ?? "";
+  setEditorContent(lesson.code_template ?? "");
   outputEl.textContent = "";
   setStatus("idle", "idle");
 }
 
 // Build the shared lesson state, bound to a runtime adapter. Grading itself lives
-// in `runtime.run`; this object owns only selection and the pass/fail reporting
-// that is identical for every language.
+// in `runtime.run`; this object owns only selection, the pass/fail reporting
+// that is identical for every language, and reading the editor doc.
 function makeBt(runtime) {
   return {
     lessons: [],
@@ -76,14 +114,49 @@ function makeBt(runtime) {
       setStatus(ok ? "pass" : "fail", ok ? "pass" : "fail");
       return ok ? "pass" : "fail";
     },
+
+    // Read the current editor doc — the single source for submission text (§3.4).
+    // Falls back to a textarea (graceful degradation) if CM6 failed to boot, so
+    // feedback.js and the run button read the same contract either way.
+    getSubmission() {
+      if (editorView) {
+        return editorView.state.doc.toString();
+      }
+      const ta = submissionEl.querySelector("textarea");
+      return ta ? ta.value : "";
+    },
   };
 }
 
 /// Boot a built lesson site against `runtime`. Loads the lessons, wires the UI,
-/// then initializes the runtime — exposing `window.__bt` for the test probe.
+/// creates the CodeMirror 6 editor in `#submission`, then initializes the runtime
+/// — exposing `window.__bt` for the test probe.
 export async function start(runtime) {
   const bt = makeBt(runtime);
   window.__bt = bt;
+
+  // Create the CM6 editor ONCE — a singleton mounted in #submission. On lesson
+  // switch, renderLesson dispatches a doc replace (never destroys/recreates), so
+  // there is no editor leak across switches (§5.1). Wrapped in try-catch for
+  // graceful degradation: if the CM6 bundle fails to initialize (e.g. an
+  // unsupported browser API), fall back to a plain textarea inside #submission
+  // so the site still runs — the learner can write and submit code, just without
+  // syntax highlighting. getSubmission() reads either path transparently.
+  try {
+    editorView = new EditorView({
+      doc: "",
+      extensions: [LANG_EXT[runtime.language] ?? []],
+      parent: submissionEl,
+    });
+  } catch (err) {
+    console.warn("CodeMirror 6 failed to initialize; falling back to textarea.", err);
+    editorView = null;
+    const fallback = document.createElement("textarea");
+    fallback.spellcheck = false;
+    submissionEl.replaceChildren(fallback);
+  }
+  // Expose the editor for rodney test access (null under graceful degradation).
+  window.__bt.editorView = editorView;
 
   async function main() {
     setStatus("idle", "idle");
@@ -93,14 +166,15 @@ export async function start(runtime) {
     bootEl.textContent = `Booting ${runtime.name}…`;
 
     bt.lessons = await loadLessons();
-    // Build the picker with the DOM Option API, never innerHTML: a lesson title
-    // comes from a course that may be untrusted (shared), so it must never be
-    // parsed as HTML (the same threat model that keeps slugs off the filesystem).
+    // Build the picker with the DOM Option API, never by parsing titles as HTML:
+    // a lesson title comes from a course that may be untrusted (shared), so it
+    // must never be parsed as HTML (the same threat model that keeps slugs off
+    // the filesystem).
     selectEl.replaceChildren(
       ...bt.lessons.map((lesson, i) => new Option(lesson.title, String(i))),
     );
     selectEl.addEventListener("change", () => bt.selectLesson(Number(selectEl.value)));
-    runButton.addEventListener("click", () => bt.runSubmission(submissionEl.value));
+    runButton.addEventListener("click", () => bt.runSubmission(bt.getSubmission()));
     if (bt.lessons.length > 0) {
       await bt.selectLesson(0);
     }

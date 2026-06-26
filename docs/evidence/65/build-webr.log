@@ -1,0 +1,5 @@
+   Compiling blendtutor-core v0.1.0 (/Users/carbonite/Documents/coding/portfolio/blendtutor/crates/core)
+   Compiling blendtutor-cli v0.1.0 (/Users/carbonite/Documents/coding/portfolio/blendtutor/crates/cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.45s
+     Running `target/debug/blendtutor build --target webr crates/core/tests/fixtures/r-course -o /tmp/bt-webr-test`
+built 2 lesson(s) for webr into /tmp/bt-webr-test

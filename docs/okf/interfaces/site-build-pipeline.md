@@ -2,7 +2,7 @@
 type: Interface
 title: Site build pipeline
 description: plan_site → write_site public API + include_str! asset embedding.
-resource: crates/core/src/site/mod.rs:413
+resource: crates/core/src/site/mod.rs:436
 tags: [rust, static-site, build, assets, include-str]
 timestamp: 2026-06-25
 pure: true
@@ -18,7 +18,7 @@ The public API surface for building a static site: plan files (pure) then write 
 - `pub fn write_site(out_dir: &Path, site: &SiteFiles) -> std::io::Result<()>` — effectful
 - `pub fn eval_summary_from_report_json(json: &str) -> Result<EvalSummary, EvalReportError>` — pure
 
-**Asset embedding** (`include_str!`, 8 assets):
+**Asset embedding** (`include_str!`, 9 assets):
 - `assets/shared/lesson-runner-core.js`, `assets/shared/coi-serviceworker.js`, `assets/shared/feedback.js`, `assets/shared/styles.css`, `assets/shared/codemirror.js`
 - `assets/webr/{index.html,lesson-runner.js}`, `assets/pyodide/{index.html,lesson-runner.js}`
 
@@ -54,6 +54,6 @@ The public API surface for building a static site: plan files (pure) then write 
 
 # Citations
 
-- `crates/core/src/site/mod.rs:280` (`assemble`), `:413` (`plan_site`), `:444` (`write_site`)
+- `crates/core/src/site/mod.rs:301` (`assemble`), `:436` (`plan_site`), `:467` (`write_site`)
 - `crates/core/src/site/{webr,pyodide}.rs` (`include_str!`)
 - ADR-0008 (static site build)

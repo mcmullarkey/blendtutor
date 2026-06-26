@@ -1,122 +1,237 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.25s
-     Running unittests src/lib.rs (target/debug/deps/blendtutor_core-e6b2900eafa92e80)
+   Compiling blendtutor-cli v0.1.0 (/Users/carbonite/Documents/coding/portfolio/blendtutor/crates/cli)
+   Compiling blendtutor-core v0.1.0 (/Users/carbonite/Documents/coding/portfolio/blendtutor/crates/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.03s
+     Running unittests src/main.rs (target/debug/deps/blendtutor-78897dbdb2b5c55f)
+
+running 9 tests
+test commands::eval::tests::sibling_suite_of_a_path_without_a_file_name_is_the_prefix_alone ... ok
+test commands::eval::tests::sibling_suite_prefixes_the_lesson_file_name_with_eval ... ok
+test commands::eval::tests::sibling_suite_keeps_a_bare_file_name_in_the_current_directory ... ok
+test output::tests::list_renders_an_empty_course_in_both_formats ... ok
+test output::tests::list_json_separates_found_rows_from_failed_rows ... ok
+test output::tests::validate_human_matches_snapshot ... ok
+test output::tests::list_human_matches_snapshot ... ok
+test output::tests::validate_human_invalid_matches_snapshot ... ok
+test output::tests::eval_human_matches_snapshot ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/build.rs (target/debug/deps/build-b1e5f10ad570ac6c)
+
+running 12 tests
+test corrupt_eval_report_fails_the_build_loudly ... ok
+test build_refuses_a_language_target_mismatch_before_writing_anything ... ok
+test build_webr_ships_the_multi_provider_feedback_seam ... ok
+test build_pyodide_emits_a_deployable_python_lesson_site ... ok
+test eval_report_page_reflects_actual_accuracy ... ok
+test missing_report_builds_with_not_validated_page ... ok
+test build_webr_ships_the_byok_anthropic_feedback_seam ... ok
+test build_webr_emits_a_deployable_r_lesson_site ... ok
+test build_webr_ships_the_byok_fireworks_feedback_seam ... ok
+test build_pyodide_ships_the_same_shared_feedback_seam ... ok
+test build_webr_styles_byok_feedback_panel ... ok
+test build_dark_mode_token_overrides ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running tests/cli.rs (target/debug/deps/cli-e5fdfcb641f75fdc)
+
+running 2 tests
+test version_prints_crate_version ... ok
+test help_lists_subcommands ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/cutover.rs (target/debug/deps/cutover-cf5a1576aef45451)
+
+running 2 tests
+test r_package_artifacts_are_absent_from_root ... ok
+test no_r_package_sources_are_tracked ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/eval.rs (target/debug/deps/eval-6d3a09b074180302)
+
+running 2 tests
+test eval_json_emits_per_case_verdicts_and_aggregate ... ok
+test eval_reports_aggregate_accuracy_and_per_case_results ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+     Running tests/init.rs (target/debug/deps/init-c5e64538711fd323)
+
+running 2 tests
+test init_refuses_a_nonempty_target_leaving_it_untouched ... ok
+test init_scaffolds_a_ready_course_that_list_accepts ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/list.rs (target/debug/deps/list-082a03a2ff1c7a67)
+
+running 3 tests
+test list_on_a_directory_without_a_manifest_exits_nonzero ... ok
+test list_reports_each_lessons_id_language_and_title ... ok
+test list_reports_a_malformed_lesson_as_an_error_row_without_losing_the_good_ones ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/new.rs (target/debug/deps/new-cd8cae3d7a5a8b81)
+
+running 3 tests
+test new_lesson_refuses_a_duplicate_id_without_clobbering ... ok
+test new_lesson_r_creates_a_lesson_that_validates_and_lists ... ok
+test new_lesson_python_creates_a_lesson_that_validates_and_lists ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/readme.rs (target/debug/deps/readme-01876217fcf2db51)
+
+running 1 test
+test readme_documents_the_cli_install_and_workflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/run.rs (target/debug/deps/run-0820e0e778dd75c5)
+
+running 7 tests
+test run_missing_code_exits_one ... ok
+test run_format_json_stays_clean_under_logging ... ok
+test run_provider_error_exits_one ... ok
+test run_human_format_is_not_json ... ok
+test run_correct_code_reports_correct_and_exit_zero ... ok
+test run_incorrect_submission_exits_two_with_feedback ... ok
+test run_format_json_emits_one_typed_report ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/validate.rs (target/debug/deps/validate-9afd1ae7c7a72246)
+
+running 4 tests
+test validate_invalid_lesson_exits_nonzero_naming_problem ... ok
+test validate_lesson_without_student_code_placeholder_exits_nonzero_naming_the_rule ... ok
+test validate_valid_lesson_reports_ok_and_exit_zero ... ok
+test validate_json_emits_documented_object_with_exit_code_parity ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (target/debug/deps/blendtutor_core-afe9e8a79b46e2b0)
 
 running 111 tests
 test course::tests::open_missing_manifest_is_a_read_error_not_a_parse_error ... ok
-test eval::tests::aggregate_is_matched_over_total_and_zero_for_an_empty_suite ... ok
 test course::tests::manifest_error_display_and_source_distinguish_each_variant ... ok
+test course::tests::manifest_parse_rejects_a_path_escaping_the_course_directory ... ok
+test course::tests::manifest_parse_rejects_unknown_key_so_author_typos_surface ... ok
+test course::tests::manifest_parse_reads_each_entrys_id_and_path ... ok
+test eval::tests::aggregate_is_matched_over_total_and_zero_for_an_empty_suite ... ok
 test eval::tests::case_result_derives_matched_from_score_case ... ok
 test eval::tests::eval_run_error_names_the_one_based_case_and_chains_its_source ... ok
 test eval::tests::expected_verdict_serializes_to_its_canonical_token ... ok
 test eval::tests::from_token_maps_the_two_polarity_words_and_rejects_others ... ok
-test course::tests::manifest_parse_rejects_unknown_key_so_author_typos_surface ... ok
 test eval::tests::score_case_matches_same_polarity_and_rejects_the_opposite ... ok
 test eval::tests::scores_two_of_three_and_aggregates ... ok
 test eval::tests::structural_error_surfaces_the_underlying_parser_message ... ok
-test course::tests::manifest_parse_reads_each_entrys_id_and_path ... ok
-test course::tests::manifest_parse_rejects_a_path_escaping_the_course_directory ... ok
-test eval::tests::unknown_verdict_error_names_the_case_index_and_quotes_the_token ... ok
-test eval::tests::verdict_polarity_drops_the_feedback_message ... ok
-test grade::tests::a_submission_whose_interpreter_cannot_launch_makes_checks_notrun ... ok
-test grade::tests::a_check_whose_interpreter_cannot_launch_is_a_fail ... ok
-test grade::tests::a_submission_that_exits_nonzero_makes_every_check_notrun ... ok
-test grade::tests::select_runner_dispatches_a_python_lesson_to_the_python_runner ... ok
-test grade::tests::checks_are_classified_element_wise_in_order ... ok
-test grade::tests::no_checks_runs_nothing_and_returns_empty ... ok
-test grade::tests::select_runner_dispatches_an_r_lesson_to_the_r_runner ... ok
-test lesson::tests::load_error_display_and_source_surface_the_cause ... ok
-test eval::tests::parse_eval_suite_surfaces_unknown_verdict_with_its_case_index_and_token ... ok
-test lesson::tests::parse_accepts_valid_lesson ... ok
-test lesson::tests::lesson_id_displays_its_value ... ok
-test lesson::tests::parse_defaults_checks_to_empty_when_absent ... ok
-test lesson::tests::parse_defaults_solution_to_none_when_absent ... ok
-test lesson::tests::parse_reads_checks_as_ordered_code_strings ... ok
-test lesson::tests::parse_reads_an_optional_reference_solution ... ok
-test course::tests::discover_summarizes_each_lesson_with_its_slug_language_and_title ... ok
-test lesson::tests::parse_rejects_prompt_missing_student_code_placeholder ... ok
 test course::tests::load_lessons_returns_every_lesson_in_full_and_in_author_order ... ok
-test lesson::tests::read_lesson_file_invalid_contents_is_a_validation_error ... ok
+test eval::tests::parse_eval_suite_surfaces_unknown_verdict_with_its_case_index_and_token ... ok
+test course::tests::discover_summarizes_each_lesson_with_its_slug_language_and_title ... ok
+test eval::tests::unknown_verdict_error_names_the_case_index_and_quotes_the_token ... ok
+test course::tests::load_lessons_fails_on_the_first_broken_lesson_rather_than_dropping_it ... ok
+test course::tests::discovery_error_display_and_source_surface_the_underlying_load_failure ... ok
+test eval::tests::verdict_polarity_drops_the_feedback_message ... ok
+test eval::tests::parse_rejects_unknown_key_so_author_typos_surface ... ok
+test course::tests::discover_reports_a_malformed_lesson_as_an_error_row_keeping_the_good_ones ... ok
+test grade::tests::select_runner_dispatches_a_python_lesson_to_the_python_runner ... ok
+test grade::tests::a_submission_that_exits_nonzero_makes_every_check_notrun ... ok
+test grade::tests::a_submission_whose_interpreter_cannot_launch_makes_checks_notrun ... ok
+test lesson::tests::lesson_id_displays_its_value ... ok
+test grade::tests::select_runner_dispatches_an_r_lesson_to_the_r_runner ... ok
+test lesson::tests::parse_defaults_checks_to_empty_when_absent ... ok
+test grade::tests::a_check_whose_interpreter_cannot_launch_is_a_fail ... ok
+test grade::tests::no_checks_runs_nothing_and_returns_empty ... ok
+test grade::tests::checks_are_classified_element_wise_in_order ... ok
+test lesson::tests::load_error_display_and_source_surface_the_cause ... ok
+test lesson::tests::parse_accepts_valid_lesson ... ok
 test lesson::tests::lesson_json_roundtrip_preserves_value ... ok
+test lesson::tests::parse_reads_an_optional_reference_solution ... ok
+test lesson::tests::parse_reads_checks_as_ordered_code_strings ... ok
+test lesson::tests::parse_defaults_solution_to_none_when_absent ... ok
+test lesson::tests::parse_rejects_missing_required_field_naming_it ... ok
+test lesson::tests::parse_rejects_prompt_missing_student_code_placeholder ... ok
 test lesson::tests::read_lesson_file_missing_path_is_a_read_error_not_a_validation_error ... ok
+test lesson::tests::parse_rejects_unknown_language ... ok
 test llm::feedback::tests::completion_errors_map_to_the_completion_kind ... ok
-test llm::feedback::tests::extraction_failures_map_to_the_extraction_kind ... ok
 test lesson::tests::read_lesson_file_loads_and_parses_the_ported_fixture ... ok
 test llm::feedback::tests::feedback_maps_to_the_matching_verdict_variant ... ok
+test llm::feedback::tests::extraction_failures_map_to_the_extraction_kind ... ok
 test llm::prompt::tests::neutralize_marker_introduces_no_structural_token ... ok
-test llm::prompt::tests::render_check_distinguishes_the_three_outcomes ... ok
 test llm::prompt::tests::neutralize_rewrites_every_structural_token ... ok
-test llm::prompt::tests::render_check_neutralizes_a_token_in_the_outcome_detail ... ok
-test llm::prompt::tests::render_checks_labels_each_outcome_with_its_check_in_order ... ok
-test lesson::tests::parse_rejects_missing_required_field_naming_it ... ok
-test lesson::tests::parse_rejects_unknown_language ... ok
+test lesson::tests::read_lesson_file_invalid_contents_is_a_validation_error ... ok
 test lesson::tests::parse_rejects_unknown_field_so_author_typos_surface ... ok
 test lesson::tests::parse_rejects_unknown_exercise_type ... ok
-test eval::tests::parse_rejects_unknown_key_so_author_typos_surface ... ok
+test llm::prompt::tests::render_check_distinguishes_the_three_outcomes ... ok
+test llm::prompt::tests::render_check_neutralizes_a_token_in_the_outcome_detail ... ok
+test llm::prompt::tests::render_checks_labels_each_outcome_with_its_check_in_order ... ok
 test llm::prompt::tests::render_checks_never_drops_a_verdict_when_outcomes_exceed_checks ... ok
-test course::tests::discovery_error_display_and_source_surface_the_underlying_load_failure ... ok
-test course::tests::discover_reports_a_malformed_lesson_as_an_error_row_keeping_the_good_ones ... ok
-test course::tests::load_lessons_fails_on_the_first_broken_lesson_rather_than_dropping_it ... ok
 test llm::provider::tests::each_provider_has_a_recognizable_default_model ... ok
 test llm::provider::tests::each_provider_names_its_own_key_var ... ok
-test llm::provider::tests::each_provider_targets_its_own_api_host ... ok
-test llm::provider::tests::fireworks_is_the_default_provider ... ok
 test llm::prompt::tests::render_checks_renders_no_line_for_a_check_without_an_outcome ... ok
-test run::tests::run_error_labels_each_stage_and_exposes_its_source ... ok
+test llm::provider::tests::fireworks_is_the_default_provider ... ok
+test llm::provider::tests::each_provider_targets_its_own_api_host ... ok
 test run::tests::json_tags_an_incorrect_verdict_distinctly ... ok
 test run::tests::json_splits_the_verdict_into_a_string_tag_and_feedback ... ok
+test run::tests::run_report_json_roundtrip_preserves_value ... ok
+test runner::tests::from_capture_keeps_streams_distinct_and_passes_exit_through ... ok
 test runner::tests::runner_error_displays_its_stage_and_exposes_the_io_source ... ok
 test scaffold::tests::add_lesson_error_display_and_source_distinguish_each_variant ... ok
-test runner::tests::from_capture_keeps_streams_distinct_and_passes_exit_through ... ok
-test run::tests::run_report_json_roundtrip_preserves_value ... ok
-test scaffold::tests::is_valid_slug_accepts_word_chars_hyphens_and_underscores_but_nothing_else ... ok
-test scaffold::tests::plan_lists_the_starter_files_as_pure_data ... ok
-test scaffold::tests::lesson_template_produces_a_valid_python_lesson ... ok
-test scaffold::tests::lesson_template_produces_a_valid_r_lesson ... ok
-test scaffold::tests::is_empty_target_surfaces_a_non_notfound_error_rather_than_reading_it_as_empty ... ok
+test run::tests::run_error_labels_each_stage_and_exposes_its_source ... ok
 test scaffold::tests::add_lesson_refuses_a_non_course_directory_without_leaving_an_orphan ... ok
-test scaffold::tests::scaffold_error_display_and_source_distinguish_each_variant ... ok
+test scaffold::tests::is_empty_target_surfaces_a_non_notfound_error_rather_than_reading_it_as_empty ... ok
+test scaffold::tests::is_valid_slug_accepts_word_chars_hyphens_and_underscores_but_nothing_else ... ok
+test scaffold::tests::lesson_template_produces_a_valid_python_lesson ... ok
 test scaffold::tests::scaffold_course_refuses_a_broken_symlink_target_instead_of_a_cryptic_write_error ... ok
+test scaffold::tests::plan_lists_the_starter_files_as_pure_data ... ok
+test scaffold::tests::lesson_template_produces_a_valid_r_lesson ... ok
+test scaffold::tests::scaffold_error_display_and_source_distinguish_each_variant ... ok
+test scaffold::tests::scaffold_course_refuses_a_nonempty_target_before_writing_anything ... ok
 test site::tests::build_target_display_names_each_runtime ... ok
-test site::tests::eval_report_error_displays_each_variant_and_chains_its_source ... ok
+test scaffold::tests::add_lesson_refuses_a_duplicate_without_clobbering_or_double_registering ... ok
 test site::tests::build_target_language_maps_each_runtime_to_its_language ... ok
+test scaffold::tests::the_scaffolded_lesson_eval_and_manifest_parse_with_production_parsers ... ok
+test scaffold::tests::add_lesson_refuses_an_unsafe_id_before_writing_anything ... ok
+test site::tests::eval_summary_from_report_json_rejects_a_malformed_report ... ok
 test site::tests::eval_results_html_not_validated_renders_an_explicit_marker ... ok
 test site::tests::eval_results_html_validated_renders_the_accuracy_and_validated_marker ... ok
-test scaffold::tests::the_scaffolded_lesson_eval_and_manifest_parse_with_production_parsers ... ok
-test site::tests::eval_summary_from_report_json_takes_the_accuracy_as_is ... ok
-test site::tests::eval_summary_from_report_json_rejects_a_malformed_report ... ok
+test site::tests::eval_report_error_displays_each_variant_and_chains_its_source ... ok
 test site::tests::eval_summary_from_report_json_rejects_an_out_of_range_accuracy ... ok
-test scaffold::tests::add_lesson_refuses_an_unsafe_id_before_writing_anything ... ok
-test scaffold::tests::scaffold_course_refuses_a_nonempty_target_before_writing_anything ... ok
+test site::tests::eval_summary_from_report_json_takes_the_accuracy_as_is ... ok
+test site::tests::plan_error_language_mismatch_displays_the_clash_with_no_nested_source ... ok
 test scaffold::tests::scaffold_course_accepts_an_existing_empty_directory ... ok
 test scaffold::tests::scaffold_course_creates_the_target_directory_when_absent ... ok
 test scaffold::tests::scaffold_course_writes_every_planned_file_verbatim ... ok
-test scaffold::tests::add_lesson_refuses_a_duplicate_without_clobbering_or_double_registering ... ok
-test site::tests::plan_error_language_mismatch_displays_the_clash_with_no_nested_source ... ok
-test scaffold::tests::add_lesson_writes_the_file_and_registers_it_so_the_course_lists_it ... ok
 test site::tests::plan_site_refuses_an_r_course_built_for_the_pyodide_target ... ok
+test scaffold::tests::add_lesson_writes_the_file_and_registers_it_so_the_course_lists_it ... ok
 test site::tests::plan_site_serializes_a_missing_solution_as_json_null_not_dropped ... ok
-test site::tests::plan_site_serializes_each_lesson_to_the_browser_contract ... ok
-test site::tests::plan_site_pyodide_assembles_the_shell_runner_core_shim_and_one_json_per_lesson ... ok
-test site::tests::plan_site_carries_the_same_shared_core_and_shim_across_both_targets ... ok
-test site::tests::plan_site_shells_have_correct_head_load_order ... ok
-test site::tests::plan_site_shells_contain_semantic_regions ... ok
-test site::tests::plan_site_folds_the_eval_results_page_for_each_state ... ok
-test site::tests::plan_site_shells_have_link_and_no_inline_style ... ok
-test site::tests::plan_site_shells_differ_only_by_three_known_diffs ... ok
 test site::tests::plan_site_assembles_the_shared_byok_feedback_backend ... ok
+test site::tests::plan_site_carries_the_same_shared_core_and_shim_across_both_targets ... ok
+test site::tests::plan_site_pyodide_assembles_the_shell_runner_core_shim_and_one_json_per_lesson ... ok
+test site::tests::plan_site_shells_differ_only_by_three_known_diffs ... ok
+test site::tests::plan_site_shells_have_correct_head_load_order ... ok
+test site::tests::plan_site_serializes_each_lesson_to_the_browser_contract ... ok
+test site::tests::plan_site_folds_the_eval_results_page_for_each_state ... ok
 test site::tests::plan_site_styles_css_declares_tokens_and_uses_them ... ok
+test site::tests::plan_site_shells_load_codemirror_as_import ... ok
+test site::tests::plan_site_shells_contain_semantic_regions ... ok
 test tests::display_names_the_command_and_the_unimplemented_state ... ok
 test site::tests::site_lesson_from_lesson_projects_each_contract_field ... ok
-test site::tests::plan_site_webr_assembles_the_shell_runner_shim_and_one_json_per_lesson ... ok
-test site::tests::plan_site_shells_load_codemirror_as_import ... ok
+test site::tests::plan_site_shells_have_link_and_no_inline_style ... ok
 test site::tests::plan_site_styles_css_is_present_for_both_targets ... ok
+test site::tests::plan_site_webr_assembles_the_shell_runner_shim_and_one_json_per_lesson ... ok
 test site::tests::write_site_writes_every_planned_file_to_disk ... ok
 test site::tests::plan_site_emits_vendored_codemirror_bundle ... ok
 test site::tests::plan_site_workspace_styles_use_tokens_and_status_renders_as_pill ... ok
 
-test result: ok. 111 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 111 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running tests/eval.rs (target/debug/deps/eval-e9648ff30096cad5)
+     Running tests/eval.rs (target/debug/deps/eval-ec86ef06241a5f95)
 
 running 2 tests
 test rejects_unknown_verdict_naming_the_offending_case ... ok
@@ -124,16 +239,16 @@ test parses_ten_fireworks_vitals_cases_into_typed_suite ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/grade.rs (target/debug/deps/grade-416df2804283aa22)
+     Running tests/grade.rs (target/debug/deps/grade-53a9b289dbbe82fb)
 
 running 3 tests
 test python_lesson_selects_python_runner ... ok
 test submission_error_is_notrun_not_fail ... ok
 test r_runner_reports_per_check_pass_fail ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
 
-     Running tests/llm.rs (target/debug/deps/llm-a39751c294fe72cb)
+     Running tests/llm.rs (target/debug/deps/llm-919eedfbc5f220b8)
 
 running 9 tests
 test build_prompt_neutralizes_injected_delimiter ... ok
@@ -142,18 +257,18 @@ test anthropic_missing_key_errs_before_request ... ok
 test fireworks_missing_key_errs_before_request ... ok
 test fireworks_empty_key_errs_before_request ... ok
 test build_prompt_renders_delimited_code_and_labeled_sections ... ok
-test fireworks_present_key_reaches_server ... ok
 test request_feedback_correct_verdict ... ok
+test fireworks_present_key_reaches_server ... ok
 test request_feedback_incorrect_verdict_and_missing_field_errors ... ok
 
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
 
-     Running tests/runner.rs (target/debug/deps/runner-32e835ce7f66b862)
+     Running tests/runner.rs (target/debug/deps/runner-2f4059e7e610a19d)
 
 running 5 tests
 test python_captures_streams_distinctly ... ok
-test runs_in_isolated_temp_dir_cleaned_up ... ok
 test captures_stdout_stderr_exit_separately ... ok
+test runs_in_isolated_temp_dir_cleaned_up ... ok
 test python_infinite_loop_times_out ... ok
 test timeout_kills_process_tree_under_natural_runtime ... ok
 

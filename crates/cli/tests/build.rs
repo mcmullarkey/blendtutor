@@ -1388,14 +1388,17 @@ fn strip_css_comments(s: &str) -> String {
 }
 
 /// Parse CSS declarations from a `{ ... }` block body into (name, value) pairs.
-/// Strips CSS comments before parsing (a comment and declaration may share a
-/// `;`-delimited segment if no `;` sits between them).
+/// Strips CSS comments from the WHOLE block before splitting on `;`. This
+/// ordering is load-bearing: a `;` inside a `/* ... */` comment would otherwise
+/// create a false split, and per-piece stripping starts each piece with
+/// `in_comment=false`, so the `*/` of a comment opened in a prior piece is
+/// treated as literal text — swallowing the declaration that follows it.
 fn parse_css_declarations(block: &str) -> Vec<(String, String)> {
-    block
+    let cleaned = strip_css_comments(block);
+    cleaned
         .split(';')
         .filter_map(|decl| {
-            let cleaned = strip_css_comments(decl);
-            let trimmed = cleaned.trim();
+            let trimmed = decl.trim();
             if trimmed.is_empty() {
                 return None;
             }
@@ -1503,16 +1506,16 @@ fn build_dark_mode_token_overrides() {
         .filter(|(name, _)| name.starts_with("--bt-color-"))
         .collect();
 
-    // Clause 3: All 13 tokens from light :root declared in dark :root
+    // Clause 3: All 20 tokens from light :root declared in dark :root
     assert_eq!(
         light_tokens.len(),
-        13,
-        "light :root must have exactly 13 --bt-color-* tokens"
+        20,
+        "light :root must have exactly 20 --bt-color-* tokens"
     );
     assert_eq!(
         dark_tokens.len(),
-        13,
-        "dark :root must have exactly 13 --bt-color-* tokens"
+        20,
+        "dark :root must have exactly 20 --bt-color-* tokens"
     );
     for (name, _) in &light_tokens {
         assert!(

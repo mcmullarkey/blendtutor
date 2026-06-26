@@ -18,7 +18,15 @@ AC: Replace textarea with CodeMirror 6 editor in lesson sites (AC-2 from code-ed
 
 ## Test suite
 
-`uv run cargo test -p blendtutor-core` — 130 tests pass (111 lib + 2 + 3 + 9 + 5).
+`uv run cargo test --workspace` — 177 tests pass across all binaries (cli bin 9,
+build 12, cli 2, cutover 2, eval 2, init 2, list 3, new 3, readme 1, run 7,
+validate 4, core lib 111, core eval 2, grade 3, llm 9, runner 5, doc-tests 0).
+
+Cycle-2 fix: the previous evidence scoped `cargo test -p blendtutor-core` only,
+which silently omitted the CLI workspace tests — including
+`build_dark_mode_token_overrides` (crates/cli/tests/build.rs), the test that
+catches dark-mode token-count regressions. That omission is why the CI red
+went undetected locally. Full workspace suite now run; all green.
 Full output: `test-suite.log`.
 
 Key new/extended tests:
@@ -32,7 +40,7 @@ Key new/extended tests:
 ## Lint
 
 - `uv run cargo fmt --check` — clean.
-- `uv run cargo clippy -p blendtutor-core --lib --tests -- -D warnings` — clean.
+- `uv run cargo clippy --workspace --all-targets -- -D warnings` — clean.
 
 ## Build smoke test (both targets)
 

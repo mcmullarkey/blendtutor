@@ -70,7 +70,7 @@
   /* Syntax highlighting token colors — CM6 default light-theme palette. Used
    * by the custom HighlightStyle's `.tok-*` classes (lesson-runner-core.js).
    * Distinct from the status/surface vocabulary; a fixed syntax palette. Dark-
-   * mode overrides deferred to AC-3 theme refinement. */
+   * mode overrides in the @media block below use a VS Code dark-theme palette. */
   --bt-color-syntax-keyword: #055;
   --bt-color-syntax-string: #a11;
   --bt-color-syntax-number: #708;
@@ -438,7 +438,7 @@ footer.site-footer {
 }
 
 /* ── Dark mode ────────────────────────────────────────────────────
- * Overrides all 14 --bt-color-* tokens inside @media (prefers-color-scheme: dark)
+ * Overrides all 20 --bt-color-* tokens inside @media (prefers-color-scheme: dark)
  * for WCAG AA contrast (4.5:1 text, 3:1 UI/large text). No non-color tokens.
  * The :root block is extracted by the test via brace-counting on the @media
  * selector, then brace-counting again on :root within the media block body.
@@ -469,6 +469,15 @@ footer.site-footer {
     --bt-color-status-idle: #888888;
     --bt-color-success-bg: #1b3d1b;
     --bt-color-danger-bg: #3d1b1b;
+
+    /* Syntax highlighting — VS Code dark-theme palette */
+    --bt-color-syntax-keyword: #569cd6;
+    --bt-color-syntax-string: #ce9178;
+    --bt-color-syntax-number: #b5cea8;
+    --bt-color-syntax-comment: #6a9955;
+    --bt-color-syntax-variable: #d4d4d4;
+    --bt-color-syntax-function: #dcdcaa;
+    --bt-color-syntax-operator: #d4d4d4;
   }
 
   /* Idle pill text: surface provides sufficient contrast on dark status-idle */

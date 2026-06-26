@@ -823,14 +823,19 @@ mod tests {
             workspace_var_refs
         );
 
-        // 3. No hardcoded hex in workspace rules
+        // 3. No hardcoded hex in workspace rules — exclude the dark-mode @media block
+        //    (which carries hex token overrides by design).
         // Match exactly 3, 6, or 8 hex digits after # (full color or shorthand,
         // with optional alpha). Avoids matching non-color hex patterns like
         // "#feedback" in comments (7 chars, but {6} and {3} won't match 7).
+        let before_dark_mode = after_marker
+            .split("/* ── Dark mode ")
+            .next()
+            .unwrap_or(after_marker);
         let hex_re =
             regex_lite::Regex::new(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b")
                 .unwrap();
-        if let Some(hit) = hex_re.find(after_marker) {
+        if let Some(hit) = hex_re.find(before_dark_mode) {
             panic!(
                 "workspace rules must not contain hardcoded hex literals, found `{}`",
                 hit.as_str()

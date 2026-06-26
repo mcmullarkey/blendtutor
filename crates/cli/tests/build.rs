@@ -169,12 +169,17 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
         "expected exactly 5 #lesson-status[data-status=\"...\"] rules \
          (4 status values + 1 dark-mode idle override)"
     );
-    // No hardcoded hex in workspace rules — scan only the workspace section.
+    // No hardcoded hex in workspace rules — scan the workspace section up to the
+    // dark-mode @media block (which carries hex token overrides by design).
     // Match exactly 3, 6, or 8 hex digits (full color, shorthand, or alpha).
+    let before_dark_mode = after_marker
+        .split("/* ── Dark mode ")
+        .next()
+        .unwrap_or(after_marker);
     let hex_pat =
         regex_lite::Regex::new(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b").unwrap();
     assert!(
-        !hex_pat.is_match(after_marker),
+        !hex_pat.is_match(before_dark_mode),
         "workspace rules must not contain hardcoded hex color literals"
     );
 
@@ -322,10 +327,16 @@ fn build_pyodide_emits_a_deployable_python_lesson_site() {
         "expected exactly 5 #lesson-status[data-status=\"...\"] rules \
          (4 status values + 1 dark-mode idle override)"
     );
+    // No hardcoded hex in workspace rules — exclude the dark-mode @media block
+    // (which carries hex token overrides by design).
+    let before_dark_mode = after_marker
+        .split("/* ── Dark mode ")
+        .next()
+        .unwrap_or(after_marker);
     let hex_pat =
         regex_lite::Regex::new(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b").unwrap();
     assert!(
-        !hex_pat.is_match(after_marker),
+        !hex_pat.is_match(before_dark_mode),
         "workspace rules must not contain hardcoded hex color literals"
     );
 
@@ -1131,11 +1142,16 @@ fn build_webr_styles_byok_feedback_panel() {
         "at least one AC-3 token must be USED in BYOK section"
     );
 
-    // (2) — no hardcoded hex in BYOK section (tokens must carry color values)
+    // (2) — no hardcoded hex in BYOK rules (tokens must carry color values).
+    // Exclude the dark-mode @media block which carries hex token overrides by design.
+    let before_dark_mode = byok_section
+        .split("/* ── Dark mode ")
+        .next()
+        .unwrap_or(byok_section);
     let hex_pat =
         regex_lite::Regex::new(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b").unwrap();
     assert!(
-        !hex_pat.is_match(byok_section),
+        !hex_pat.is_match(before_dark_mode),
         "BYOK rules must not contain hardcoded hex color literals"
     );
 

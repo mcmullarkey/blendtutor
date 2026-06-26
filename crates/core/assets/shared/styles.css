@@ -68,38 +68,6 @@
   --bt-color-danger-bg: #fff3e0;
 }
 
-/* ── Dark mode ────────────────────────────────────────────────────
- * Overrides all 13 --bt-color-* tokens inside @media (prefers-color-scheme: dark)
- * for WCAG AA contrast (4.5:1 text, 3:1 UI/large text). No non-color tokens.
- * The :root block is extracted by the test via brace-counting on the @media
- * selector, then brace-counting again on :root within the media block body.
- * The media block must appear AFTER light :root's closing `}` (positional
- * invariant enforced by build_dark_mode_token_overrides clause 1).
- */
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bt-color-surface: #1e1e1e;
-    --bt-color-surface-code: #2d2d2d;
-    --bt-color-text-primary: #e0e0e0;
-    --bt-color-text-secondary: #a0a0a0;
-    --bt-color-status-pass: #66bb6a;
-    --bt-color-status-fail: #ff5252;
-    --bt-color-status-running: #ff9800;
-    --bt-color-brand: #e0e0e0;
-    --bt-color-brand-hover: #ffffff;
-    --bt-color-border: #808080;
-    --bt-color-status-idle: #888888;
-    --bt-color-success-bg: #1b3d1b;
-    --bt-color-danger-bg: #3d1b1b;
-  }
-
-  /* Idle pill text: surface provides sufficient contrast on dark status-idle */
-  #lesson-status[data-status="idle"] {
-    color: var(--bt-color-surface);
-  }
-}
-
 /* ── Semantic region rules ─────────────────────────────────────── */
 
 body {
@@ -161,7 +129,7 @@ footer.site-footer {
  *  - No #feedback panel styling (AC-3 owns that region).
  *  - No header/footer overrides.
  *  - No JS changes — pure CSS only.
- *  - Dark mode is handled by @media (prefers-color-scheme: dark) :root overrides
+ *  - Dark mode is handled by the dark-mode @media block :root overrides
  *    at the bottom of this file — workspace rules inherit via var(--bt-*) tokens.
  */
 
@@ -319,7 +287,7 @@ footer.site-footer {
  *  - No JS changes — pure CSS only. feedback.js byte-unchanged.
  *  - No className/style./classList manipulation (those are feedback.js's job).
  *  - No hex color literals in BYOK rules — all colors via var(--bt-*) tokens.
- *  - Dark mode is handled by @media (prefers-color-scheme: dark) :root overrides
+ *  - Dark mode is handled by the dark-mode @media block :root overrides
  *    at the bottom of this file — BYOK rules inherit via var(--bt-*) tokens.
  */
 
@@ -415,4 +383,44 @@ footer.site-footer {
 /* Error — text-only emphasis: fail color, no background tint (distinct from verdict) */
 #feedback [data-byok="error"] {
   color: var(--bt-color-status-fail);
+}
+
+/* ── Dark mode ────────────────────────────────────────────────────
+ * Overrides all 14 --bt-color-* tokens inside @media (prefers-color-scheme: dark)
+ * for WCAG AA contrast (4.5:1 text, 3:1 UI/large text). No non-color tokens.
+ * The :root block is extracted by the test via brace-counting on the @media
+ * selector, then brace-counting again on :root within the media block body.
+ * The media block must appear AFTER light :root's closing `}` (positional
+ * invariant enforced by build_dark_mode_token_overrides clause 1).
+ *
+ * WARNING: This block MUST remain at the END of this file, after all semantic
+ * rules. The idle-pill status override inside this block has the SAME
+ * specificity (1,1,0) as the default rule; @media does NOT add specificity
+ * per the CSS cascading spec. If this block appears before the default rule,
+ * the override is dead code — the later default rule wins by source order.
+ * Tests check token values from parsed CSS custom properties, not computed
+ * CSS styles, so they do NOT catch source-order bugs. Keep this block last.
+ */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bt-color-surface: #1e1e1e;
+    --bt-color-surface-code: #2d2d2d;
+    --bt-color-text-primary: #e0e0e0;
+    --bt-color-text-secondary: #a0a0a0;
+    --bt-color-status-pass: #66bb6a;
+    --bt-color-status-fail: #ff5252;
+    --bt-color-status-running: #ff9800;
+    --bt-color-brand: #e0e0e0;
+    --bt-color-brand-hover: #ffffff;
+    --bt-color-border: #808080;
+    --bt-color-status-idle: #888888;
+    --bt-color-success-bg: #1b3d1b;
+    --bt-color-danger-bg: #3d1b1b;
+  }
+
+  /* Idle pill text: surface provides sufficient contrast on dark status-idle */
+  #lesson-status[data-status="idle"] {
+    color: var(--bt-color-surface);
+  }
 }

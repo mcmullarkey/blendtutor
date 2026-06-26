@@ -88,7 +88,7 @@
     --bt-color-status-running: #ff9800;
     --bt-color-brand: #e0e0e0;
     --bt-color-brand-hover: #ffffff;
-    --bt-color-border: #444444;
+    --bt-color-border: #808080;
     --bt-color-status-idle: #888888;
     --bt-color-success-bg: #1b3d1b;
     --bt-color-danger-bg: #3d1b1b;
@@ -266,7 +266,7 @@ footer.site-footer {
 
 #lesson-status[data-status="idle"] {
   background: var(--bt-color-status-idle);
-  color: var(--bt-color-text-secondary);
+  color: var(--bt-color-surface);
 }
 
 #lesson-status[data-status="running"] {

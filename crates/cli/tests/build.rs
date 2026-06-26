@@ -1644,7 +1644,12 @@ fn build_dark_mode_token_overrides() {
             3.0,
         ),
         ("status-idle on surface", "status-idle", "surface", 3.0),
+        ("surface on status-idle", "surface", "status-idle", 4.5),
         ("brand on surface", "brand", "surface", 3.0),
+        ("border on surface", "border", "surface", 3.0),
+        ("border on surface-code", "border", "surface-code", 3.0),
+        ("border on success-bg", "border", "success-bg", 3.0),
+        ("border on danger-bg", "border", "danger-bg", 3.0),
     ];
     for (label, fg_token, bg_token, min_ratio) in &pairs {
         // Resolve full token names

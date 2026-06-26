@@ -37,7 +37,7 @@
 | `--bt-color-status-running` | `#b06a00` | `#ff9800` |
 | `--bt-color-brand` | `#1a1a1a` | `#e0e0e0` |
 | `--bt-color-brand-hover` | `#000000` | `#ffffff` |
-| `--bt-color-border` | `#d4d4d4` | `#444444` |
+| `--bt-color-border` | `#d4d4d4` | `#808080` |
 | `--bt-color-status-idle` | `#e8e8e8` | `#888888` |
 | `--bt-color-success-bg` | `#e8f5e9` | `#1b3d1b` |
 | `--bt-color-danger-bg` | `#fff3e0` | `#3d1b1b` |

@@ -65,6 +65,7 @@ Add `@media (prefers-color-scheme: dark) { :root { ... } }` block overriding all
 - [x] 2026-06-25 10:45 — Green: add `@media (prefers-color-scheme: dark)` block + update 3 comments — all 10 clauses pass
 - [x] 2026-06-25 10:50 — Refactor: applied `cargo fmt`, added `strip_css_comments` helper to handle CSS-comment + declaration in same `;`-delimited chunk
 - [x] 2026-06-25 10:55 — E2E evidence committed to `docs/evidence/62/`
+- [x] 2026-06-25 11:00 — Fix(review): idle pill text contrast (color rule-level fix) + border color value (#444444→#808080) + 5 new contrast pairs in clause 8
 
 ### Decision Log
 - 2026-06-25 — rodney/visual dropped from verification: contrast compliance is computable in code (WCAG formula). Aesthetics evaluation is a separate concern if desired.
@@ -75,6 +76,7 @@ Add `@media (prefers-color-scheme: dark) { :root { ... } }` block overriding all
 ### Surprises & Discoveries
 - `css.find("@media (prefers-color-scheme: dark)")` matched the first occurrence in the header comment (`* - Overrides all --bt-color-* tokens inside @media (prefers-color-scheme: dark)`), not the actual `@media` rule block. Fixed by searching from the `after_root` slice (after light `:root` closing `}`), which avoids all pre-root comments. The `css_decl_block` helper uses the same `css.find` internally — passing the `after_root` slice scoped the search correctly.
 - `parse_css_declarations` initially filtered by `trimmed.starts_with("/*")`, but a `;`-delimited chunk can contain both a comment and a declaration with no `;` between them (e.g., `  /* Colors — light theme */\n  --bt-color-surface: #ffffff`). Added `strip_css_comments` helper that removes `/* ... */` pairs before parsing declarations. Without this, the test found only 11 of 13 `--bt-color-*` tokens in the light `:root`.
+- PR review finding (review cycle 1): clause 8's 10 sampled pairs missed two real WCAG AA regressions in dark mode — `text-secondary (#a0a0a0) on status-idle (#888888)` measured 1.36:1 (idle pill, default state on every lesson load), and `border (#444444)` against all 4 dark surfaces (surface, surface-code, success-bg, danger-bg) measured 1.27-2.08, all below the 3:1 UI floor. The idle pill fix required a rule-level change (color from text-secondary to surface) rather than a token-level change, because darkening `--bt-color-status-idle` to make text-secondary pass 4.5 would break the existing `status-idle on surface` 3.0 pair — the two constraints are contradictory due to mid-luminance text-secondary. The border fix was a straightforward token value change (#444444→#808080), the minimum that passes all 4 surface pairs. Both fixes are pinned by 5 new test pairs added to clause 8.
 
 ### Idempotence & Recovery
 - Safe retry: re-run `cargo test --test build -- build_dark_mode_token_overrides` — test is deterministic, no side effects.

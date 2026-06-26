@@ -1,0 +1,14 @@
+   Compiling blendtutor-core v0.1.0 (/Users/carbonite/Documents/coding/portfolio/blendtutor/crates/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.20s
+     Running unittests src/lib.rs (target/debug/deps/blendtutor_core-e6b2900eafa92e80)
+
+running 1 test
+test site::tests::plan_site_emits_vendored_codemirror_bundle ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 109 filtered out; finished in 0.01s
+
+test site::tests::plan_site_emits_vendored_codemirror_bundle ... ok
+test site::tests::plan_site_workspace_styles_use_tokens_and_status_renders_as_pill ... ok
+
+test result: ok. 110 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

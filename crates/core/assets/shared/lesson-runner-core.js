@@ -24,7 +24,7 @@
 // / editorView / ready) is the test seam the rodney browser probe drives,
 // identical across targets.
 
-import { EditorView, r, python, syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from "./codemirror.js";
+import { EditorView, r, python, syntaxHighlighting, defaultHighlightStyle, HighlightStyle, lineNumbers, highlightActiveLine, bracketMatching, indentWithTab, keymap } from "./codemirror.js";
 import { tags } from "./codemirror.js";
 
 // Language extension lookup: closed set keyed by the runtime adapter's
@@ -50,6 +50,39 @@ const tokHighlightStyle = HighlightStyle.define([
   { tag: tags.function(tags.variableName), class: "tok-function" },
   { tag: tags.operator, class: "tok-operator" },
 ]);
+
+// Build the full CM6 extension array for a given language — a PURE function
+// (§2.1, §5.1): given a language, returns the Extension[] with no side effects.
+// start() calls it once when mounting the EditorView. The array composes:
+//   - the language parser (r()/python()) for syntax-tree building,
+//   - the default + custom HighlightStyles for token coloring (.tok-* classes),
+//   - lineNumbers() for the gutter,
+//   - highlightActiveLine() for the active-line background,
+//   - bracketMatching() for bracket-pair highlighting (.cm-bracket-match),
+//   - keymap.of([indentWithTab]) so Tab indents/dedents inside the editor
+//     (NOT browser focus traversal — sneaky-pass #3: importing indentWithTab
+//     alone is insufficient; it must be composed via keymap.of),
+//   - contentAttributes({ spellcheck: "false" }) so the contenteditable .cm-
+//     content does NOT inherit the browser's default spellcheck=true
+//     (sneaky-pass #5: absent attribute inherits true, word-squiggles appear).
+function editorExtensions(language) {
+  return [
+    LANG_EXT[language] ?? [],
+    // Token styling — distinct from the language parser above. CM6 needs
+    // BOTH: the language support (r()/python()) for parsing into a tree, and
+    // a highlight style for mapping tree nodes to CSS classes. The default
+    // style is kept as a fallback; tokHighlightStyle (added after, so it
+    // wins on tag-match ties) overrides it with deterministic `.tok-*`
+    // classes the AC-2 deterministic check can grep for.
+    syntaxHighlighting(defaultHighlightStyle),
+    syntaxHighlighting(tokHighlightStyle),
+    lineNumbers(),
+    highlightActiveLine(),
+    bracketMatching(),
+    EditorView.contentAttributes.of({ spellcheck: "false" }),
+    keymap.of([indentWithTab]),
+  ];
+}
 
 const statusEl = document.querySelector("[data-test=lesson-status]");
 const bootEl = document.getElementById("boot-status");
@@ -163,17 +196,7 @@ export async function start(runtime) {
   try {
     editorView = new EditorView({
       doc: "",
-      extensions: [
-        LANG_EXT[runtime.language] ?? [],
-        // Token styling — distinct from the language parser above. CM6 needs
-        // BOTH: the language support (r()/python()) for parsing into a tree, and
-        // a highlight style for mapping tree nodes to CSS classes. The default
-        // style is kept as a fallback; tokHighlightStyle (added after, so it
-        // wins on tag-match ties) overrides it with deterministic `.tok-*`
-        // classes the AC-2 deterministic check can grep for.
-        syntaxHighlighting(defaultHighlightStyle),
-        syntaxHighlighting(tokHighlightStyle),
-      ],
+      extensions: editorExtensions(runtime.language),
       parent: submissionEl,
     });
   } catch (err) {

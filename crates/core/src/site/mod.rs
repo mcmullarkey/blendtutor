@@ -1372,6 +1372,9 @@ mod tests {
         // - `python` is the lang-python export name (11 occurrences in the bundle).
         // - lineNumbers, highlightActiveLine, bracketMatching, indentWithTab are
         //   the UX-polish exports AC-3 consumes (AC-1 owns the complete export set).
+        // - keymap is the keymap facet from @codemirror/view — AC-3 composes
+        //   indentWithTab via keymap.of([indentWithTab]) so Tab stays in the
+        //   editor (not browser focus traversal). Re-vendored by AC-3.
         // - syntaxHighlighting + defaultHighlightStyle are the token-styling
         //   exports from @codemirror/language — without these the editor renders
         //   text with no `.tok-*` classes (the builder-vision-probe regression:
@@ -1390,6 +1393,7 @@ mod tests {
             "highlightActiveLine",
             "bracketMatching",
             "indentWithTab",
+            "keymap",
             "syntaxHighlighting",
             "defaultHighlightStyle",
             "HighlightStyle",

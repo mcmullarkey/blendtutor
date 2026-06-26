@@ -74,7 +74,7 @@
   --bt-color-syntax-keyword: #055;
   --bt-color-syntax-string: #a11;
   --bt-color-syntax-number: #708;
-  --bt-color-syntax-comment: #999;
+  --bt-color-syntax-comment: #6a6a6a;
   --bt-color-syntax-variable: #000;
   --bt-color-syntax-function: #30a;
   --bt-color-syntax-operator: #000;
@@ -223,6 +223,46 @@ footer.site-footer {
 
 .cm-scroller {
   overflow: auto;
+}
+
+/* Line number gutter — AC-3 UX polish. The gutter renders line numbers in a
+ * monospace font matching the code surface (prevents gutter/code misalignment —
+ * sneaky-pass #6: .cm-content monospace but .cm-gutters inherits system-ui).
+ * Background uses surface-code so the gutter is visually distinct from the
+ * editable content area. */
+.cm-gutters {
+  background: var(--bt-color-surface-code, #f5f5f5);
+  border-right: 1px solid var(--bt-color-border, #ccc);
+  font-family: var(--bt-font-family-code, monospace);
+}
+
+.cm-gutterElement {
+  font-family: var(--bt-font-family-code, monospace);
+}
+
+/* Active line highlight — the line holding the cursor gets a subtle background
+ * tint so the learner can locate the insertion point. The tint must be DISTINCT
+ * from .cm-content's background (sneaky-pass #4: transparent or matching bg =
+ * zero visual difference). */
+.cm-activeLine {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Bracket match highlight — when the cursor sits adjacent to a bracket, the
+ * matching bracket is highlighted. bracketMatching() adds the
+ * .cm-bracket-match class to the DOM; this rule makes it VISIBLE (sneaky-pass
+ * #2: class added but no CSS = no visual). The background + outline are
+ * non-transparent so the match is unambiguous. */
+.cm-bracket-match {
+  background: rgba(0, 0, 0, 0.12);
+  outline: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+/* Focus outline removal — CM6 manages its own focus ring inside .cm-editor;
+ * suppress the browser default outline on the contenteditable to avoid a
+ * double-ring. */
+.cm-focused {
+  outline: none;
 }
 
 /* Syntax token colors — deterministic `.tok-*` classes emitted by the custom
@@ -483,5 +523,23 @@ footer.site-footer {
   /* Idle pill text: surface provides sufficient contrast on dark status-idle */
   #lesson-status[data-status="idle"] {
     color: var(--bt-color-surface);
+  }
+
+  /* CM6 UX-polish dark overrides — AC-3. The light-mode rules use rgba(0,0,0,*)
+   * tints which are invisible on a dark surface; these flip to rgba(255,255,255,*)
+   * so the gutter border, active line, and bracket match remain visible in
+   * dark mode. */
+  .cm-gutters {
+    background: var(--bt-color-surface-code);
+    border-right-color: var(--bt-color-border);
+  }
+
+  .cm-activeLine {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .cm-bracket-match {
+    background: rgba(255, 255, 255, 0.12);
+    outline-color: rgba(255, 255, 255, 0.2);
   }
 }

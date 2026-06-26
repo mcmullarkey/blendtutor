@@ -837,14 +837,16 @@ mod tests {
             );
         }
 
-        // 4. Exactly 4 #lesson-status[data-status="..."] rules
+        // 4. Exactly 5 #lesson-status[data-status="..."] rules
+        //    (4 status values + 1 dark-mode idle override in @media block)
         let status_selector_re =
             regex_lite::Regex::new(r#"#lesson-status\[data-status="[^"]+"\]"#).unwrap();
         let status_matches: Vec<_> = status_selector_re.find_iter(css).collect();
         assert_eq!(
             status_matches.len(),
-            4,
-            "expected exactly 4 `#lesson-status[data-status=\"...\"]` rules, got {}: {:?}",
+            5,
+            "expected exactly 5 `#lesson-status[data-status=\"...\"]` rules \
+             (4 status values + 1 dark-mode idle override), got {}: {:?}",
             status_matches.len(),
             status_matches
         );

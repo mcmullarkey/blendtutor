@@ -83,8 +83,8 @@
     --bt-color-surface-code: #2d2d2d;
     --bt-color-text-primary: #e0e0e0;
     --bt-color-text-secondary: #a0a0a0;
-    --bt-color-status-pass: #4caf50;
-    --bt-color-status-fail: #f44336;
+    --bt-color-status-pass: #66bb6a;
+    --bt-color-status-fail: #ff5252;
     --bt-color-status-running: #ff9800;
     --bt-color-brand: #e0e0e0;
     --bt-color-brand-hover: #ffffff;
@@ -92,6 +92,11 @@
     --bt-color-status-idle: #888888;
     --bt-color-success-bg: #1b3d1b;
     --bt-color-danger-bg: #3d1b1b;
+  }
+
+  /* Idle pill text: surface provides sufficient contrast on dark status-idle */
+  #lesson-status[data-status="idle"] {
+    color: var(--bt-color-surface);
   }
 }
 
@@ -266,7 +271,7 @@ footer.site-footer {
 
 #lesson-status[data-status="idle"] {
   background: var(--bt-color-status-idle);
-  color: var(--bt-color-surface);
+  color: var(--bt-color-text-secondary);
 }
 
 #lesson-status[data-status="running"] {

@@ -165,8 +165,9 @@ fn build_webr_emits_a_deployable_r_lesson_site() {
         + css.matches(r#"#lesson-status[data-status="pass"]"#).count()
         + css.matches(r#"#lesson-status[data-status="fail"]"#).count();
     assert_eq!(
-        status_selector_count, 4,
-        "expected exactly 4 #lesson-status[data-status=\"...\"] rules"
+        status_selector_count, 5,
+        "expected exactly 5 #lesson-status[data-status=\"...\"] rules \
+         (4 status values + 1 dark-mode idle override)"
     );
     // No hardcoded hex in workspace rules — scan only the workspace section.
     // Match exactly 3, 6, or 8 hex digits (full color, shorthand, or alpha).
@@ -317,8 +318,9 @@ fn build_pyodide_emits_a_deployable_python_lesson_site() {
         + css.matches(r#"#lesson-status[data-status="pass"]"#).count()
         + css.matches(r#"#lesson-status[data-status="fail"]"#).count();
     assert_eq!(
-        status_selector_count, 4,
-        "expected exactly 4 #lesson-status[data-status=\"...\"] rules"
+        status_selector_count, 5,
+        "expected exactly 5 #lesson-status[data-status=\"...\"] rules \
+         (4 status values + 1 dark-mode idle override)"
     );
     let hex_pat =
         regex_lite::Regex::new(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b|#[0-9a-fA-F]{3}\b").unwrap();
@@ -1608,8 +1610,8 @@ fn build_dark_mode_token_overrides() {
         );
     }
 
-    // Clause 8: WCAG contrast ratios for sampled pairs
-    let pairs: Vec<(&str, &str, &str, f64)> = vec![
+    // Clause 8: WCAG contrast ratios for sampled pairs (dark mode)
+    let dark_pairs: Vec<(&str, &str, &str, f64)> = vec![
         ("text-primary on surface", "text-primary", "surface", 4.5),
         (
             "text-secondary on surface",
@@ -1650,8 +1652,16 @@ fn build_dark_mode_token_overrides() {
         ("border on surface-code", "border", "surface-code", 3.0),
         ("border on success-bg", "border", "success-bg", 3.0),
         ("border on danger-bg", "border", "danger-bg", 3.0),
+        // Verdict <strong> contrast — status-* on verdict bg
+        (
+            "status-pass on success-bg",
+            "status-pass",
+            "success-bg",
+            4.5,
+        ),
+        ("status-fail on danger-bg", "status-fail", "danger-bg", 4.5),
     ];
-    for (label, fg_token, bg_token, min_ratio) in &pairs {
+    for (label, fg_token, bg_token, min_ratio) in &dark_pairs {
         // Resolve full token names
         let fg_name = format!("--bt-color-{fg_token}");
         let bg_name = format!("--bt-color-{bg_token}");
@@ -1663,6 +1673,59 @@ fn build_dark_mode_token_overrides() {
         assert!(
             cr >= *min_ratio,
             "{label}: contrast ratio {cr:.2} < {min_ratio} (fg={fg_val}, bg={bg_val}, \
+             L_fg={l_fg:.4}, L_bg={l_bg:.4})"
+        );
+    }
+
+    // Light-mode contrast check — parallel to dark check above.
+    // Pins light-mode pairs that could regress from dark-mode-only fixes.
+    // Only includes pairs with real text-on-background usages in light mode:
+    //   - border tokens are 1px lines, not meaningful UI components (3:1 N/A)
+    //   - status-idle is used as a background, not text, in light mode
+    //   - status-on-surface pairs cover the pill/verdict badge use cases
+    let light_pairs: Vec<(&str, &str, &str, f64)> = vec![
+        ("text-primary on surface", "text-primary", "surface", 4.5),
+        (
+            "text-secondary on surface",
+            "text-secondary",
+            "surface",
+            4.5,
+        ),
+        (
+            "text-primary on surface-code",
+            "text-primary",
+            "surface-code",
+            4.5,
+        ),
+        // Idle pill text in light mode uses text-secondary on status-idle.
+        // This pair would have caught the cycle-1 light-mode regression.
+        (
+            "text-secondary on status-idle (light)",
+            "text-secondary",
+            "status-idle",
+            4.5,
+        ),
+        ("status-pass on surface", "status-pass", "surface", 3.0),
+        ("status-fail on surface", "status-fail", "surface", 3.0),
+        (
+            "status-running on surface",
+            "status-running",
+            "surface",
+            3.0,
+        ),
+        ("brand on surface", "brand", "surface", 3.0),
+    ];
+    for (label, fg_token, bg_token, min_ratio) in &light_pairs {
+        let fg_name = format!("--bt-color-{fg_token}");
+        let bg_name = format!("--bt-color-{bg_token}");
+        let fg_val = light_map[fg_name.as_str()];
+        let bg_val = light_map[bg_name.as_str()];
+        let l_fg = relative_luminance(fg_val);
+        let l_bg = relative_luminance(bg_val);
+        let cr = contrast_ratio(l_fg, l_bg);
+        assert!(
+            cr >= *min_ratio,
+            "LIGHT {label}: contrast ratio {cr:.2} < {min_ratio} (fg={fg_val}, bg={bg_val}, \
              L_fg={l_fg:.4}, L_bg={l_bg:.4})"
         );
     }

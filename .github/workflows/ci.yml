@@ -42,3 +42,10 @@ jobs:
       # nonzero exit (no `--no-run`, no `continue-on-error`, no `|| true`).
       - name: Test
         run: cargo nextest run --locked
+
+      # Issue #71 — the Fireworks default model id is a dual-consumer field
+      # (Rust CLI + JS BYOK). This asserts both sides agree on the same id and
+      # that the retired `qwen3-vl-30b-a3b-instruct` leaves no dead-code ghost.
+      # Uses grep (not rg) so ubuntu-latest needs no extra install.
+      - name: Model alignment
+        run: ./scripts/check-model-alignment.sh

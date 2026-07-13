@@ -56,7 +56,7 @@ async fn r_runner_reports_per_check_pass_fail() {
     }
 
     let lesson = Lesson::parse(LESSON_R_TWO_CHECKS_SPLIT).expect("fixture lesson is valid");
-    let runner = select_runner(&lesson.language);
+    let runner = select_runner(&lesson.language, &lesson.packages);
 
     let outcomes = run_checks(runner, SUBMISSION_PASSES_C1_FAILS_C2, &lesson.checks).await;
 
@@ -95,7 +95,10 @@ exercise:
 fn python_lesson_selects_python_runner() {
     let lesson = Lesson::parse(LESSON_PYTHON_MINIMAL).expect("fixture lesson is valid");
     assert!(
-        matches!(select_runner(&lesson.language), RunnerKind::Python(_)),
+        matches!(
+            select_runner(&lesson.language, &lesson.packages),
+            RunnerKind::Python(_)
+        ),
         "a language: Python lesson must select the Python runner"
     );
 }
@@ -131,7 +134,7 @@ async fn submission_error_is_notrun_not_fail() {
     }
 
     let lesson = Lesson::parse(LESSON_R_ONE_CHECK).expect("fixture lesson is valid");
-    let runner = select_runner(&lesson.language);
+    let runner = select_runner(&lesson.language, &lesson.packages);
 
     let outcomes = run_checks(runner, SUBMISSION_R_SYNTAX_ERROR, &lesson.checks).await;
 

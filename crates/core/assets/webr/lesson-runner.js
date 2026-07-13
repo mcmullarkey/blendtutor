@@ -23,11 +23,17 @@ start({
   },
   // Evaluate the submission and checks in a fresh R scope. Any R error (a failed
   // `stopifnot`, a parse error, an undefined symbol) is caught and reported as a
-  // fail; clean evaluation is a pass.
-  async run(code, checks) {
+  // fail; clean evaluation is a pass. When the lesson declares `packages`
+  // (ADR-0011), they are installed via `webR.installPackages` before evaluation
+  // — inside the try/catch so an install failure is reported as `{ ok: false }`,
+  // not a crash.
+  async run(code, checks, packages) {
     const program = [code, ...checks].join("\n");
     const shelter = await new webR.Shelter();
     try {
+      if (packages && packages.length > 0) {
+        await webR.installPackages(packages);
+      }
       const { output } = await shelter.captureR(`local({\n${program}\n})`);
       return { output: output.map((line) => line.data).join("\n"), ok: true };
     } catch (err) {

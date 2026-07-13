@@ -1779,3 +1779,100 @@ fn build_dark_mode_token_overrides() {
         );
     }
 }
+
+// ── Issue #72: lesson packages field ──────────────────────────────
+
+/// Write a temp course with a single Python lesson whose YAML is `lesson_yaml`,
+/// returning the course directory path. The manifest lists one lesson `add-two`
+/// at `add.yaml`.
+fn write_packages_course(tmp: &tempfile::TempDir, lesson_yaml: &str) -> PathBuf {
+    let course = tmp.path().join("course");
+    std::fs::create_dir_all(&course).unwrap();
+    std::fs::write(
+        &course.join("blendtutor.toml"),
+        "[[lessons]]\nid = \"add-two\"\npath = \"add.yaml\"\n",
+    )
+    .unwrap();
+    std::fs::write(course.join("add.yaml"), lesson_yaml).unwrap();
+    course
+}
+
+/// A minimal Python lesson that declares `packages: [pandas]`.
+const LESSON_PY_WITH_PACKAGES: &str = r#"lesson_name: "Add Two Numbers"
+language: Python
+packages:
+  - pandas
+exercise:
+  prompt: "Write add(a, b)."
+  code_template: "def add(a, b):\n    ..."
+  solution: "def add(a, b):\n    return a + b"
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+/// A minimal Python lesson with NO `packages` key — must emit `"packages": []`.
+const LESSON_PY_WITHOUT_PACKAGES: &str = r#"lesson_name: "Add Two Numbers"
+language: Python
+exercise:
+  prompt: "Write add(a, b)."
+  code_template: "def add(a, b):\n    ..."
+  solution: "def add(a, b):\n    return a + b"
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+#[test]
+fn build_emits_lesson_json_with_packages_array() {
+    // Issue #72: a lesson declaring `packages: [pandas]` must serialize the
+    // packages into `lessons/0.json` as a JSON array — the browser runner reads
+    // this to call installPackages/loadPackage, and the local Python runner
+    // reads it to spawn `uv run --with pandas`.
+    let tmp = tempfile::tempdir().unwrap();
+    let course = write_packages_course(&tmp, LESSON_PY_WITH_PACKAGES);
+    let out = tmp.path().join("site");
+
+    let output = build("pyodide", course.to_str().unwrap(), &out);
+    assert!(
+        output.status.success(),
+        "build should exit 0, got {:?}; stderr={:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let lesson: Value =
+        serde_json::from_str(&std::fs::read_to_string(out.join("lessons/0.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        lesson["packages"],
+        serde_json::json!(["pandas"]),
+        "lesson JSON must carry the packages array: {lesson}"
+    );
+}
+
+#[test]
+fn build_emits_empty_packages_array_when_lesson_has_no_packages() {
+    // Issue #72 negative: a lesson WITHOUT a `packages` key must emit
+    // `"packages": []` (empty array, NOT null and NOT absent) — stable contract
+    // shape so the JS runtime never has to handle absence.
+    let tmp = tempfile::tempdir().unwrap();
+    let course = write_packages_course(&tmp, LESSON_PY_WITHOUT_PACKAGES);
+    let out = tmp.path().join("site");
+
+    let output = build("pyodide", course.to_str().unwrap(), &out);
+    assert!(
+        output.status.success(),
+        "build should exit 0, got {:?}; stderr={:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let lesson: Value =
+        serde_json::from_str(&std::fs::read_to_string(out.join("lessons/0.json")).unwrap())
+            .unwrap();
+    assert!(
+        lesson["packages"].is_array(),
+        "packages must be an array (not null/absent): {lesson}"
+    );
+    assert!(
+        lesson["packages"].as_array().unwrap().is_empty(),
+        "packages must be an empty array when lesson has no packages key: {lesson}"
+    );
+}

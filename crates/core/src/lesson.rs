@@ -109,6 +109,14 @@ pub struct Lesson {
     /// `checks` key, and every existing lesson stays valid.
     #[serde(default)]
     pub checks: Vec<String>,
+    /// Third-party packages the lesson's code depends on (e.g. `pandas`,
+    /// `purrr`). A `Vec` defaulting to empty, not an `Option<Vec>`: "no
+    /// packages" is just the empty list, mirroring `checks` (§1.1). A lesson
+    /// with no `packages` key stays valid; the browser runner receives an
+    /// empty array and the local Python runner spawns `uv run` with no
+    /// `--with` flags (ADR-0011).
+    #[serde(default)]
+    pub packages: Vec<String>,
     /// Optional one-line summary.
     pub description: Option<String>,
     /// Optional pointer to a textbook section.
@@ -291,6 +299,44 @@ exercise:
             lesson.checks.is_empty(),
             "a lesson without a checks key has no checks, got {:?}",
             lesson.checks
+        );
+    }
+
+    const LESSON_WITH_PACKAGES_YAML: &str = r#"
+lesson_name: "Adder"
+language: Python
+packages:
+  - pandas
+  - numpy
+exercise:
+  prompt: "Write add(x, y)."
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_reads_packages_as_ordered_strings() {
+        // A lesson may declare third-party packages (ADR-0011). They parse in
+        // document order as raw strings — the browser runner and local Python
+        // runner consume them to install/load before evaluating code.
+        let lesson =
+            Lesson::parse(LESSON_WITH_PACKAGES_YAML).expect("a lesson with packages is valid");
+        assert_eq!(
+            lesson.packages,
+            vec!["pandas".to_string(), "numpy".to_string()],
+            "packages parse in document order as raw strings"
+        );
+    }
+
+    #[test]
+    fn parse_defaults_packages_to_empty_when_absent() {
+        // A lesson with no `packages` key has none — the field defaults to an
+        // empty vec (not None), mirroring `checks` (§1.1). Every existing
+        // lesson stays valid.
+        let lesson = Lesson::parse(VALID_YAML).expect("valid lesson should parse");
+        assert!(
+            lesson.packages.is_empty(),
+            "a lesson without a packages key has no packages, got {:?}",
+            lesson.packages
         );
     }
 

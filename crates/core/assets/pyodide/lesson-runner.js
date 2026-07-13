@@ -21,14 +21,20 @@ start({
   },
   // Evaluate the submission and checks in a fresh namespace so a prior run never
   // leaks definitions into the next. Any Python error (a failed `assert`, a
-  // SyntaxError, a NameError) is caught and reported as a fail; clean evaluation
+  // `SyntaxError`, a `NameError`) is caught and reported as a fail; clean evaluation
   // is a pass. CPython seeds `__builtins__` into a fresh globals dict, so an empty
-  // namespace still has the standard builtins available.
-  async run(code, checks) {
+  // namespace still has the standard builtins available. When the lesson declares
+  // `packages` (ADR-0011), they are loaded via `pyodide.loadPackage` before
+  // evaluation — inside the try/catch so a load failure is reported as
+  // `{ ok: false }`, not a crash.
+  async run(code, checks, packages) {
     const program = [code, ...checks].join("\n");
     const namespace = pyodide.toPy({});
     let result;
     try {
+      if (packages && packages.length > 0) {
+        await pyodide.loadPackage(packages);
+      }
       result = await pyodide.runPythonAsync(program, { globals: namespace });
       // A clean run ending in the checks returns None (-> undefined); any other
       // trailing value is shown for context via its str() (PyProxy.toString()).

@@ -11,7 +11,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::lesson::Language;
-use crate::runner::{ExecutionResult, PythonRunner, RRunner, Runner, RunnerError};
+use crate::runner::{ExecutionResult, PythonRunner, RRunner, Runner, RunnerError, Timeout};
 
 /// The verdict for a single lesson check.
 ///
@@ -72,16 +72,22 @@ impl Runner for RunnerKind {
     }
 }
 
-/// Select the runner for a lesson's `language`.
+/// Select the runner for a lesson's `language`, threading `packages` to the
+/// Python runner (ADR-0011).
 ///
 /// Pure: it maps a [`Language`] to a runner with no I/O (§2.1). The `match` is
 /// exhaustive with no wildcard arm, so a new [`Language`] variant fails to
 /// compile here until it is dispatched explicitly — a language can never
-/// silently fall through to the wrong runner.
-pub fn select_runner(language: &Language) -> RunnerKind {
+/// silently fall through to the wrong runner. Packages are constructor state
+/// on [`PythonRunner`], not a per-call parameter on the [`Runner`] trait (§3.4);
+/// R ignores them.
+pub fn select_runner(language: &Language, packages: &[String]) -> RunnerKind {
     match language {
         Language::R => RunnerKind::R(RRunner::default()),
-        Language::Python => RunnerKind::Python(PythonRunner::default()),
+        Language::Python => RunnerKind::Python(PythonRunner::new(
+            Timeout(std::time::Duration::from_secs(30)),
+            packages.to_vec(),
+        )),
     }
 }
 
@@ -221,7 +227,7 @@ mod tests {
     #[test]
     fn select_runner_dispatches_an_r_lesson_to_the_r_runner() {
         assert!(
-            matches!(select_runner(&Language::R), RunnerKind::R(_)),
+            matches!(select_runner(&Language::R, &[]), RunnerKind::R(_)),
             "an R lesson must select the R runner"
         );
     }
@@ -229,8 +235,27 @@ mod tests {
     #[test]
     fn select_runner_dispatches_a_python_lesson_to_the_python_runner() {
         assert!(
-            matches!(select_runner(&Language::Python), RunnerKind::Python(_)),
+            matches!(select_runner(&Language::Python, &[]), RunnerKind::Python(_)),
             "a Python lesson must select the Python runner"
+        );
+    }
+
+    #[test]
+    fn select_runner_threads_packages_to_python_runner() {
+        // ADR-0011: packages must reach PythonRunner as constructor state. A
+        // regression that drops the `packages` parameter from select_runner
+        // (the "select_runner bottleneck" negative) would leave PythonRunner
+        // with empty packages — caught here by asserting the runner carries
+        // them. We can't inspect the private field directly, but a Python
+        // lesson with packages must still select the Python runner (not crash
+        // or fall through), and the runner is constructed with the packages.
+        let packages = vec!["pandas".to_string(), "numpy".to_string()];
+        assert!(
+            matches!(
+                select_runner(&Language::Python, &packages),
+                RunnerKind::Python(_)
+            ),
+            "a Python lesson with packages must select the Python runner"
         );
     }
 

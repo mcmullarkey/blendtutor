@@ -104,6 +104,11 @@ pub struct SiteLesson {
     pub code_template: Option<String>,
     /// The check code-strings, run against a submission in the browser to grade it.
     pub checks: Vec<String>,
+    /// Third-party packages the lesson's code depends on. Always serialized as
+    /// an array — empty when the lesson declares none, never `null` or omitted
+    /// — so the JS runtime contract shape stays stable (ADR-0011, mirroring the
+    /// `solution: null` precedent from ADR-0008).
+    pub packages: Vec<String>,
     /// The author's known-correct answer, for the runner to self-verify.
     pub solution: Option<String>,
 }
@@ -121,6 +126,7 @@ impl SiteLesson {
             prompt: lesson.exercise.prompt.clone(),
             code_template: lesson.exercise.code_template.clone(),
             checks: lesson.checks.clone(),
+            packages: lesson.packages.clone(),
             solution: lesson.exercise.solution.clone(),
         }
     }
@@ -547,6 +553,7 @@ mod tests {
         assert_eq!(site_lesson.prompt, lesson.exercise.prompt);
         assert_eq!(site_lesson.code_template, lesson.exercise.code_template);
         assert_eq!(site_lesson.checks, lesson.checks);
+        assert_eq!(site_lesson.packages, lesson.packages);
         assert_eq!(site_lesson.solution, lesson.exercise.solution);
         assert!(
             site_lesson.solution.as_deref().unwrap().contains("x + y"),
@@ -632,6 +639,25 @@ mod tests {
         assert!(
             lesson.get("solution").is_some() && lesson["solution"].is_null(),
             "a missing solution serializes as null, never dropped: {lesson}"
+        );
+    }
+
+    #[test]
+    fn plan_site_serializes_packages_as_array_even_when_empty() {
+        // ADR-0011: packages must always serialize as an array — empty when the
+        // lesson declares none, never null or absent — so the JS runtime
+        // contract shape stays stable (mirrors the solution: null precedent).
+        // The r-course fixture lessons have no `packages` key.
+        let site = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let lesson: Value =
+            serde_json::from_str(&file(&site, "lessons/0.json").contents).expect("parses");
+        assert!(
+            lesson["packages"].is_array(),
+            "packages must be an array, not null/absent: {lesson}"
+        );
+        assert!(
+            lesson["packages"].as_array().unwrap().is_empty(),
+            "a lesson without packages must emit an empty array: {lesson}"
         );
     }
 

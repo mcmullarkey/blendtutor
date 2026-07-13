@@ -246,17 +246,16 @@ mod tests {
         // regression that drops the `packages` parameter from select_runner
         // (the "select_runner bottleneck" negative) would leave PythonRunner
         // with empty packages — caught here by asserting the runner carries
-        // them. We can't inspect the private field directly, but a Python
-        // lesson with packages must still select the Python runner (not crash
-        // or fall through), and the runner is constructed with the packages.
+        // them via the `packages()` getter, not just that the variant matches.
         let packages = vec!["pandas".to_string(), "numpy".to_string()];
-        assert!(
-            matches!(
-                select_runner(&Language::Python, &packages),
-                RunnerKind::Python(_)
+        match select_runner(&Language::Python, &packages) {
+            RunnerKind::Python(r) => assert_eq!(
+                r.packages(),
+                &["pandas", "numpy"][..],
+                "packages must reach PythonRunner as constructor state"
             ),
-            "a Python lesson with packages must select the Python runner"
-        );
+            other => panic!("a Python lesson must select the Python runner, got {other:?}"),
+        }
     }
 
     /// A reply for a submission that ran cleanly on its own — the gate's

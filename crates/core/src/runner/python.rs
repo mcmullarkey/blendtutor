@@ -37,11 +37,21 @@ impl PythonRunner {
         Self { timeout, packages }
     }
 
+    /// The lesson packages this runner will inject as `--with <pkg>` flags.
+    ///
+    /// Exposed `pub(crate)` so the grading join's tests can assert that
+    /// [`select_runner`](crate::grade::select_runner) threads packages through
+    /// to the runner, not just that it picks the `Python` variant (ADR-0011).
+    #[cfg(test)]
+    pub(crate) fn packages(&self) -> &[String] {
+        &self.packages
+    }
+
     /// Build the interpreter descriptor: `uv run --no-project --quiet
     /// [--with <pkg>...] python -I -c`. When `packages` is empty, no `--with`
     /// flags are emitted — the invocation is `uv run --no-project --quiet
     /// python -I -c`, identical to the pre-packages runner.
-    fn interpreter(&self) -> Interpreter {
+    pub(crate) fn interpreter(&self) -> Interpreter {
         let mut args: Vec<String> = vec!["run".into(), "--no-project".into(), "--quiet".into()];
         for pkg in &self.packages {
             args.push("--with".into());
@@ -71,5 +81,60 @@ impl Runner for PythonRunner {
     ) -> Result<ExecutionResult, RunnerError> {
         let interpreter = self.interpreter();
         subprocess::run(&interpreter, code, self.timeout).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn interpreter_includes_with_flags_for_packages() {
+        // ADR-0011: each package must appear as `--with <pkg>` in the uv
+        // invocation, in declaration order. A regression that drops the loop
+        // (or reverses flag/package order) is caught here: the args must
+        // contain `--with`, `pandas`, `--with`, `numpy` in that sequence.
+        let runner = PythonRunner::new(
+            Timeout(Duration::from_secs(30)),
+            vec!["pandas".into(), "numpy".into()],
+        );
+        let interp = runner.interpreter();
+        assert_eq!(interp.program, "uv");
+        let args = &interp.code_args;
+        let with_idx = args
+            .iter()
+            .position(|a| a == "--with")
+            .expect("--with flag must be present when packages are declared");
+        // --with precedes each package name, in declaration order.
+        assert_eq!(
+            &args[with_idx..with_idx + 4],
+            &["--with", "pandas", "--with", "numpy"],
+            "packages must appear as --with <pkg> pairs in order"
+        );
+        // The tail after the packages is the Python invocation.
+        assert_eq!(
+            &args[args.len() - 3..],
+            &["python", "-I", "-c"],
+            "args must end with python -I -c"
+        );
+    }
+
+    #[test]
+    fn interpreter_omits_with_flags_when_packages_empty() {
+        // The pre-ADR-0011 baseline: no packages → no --with flags. The
+        // invocation is exactly `uv run --no-project --quiet python -I -c`.
+        // A regression that unconditionally emits `--with` would surface here.
+        let runner = PythonRunner::new(Timeout(Duration::from_secs(30)), Vec::new());
+        let interp = runner.interpreter();
+        assert_eq!(interp.program, "uv");
+        assert!(
+            !interp.code_args.iter().any(|a| a == "--with"),
+            "no --with flags when packages is empty"
+        );
+        assert_eq!(
+            interp.code_args,
+            vec!["run", "--no-project", "--quiet", "python", "-I", "-c"],
+            "empty-packages invocation must match pre-ADR-0011 baseline"
+        );
     }
 }

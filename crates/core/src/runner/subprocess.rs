@@ -27,7 +27,7 @@ use super::{ExecutionResult, RunnerError, Timeout};
 /// can inject runtime-built `--with <pkg>` flags per the lesson's packages
 /// (ADR-0011); R builds its fixed args dynamically but its invocation is
 /// byte-identical (`Rscript --vanilla -e`).
-pub(super) struct Interpreter {
+pub(crate) struct Interpreter {
     /// The program to spawn, e.g. `"Rscript"` or `"uv"`.
     pub program: &'static str,
     /// The arguments that precede the learner code — e.g. `["--vanilla", "-e"]`

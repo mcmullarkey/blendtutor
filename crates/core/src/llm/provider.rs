@@ -47,12 +47,13 @@ impl ProviderChoice {
 
     /// The default model id for this provider.
     ///
-    /// Fireworks ports the R package's default (`evaluate_with_llm`); Anthropic
-    /// uses a current Claude model. Model selection is not yet configurable — a
-    /// later slice can lift these to a setting.
+    /// Fireworks mirrors the browser BYOK fallback (`deepseek-v4-flash` in
+    /// `assets/shared/feedback.js`); Anthropic uses a current Claude model. Model
+    /// selection is not yet configurable — a later slice can lift these to a
+    /// setting.
     pub fn default_model(self) -> &'static str {
         match self {
-            ProviderChoice::Fireworks => "accounts/fireworks/models/qwen3-vl-30b-a3b-instruct",
+            ProviderChoice::Fireworks => "accounts/fireworks/models/deepseek-v4-flash",
             ProviderChoice::Anthropic => "claude-sonnet-4-5",
         }
     }
@@ -95,15 +96,16 @@ mod tests {
 
     #[test]
     fn each_provider_has_a_recognizable_default_model() {
-        // Pinned by a substring so a model-id bump stays green while an empty or
-        // wrong default does not (the mock ignores the model, so nothing else
-        // exercises this value).
-        assert!(
-            ProviderChoice::Fireworks
-                .default_model()
-                .contains("fireworks"),
-            "the Fireworks model id names the provider, got {}",
-            ProviderChoice::Fireworks.default_model()
+        // Pinned by exact equality so a wrong-but-similar model id (prefix typo,
+        // stale bump) fails rather than sneaking through a substring match. The
+        // mock ignores the model field, so nothing else exercises this value —
+        // this assertion is load-bearing. Anthropic stays a substring because its
+        // CLI default (`claude-sonnet-4-5`) differs from the browser BYOK default
+        // (`claude-opus-4-8`); only the Claude family is invariant across both.
+        assert_eq!(
+            ProviderChoice::Fireworks.default_model(),
+            "accounts/fireworks/models/deepseek-v4-flash",
+            "the Fireworks default model id must match the browser BYOK fallback",
         );
         assert!(
             ProviderChoice::Anthropic.default_model().contains("claude"),

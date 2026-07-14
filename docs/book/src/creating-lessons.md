@@ -62,9 +62,10 @@ appear in the built site.
 blendtutor new lesson --lang r seed-data
 ```
 
-Writes `lessons/seed_data.yaml` (R template) plus a sibling
-`eval_seed_data.yaml` for grading cases. The `--lang` flag selects the runtime
-the lesson targets (`r` or `python`).
+Writes `lessons/seed-data.yaml` (R template). You'll create the eval suite
+manually in Step 7 — the `eval` command discovers it by sibling convention
+(`eval_<lesson>.yaml`). The `--lang` flag selects the runtime the lesson
+targets (`r` or `python`).
 
 Open the generated lesson file and edit it. Here is the R lesson from
 `examples/write-less-code-r/01_seed_data.yaml` — a complete, working example
@@ -141,7 +142,7 @@ checks:
 blendtutor new lesson --lang python tally
 ```
 
-Writes `lessons/tally.yaml` (Python template) plus `eval_tally.yaml`. Python
+Writes `lessons/tally.yaml` (Python template). Python
 lessons can declare a `packages` list so the runner installs them in the
 Pyodide/browser environment. Here is the Python lesson from
 `examples/write-less-code-python/01_seed_data.yaml`:
@@ -234,7 +235,7 @@ manifests.
 ## Step 5 — Validate a lesson
 
 ```bash
-blendtutor validate lessons/seed_data.yaml
+blendtutor validate lessons/seed-data.yaml
 ```
 
 Reports missing required fields and common authoring mistakes. Exit code is
@@ -242,13 +243,13 @@ nonzero when a lesson is invalid, so it drops cleanly into CI. Add `--format
 json` for machine-readable output:
 
 ```bash
-blendtutor validate lessons/seed_data.yaml --format json
+blendtutor validate lessons/seed-data.yaml --format json
 ```
 
 ## Step 6 — Run a submission
 
 ```bash
-blendtutor run lessons/seed_data.yaml --code submission.R
+blendtutor run lessons/seed-data.yaml --code submission.R
 ```
 
 Runs the submission through the real R interpreter, executes the `checks`, then
@@ -256,7 +257,7 @@ asks the LLM for a verdict. `--code <path>` reads a file; omit it to read from
 stdin:
 
 ```bash
-echo 'survey_data <- data.frame(respondent_id=1:5, stress_6=1:5)' | blendtutor run lessons/seed_data.yaml
+echo 'survey_data <- data.frame(respondent_id=1:5, stress_6=1:5)' | blendtutor run lessons/seed-data.yaml
 ```
 
 Exit code reflects the verdict (correct / incorrect / error). Add `--format
@@ -265,13 +266,14 @@ json` for a structured report.
 ## Step 7 — Write an eval suite
 
 Each lesson pairs with a sibling `eval_<name>.yaml` that contains sample
-submissions and the verdict you expect a good grader to return. The `new`
-command creates a starter file; here is the eval suite from
+submissions and the verdict you expect a good grader to return. Create the
+eval file by hand next to your lesson; here is the eval suite from
 `examples/write-less-code-r/eval_01_seed_data.yaml`:
 
 ```yaml
 # Eval suite for 01_seed_data — 4 cases: 2 correct, 2 incorrect (1 near-miss).
-# The near-miss creates a data frame that runs cleanly but has wrong dimensions.
+# 2 of 4 cases shown below. The near-miss creates a data frame that runs
+# cleanly but has wrong dimensions.
 cases:
   # 1 — correct: full survey_data with 5 rows and 7 columns
   - submission: |-
@@ -305,10 +307,10 @@ realistic mistakes, not just syntax errors.
 ## Step 8 — Score the grading prompt
 
 ```bash
-blendtutor eval lessons/seed_data.yaml
+blendtutor eval lessons/seed-data.yaml
 ```
 
-Replays the lesson's `eval_seed_data.yaml` cases through the full run pipeline
+Replays the lesson's `eval_seed-data.yaml` cases through the full run pipeline
 and reports how often the grader's verdict matches the expected label. This
 lets you measure (and regression-test) grading accuracy before shipping. Because
 evals score against whichever provider your API key selects, run them against
@@ -317,7 +319,7 @@ the same provider your deployed site will use.
 Add `--format json` for machine-readable output:
 
 ```bash
-blendtutor eval lessons/seed_data.yaml --format json
+blendtutor eval lessons/seed-data.yaml --format json
 ```
 
 ## Step 9 — Build a browser site

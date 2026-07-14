@@ -6,9 +6,15 @@ textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Co
 exercise:
   type: "function_writing"
   prompt: |
-    Create a data frame called `survey_data` with 5 respondents and 6 stress
-    items (stress_1 through stress_6) measured on a 1-5 scale, plus a
-    respondent_id column.
+    Create a data frame `survey_data` with 5 respondents, `respondent_id`,
+    and `stress_1` through `stress_6` (integers on a 1-5 scale).
+  hints: |
+    Tip: R's `data.frame()` takes named arguments — each `stress_N = c(...)`
+    becomes a column. Common mistake: using different-length vectors; R
+    recycles silently, which can hide bugs. Watch out for forgetting
+    `respondent_id` — you need 7 columns total (respondent_id + six stress
+    items). Remember that `1:5` generates the sequence c(1, 2, 3, 4, 5).
+    Verify with `dim(survey_data)` which should print `5 7`.
   code_template: |
     survey_data <- data.frame(
       respondent_id = 1:5,

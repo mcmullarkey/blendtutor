@@ -6,12 +6,18 @@ textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Co
 exercise:
   type: "function_writing"
   prompt: |
-    A colleague wrote three nearly identical blocks of code to compute
-    the mean of `stress_1`, `stress_2`, and `stress_3` columns from a
-    DataFrame. Apply the Rule of Three: refactor the repeated code into
-    a single function called `compute_column_means` that takes a
-    DataFrame and a list of column names, and returns a dictionary
-    mapping each column name to its mean.
+    Apply the Rule of Three: refactor repeated column-mean computations into
+    `compute_column_means(df, columns)` returning a dict mapping each column
+    name to its mean.
+  hints: |
+    Tip: the Rule of Three says abstract a pattern once it appears three or
+    more times — here, calling `.mean()` on stress_1, stress_2, stress_3
+    separately. Common mistake: returning a list instead of a dict — the
+    function must map column names to means (e.g., `{'a': 2.0, 'b': 5.0}`).
+    Watch out for forgetting to iterate: a dict comprehension works, but
+    so does an explicit loop assigning each column's mean into a results
+    dict. Remember that `.mean()` returns a float, so the dict values will
+    be floats like 2.0, not integers.
   code_template: |
     import pandas as pd
 

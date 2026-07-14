@@ -6,15 +6,9 @@ textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Co
 exercise:
   type: "function_writing"
   prompt: |
-    Write a function called `normalize_columns` that takes a pandas
-    DataFrame and a list of column names, and normalizes each column
-    to the range [0, 1] using min-max normalization.
-
-    Use an explicit for loop to iterate over the columns. Do NOT use
-    a list comprehension.
-
-    Min-max normalization formula:
-    normalized = (value - min) / (max - min)
+    Write `normalize_columns(df, columns)` that normalizes each column to
+    [0, 1] via min-max normalization: `(value - min) / (max - min)`. Use an
+    explicit `for` loop — NOT a list comprehension.
 
     The submission is correct if ALL of these are true:
     - The function is named `normalize_columns`
@@ -28,6 +22,15 @@ exercise:
     - It does not normalize correctly
     - It has a syntax error
     - It does not return the DataFrame
+  hints: |
+    Gotcha: if a column has all identical values, `max - min` is zero and
+    you get a division-by-zero error. Guard with an `if col_max == col_min`
+    check and set those values to 0.0. Common mistake: forgetting to
+    `return df` at the end — the function must return the modified
+    DataFrame, not None. Watch out for using a list comprehension like
+    `[df[c] = ... for c in columns]` — the exercise requires an explicit
+    for loop. Tip: min-max normalization maps the minimum to 0.0 and the
+    maximum to 1.0.
   code_template: |
     import pandas as pd
 

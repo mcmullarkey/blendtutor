@@ -6,9 +6,8 @@ textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Co
 exercise:
   type: "function_writing"
   prompt: |
-    Create a pandas DataFrame called `survey_data` with 5 respondents and
-    columns `respondent_id`, `stress_1` through `stress_6`. Each stress
-    column should contain integer values between 1 and 5.
+    Create a pandas DataFrame `survey_data` with 5 respondents, a
+    `respondent_id` column, and `stress_1` through `stress_6` (integers 1-5).
 
     The submission is correct if ALL of these are true:
     - Creates a variable named `survey_data`
@@ -23,6 +22,14 @@ exercise:
     - Wrong number of rows (not 5)
     - Missing respondent_id column
     - Has a syntax error
+  hints: |
+    Common mistake: forgetting a column or misspelling it. You need all six
+    stress columns (stress_1 through stress_6) plus respondent_id — 7 columns
+    total. Watch out for passing lists of unequal length to the DataFrame
+    constructor; pandas raises a ValueError. Tip: verify with
+    `survey_data.shape` which should print (5, 7). Remember that integer
+    values like [3, 4, 2, 5, 3] are stored as int64 automatically — no
+    explicit dtype needed.
   code_template: |
     import pandas as pd
 

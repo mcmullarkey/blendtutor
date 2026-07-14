@@ -6,16 +6,19 @@ textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Co
 exercise:
   type: "function_writing"
   prompt: |
-    The "rule of three" says: if you write the same code pattern three or more
-    times, abstract it into a function.
-
-    Write a function called `should_abstract` that takes a count of repetitions
-    and returns TRUE if the pattern should be abstracted (count >= 3), FALSE
-    otherwise.
-
+    Write `should_abstract(count)` that returns TRUE if a pattern repeated
+    `count` times should be abstracted (count >= 3), FALSE otherwise.
     Reconstruct `survey_data` first — each check runs in a fresh R session.
-    Then count the stress columns in `survey_data` to see if the rule of three
-    applies to the reverse-scoring pattern.
+  hints: |
+    Tip: the Rule of Three says abstract a code pattern into a function once
+    it appears three or more times. Common mistake: using `count > 3`
+    instead of `count >= 3` — the threshold is inclusive, so exactly three
+    repetitions should return TRUE. Watch out for returning numeric instead
+    of logical: `count >= 3` returns TRUE/FALSE in R, but `ifelse` or
+    explicit `as.logical()` is unnecessary. Remember that R functions
+    return their last expression, so a one-liner returning `count >= 3`
+    suffices — no explicit `return()` needed. The check reconstructs
+    survey_data to count stress columns (there are 6, so the rule applies).
   code_template: |
     survey_data <- data.frame(
       respondent_id = 1:5,

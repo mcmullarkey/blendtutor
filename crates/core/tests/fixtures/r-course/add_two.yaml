@@ -15,6 +15,9 @@ exercise:
     add_two <- function(x, y) {
       x + y
     }
+  hints: |
+    Remember: R uses '<-' for assignment, and a function returns its last
+    expression automatically — no explicit 'return' needed.
   llm_evaluation_prompt: |
     Evaluate the student's submission:
     {student_code}

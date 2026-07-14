@@ -111,6 +111,11 @@ pub struct SiteLesson {
     pub packages: Vec<String>,
     /// The author's known-correct answer, for the runner to self-verify.
     pub solution: Option<String>,
+    /// Optional learner-facing hints, rendered as an expandable `<details>` panel
+    /// in the browser. Always serialized (null when absent, never dropped via
+    /// `skip_serializing_if`) so the contract shape stays stable — mirroring the
+    /// `solution: null` precedent from ADR-0008.
+    pub hints: Option<String>,
 }
 
 impl SiteLesson {
@@ -128,6 +133,7 @@ impl SiteLesson {
             checks: lesson.checks.clone(),
             packages: lesson.packages.clone(),
             solution: lesson.exercise.solution.clone(),
+            hints: lesson.exercise.hints.clone(),
         }
     }
 }
@@ -559,6 +565,10 @@ mod tests {
             site_lesson.solution.as_deref().unwrap().contains("x + y"),
             "the add-two solution rides the contract verbatim"
         );
+        assert_eq!(
+            site_lesson.hints, lesson.exercise.hints,
+            "hints ride the contract verbatim from exercise.hints"
+        );
     }
 
     #[test]
@@ -606,6 +616,10 @@ mod tests {
         assert_eq!(first["title"], "Add Two Numbers");
         assert!(first["checks"].as_array().unwrap().len() == 2);
         assert!(first["solution"].as_str().unwrap().contains("x + y"));
+        assert!(
+            first["hints"].as_str().unwrap().contains("assignment"),
+            "the add-two hints ride the contract JSON verbatim"
+        );
 
         // The lessons index is the ordered slug list the runner enumerates — by
         // index, so a lesson slug never becomes a filesystem path.
@@ -639,6 +653,51 @@ mod tests {
         assert!(
             lesson.get("solution").is_some() && lesson["solution"].is_null(),
             "a missing solution serializes as null, never dropped: {lesson}"
+        );
+    }
+
+    #[test]
+    fn plan_site_serializes_hints_when_present() {
+        // hints is optional: a lesson that carries one must serialize the text
+        // verbatim into the per-lesson JSON so the browser runner can render it
+        // in an expandable <details>. r-course's add-two lesson carries hints.
+        let site = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let first: Value = serde_json::from_str(&file(&site, "lessons/0.json").contents)
+            .expect("the per-lesson JSON parses");
+        assert!(
+            first["hints"].is_string(),
+            "a lesson with hints serializes them as a JSON string, got: {first}"
+        );
+        assert!(
+            first["hints"].as_str().unwrap().contains("assignment"),
+            "the hints text rides the contract verbatim: {first}"
+        );
+    }
+
+    #[test]
+    fn plan_site_serializes_a_missing_hints_as_json_null_not_dropped() {
+        // hints is optional: a lesson without one must still build, with the
+        // field present-but-null so the contract shape stays stable for the
+        // runner — never silently dropped (which a `skip_serializing_if` would
+        // do, breaking `lessons[i].hints`). course_basic's R lesson carries none.
+        let r_lessons: Vec<(LessonSlug, Lesson)> = Course::open(Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/course_basic"
+        )))
+        .expect("course_basic opens")
+        .load_lessons()
+        .expect("course_basic lessons load")
+        .into_iter()
+        .filter(|(_, lesson)| lesson.language == Language::R)
+        .collect();
+        assert!(!r_lessons.is_empty(), "course_basic has an R lesson");
+
+        let site = plan(&r_lessons, BuildTarget::Webr).expect("a hints-less R course still plans");
+        let lesson: Value =
+            serde_json::from_str(&file(&site, "lessons/0.json").contents).expect("parses");
+        assert!(
+            lesson.get("hints").is_some() && lesson["hints"].is_null(),
+            "a missing hints serializes as null, never dropped: {lesson}"
         );
     }
 
@@ -1783,6 +1842,117 @@ mod tests {
             !cursor_body.contains("black"),
             ".cm-cursor border-left-color must NOT be black \
              (invisible on dark surface-code background)"
+        );
+    }
+
+    #[test]
+    fn plan_site_runner_core_renders_hints_as_expandable_details() {
+        // The lesson runner core must render `lesson.hints` as an expandable
+        // <details> element when the hints field is non-null and non-empty,
+        // and remove it when switching to a lesson without hints.
+        //
+        // Build-time-checkable invariants (the rodney browser probe verifies the
+        // live DOM behavior):
+        //   1. References `lesson.hints` — the field is consumed, not ignored.
+        //   2. Creates a <details> element with id="lesson-hints".
+        //   3. Creates a <summary> child (the expandable toggle).
+        //   4. Sets hints text via textContent — NEVER parsed as HTML (the same
+        //      threat model that keeps lesson titles off innerHTML; untrusted
+        //      lesson content must never be parsed as HTML).
+        //   5. Inserts the details after #lesson-prompt (the prompt element).
+        //   6. Removes the element when hints is null/empty (lesson switch).
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let core = &file(&webr, "lesson-runner-core.js").contents;
+
+        // Clause 1: the hints field is read from the lesson object.
+        assert!(
+            core.contains("lesson.hints"),
+            "lesson-runner-core.js must reference lesson.hints"
+        );
+
+        // Clause 2: a <details> element with id="lesson-hints" is created.
+        assert!(
+            core.contains(r#""details""#),
+            "lesson-runner-core.js must create a <details> element"
+        );
+        assert!(
+            core.contains(r#""lesson-hints""#),
+            "lesson-runner-core.js must set id=\"lesson-hints\" on the details"
+        );
+
+        // Clause 3: a <summary> child is created.
+        assert!(
+            core.contains(r#""summary""#),
+            "lesson-runner-core.js must create a <summary> element"
+        );
+
+        // Clause 4: hints text is set via textContent. The existing
+        // `!core.contains("innerHTML")` invariant (plan_site_shells_load_codemirror_as_import
+        // clause 6) already guarantees no innerHTML is used anywhere — so the
+        // hints text MUST go through textContent. We assert textContent appears
+        // in the hints-rendering path by checking it is used at all (the existing
+        // invariant covers the negative case).
+        assert!(
+            core.contains("textContent"),
+            "lesson-runner-core.js must use textContent for hints text"
+        );
+
+        // Clause 5: the details is inserted after the prompt element. The runner
+        // core holds a `promptEl` reference (document.getElementById("lesson-prompt"));
+        // the hints details must be inserted relative to it.
+        assert!(
+            core.contains("promptEl"),
+            "lesson-runner-core.js must reference promptEl for hints insertion"
+        );
+
+        // Clause 6: the element is removed when hints is absent. A renderLesson
+        // that only creates but never removes would leave a stale hints panel
+        // from a previous lesson visible after switching.
+        assert!(
+            core.contains(".remove()"),
+            "lesson-runner-core.js must remove the hints element when absent"
+        );
+    }
+
+    #[test]
+    fn plan_site_styles_css_has_hints_panel_rules() {
+        // The #lesson-hints <details> panel must be styled via var(--bt-*)
+        // tokens, with a pointer cursor on the <summary> toggle. Dark mode is
+        // handled by the existing :root token overrides in the @media block —
+        // no hardcoded hex literals in the hints rules.
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let css = &file(&webr, "styles.css").contents;
+
+        // Clause 1: #lesson-hints selector exists.
+        assert!(
+            css.contains("#lesson-hints"),
+            "styles.css must contain a #lesson-hints rule"
+        );
+
+        // Clause 2: the summary toggle has cursor: pointer.
+        let hints_pos = css
+            .find("#lesson-hints")
+            .expect("#lesson-hints rule exists");
+        let after_hints = &css[hints_pos..];
+        assert!(
+            after_hints.contains("cursor: pointer") || after_hints.contains("cursor:pointer"),
+            "styles.css must set cursor: pointer on the hints summary toggle"
+        );
+
+        // Clause 3: the hints rules use var(--bt-*) tokens (no hardcoded hex).
+        // Extract the #lesson-hints rule block and check for token usage.
+        let brace = after_hints
+            .find('{')
+            .expect("#lesson-hints must have an opening brace");
+        let body_start = hints_pos + brace + 1;
+        let body_slice = &css[body_start..];
+        let close = body_slice
+            .find('}')
+            .expect("#lesson-hints block must close");
+        let hints_body = &css[body_start..body_start + close];
+        assert!(
+            hints_body.contains("var(--bt-"),
+            "#lesson-hints must use var(--bt-*) tokens, got: {hints_body}"
         );
     }
 

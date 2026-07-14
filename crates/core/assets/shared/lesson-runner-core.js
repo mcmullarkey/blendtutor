@@ -136,9 +136,33 @@ function setEditorContent(code) {
   }
 }
 
+// Render the lesson's hints as an expandable <details> panel after the prompt.
+// Creates the element only when hints is non-null and non-empty; removes any
+// existing panel when switching to a lesson without hints. Uses textContent
+// (never parsed as HTML) — hints are untrusted lesson content, the same threat
+// model that keeps lesson titles off HTML parsing.
+function renderHints(hints) {
+  const existing = document.getElementById("lesson-hints");
+  if (existing) {
+    existing.remove();
+  }
+  if (hints && hints.trim()) {
+    const details = document.createElement("details");
+    details.id = "lesson-hints";
+    const summary = document.createElement("summary");
+    summary.textContent = "Hints & Gotchas";
+    details.appendChild(summary);
+    const body = document.createElement("p");
+    body.textContent = hints;
+    details.appendChild(body);
+    promptEl.insertAdjacentElement("afterend", details);
+  }
+}
+
 function renderLesson(lesson) {
   titleEl.textContent = lesson.title;
   promptEl.textContent = lesson.prompt;
+  renderHints(lesson.hints);
   setEditorContent(lesson.code_template ?? "");
   outputEl.textContent = "";
   setStatus("idle", "idle");

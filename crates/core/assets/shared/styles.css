@@ -177,6 +177,30 @@ footer.site-footer {
   margin-bottom: var(--bt-space-md);
 }
 
+/* Hints & Gotchas — expandable <details> panel rendered by lesson-runner-core.js
+ * when a lesson carries hints. Created dynamically (no static element in the
+ * HTML shell); removed when switching to a lesson without hints. Dark mode is
+ * handled by the existing :root token overrides in the @media block. */
+#lesson-hints {
+  margin-bottom: var(--bt-space-md);
+  padding: var(--bt-space-sm) var(--bt-space-md);
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  background: var(--bt-color-surface-code);
+}
+
+#lesson-hints summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--bt-color-text-secondary);
+}
+
+#lesson-hints p {
+  margin: var(--bt-space-sm) 0 0;
+  color: var(--bt-color-text-secondary);
+  line-height: var(--bt-line-height);
+}
+
 #submission {
   font-family: var(--bt-font-family-code);
   background: var(--bt-color-surface-code);

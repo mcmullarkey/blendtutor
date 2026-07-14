@@ -1,0 +1,30 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running `target/debug/blendtutor build --target pyodide /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.Yqob3Npgsg/course -o /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.Yqob3Npgsg/site`
+built 1 lesson(s) for pyodide into /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.Yqob3Npgsg/site
+
+=== lessons/0.json (with packages) ===
+{
+  "id": "add-two",
+  "title": "Add Two Numbers",
+  "prompt": "Write add(a, b).",
+  "code_template": "def add(a, b):\n    ...",
+  "checks": [],
+  "packages": [
+    "pandas",
+    "numpy"
+  ],
+  "solution": "def add(a, b):\n    return a + b"
+}    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running `target/debug/blendtutor build --target pyodide /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.6GxfEs556I/course -o /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.6GxfEs556I/site`
+built 1 lesson(s) for pyodide into /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.6GxfEs556I/site
+
+=== lessons/0.json (no packages key — empty array) ===
+{
+  "id": "add-two",
+  "title": "Add Two Numbers",
+  "prompt": "Write add(a, b).",
+  "code_template": "def add(a, b):\n    ...",
+  "checks": [],
+  "packages": [],
+  "solution": "def add(a, b):\n    return a + b"
+}

@@ -174,7 +174,7 @@ pub async fn run_lesson(
     provider: ProviderChoice,
     base_url_override: Option<&str>,
 ) -> Result<RunReport, RunError> {
-    let runner = select_runner(&lesson.language);
+    let runner = select_runner(&lesson.language, &lesson.packages);
     // Run the submission on its own to capture what the learner's code produced;
     // that output feeds both the feedback prompt and the report. A launch failure
     // is a `RunError::Run`, never a verdict.

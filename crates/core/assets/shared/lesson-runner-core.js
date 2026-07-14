@@ -7,18 +7,20 @@
 // supplies that as a small `runtime` adapter and calls `start(runtime)`; this is
 // the §5.1 cut that keeps language-specific wiring minimal atop shared assembly.
 //
-// A `runtime` adapter is `{ name, language, boot(), run(code, checks) }`:
+// A `runtime` adapter is `{ name, language, boot(), run(code, checks, packages) }`:
 //   - `name`     : label shown in the boot status line (e.g. "webR", "Pyodide").
 //   - `language` : "r" | "python" — selects the CodeMirror 6 language extension
 //                  loaded into the editor (closed set, §1.5). NOT a string match
 //                  on `name`; a dedicated field so an adapter cannot accidentally
 //                  get the wrong highlighting by a label typo.
 //   - `boot()`   : async, initializes the runtime; resolve when ready to run.
-//   - `run(code, checks)` : async, evaluates the submission followed by the
-//                 lesson's checks and resolves to `{ output, ok }` — `ok` true
+//   - `run(code, checks, packages)` : async, evaluates the submission followed by
+//                 the lesson's checks and resolves to `{ output, ok }` — `ok` true
 //                 when nothing raised (a pass), false when anything did (a fail).
 //                 The core never inspects the language for grading; the adapter
 //                 owns grading. The `language` field is for the editor only.
+//                 `packages` is the lesson's declared third-party dependencies
+//                 (ADR-0011); the adapter installs/loads them before evaluating.
 //
 // The `window.__bt` handle (lessons / selectLesson / runSubmission / getSubmission
 // / editorView / ready) is the test seam the rodney browser probe drives,
@@ -160,7 +162,7 @@ function makeBt(runtime) {
     async runSubmission(code) {
       const lesson = this.lessons[this.current];
       setStatus("running", "running…");
-      const { output, ok } = await runtime.run(code, lesson.checks ?? []);
+      const { output, ok } = await runtime.run(code, lesson.checks ?? [], lesson.packages ?? []);
       outputEl.textContent = output;
       setStatus(ok ? "pass" : "fail", ok ? "pass" : "fail");
       return ok ? "pass" : "fail";

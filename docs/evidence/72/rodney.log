@@ -1,0 +1,41 @@
+Issue #72 — browser-side lesson packages probe log
+=====================================================
+
+Fixture: /tmp/bt-fixture-72
+  - blendtutor.toml: single lesson "pandas-import" -> add.yaml
+  - add.yaml: language Python, packages: [pandas], checks import pandas
+
+Build:
+  cargo run -p blendtutor-cli -- build /tmp/bt-fixture-72 --target pyodide -o /tmp/bt-vision-72
+  -> exited 0, lessons/0.json contains "packages": ["pandas"]
+
+Serve:
+  python3 /tmp/serve_headers.py on port 8889 with COOP/COEP headers
+  -> http://localhost:8889/ reachable
+
+Rodney probes:
+
+1. window.__bt.lessons[0].packages includes "pandas"
+   Command: uvx rodney assert "window.__bt && window.__bt.lessons.length > 0 && window.__bt.lessons[0].packages.includes('pandas')"
+   Result: PASS
+
+2. Boot completes (run button enabled)
+   Command: uvx rodney assert "document.querySelector('#run').disabled === false"
+   Result: PASS
+
+3. Lesson runs and reaches pass status
+   Action: uvx rodney click "#run"
+   Wait loop: uvx rodney assert "document.querySelector('[data-test=lesson-status]').dataset.status === 'pass'"
+   Result: PASS
+   Output text: "All checks passed."
+
+Screenshots:
+  - docs/evidence/72/lesson-loaded.png : lesson picker loaded, run button enabled
+  - docs/evidence/72/lesson-pass.png  : status data-status="pass", output "All checks passed."
+
+Notes:
+  - The Pyodide adapter calls pyodide.loadPackage(packages) before evaluation
+    (crates/core/assets/pyodide/lesson-runner.js). The pass on a lesson whose
+    only third-party dependency is pandas confirms the package was loaded.
+  - loadPackage itself is module-local and not directly observable from the
+    page global scope, so the call is verified indirectly by the passing run.

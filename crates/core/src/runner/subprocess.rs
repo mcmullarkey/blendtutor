@@ -22,14 +22,19 @@ use super::{ExecutionResult, RunnerError, Timeout};
 ///
 /// The only thing that differs between the R and Python runners: the program
 /// and the arguments that precede the code. Everything else (isolation, capture,
-/// timeout, process-group kill) is identical and lives in [`run`].
-pub(super) struct Interpreter {
+/// timeout, process-group kill) is identical and lives in [`run`]. The
+/// `code_args` are a `Vec<String>` (not `&'static [&'static str]`) so Python
+/// can inject runtime-built `--with <pkg>` flags per the lesson's packages
+/// (ADR-0011); R builds its fixed args dynamically but its invocation is
+/// byte-identical (`Rscript --vanilla -e`).
+pub(crate) struct Interpreter {
     /// The program to spawn, e.g. `"Rscript"` or `"uv"`.
     pub program: &'static str,
     /// The arguments that precede the learner code — e.g. `["--vanilla", "-e"]`
-    /// for R, or `["run", "--no-project", "--quiet", "python", "-I", "-c"]` for
-    /// Python via uv. The code itself is appended as the final argument.
-    pub code_args: &'static [&'static str],
+    /// for R, or `["run", "--no-project", "--quiet", "--with", "pandas",
+    /// "python", "-I", "-c"]` for Python via uv with packages. The code itself
+    /// is appended as the final argument.
+    pub code_args: Vec<String>,
 }
 
 /// Run `code` under `interpreter`, bounded by `bound`, and normalize what it did
@@ -50,7 +55,7 @@ pub(super) async fn run(
         tempfile::TempDir::new().map_err(|e| RunnerError::new("create run directory", e))?;
 
     let mut child = Command::new(interpreter.program)
-        .args(interpreter.code_args)
+        .args(&interpreter.code_args)
         .arg(code)
         .current_dir(run_dir.path())
         .stdin(Stdio::null())

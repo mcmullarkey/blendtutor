@@ -211,7 +211,7 @@ async fn python_captures_streams_distinctly() {
         return;
     }
 
-    let runner = PythonRunner::new(Timeout(Duration::from_secs(30)));
+    let runner = PythonRunner::new(Timeout(Duration::from_secs(30)), Vec::new());
     // Write "OUT" to stdout and "ERR" to stderr, then exit 0. `execute` is
     // fallible: an `Err` means the interpreter never ran (spawn/IO failure),
     // categorically distinct from Python writing to stderr, so the two never
@@ -262,7 +262,7 @@ async fn python_infinite_loop_times_out() {
         return;
     }
 
-    let runner = PythonRunner::new(Timeout(SHORT_TIMEOUT));
+    let runner = PythonRunner::new(Timeout(SHORT_TIMEOUT), Vec::new());
     let start = std::time::Instant::now();
     let result = runner
         .execute("while True:\n    pass\n", &[])

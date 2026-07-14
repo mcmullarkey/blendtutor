@@ -82,6 +82,11 @@ pub struct Exercise {
     /// runner can self-verify a correct submission (ADR-0008). It is authoring
     /// data, never sent to the LLM; `Option` so every existing lesson stays valid.
     pub solution: Option<String>,
+    /// Optional learner-facing hints, gotchas, and tips. The static-site build
+    /// serializes them into the lesson JSON so the in-browser runner renders them
+    /// in an expandable `<details>` panel. `Option` so every existing lesson
+    /// stays valid; `Option` defaults to `None` without `#[serde(default)]`.
+    pub hints: Option<String>,
     /// Optional example invocations.
     pub example_usage: Option<String>,
     /// Optional human-readable success criteria.
@@ -372,6 +377,43 @@ exercise:
             lesson.exercise.solution.is_none(),
             "a lesson without a solution has none, got {:?}",
             lesson.exercise.solution
+        );
+    }
+
+    const LESSON_WITH_HINTS_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+exercise:
+  prompt: "Write add_two(x, y)."
+  hints: "Remember: R uses '<-' for assignment and functions return their last expression."
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_reads_an_optional_hints_field() {
+        // Hints carry learner-facing gotchas and tips the browser renders in an
+        // expandable <details>. With `deny_unknown_fields`, `exercise.hints` must
+        // be modelled or it is rejected as a typo — mirroring `solution`.
+        let lesson = Lesson::parse(LESSON_WITH_HINTS_YAML)
+            .expect("a lesson may carry hints under exercise.hints");
+        assert_eq!(
+            lesson.exercise.hints.as_deref(),
+            Some(
+                "Remember: R uses '<-' for assignment and functions return their last expression."
+            ),
+            "the hints text is read verbatim from exercise.hints"
+        );
+    }
+
+    #[test]
+    fn parse_defaults_hints_to_none_when_absent() {
+        // A lesson without a `hints` key has none — the field stays optional so
+        // every existing lesson (none carried one) remains valid.
+        let lesson = Lesson::parse(VALID_YAML).expect("valid lesson should parse");
+        assert!(
+            lesson.exercise.hints.is_none(),
+            "a lesson without a hints key has none, got {:?}",
+            lesson.exercise.hints
         );
     }
 

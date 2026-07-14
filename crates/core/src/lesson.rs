@@ -87,6 +87,14 @@ pub struct Exercise {
     /// in an expandable `<details>` panel. `Option` so every existing lesson
     /// stays valid; `Option` defaults to `None` without `#[serde(default)]`.
     pub hints: Option<String>,
+    /// Optional learner-facing gotchas: common pitfalls and mistakes, authored
+    /// as a Markdown bullet list (each non-empty line starts with `- ` or
+    /// `* `). The static-site build serializes them into the lesson JSON so the
+    /// in-browser runner renders them in an expandable `<details>` panel.
+    /// `Option` so every existing lesson stays valid; validated as bullets at
+    /// the parse boundary (§1.3.1) so malformed content never travels
+    /// downstream. `Option` defaults to `None` without `#[serde(default)]`.
+    pub gotchas: Option<String>,
     /// Optional example invocations.
     pub example_usage: Option<String>,
     /// Optional human-readable success criteria.
@@ -139,6 +147,15 @@ pub enum ValidationError {
     /// `{student_code}` placeholder, so a learner's submission could never be
     /// inserted into it.
     MissingStudentCodePlaceholder,
+    /// A field that must be bullet-formatted (each non-empty line starting with
+    /// `- ` or `* `) contains a non-empty line without a bullet prefix.
+    /// Parameterized by field name so AC-3 can reuse the variant for `hints`
+    /// without adding a new one. Rejected at the parse boundary (§1.3.1) so
+    /// malformed content never travels downstream.
+    InvalidBulletFormat {
+        /// The name of the field with malformed bullets (e.g. `"gotchas"`).
+        field: String,
+    },
 }
 
 impl fmt::Display for ValidationError {
@@ -150,6 +167,11 @@ impl fmt::Display for ValidationError {
                 "exercise.llm_evaluation_prompt must contain the literal \
                  {STUDENT_CODE_PLACEHOLDER} placeholder so the learner's \
                  submission can be inserted",
+            ),
+            ValidationError::InvalidBulletFormat { field } => write!(
+                f,
+                "exercise.{field} must be bullet-formatted: each non-empty line must \
+                 start with `- ` or `* `"
             ),
         }
     }
@@ -174,9 +196,10 @@ impl Lesson {
 
     /// Enforce the semantic rules that structure alone cannot.
     ///
-    /// Currently a single rule: the evaluation prompt must contain the
-    /// `{student_code}` placeholder. Split from the structural deserialize so
-    /// each name covers its body (§5.1).
+    /// Currently two rules: the evaluation prompt must contain the
+    /// `{student_code}` placeholder, and `exercise.gotchas` (if present) must
+    /// be bullet-formatted (each non-empty line starts with `- ` or `* `).
+    /// Split from the structural deserialize so each name covers its body (§5.1).
     fn validate_semantics(&self) -> Result<(), ValidationError> {
         if !self
             .exercise
@@ -184,6 +207,18 @@ impl Lesson {
             .contains(STUDENT_CODE_PLACEHOLDER)
         {
             return Err(ValidationError::MissingStudentCodePlaceholder);
+        }
+        if let Some(ref gotchas) = self.exercise.gotchas {
+            for line in gotchas.lines() {
+                if line.is_empty() {
+                    continue;
+                }
+                if !line.starts_with("- ") && !line.starts_with("* ") {
+                    return Err(ValidationError::InvalidBulletFormat {
+                        field: "gotchas".to_string(),
+                    });
+                }
+            }
         }
         Ok(())
     }
@@ -414,6 +449,139 @@ exercise:
             lesson.exercise.hints.is_none(),
             "a lesson without a hints key has none, got {:?}",
             lesson.exercise.hints
+        );
+    }
+
+    const LESSON_WITH_GOTCHAS_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+exercise:
+  prompt: "Write add_two(x, y)."
+  gotchas: |
+    - R uses '<-' for assignment, not '='.
+    - Functions return their last expression automatically.
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_reads_an_optional_gotchas_field() {
+        // Gotchas carry learner-facing pitfalls the browser renders in an
+        // expandable panel — mirroring `hints`. With `deny_unknown_fields`,
+        // `exercise.gotchas` must be modelled or it is rejected as a typo.
+        let lesson = Lesson::parse(LESSON_WITH_GOTCHAS_YAML)
+            .expect("a lesson may carry gotchas under exercise.gotchas");
+        assert_eq!(
+            lesson.exercise.gotchas.as_deref(),
+            Some(
+                "- R uses '<-' for assignment, not '='.\n- Functions return their last expression automatically.\n"
+            ),
+            "the gotchas text is read verbatim from exercise.gotchas"
+        );
+    }
+
+    #[test]
+    fn parse_defaults_gotchas_to_none_when_absent() {
+        // A lesson without a `gotchas` key has none — the field stays optional
+        // so every existing lesson remains valid, mirroring `hints`.
+        let lesson = Lesson::parse(VALID_YAML).expect("valid lesson should parse");
+        assert!(
+            lesson.exercise.gotchas.is_none(),
+            "a lesson without a gotchas key has none, got {:?}",
+            lesson.exercise.gotchas
+        );
+    }
+
+    const LESSON_WITH_MALFORMED_GOTCHAS_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+exercise:
+  prompt: "Write add_two(x, y)."
+  gotchas: "No bullet prefix here."
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_rejects_gotchas_with_non_bullet_lines() {
+        // Gotchas must be bullet-formatted (each non-empty line starts with
+        // `- ` or `* `). A prose gotchas string is rejected at the parse
+        // boundary (§1.3.1) so malformed content never travels downstream.
+        let err = Lesson::parse(LESSON_WITH_MALFORMED_GOTCHAS_YAML)
+            .expect_err("a gotchas without bullet prefixes is invalid");
+        assert!(
+            matches!(
+                err,
+                ValidationError::InvalidBulletFormat { ref field } if field == "gotchas"
+            ),
+            "expected InvalidBulletFormat for gotchas, got {err:?}"
+        );
+        assert!(
+            err.to_string().contains("gotchas"),
+            "error should name the gotchas field, got: {err}"
+        );
+    }
+
+    const LESSON_WITH_STAR_BULLETS_GOTCHAS_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+exercise:
+  prompt: "Write add_two(x, y)."
+  gotchas: |
+    * R uses '<-' for assignment.
+    * Functions return their last expression.
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_accepts_gotchas_with_star_bullets() {
+        // Star-prefixed bullets (`* `) are as valid as dash-prefixed (`- `),
+        // so an author may use either Markdown bullet style.
+        let lesson = Lesson::parse(LESSON_WITH_STAR_BULLETS_GOTCHAS_YAML)
+            .expect("star-bullet gotchas should parse");
+        assert!(
+            lesson.exercise.gotchas.is_some(),
+            "star-bullet gotchas should be read"
+        );
+    }
+
+    #[test]
+    fn parse_accepts_none_gotchas() {
+        // A lesson with no gotchas key has None — no non-empty lines to
+        // validate, so it passes validation trivially.
+        let lesson = Lesson::parse(VALID_YAML).expect("valid lesson should parse");
+        assert!(lesson.exercise.gotchas.is_none());
+    }
+
+    const LESSON_WITH_EMPTY_GOTCHAS_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+exercise:
+  prompt: "Write add_two(x, y)."
+  gotchas: ""
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_accepts_empty_gotchas() {
+        // An empty gotchas string has no non-empty lines to validate, so it
+        // passes validation — mirroring the None case.
+        let lesson = Lesson::parse(LESSON_WITH_EMPTY_GOTCHAS_YAML)
+            .expect("an empty gotchas string should parse");
+        assert_eq!(lesson.exercise.gotchas.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn parse_still_accepts_prose_hints_when_gotchas_validated() {
+        // Validation scope is gotchas ONLY — existing prose hints (not
+        // bullet-formatted) must still parse. The r-course/add_two.yaml
+        // fixture carries prose hints at line 18; loading it must succeed.
+        let path = Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/r-course/add_two.yaml"
+        ));
+        let lesson = read_lesson_file(path).expect("prose hints fixture should still parse");
+        assert!(
+            lesson.exercise.hints.is_some(),
+            "the fixture's prose hints should still be read"
         );
     }
 

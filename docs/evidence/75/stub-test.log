@@ -1,0 +1,33 @@
+== Predicate 1: exists, executable, takes one arg ==
+  PASS: script exists
+  PASS: script is executable
+  PASS: no-arg exits non-zero
+  PASS: two-arg exits non-zero
+== Predicate 2,4,6 + Negatives 1,2,5,6,7: unequal case counts ==
+eval-course: wrote /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.V5KLW2sIq4/course_unequal/eval-report.json (accuracy: 0.8333333333333334, lessons: 2)
+  PASS: eval-report.json written
+  PASS: report has accuracy field
+  PASS: accuracy is 5/6=0.833 (sum formula, not average) — got: 0.8333333333333334
+  PASS: accuracy is NOT 0.5 (no averaging cheat)
+  PASS: stub called for ALL lessons (2) (got: 2)
+  PASS: stub received file paths (not slug ids)
+  PASS: stub was called (not hardcoded report)
+== Predicate 3 + Negative 3: fail-fast on eval error ==
+  PASS: eval failure aborts (non-zero exit)
+  PASS: no partial report on failure
+== Predicate 5 + Negative 4: empty manifest → 0.0 ==
+eval-course: wrote /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.V5KLW2sIq4/course_empty/eval-report.json (accuracy: 0.0, lessons: 0)
+  PASS: empty course writes report
+  PASS: empty course accuracy is 0.0 (got: 0.0)
+  PASS: empty course accuracy is 0.0 (not NaN/null)
+== Predicate 5 (variant): zero cases → 0.0 ==
+eval-course: wrote /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.V5KLW2sIq4/course_nocases/eval-report.json (accuracy: 0.0, lessons: 1)
+  PASS: zero-cases course writes report
+  PASS: zero-cases accuracy is 0.0 (got: 0.0)
+== Predicate 6: accuracy in [0.0, 1.0] ==
+  PASS: accuracy in [0.0, 1.0] — got: 0.8333333333333334
+
+=========================================
+  Results: 19 passed, 0 failed
+=========================================
+All tests passed.

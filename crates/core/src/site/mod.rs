@@ -2022,6 +2022,85 @@ exercise:
     }
 
     #[test]
+    fn plan_site_runner_core_sets_cursor_color_via_cm6_theme() {
+        // v4 cursor fix: CSS-only overrides in styles.css (!important +
+        // caret-color, PRs #93/#94) did not work in the live browser despite
+        // correct CSS on the deployed site. CM6's injected base-theme styles
+        // were winning the cascade. The fix moves cursor styling into a CM6
+        // EditorView.theme() extension, which injects styles via CM6's own
+        // style-module system at a higher precedence than the base theme.
+        //
+        // 6 clauses pin the fix:
+        //   1. EditorView.theme() is called to create a theme extension
+        //   2. The theme targets .cm-cursor with borderLeftColor
+        //   3. The borderLeftColor uses var(--bt-color-cursor) (adapts to
+        //      light/dark via the CSS variable defined in styles.css)
+        //   4. The theme sets borderLeftWidth: 2px (wider than CM6 default)
+        //   5. The theme targets .cm-content with caretColor (native caret)
+        //   6. The theme extension is added to the editorExtensions array
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let core = &file(&webr, "lesson-runner-core.js").contents;
+
+        // Clause 1: EditorView.theme() is called — creates a CM6 theme
+        // extension rather than relying on external CSS.
+        assert!(
+            core.contains("EditorView.theme("),
+            "lesson-runner-core.js must call EditorView.theme() to create a \
+             cursor theme extension (CSS-only overrides did not work in live \
+             browser — CM6 base-theme styles won the cascade)"
+        );
+
+        // Clause 2: the theme targets .cm-cursor with borderLeftColor.
+        // CM6's base theme sets borderLeft: "1.2px solid black" — we must
+        // override the borderLeftColor to a light value for dark mode.
+        assert!(
+            core.contains("borderLeftColor"),
+            "lesson-runner-core.js cursor theme must set borderLeftColor on \
+             .cm-cursor (CM6 default is black — invisible on dark background)"
+        );
+
+        // Clause 3: borderLeftColor uses var(--bt-color-cursor) so the cursor
+        // adapts to light/dark mode via the CSS variable defined in
+        // styles.css (light: #1a1a1a, dark: #ffffff). The fallback #ffffff
+        // ensures visibility if the variable is undefined.
+        assert!(
+            core.contains("var(--bt-color-cursor, #ffffff)"),
+            "lesson-runner-core.js cursor theme must use \
+             var(--bt-color-cursor, #ffffff) for borderLeftColor \
+             (adapts to light/dark via CSS variable, fallback ensures \
+             visibility)"
+        );
+
+        // Clause 4: cursor width is 2px (wider than CM6 default 1.2px).
+        assert!(
+            core.contains("borderLeftWidth") && core.contains("\"2px\""),
+            "lesson-runner-core.js cursor theme must set borderLeftWidth: \
+             \"2px\" (CM6 default 1.2px is too faint — widened for \
+             accessibility)"
+        );
+
+        // Clause 5: the theme targets .cm-content with caretColor. The
+        // native contenteditable caret renders as faint gray in dark mode;
+        // setting caretColor makes it match the drawn cursor.
+        assert!(
+            core.contains("caretColor"),
+            "lesson-runner-core.js cursor theme must set caretColor on \
+             .cm-content (native contenteditable caret is faint gray \
+             without it)"
+        );
+
+        // Clause 6: the theme extension is added to the editorExtensions
+        // array. A theme defined but not wired into the extensions array
+        // would have no effect (sneaky-pass: defined but not composed).
+        assert!(
+            core.contains("cursorTheme"),
+            "lesson-runner-core.js must add cursorTheme to the \
+             editorExtensions array (a theme defined but not wired has no \
+             effect)"
+        );
+    }
+
+    #[test]
     fn plan_site_runner_core_renders_hints_as_expandable_details() {
         // The lesson runner core must render `lesson.hints` as an expandable
         // <details> element when the hints field is non-null and non-empty,

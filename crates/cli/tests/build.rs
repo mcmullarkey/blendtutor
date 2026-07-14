@@ -1506,16 +1506,16 @@ fn build_dark_mode_token_overrides() {
         .filter(|(name, _)| name.starts_with("--bt-color-"))
         .collect();
 
-    // Clause 3: All 20 tokens from light :root declared in dark :root
+    // Clause 3: All 21 tokens from light :root declared in dark :root
     assert_eq!(
         light_tokens.len(),
-        20,
-        "light :root must have exactly 20 --bt-color-* tokens"
+        21,
+        "light :root must have exactly 21 --bt-color-* tokens"
     );
     assert_eq!(
         dark_tokens.len(),
-        20,
-        "dark :root must have exactly 20 --bt-color-* tokens"
+        21,
+        "dark :root must have exactly 21 --bt-color-* tokens"
     );
     for (name, _) in &light_tokens {
         assert!(

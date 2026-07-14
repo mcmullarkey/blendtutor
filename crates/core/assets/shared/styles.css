@@ -78,6 +78,10 @@
   --bt-color-syntax-variable: #000;
   --bt-color-syntax-function: #30a;
   --bt-color-syntax-operator: #000;
+
+  /* Cursor — dark on light background (same as CM6 default black). The
+   * dark-mode override sets this to #ffffff for maximum contrast. */
+  --bt-color-cursor: #1a1a1a;
 }
 
 /* ── Semantic region rules ─────────────────────────────────────── */
@@ -502,7 +506,7 @@ footer.site-footer {
 }
 
 /* ── Dark mode ────────────────────────────────────────────────────
- * Overrides all 20 --bt-color-* tokens inside @media (prefers-color-scheme: dark)
+ * Overrides all 21 --bt-color-* tokens inside @media (prefers-color-scheme: dark)
  * for WCAG AA contrast (4.5:1 text, 3:1 UI/large text). No non-color tokens.
  * The :root block is extracted by the test via brace-counting on the @media
  * selector, then brace-counting again on :root within the media block body.
@@ -542,6 +546,11 @@ footer.site-footer {
     --bt-color-syntax-variable: #d4d4d4;
     --bt-color-syntax-function: #dcdcaa;
     --bt-color-syntax-operator: #d4d4d4;
+
+    /* Cursor — pure white for maximum contrast against the dark surface-code
+     * background. The previous value (text-primary gray) was visible but
+     * faint at 1.2px width; pure white at 2px is clearly visible. */
+    --bt-color-cursor: #ffffff;
   }
 
   /* Idle pill text: surface provides sufficient contrast on dark status-idle */
@@ -575,8 +584,15 @@ footer.site-footer {
    * background. Uses .cm-editor prefix to match CM6's base-theme specificity
    * (0,2,0) — a bare .cm-cursor (0,1,0) would lose to CM6's injected rule.
    * styles.css loads after CM6's injected style tag (CM6 inserts as
-   * firstChild of head), so equal specificity resolves in our favor. */
+   * firstChild of head), so equal specificity resolves in our favor.
+   *
+   * v2: cursor widened to 2px (from CM6 default 1.2px) and color set to
+   * pure white via --bt-color-cursor for accessibility — the previous
+   * text-primary gray at 1.2px was visible but faint. margin-left adjusted
+   * to -1px to center the wider cursor on the insertion point. */
   .cm-editor .cm-cursor {
-    border-left-color: var(--bt-color-text-primary);
+    border-left-color: var(--bt-color-cursor);
+    border-left-width: 2px;
+    margin-left: -1px;
   }
 }

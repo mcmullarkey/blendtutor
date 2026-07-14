@@ -542,4 +542,17 @@ footer.site-footer {
     background: rgba(255, 255, 255, 0.12);
     outline-color: rgba(255, 255, 255, 0.2);
   }
+
+  /* Cursor — CM6's default cursor is borderLeft: 1.2px solid black. The
+   * &dark .cm-cursor override in CM6's base theme only fires when the editor
+   * has the cm-dark class (set via EditorView.darkTheme), which this app
+   * does NOT use — dark mode is driven by prefers-color-scheme. Without this
+   * rule the cursor stays black and is invisible on the dark surface-code
+   * background. Uses .cm-editor prefix to match CM6's base-theme specificity
+   * (0,2,0) — a bare .cm-cursor (0,1,0) would lose to CM6's injected rule.
+   * styles.css loads after CM6's injected style tag (CM6 inserts as
+   * firstChild of head), so equal specificity resolves in our favor. */
+  .cm-editor .cm-cursor {
+    border-left-color: var(--bt-color-text-primary);
+  }
 }

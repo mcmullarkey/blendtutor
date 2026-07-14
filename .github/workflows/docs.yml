@@ -67,6 +67,15 @@ jobs:
           rm -rf docs/book/book/api
           cp -R target/doc docs/book/book/api
 
+      # AC-6 (#76) — build example course sites (webr + pyodide) into the Pages
+      # artifact so the deployed docs include live, runnable example lessons.
+      # Each site nests under /examples/{r,python}/, mirroring the /api nesting.
+      - name: Build R example site (webR)
+        run: cargo run --release -p blendtutor-cli -- build examples/write-less-code-r --target webr -o docs/book/book/examples/r
+
+      - name: Build Python example site (Pyodide)
+        run: cargo run --release -p blendtutor-cli -- build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:

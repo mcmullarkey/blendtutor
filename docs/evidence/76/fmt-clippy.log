@@ -1,0 +1,6 @@
+=== cargo fmt --check ===
+exit: 0
+
+=== cargo clippy --all-targets -- -D warnings ===
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.16s
+exit: 0

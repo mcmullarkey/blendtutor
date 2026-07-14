@@ -1,0 +1,88 @@
+=== R example site file listing ===
+total 1528
+drwxr-xr-x@ 12 carbonite  staff     384 Jul 13 20:00 .
+drwxr-xr-x@  4 carbonite  staff     128 Jul 13 20:00 ..
+-rw-r--r--@  1 carbonite  staff  693348 Jul 13 20:00 codemirror.js
+-rw-r--r--@  1 carbonite  staff    5407 Jul 13 20:00 coi-serviceworker.js
+-rw-r--r--@  1 carbonite  staff     335 Jul 13 20:00 eval-results.html
+-rw-r--r--@  1 carbonite  staff   25716 Jul 13 20:00 feedback.js
+-rw-r--r--@  1 carbonite  staff    1899 Jul 13 20:00 index.html
+-rw-r--r--@  1 carbonite  staff   11606 Jul 13 20:00 lesson-runner-core.js
+-rw-r--r--@  1 carbonite  staff    1986 Jul 13 20:00 lesson-runner.js
+drwxr-xr-x@  7 carbonite  staff     224 Jul 13 20:00 lessons
+-rw-r--r--@  1 carbonite  staff     101 Jul 13 20:00 lessons.json
+-rw-r--r--@  1 carbonite  staff   18430 Jul 13 20:00 styles.css
+
+=== R lessons/ ===
+total 40
+drwxr-xr-x@  7 carbonite  staff   224 Jul 13 20:00 .
+drwxr-xr-x@ 12 carbonite  staff   384 Jul 13 20:00 ..
+-rw-r--r--@  1 carbonite  staff   778 Jul 13 20:00 0.json
+-rw-r--r--@  1 carbonite  staff  1234 Jul 13 20:00 1.json
+-rw-r--r--@  1 carbonite  staff  1190 Jul 13 20:00 2.json
+-rw-r--r--@  1 carbonite  staff  1925 Jul 13 20:00 3.json
+-rw-r--r--@  1 carbonite  staff  1313 Jul 13 20:00 4.json
+
+=== R eval-results.html (validated marker) ===
+<body data-eval-status="validated">
+
+=== R lesson-runner.js (webr boot check) ===
+9
+
+=== Python example site file listing ===
+total 1528
+drwxr-xr-x@ 12 carbonite  staff     384 Jul 13 20:00 .
+drwxr-xr-x@  4 carbonite  staff     128 Jul 13 20:00 ..
+-rw-r--r--@  1 carbonite  staff  693348 Jul 13 20:00 codemirror.js
+-rw-r--r--@  1 carbonite  staff    5407 Jul 13 20:00 coi-serviceworker.js
+-rw-r--r--@  1 carbonite  staff     335 Jul 13 20:00 eval-results.html
+-rw-r--r--@  1 carbonite  staff   25716 Jul 13 20:00 feedback.js
+-rw-r--r--@  1 carbonite  staff    2212 Jul 13 20:00 index.html
+-rw-r--r--@  1 carbonite  staff   11606 Jul 13 20:00 lesson-runner-core.js
+-rw-r--r--@  1 carbonite  staff    2487 Jul 13 20:00 lesson-runner.js
+drwxr-xr-x@  7 carbonite  staff     224 Jul 13 20:00 lessons
+-rw-r--r--@  1 carbonite  staff     101 Jul 13 20:00 lessons.json
+-rw-r--r--@  1 carbonite  staff   18430 Jul 13 20:00 styles.css
+
+=== Python lessons/ ===
+total 40
+drwxr-xr-x@  7 carbonite  staff   224 Jul 13 20:00 .
+drwxr-xr-x@ 12 carbonite  staff   384 Jul 13 20:00 ..
+-rw-r--r--@  1 carbonite  staff  1350 Jul 13 20:00 0.json
+-rw-r--r--@  1 carbonite  staff  1443 Jul 13 20:00 1.json
+-rw-r--r--@  1 carbonite  staff   642 Jul 13 20:00 2.json
+-rw-r--r--@  1 carbonite  staff  1805 Jul 13 20:00 3.json
+-rw-r--r--@  1 carbonite  staff  1231 Jul 13 20:00 4.json
+
+=== Python eval-results.html (validated marker) ===
+<body data-eval-status="validated">
+
+=== Python lesson-runner.js (pyodide boot check) ===
+10
+
+=== docs.yml build commands ===
+74:        run: cargo run --release -p blendtutor-cli -- build examples/write-less-code-r --target webr -o docs/book/book/examples/r
+77:        run: cargo run --release -p blendtutor-cli -- build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python
+
+=== README.md example links ===
+143:- **[R example site (webR)](https://mcmullarkey.github.io/blendtutor/examples/r/)**
+145:- **[Python example site (Pyodide)](https://mcmullarkey.github.io/blendtutor/examples/python/)**
+149:[eval-results page](https://mcmullarkey.github.io/blendtutor/examples/r/eval-results.html)
+150:([Python](https://mcmullarkey.github.io/blendtutor/examples/python/eval-results.html))
+
+=== SUMMARY.md examples entry ===
+# Summary
+
+[Introduction](./introduction.md)
+
+- [Architecture](./architecture.md)
+- [Example sites](./examples.md)
+- [API reference](./api-reference.md)
+
+=== Built mdBook examples.html rendered links ===
+2
+2
+
+=== Failure propagation test ===
+Testing: cargo run -- build /nonexistent/course --target webr ...
+PASS: build correctly failed with non-zero exit (exit code: 1)

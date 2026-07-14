@@ -1,0 +1,17 @@
+docs: building API reference (rustdoc, -D warnings) …
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.26s
+   Generated /Users/carbonite/Documents/coding/portfolio/worktree-issue-76/target/doc/blendtutor/index.html and 1 other file
+docs: building narrative site (mdBook) …
+ INFO Book building has started
+ INFO Running the html backend
+ INFO HTML book written to `/Users/carbonite/Documents/coding/portfolio/worktree-issue-76/docs/book/book`
+docs: assembling merged site (docs/book/book + /api) …
+docs: building example sites (webr + pyodide) …
+    Finished `release` profile [optimized] target(s) in 0.15s
+     Running `target/release/blendtutor build examples/write-less-code-r --target webr -o docs/book/book/examples/r`
+built 5 lesson(s) for webr into docs/book/book/examples/r
+    Finished `release` profile [optimized] target(s) in 0.07s
+     Running `target/release/blendtutor build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python`
+built 5 lesson(s) for pyodide into docs/book/book/examples/python
+docs: verifying failure propagation (missing course path) …
+docs: OK — merged site at docs/book/book (book at /, API at /api, examples at /examples/{r,python})

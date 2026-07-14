@@ -15,6 +15,18 @@ exercise:
     Reconstruct `survey_data` first — each check runs in a fresh R session.
     Use `mutate` with `across` and the `reverse_score` pattern (`6 - .x`)
     to create the `_rev` columns.
+
+    The submission is correct if ALL of these are true:
+    - Reconstructs `survey_data` with respondent_id and stress_1 through stress_6
+    - Creates `stress_1_rev` through `stress_6_rev` columns (all six)
+    - Each `_rev` column equals 6 minus the original value
+    - Uses dplyr/mutate or equivalent R code
+
+    The submission is incorrect if ANY of these are true:
+    - Only reverses some columns (not all six)
+    - Does not create any `_rev` columns
+    - Has a syntax error
+    - Does not reconstruct survey_data
   code_template: |
     library(purrr)
     library(dplyr)
@@ -56,6 +68,18 @@ exercise:
 
     Exercise: Use purrr and dplyr to reverse-score all six stress columns,
     creating _rev columns. The solution must reconstruct survey_data first.
+
+    A submission is correct if ALL of these are true:
+    1. Reconstructs `survey_data` with respondent_id and stress_1 through stress_6
+    2. Creates `stress_1_rev` through `stress_6_rev` columns (all six)
+    3. Each `_rev` column equals 6 minus the original value
+    4. Uses dplyr/mutate or equivalent R code
+
+    A submission is incorrect if ANY of these are true:
+    1. Only reverses some columns (not all six)
+    2. Does not create any `_rev` columns
+    3. Has a syntax error
+    4. Does not reconstruct survey_data
 
     Student submitted this code:
     {student_code}

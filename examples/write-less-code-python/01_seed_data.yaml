@@ -9,6 +9,20 @@ exercise:
     Create a pandas DataFrame called `survey_data` with 5 respondents and
     columns `respondent_id`, `stress_1` through `stress_6`. Each stress
     column should contain integer values between 1 and 5.
+
+    The submission is correct if ALL of these are true:
+    - Creates a variable named `survey_data`
+    - It is a pandas DataFrame
+    - It has exactly 5 rows
+    - It has a `respondent_id` column
+    - It has `stress_1` through `stress_6` columns (all six)
+    - Stress columns contain integer values
+
+    The submission is incorrect if ANY of these are true:
+    - Missing any of stress_1 through stress_6
+    - Wrong number of rows (not 5)
+    - Missing respondent_id column
+    - Has a syntax error
   code_template: |
     import pandas as pd
 
@@ -36,7 +50,22 @@ exercise:
     You are evaluating student code for a software engineering course.
 
     Exercise: Create a pandas DataFrame called `survey_data` with 5 respondents
-    and columns `respondent_id`, `stress_1` through `stress_6`.
+    and columns `respondent_id`, `stress_1` through `stress_6`. Each stress
+    column should contain integer values between 1 and 5.
+
+    A submission is correct if ALL of these are true:
+    1. Creates a variable named `survey_data`
+    2. It is a pandas DataFrame
+    3. It has exactly 5 rows
+    4. It has a `respondent_id` column
+    5. It has `stress_1` through `stress_6` columns (all six)
+    6. Stress columns contain integer values
+
+    A submission is incorrect if ANY of these are true:
+    1. Missing any of stress_1 through stress_6
+    2. Wrong number of rows (not 5)
+    3. Missing respondent_id column
+    4. Has a syntax error
 
     Student submitted this code:
     {student_code}

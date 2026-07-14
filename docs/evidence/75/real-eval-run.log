@@ -1,0 +1,25 @@
+=== R course eval ===
+eval-course: wrote examples/write-less-code-r/eval-report.json (accuracy: 1, lessons: 5)
+
+=== R eval-report.json ===
+{
+  "accuracy": 1
+}
+
+
+=== Python course eval ===
+eval-course: wrote examples/write-less-code-python/eval-report.json (accuracy: 1, lessons: 5)
+
+=== Python eval-report.json ===
+{
+  "accuracy": 1
+}
+
+
+=== R build with eval badge ===
+built 5 lesson(s) for webr into /tmp/build-evidence-r
+/tmp/build-evidence-r/eval-results.html:<body data-eval-status="validated">
+
+=== Python build with eval badge ===
+built 5 lesson(s) for pyodide into /tmp/build-evidence-py
+/tmp/build-evidence-py/eval-results.html:<body data-eval-status="validated">

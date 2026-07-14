@@ -72,6 +72,7 @@ const cursorTheme = EditorView.theme({
   ".cm-cursor": {
     borderLeftColor: "var(--bt-color-cursor, #ffffff)",
     borderLeftWidth: "2px",
+    marginLeft: "-1px",
   },
   ".cm-content": {
     caretColor: "var(--bt-color-cursor, #ffffff)",

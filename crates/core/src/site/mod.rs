@@ -1844,184 +1844,6 @@ exercise:
     }
 
     #[test]
-    fn plan_site_cm6_cursor_visible_in_dark_mode() {
-        // Bug fix: the CM6 editor cursor is invisible in dark mode. CM6's base
-        // theme sets the cursor border to black (borderLeft: 1.2px solid black).
-        // The &dark .cm-cursor override only fires when the editor has the
-        // cm-dark class (via EditorView.darkTheme), which this app does NOT use
-        // — dark mode is driven by prefers-color-scheme. Without an explicit
-        // override inside the @media (prefers-color-scheme: dark) block, the
-        // cursor stays black and is invisible on the dark surface-code background.
-        //
-        // v2: the initial fix (PR #83) set the cursor to --bt-color-text-primary
-        // (#e0e0e0) at CM6's default 1.2px width. Users reported it was still
-        // faint. v2 widens to 2px and uses pure white (#ffffff) via a dedicated
-        // --bt-color-cursor token for maximum contrast.
-        //
-        // v3: !important added to all cursor declarations because CM6's injected
-        // default styles were winning by source order or specificity in the live
-        // example pages. A .cm-editor.cm-focused .cm-cursor selector is added
-        // alongside .cm-editor .cm-cursor to cover the focused state. A
-        // caret-color rule on .cm-content ensures the native contenteditable
-        // caret is also white in dark mode (it renders faint gray by default).
-        //
-        // 7 clauses pin the fix:
-        //   1. The @media block contains a .cm-editor .cm-cursor rule
-        //   2. The rule sets border-left-color (overriding CM6's default black)
-        //   3. The border-left-color is NOT black (must be a light value)
-        //   4. The rule sets border-left-width: 2px (wider than CM6 default 1.2px)
-        //   5. The cursor color uses --bt-color-cursor, defined as #ffffff in the
-        //      dark-mode :root block (high-contrast pure white)
-        //   6. The cursor rule uses !important (overrides CM6's injected styles)
-        //   7. A .cm-content rule sets caret-color (native caret also white)
-        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
-        let css = &file(&webr, "styles.css").contents;
-
-        // Extract the @media (prefers-color-scheme: dark) block body via brace
-        // counting. Search for the selector WITH the opening brace to skip
-        // comment mentions of "@media (prefers-color-scheme: dark)" that appear
-        // in the file header and section comments (those lack the trailing " {").
-        let media_selector = "@media (prefers-color-scheme: dark) {";
-        let media_start =
-            css.find(media_selector).expect("@media dark block exists") + media_selector.len();
-        let media_after = &css[media_start..];
-
-        // Brace-count from inside the @media block (depth starts at 1).
-        let mut depth = 1i32;
-        let mut media_end = 0;
-        for (i, ch) in media_after.char_indices() {
-            match ch {
-                '{' => depth += 1,
-                '}' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        media_end = i;
-                        break;
-                    }
-                }
-                _ => {}
-            }
-        }
-        let media_body = &media_after[..media_end];
-
-        // Clause 1: .cm-editor .cm-cursor rule exists inside the @media block.
-        // Searching for the full selector ".cm-editor .cm-cursor" avoids
-        // matching comment text that mentions .cm-cursor or .cm-editor
-        // individually.
-        let selector = ".cm-editor .cm-cursor";
-        let pos = media_body
-            .find(selector)
-            .expect("@media dark block must contain a .cm-editor .cm-cursor rule");
-        let after_selector = &media_body[pos + selector.len()..];
-        let brace = after_selector
-            .find('{')
-            .expect(".cm-cursor rule has opening brace");
-        let body = &after_selector[brace + 1..];
-        let close = body.find('}').expect(".cm-cursor rule has closing brace");
-        let cursor_body = &body[..close];
-
-        // Clause 2: the rule sets border-left-color.
-        assert!(
-            cursor_body.contains("border-left-color"),
-            ".cm-cursor dark-mode rule must set border-left-color \
-             (CM6 default is black — invisible on dark background)"
-        );
-
-        // Clause 3: border-left-color is NOT black.
-        assert!(
-            !cursor_body.contains("black"),
-            ".cm-cursor border-left-color must NOT be black \
-             (invisible on dark surface-code background)"
-        );
-
-        // Clause 4: cursor width is 2px (wider than CM6 default 1.2px).
-        // The wider cursor is more visible at the cost of slightly less
-        // precision — acceptable for accessibility.
-        //
-        // The substring "width: 2px" is specific: it matches
-        // "border-left-width: 2px" but NOT "border-left-width: 1.2px"
-        // (the CM6 default). A naive contains("2px") would falsely pass
-        // on 1.2px since "1.2px" contains "2px".
-        assert!(
-            cursor_body.contains("width: 2px"),
-            ".cm-cursor dark-mode rule must set border-left-width: 2px \
-             (CM6 default 1.2px is too faint — widened for accessibility)"
-        );
-
-        // Clause 5: cursor color uses --bt-color-cursor token, which is defined
-        // as #ffffff (pure white) in the dark-mode :root block. This is the
-        // high-contrast color — #e0e0e0 (the previous value via
-        // --bt-color-text-primary) was visible but faint.
-        assert!(
-            cursor_body.contains("var(--bt-color-cursor)"),
-            ".cm-cursor dark-mode rule must use var(--bt-color-cursor) \
-             (dedicated high-contrast cursor token, not --bt-color-text-primary)"
-        );
-        assert!(
-            media_body.contains("--bt-color-cursor: #ffffff"),
-            "dark-mode :root must define --bt-color-cursor: #ffffff \
-             (pure white for maximum contrast against #2d2d2d background)"
-        );
-
-        // Clause 6: cursor rule uses !important on all declarations. CM6's
-        // injected default styles were winning by source order or specificity
-        // in the live example pages, leaving the cursor faint gray. !important
-        // guarantees the override wins regardless of CM6's internal style
-        // injection order. This is an accessibility fix — the justification
-        // for !important is that an invisible cursor is a usability blocker.
-        assert!(
-            cursor_body.contains("!important"),
-            ".cm-cursor dark-mode rule must use !important \
-             (CM6 injected styles win by source order without it)"
-        );
-
-        // Clause 7: a .cm-content rule sets caret-color in the dark-mode block.
-        // The native contenteditable caret renders as faint gray in dark mode;
-        // setting caret-color to the cursor token makes it white. Without this,
-        // the native caret is visible in addition to or instead of CM6's drawn
-        // cursor, producing a faint gray line.
-        //
-        // The .cm-content selector may appear in comment text before the actual
-        // rule. We skip comment mentions by requiring that only whitespace
-        // separates the selector from its opening brace.
-        assert!(
-            media_body.contains("caret-color"),
-            "dark-mode @media block must set caret-color on .cm-content \
-             (native contenteditable caret is faint gray without it)"
-        );
-        let content_selector = ".cm-content";
-        let mut search_from = 0;
-        let content_body: &str = loop {
-            let pos = media_body[search_from..]
-                .find(content_selector)
-                .expect("@media dark block must contain a .cm-content rule");
-            let abs_pos = search_from + pos;
-            let after = &media_body[abs_pos + content_selector.len()..];
-            let brace_offset = after.find('{').expect(".cm-content rule has opening brace");
-            // If only whitespace separates selector from {, this is the rule
-            // (not a comment mention where other text intervenes).
-            if after[..brace_offset].trim().is_empty() {
-                let body_raw = &after[brace_offset + 1..];
-                let close = body_raw
-                    .find('}')
-                    .expect(".cm-content rule has closing brace");
-                break &body_raw[..close];
-            }
-            search_from = abs_pos + content_selector.len();
-        };
-        assert!(
-            content_body.contains("caret-color"),
-            ".cm-content dark-mode rule must set caret-color \
-             (native caret must be white in dark mode)"
-        );
-        assert!(
-            content_body.contains("var(--bt-color-cursor)"),
-            ".cm-content caret-color must use var(--bt-color-cursor) \
-             (same high-contrast token as the drawn cursor)"
-        );
-    }
-
-    #[test]
     fn plan_site_runner_core_sets_cursor_color_via_cm6_theme() {
         // v4 cursor fix: CSS-only overrides in styles.css (!important +
         // caret-color, PRs #93/#94) did not work in the live browser despite
@@ -2030,14 +1852,15 @@ exercise:
         // EditorView.theme() extension, which injects styles via CM6's own
         // style-module system at a higher precedence than the base theme.
         //
-        // 6 clauses pin the fix:
+        // 7 clauses pin the fix:
         //   1. EditorView.theme() is called to create a theme extension
         //   2. The theme targets .cm-cursor with borderLeftColor
         //   3. The borderLeftColor uses var(--bt-color-cursor) (adapts to
         //      light/dark via the CSS variable defined in styles.css)
         //   4. The theme sets borderLeftWidth: 2px (wider than CM6 default)
-        //   5. The theme targets .cm-content with caretColor (native caret)
-        //   6. The theme extension is added to the editorExtensions array
+        //   5. The theme sets marginLeft: -1px (centers the wider cursor)
+        //   6. The theme targets .cm-content with caretColor (native caret)
+        //   7. The theme extension is added to the editorExtensions array
         let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
         let core = &file(&webr, "lesson-runner-core.js").contents;
 
@@ -2079,7 +1902,16 @@ exercise:
              accessibility)"
         );
 
-        // Clause 5: the theme targets .cm-content with caretColor. The
+        // Clause 5: the theme sets marginLeft to center the wider cursor on
+        // the insertion point. CM6's default cursor is 1.2px with
+        // marginLeft: -0.6px; at 2px width the cursor must shift to -1px
+        // to stay centered.
+        assert!(
+            core.contains("marginLeft"),
+            "lesson-runner-core.js cursor theme must set marginLeft for centering"
+        );
+
+        // Clause 6: the theme targets .cm-content with caretColor. The
         // native contenteditable caret renders as faint gray in dark mode;
         // setting caretColor makes it match the drawn cursor.
         assert!(
@@ -2089,7 +1921,7 @@ exercise:
              without it)"
         );
 
-        // Clause 6: the theme extension is added to the editorExtensions
+        // Clause 7: the theme extension is added to the editorExtensions
         // array. A theme defined but not wired into the extensions array
         // would have no effect (sneaky-pass: defined but not composed).
         assert!(

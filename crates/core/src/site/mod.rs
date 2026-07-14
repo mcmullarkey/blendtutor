@@ -1711,6 +1711,81 @@ mod tests {
         );
     }
 
+    #[test]
+    fn plan_site_cm6_cursor_visible_in_dark_mode() {
+        // Bug fix: the CM6 editor cursor is invisible in dark mode. CM6's base
+        // theme sets the cursor border to black (borderLeft: 1.2px solid black).
+        // The &dark .cm-cursor override only fires when the editor has the
+        // cm-dark class (via EditorView.darkTheme), which this app does NOT use
+        // — dark mode is driven by prefers-color-scheme. Without an explicit
+        // override inside the @media (prefers-color-scheme: dark) block, the
+        // cursor stays black and is invisible on the dark surface-code background.
+        //
+        // 3 clauses pin the fix:
+        //   1. The @media block contains a .cm-editor .cm-cursor rule
+        //   2. The rule sets border-left-color (overriding CM6's default black)
+        //   3. The border-left-color is NOT black (must be a light value)
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let css = &file(&webr, "styles.css").contents;
+
+        // Extract the @media (prefers-color-scheme: dark) block body via brace
+        // counting. Search for the selector WITH the opening brace to skip
+        // comment mentions of "@media (prefers-color-scheme: dark)" that appear
+        // in the file header and section comments (those lack the trailing " {").
+        let media_selector = "@media (prefers-color-scheme: dark) {";
+        let media_start =
+            css.find(media_selector).expect("@media dark block exists") + media_selector.len();
+        let media_after = &css[media_start..];
+
+        // Brace-count from inside the @media block (depth starts at 1).
+        let mut depth = 1i32;
+        let mut media_end = 0;
+        for (i, ch) in media_after.char_indices() {
+            match ch {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        media_end = i;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let media_body = &media_after[..media_end];
+
+        // Clause 1: .cm-editor .cm-cursor rule exists inside the @media block.
+        // Searching for the full selector ".cm-editor .cm-cursor" avoids
+        // matching comment text that mentions .cm-cursor or .cm-editor
+        // individually.
+        let selector = ".cm-editor .cm-cursor";
+        let pos = media_body
+            .find(selector)
+            .expect("@media dark block must contain a .cm-editor .cm-cursor rule");
+        let after_selector = &media_body[pos + selector.len()..];
+        let brace = after_selector
+            .find('{')
+            .expect(".cm-cursor rule has opening brace");
+        let body = &after_selector[brace + 1..];
+        let close = body.find('}').expect(".cm-cursor rule has closing brace");
+        let cursor_body = &body[..close];
+
+        // Clause 2: the rule sets border-left-color.
+        assert!(
+            cursor_body.contains("border-left-color"),
+            ".cm-cursor dark-mode rule must set border-left-color \
+             (CM6 default is black — invisible on dark background)"
+        );
+
+        // Clause 3: border-left-color is NOT black.
+        assert!(
+            !cursor_body.contains("black"),
+            ".cm-cursor border-left-color must NOT be black \
+             (invisible on dark surface-code background)"
+        );
+    }
+
     /// Detect whether a `.cm-gutters` rule sets display:none or visibility:hidden.
     fn gutter_hidden(css: &str) -> bool {
         let mut rest = css;

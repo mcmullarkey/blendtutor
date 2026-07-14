@@ -1,0 +1,3 @@
+=== blendtutor list --format json ===
+[{"id":"seed-data","language":"r","title":"Seed Data","error":null},{"id":"copy-paste-trap","language":"r","title":"Copy-Paste Trap","error":null},{"id":"write-a-function","language":"r","title":"Write a Function","error":null},{"id":"map-over-columns","language":"r","title":"Map Over Columns","error":null},{"id":"rule-of-three","language":"r","title":"Rule of Three","error":null}]
+exit: 0

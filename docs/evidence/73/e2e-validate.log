@@ -1,0 +1,16 @@
+=== blendtutor validate (all 5 lessons) ===
+--- validate 01_seed_data.yaml ---
+OK: "Seed Data" is a valid lesson
+exit: 0
+--- validate 02_copy_paste_trap.yaml ---
+OK: "Copy-Paste Trap" is a valid lesson
+exit: 0
+--- validate 03_write_a_function.yaml ---
+OK: "Write a Function" is a valid lesson
+exit: 0
+--- validate 04_map_over_columns.yaml ---
+OK: "Map Over Columns" is a valid lesson
+exit: 0
+--- validate 05_rule_of_three.yaml ---
+OK: "Rule of Three" is a valid lesson
+exit: 0

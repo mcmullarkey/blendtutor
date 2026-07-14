@@ -1,0 +1,54 @@
+# Eval suite for 02_copy_paste_trap — 4 cases: 2 correct, 2 incorrect (1 near-miss).
+# The near-miss is the copy-paste bug: reverses stress_5 instead of stress_6.
+cases:
+  # 1 — correct: reconstructs survey_data and reverses stress_6
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      survey_data$stress_6_rev <- 6 - survey_data$stress_6
+    expected: correct
+  # 2 — correct: uses transform instead of $
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      survey_data <- transform(survey_data, stress_6_rev = 6 - stress_6)
+    expected: correct
+  # 3 — incorrect (near-miss): copy-paste bug — reverses stress_5, not stress_6
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      survey_data$stress_6_rev <- 6 - survey_data$stress_5
+    expected: incorrect
+  # 4 — incorrect: does not create stress_6_rev at all
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+    expected: incorrect

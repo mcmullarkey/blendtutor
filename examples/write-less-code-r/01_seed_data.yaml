@@ -1,0 +1,48 @@
+lesson_name: "Seed Data"
+language: R
+description: "Create the survey_data data frame that anchors the Write Less Code arc"
+textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Code, Part II"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    Create a data frame called `survey_data` with 5 respondents and 6 stress
+    items (stress_1 through stress_6) measured on a 1-5 scale, plus a
+    respondent_id column.
+  code_template: |
+    survey_data <- data.frame(
+      respondent_id = 1:5,
+      # Add stress_1 through stress_6 columns here
+    )
+  solution: |
+    survey_data <- data.frame(
+      respondent_id = 1:5,
+      stress_1 = c(3, 4, 5, 2, 1),
+      stress_2 = c(2, 3, 4, 5, 1),
+      stress_3 = c(1, 2, 3, 4, 5),
+      stress_4 = c(5, 4, 3, 2, 1),
+      stress_5 = c(4, 3, 2, 1, 5),
+      stress_6 = c(1, 2, 3, 4, 5)
+    )
+  example_usage: |
+    dim(survey_data)  # 5 7
+    survey_data$stress_6  # 1 2 3 4 5
+  success_criteria: |
+    - survey_data has 5 rows and 7 columns
+    - stress_6 column contains c(1, 2, 3, 4, 5)
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: Create a data frame called `survey_data` with 5 respondents and 6
+    stress items (stress_1 through stress_6) on a 1-5 scale, plus respondent_id.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.
+
+checks:
+  - "stopifnot(identical(dim(survey_data), c(5L, 7L)))"
+  - "stopifnot(identical(survey_data$stress_6, c(1, 2, 3, 4, 5)))"

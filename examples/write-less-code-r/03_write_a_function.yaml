@@ -1,0 +1,59 @@
+lesson_name: "Write a Function"
+language: R
+description: "Refactor the reverse-scoring pattern into a reusable function"
+textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Code, Part II"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    Write a function called `reverse_score` that takes a numeric vector `x`
+    (on a 1-5 scale) and returns its reverse-scored version: `6 - x`.
+
+    Reconstruct `survey_data` first — each check runs in a fresh R session.
+    Then apply `reverse_score` to `survey_data$stress_6` to verify it works.
+  code_template: |
+    survey_data <- data.frame(
+      respondent_id = 1:5,
+      stress_1 = c(3, 4, 5, 2, 1),
+      stress_2 = c(2, 3, 4, 5, 1),
+      stress_3 = c(1, 2, 3, 4, 5),
+      stress_4 = c(5, 4, 3, 2, 1),
+      stress_5 = c(4, 3, 2, 1, 5),
+      stress_6 = c(1, 2, 3, 4, 5)
+    )
+    reverse_score <- function(x) {
+      # Your code here
+    }
+  solution: |
+    survey_data <- data.frame(
+      respondent_id = 1:5,
+      stress_1 = c(3, 4, 5, 2, 1),
+      stress_2 = c(2, 3, 4, 5, 1),
+      stress_3 = c(1, 2, 3, 4, 5),
+      stress_4 = c(5, 4, 3, 2, 1),
+      stress_5 = c(4, 3, 2, 1, 5),
+      stress_6 = c(1, 2, 3, 4, 5)
+    )
+    reverse_score <- function(x) 6 - x
+  example_usage: |
+    reverse_score(c(1, 2, 3, 4, 5))              # 5 4 3 2 1
+    reverse_score(survey_data$stress_6)           # 5 4 3 2 1
+  success_criteria: |
+    - reverse_score(c(1, 2, 3, 4, 5)) returns c(5, 4, 3, 2, 1)
+    - reverse_score(survey_data$stress_6) returns c(5, 4, 3, 2, 1)
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: Write a function `reverse_score(x)` that returns `6 - x` for a
+    1-5 scale numeric vector. Reconstruct survey_data first.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.
+
+checks:
+  - "stopifnot(identical(reverse_score(c(1, 2, 3, 4, 5)), c(5, 4, 3, 2, 1)))"
+  - "stopifnot(identical(reverse_score(survey_data$stress_6), c(5, 4, 3, 2, 1)))"

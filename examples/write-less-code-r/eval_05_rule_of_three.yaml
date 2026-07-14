@@ -1,0 +1,57 @@
+# Eval suite for 05_rule_of_three — 4 cases: 2 correct, 2 incorrect (1 near-miss).
+# The near-miss uses count > 3 (wrong decision) instead of count >= 3.
+cases:
+  # 1 — correct: standard rule of three with survey_data
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      should_abstract <- function(count) count >= 3
+    expected: correct
+  # 2 — correct: with explicit if/else
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      should_abstract <- function(count) {
+        if (count >= 3) TRUE else FALSE
+      }
+    expected: correct
+  # 3 — incorrect (near-miss): wrong decision — count > 3 instead of count >= 3
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      should_abstract <- function(count) count > 3
+    expected: incorrect
+  # 4 — incorrect: always returns TRUE
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      should_abstract <- function(count) TRUE
+    expected: incorrect

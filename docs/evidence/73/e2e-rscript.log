@@ -1,0 +1,33 @@
+=== Rscript probes: solution + check execution ===
+--- Layer 3: 01_seed_data.R (solution only) ---
+exit: 0
+--- Layer 3: 02_copy_paste_trap.R (solution only) ---
+exit: 0
+--- Layer 3: 03_write_a_function.R (solution only) ---
+exit: 0
+--- Layer 3: 04_map_over_columns.R (solution only) ---
+exit: 0
+--- Layer 3: 05_rule_of_three.R (solution only) ---
+exit: 0
+
+=== Layer 4: solution + each check ===
+--- L1 check 1 ---
+exit: 0
+--- L1 check 2 ---
+exit: 0
+--- L2 check 1 ---
+exit: 0
+--- L2 check 2 ---
+exit: 0
+--- L3 check 1 ---
+exit: 0
+--- L3 check 2 ---
+exit: 0
+--- L4 check 1 ---
+exit: 0
+--- L4 check 2 ---
+exit: 0
+--- L5 check 1 ---
+exit: 0
+--- L5 check 2 ---
+exit: 0

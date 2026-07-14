@@ -1,0 +1,69 @@
+lesson_name: "Map Over Columns"
+language: R
+description: "Use purrr and dplyr to reverse-score all stress columns at once"
+textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Code, Part II"
+packages:
+  - purrr
+  - dplyr
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    Use purrr and dplyr to reverse-score ALL six stress columns at once,
+    creating new `_rev` columns (stress_1_rev through stress_6_rev).
+
+    Reconstruct `survey_data` first — each check runs in a fresh R session.
+    Use `mutate` with `across` and the `reverse_score` pattern (`6 - .x`)
+    to create the `_rev` columns.
+  code_template: |
+    library(purrr)
+    library(dplyr)
+
+    survey_data <- data.frame(
+      respondent_id = 1:5,
+      stress_1 = c(3, 4, 5, 2, 1),
+      stress_2 = c(2, 3, 4, 5, 1),
+      stress_3 = c(1, 2, 3, 4, 5),
+      stress_4 = c(5, 4, 3, 2, 1),
+      stress_5 = c(4, 3, 2, 1, 5),
+      stress_6 = c(1, 2, 3, 4, 5)
+    )
+    # Use mutate + across to create _rev columns
+  solution: |
+    library(purrr)
+    library(dplyr)
+
+    survey_data <- data.frame(
+      respondent_id = 1:5,
+      stress_1 = c(3, 4, 5, 2, 1),
+      stress_2 = c(2, 3, 4, 5, 1),
+      stress_3 = c(1, 2, 3, 4, 5),
+      stress_4 = c(5, 4, 3, 2, 1),
+      stress_5 = c(4, 3, 2, 1, 5),
+      stress_6 = c(1, 2, 3, 4, 5)
+    )
+    stress_cols <- paste0("stress_", 1:6)
+    survey_data <- survey_data |>
+      mutate(across(all_of(stress_cols), .fns = list(rev = ~ 6 - .x), .names = "{.col}_rev"))
+  example_usage: |
+    names(survey_data)  # includes stress_1_rev ... stress_6_rev
+    survey_data$stress_6_rev  # 5 4 3 2 1
+  success_criteria: |
+    - stress_1_rev through stress_6_rev columns exist
+    - stress_6_rev equals 6 - stress_6
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: Use purrr and dplyr to reverse-score all six stress columns,
+    creating _rev columns. The solution must reconstruct survey_data first.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.
+
+checks:
+  - "stopifnot(all(c('stress_1_rev', 'stress_6_rev') %in% names(survey_data)))"
+  - "stopifnot(identical(survey_data$stress_6_rev, 6 - survey_data$stress_6))"

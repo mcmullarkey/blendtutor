@@ -1,0 +1,10 @@
+   Compiling hyper v1.10.1
+   Compiling hyper-util v0.1.20
+   Compiling hyper-rustls v0.27.9
+   Compiling reqwest v0.13.4
+   Compiling rig-core v0.38.1
+   Compiling blendtutor-core v0.1.0 (/Users/carbonite/Documents/coding/portfolio/worktree-issue-74/crates/core)
+   Compiling blendtutor-cli v0.1.0 (/Users/carbonite/Documents/coding/portfolio/worktree-issue-74/crates/cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.19s
+     Running `target/debug/blendtutor list examples/write-less-code-python --format json`
+[{"id":"seed-data","language":"python","title":"Seed Data","error":null},{"id":"copy-paste-trap","language":"python","title":"Copy-Paste Trap","error":null},{"id":"write-a-function","language":"python","title":"Write a Function","error":null},{"id":"map-over-columns","language":"python","title":"Map Over Columns","error":null},{"id":"rule-of-three","language":"python","title":"Rule of Three","error":null}]

@@ -1,0 +1,63 @@
+lesson_name: "Map Over Columns"
+language: Python
+description: "Normalize multiple DataFrame columns using an explicit for loop"
+textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Code, Part II"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    Write a function called `normalize_columns` that takes a pandas
+    DataFrame and a list of column names, and normalizes each column
+    to the range [0, 1] using min-max normalization.
+
+    Use an explicit for loop to iterate over the columns. Do NOT use
+    a list comprehension.
+
+    Min-max normalization formula:
+    normalized = (value - min) / (max - min)
+  code_template: |
+    import pandas as pd
+
+    def normalize_columns(df, columns):
+        # Use an explicit for loop (not a list comprehension)
+        ...
+  solution: |
+    import pandas as pd
+
+    def normalize_columns(df, columns):
+        for col in columns:
+            df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+        return df
+  example_usage: |
+    df = pd.DataFrame({'a': [0, 10], 'b': [0, 5]})
+    print(normalize_columns(df, ['a', 'b']))
+    #    a    b
+    # 0  0.0  0.0
+    # 1  1.0  1.0
+  success_criteria: |
+    - Function is named `normalize_columns`
+    - Uses an explicit for loop (not a list comprehension)
+    - Normalizes each column to [0, 1] range
+    - Returns the modified DataFrame
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: Write a function called `normalize_columns` that takes a
+    pandas DataFrame and a list of column names, and normalizes each
+    column to the range [0, 1] using min-max normalization. Use an
+    explicit for loop to iterate over the columns.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.
+
+checks:
+  - "assert normalize_columns(pd.DataFrame({'a': [0, 10]}), ['a'])['a'].tolist() == [0.0, 1.0]"
+  - "assert normalize_columns(pd.DataFrame({'a': [0, 10], 'b': [0, 5]}), ['a', 'b'])['b'].tolist() == [0.0, 1.0]"
+  - "assert normalize_columns(pd.DataFrame({'a': [5, 5]}), ['a'])['a'].tolist() == [0.0, 0.0]"
+
+packages:
+  - pandas

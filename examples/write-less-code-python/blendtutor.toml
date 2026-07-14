@@ -1,0 +1,22 @@
+# Write Less Code, Part II — Python example course.
+# A 5-lesson pandas arc mirroring the R example course (AC-3).
+# Each lesson declares `packages: [pandas]` and uses assert-based checks.
+[[lessons]]
+id = "seed-data"
+path = "01_seed_data.yaml"
+
+[[lessons]]
+id = "copy-paste-trap"
+path = "02_copy_paste_trap.yaml"
+
+[[lessons]]
+id = "write-a-function"
+path = "03_write_a_function.yaml"
+
+[[lessons]]
+id = "map-over-columns"
+path = "04_map_over_columns.yaml"
+
+[[lessons]]
+id = "rule-of-three"
+path = "05_rule_of_three.yaml"

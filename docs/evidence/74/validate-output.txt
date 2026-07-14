@@ -1,0 +1,10 @@
+=== validate examples/write-less-code-python/01_seed_data.yaml ===
+OK: "Seed Data" is a valid lesson
+=== validate examples/write-less-code-python/02_copy_paste_trap.yaml ===
+OK: "Copy-Paste Trap" is a valid lesson
+=== validate examples/write-less-code-python/03_write_a_function.yaml ===
+OK: "Write a Function" is a valid lesson
+=== validate examples/write-less-code-python/04_map_over_columns.yaml ===
+OK: "Map Over Columns" is a valid lesson
+=== validate examples/write-less-code-python/05_rule_of_three.yaml ===
+OK: "Rule of Three" is a valid lesson

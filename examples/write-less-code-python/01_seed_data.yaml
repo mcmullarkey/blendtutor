@@ -1,0 +1,54 @@
+lesson_name: "Seed Data"
+language: Python
+description: "Create a pandas DataFrame with survey data including stress columns"
+textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Code, Part II"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    Create a pandas DataFrame called `survey_data` with 5 respondents and
+    columns `respondent_id`, `stress_1` through `stress_6`. Each stress
+    column should contain integer values between 1 and 5.
+  code_template: |
+    import pandas as pd
+
+    # Create survey_data with 5 respondents and stress_1 through stress_6
+  solution: |
+    import pandas as pd
+
+    survey_data = pd.DataFrame({
+        'respondent_id': [1, 2, 3, 4, 5],
+        'stress_1': [3, 4, 2, 5, 3],
+        'stress_2': [2, 3, 4, 3, 2],
+        'stress_3': [4, 5, 3, 4, 3],
+        'stress_4': [3, 2, 4, 5, 4],
+        'stress_5': [2, 3, 5, 4, 3],
+        'stress_6': [4, 3, 2, 3, 5],
+    })
+  example_usage: |
+    print(survey_data.shape)  # (5, 7)
+    print(list(survey_data.columns))  # ['respondent_id', 'stress_1', ..., 'stress_6']
+  success_criteria: |
+    - DataFrame has 5 rows and 7 columns
+    - Contains a `stress_6` column
+    - All stress columns contain integers
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: Create a pandas DataFrame called `survey_data` with 5 respondents
+    and columns `respondent_id`, `stress_1` through `stress_6`.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.
+
+checks:
+  - "assert len(survey_data) == 5"
+  - "assert 'stress_6' in survey_data.columns"
+  - "assert survey_data['stress_6'].sum() == 17"
+
+packages:
+  - pandas

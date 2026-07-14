@@ -1789,7 +1789,7 @@ fn write_packages_course(tmp: &tempfile::TempDir, lesson_yaml: &str) -> PathBuf 
     let course = tmp.path().join("course");
     std::fs::create_dir_all(&course).unwrap();
     std::fs::write(
-        &course.join("blendtutor.toml"),
+        course.join("blendtutor.toml"),
         "[[lessons]]\nid = \"add-two\"\npath = \"add.yaml\"\n",
     )
     .unwrap();

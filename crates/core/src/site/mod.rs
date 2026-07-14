@@ -1928,8 +1928,13 @@ exercise:
         // Clause 4: cursor width is 2px (wider than CM6 default 1.2px).
         // The wider cursor is more visible at the cost of slightly less
         // precision — acceptable for accessibility.
+        //
+        // The substring "width: 2px" is specific: it matches
+        // "border-left-width: 2px" but NOT "border-left-width: 1.2px"
+        // (the CM6 default). A naive contains("2px") would falsely pass
+        // on 1.2px since "1.2px" contains "2px".
         assert!(
-            cursor_body.contains("border-left-width") && cursor_body.contains("2px"),
+            cursor_body.contains("width: 2px"),
             ".cm-cursor dark-mode rule must set border-left-width: 2px \
              (CM6 default 1.2px is too faint — widened for accessibility)"
         );

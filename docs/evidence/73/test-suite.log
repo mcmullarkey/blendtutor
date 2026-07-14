@@ -1,0 +1,19 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running tests/write_less_code_r.rs (target/debug/deps/write_less_code_r-170a2c73000824aa)
+
+running 12 tests
+test layer5_eval_suites_have_minimum_cases ... ok
+test layer7_solutions_are_self_contained ... ok
+test layer8_each_lesson_has_textbook_reference ... ok
+test negative_lesson2_check_references_stress_6_rev ... ok
+test layer2_list_returns_five_r_lessons ... ok
+test layer1_validate_exits_zero_for_all_lessons ... ok
+test negative_lesson4_solution_uses_purrr_dplyr ... ok
+test negative_checks_fail_against_wrong_submissions ... ok
+test layer9_run_exits_zero_with_correct_verdict ... ok
+test layer6_each_lesson_has_genuine_near_miss ... ok
+test layer3_solutions_execute_cleanly ... ok
+test layer4_checks_pass_against_reference_solution ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.56s
+

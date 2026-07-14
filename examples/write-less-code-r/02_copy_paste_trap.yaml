@@ -1,0 +1,58 @@
+lesson_name: "Copy-Paste Trap"
+language: R
+description: "Reverse-score stress_6 — beware the copy-paste trap that reverses the wrong column"
+textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Code, Part II"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    The stress_6 item is reverse-scored (5 = low stress). Create a new column
+    `stress_6_rev` by computing `6 - stress_6`.
+
+    Beware the copy-paste trap: if you copy-paste code from reversing another
+    column, you might forget to update the column name and reverse the wrong
+    one. Make sure stress_6_rev is derived from stress_6, not stress_5.
+  code_template: |
+    survey_data <- data.frame(
+      respondent_id = 1:5,
+      stress_1 = c(3, 4, 5, 2, 1),
+      stress_2 = c(2, 3, 4, 5, 1),
+      stress_3 = c(1, 2, 3, 4, 5),
+      stress_4 = c(5, 4, 3, 2, 1),
+      stress_5 = c(4, 3, 2, 1, 5),
+      stress_6 = c(1, 2, 3, 4, 5)
+    )
+    # Reverse-score stress_6 here
+  solution: |
+    survey_data <- data.frame(
+      respondent_id = 1:5,
+      stress_1 = c(3, 4, 5, 2, 1),
+      stress_2 = c(2, 3, 4, 5, 1),
+      stress_3 = c(1, 2, 3, 4, 5),
+      stress_4 = c(5, 4, 3, 2, 1),
+      stress_5 = c(4, 3, 2, 1, 5),
+      stress_6 = c(1, 2, 3, 4, 5)
+    )
+    survey_data$stress_6_rev <- 6 - survey_data$stress_6
+  example_usage: |
+    survey_data$stress_6_rev  # 5 4 3 2 1
+  success_criteria: |
+    - stress_6_rev equals 6 - stress_6
+    - stress_6_rev values are in range [1, 5]
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: Reverse-score stress_6 by creating stress_6_rev = 6 - stress_6.
+    The solution must reconstruct survey_data first (each check runs in a fresh
+    R session). Beware the copy-paste trap: reversing the wrong column.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.
+
+checks:
+  - "stopifnot(identical(survey_data$stress_6_rev, 6 - survey_data$stress_6))"
+  - "stopifnot(all(survey_data$stress_6_rev >= 1 & survey_data$stress_6_rev <= 5))"

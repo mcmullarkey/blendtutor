@@ -1,0 +1,69 @@
+# Eval suite for 04_map_over_columns — 4 cases: 2 correct, 2 incorrect (1 near-miss).
+# The near-miss only reverses stress_1 (wrong columns) instead of all six.
+cases:
+  # 1 — correct: uses mutate + across with purrr/dplyr
+  - submission: |-
+      library(purrr)
+      library(dplyr)
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      stress_cols <- paste0("stress_", 1:6)
+      survey_data <- survey_data |>
+        mutate(across(all_of(stress_cols), .fns = list(rev = ~ 6 - .x), .names = "{.col}_rev"))
+    expected: correct
+  # 2 — correct: uses mutate with individual column operations
+  - submission: |-
+      library(dplyr)
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      survey_data <- survey_data |>
+        mutate(
+          stress_1_rev = 6 - stress_1,
+          stress_2_rev = 6 - stress_2,
+          stress_3_rev = 6 - stress_3,
+          stress_4_rev = 6 - stress_4,
+          stress_5_rev = 6 - stress_5,
+          stress_6_rev = 6 - stress_6
+        )
+    expected: correct
+  # 3 — incorrect (near-miss): wrong columns — only reverses stress_1
+  - submission: |-
+      library(dplyr)
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      survey_data <- survey_data |> mutate(stress_1_rev = 6 - stress_1)
+    expected: incorrect
+  # 4 — incorrect: does not create any _rev columns
+  - submission: |-
+      library(dplyr)
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+    expected: incorrect

@@ -1,0 +1,66 @@
+lesson_name: "Rule of Three"
+language: R
+description: "Decide when to abstract repeated code into a function — the rule of three"
+textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Code, Part II"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    The "rule of three" says: if you write the same code pattern three or more
+    times, abstract it into a function.
+
+    Write a function called `should_abstract` that takes a count of repetitions
+    and returns TRUE if the pattern should be abstracted (count >= 3), FALSE
+    otherwise.
+
+    Reconstruct `survey_data` first — each check runs in a fresh R session.
+    Then count the stress columns in `survey_data` to see if the rule of three
+    applies to the reverse-scoring pattern.
+  code_template: |
+    survey_data <- data.frame(
+      respondent_id = 1:5,
+      stress_1 = c(3, 4, 5, 2, 1),
+      stress_2 = c(2, 3, 4, 5, 1),
+      stress_3 = c(1, 2, 3, 4, 5),
+      stress_4 = c(5, 4, 3, 2, 1),
+      stress_5 = c(4, 3, 2, 1, 5),
+      stress_6 = c(1, 2, 3, 4, 5)
+    )
+    should_abstract <- function(count) {
+      # Your code here
+    }
+  solution: |
+    survey_data <- data.frame(
+      respondent_id = 1:5,
+      stress_1 = c(3, 4, 5, 2, 1),
+      stress_2 = c(2, 3, 4, 5, 1),
+      stress_3 = c(1, 2, 3, 4, 5),
+      stress_4 = c(5, 4, 3, 2, 1),
+      stress_5 = c(4, 3, 2, 1, 5),
+      stress_6 = c(1, 2, 3, 4, 5)
+    )
+    should_abstract <- function(count) count >= 3
+  example_usage: |
+    should_abstract(2)  # FALSE
+    should_abstract(3)  # TRUE
+    should_abstract(sum(grepl("stress", names(survey_data))))  # TRUE (6 stress cols)
+  success_criteria: |
+    - should_abstract(3) returns TRUE
+    - should_abstract(2) returns FALSE
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: Write a function `should_abstract(count)` that returns TRUE when
+    count >= 3 (the rule of three threshold for abstraction). Reconstruct
+    survey_data first.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.
+
+checks:
+  - "stopifnot(isTRUE(should_abstract(3)))"
+  - "stopifnot(!isTRUE(should_abstract(2)))"

@@ -1,0 +1,42 @@
+# Eval suite for 01_seed_data — 4 cases: 2 correct, 2 incorrect (1 near-miss).
+# The near-miss creates a data frame that runs cleanly but has wrong dimensions.
+cases:
+  # 1 — correct: full survey_data with 5 rows and 7 columns
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+    expected: correct
+  # 2 — correct: same data, different valid values
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(5, 4, 3, 2, 1),
+        stress_2 = c(1, 2, 3, 4, 5),
+        stress_3 = c(2, 3, 4, 5, 1),
+        stress_4 = c(3, 4, 5, 1, 2),
+        stress_5 = c(4, 5, 1, 2, 3),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+    expected: correct
+  # 3 — incorrect (near-miss): runs cleanly but only 6 columns (missing stress_6)
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5)
+      )
+    expected: incorrect
+  # 4 — incorrect: empty data frame
+  - submission: |-
+      survey_data <- data.frame()
+    expected: incorrect

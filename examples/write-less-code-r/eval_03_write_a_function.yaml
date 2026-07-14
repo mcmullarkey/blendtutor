@@ -1,0 +1,57 @@
+# Eval suite for 03_write_a_function — 4 cases: 2 correct, 2 incorrect (1 near-miss).
+# The near-miss uses 5 - x (wrong max_value) instead of 6 - x.
+cases:
+  # 1 — correct: standard reverse_score with survey_data
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) 6 - x
+    expected: correct
+  # 2 — correct: with explicit return
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) {
+        return(6 - x)
+      }
+    expected: correct
+  # 3 — incorrect (near-miss): wrong max_value — 5 - x instead of 6 - x
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) 5 - x
+    expected: incorrect
+  # 4 — incorrect: returns x unchanged
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) x
+    expected: incorrect

@@ -9,12 +9,13 @@ exercise:
     Create a data frame `survey_data` with 5 respondents, `respondent_id`,
     and `stress_1` through `stress_6` (integers on a 1-5 scale).
   hints: |
-    Tip: R's `data.frame()` takes named arguments — each `stress_N = c(...)`
-    becomes a column. Common mistake: using different-length vectors; R
-    recycles silently, which can hide bugs. Watch out for forgetting
-    `respondent_id` — you need 7 columns total (respondent_id + six stress
-    items). Remember that `1:5` generates the sequence c(1, 2, 3, 4, 5).
-    Verify with `dim(survey_data)` which should print `5 7`.
+    - Tip: R's `data.frame()` takes named arguments — each `stress_N = c(...)` becomes a column.
+    - Remember that `1:5` generates the sequence c(1, 2, 3, 4, 5).
+    - Note: verify with `dim(survey_data)` which should print `5 7`.
+  gotchas: |
+    - Common mistake: using different-length vectors — R recycles silently, which can hide bugs.
+    - Watch out for forgetting `respondent_id` — you need 7 columns total (respondent_id + six stress items).
+    - Gotcha: if you misspell a column name, the check for `stress_6` fails even though the data frame looks correct.
   code_template: |
     survey_data <- data.frame(
       respondent_id = 1:5,

@@ -26,14 +26,13 @@ exercise:
     - Has a syntax error
     - Does not reconstruct survey_data
   hints: |
-    Gotcha: `across()` needs `.names = "{.col}_rev"` to name the output
-    columns correctly — without it, the new columns overwrite the originals.
-    Common mistake: reversing only some columns. You need all six
-    (stress_1_rev through stress_6_rev). Watch out for the `.fns` argument:
-    use `~ 6 - .x` (a formula) or `function(x) 6 - x`. Tip: build a
-    character vector of the stress column names programmatically (e.g.,
-    with `paste0`) and pass it to `all_of()` inside `across`. Remember to
-    pipe with `|>` or `%>%` and reassign the result back to `survey_data`.
+    - Tip: build a character vector of the stress column names programmatically (e.g., with `paste0`) and pass it to `all_of()` inside `across`.
+    - Remember to pipe with `|>` or `%>%` and reassign the result back to `survey_data`.
+    - Note: the `.fns` argument accepts a formula like `~ 6 - .x` or a function like `function(x) 6 - x`.
+  gotchas: |
+    - Gotcha: `across()` needs `.names = "{.col}_rev"` to name the output columns correctly — without it, the new columns overwrite the originals.
+    - Common mistake: reversing only some columns — you need all six (stress_1_rev through stress_6_rev).
+    - Watch out for forgetting to reassign the result back to `survey_data` — `mutate` returns a new data frame, it does not modify in place.
   code_template: |
     library(purrr)
     library(dplyr)

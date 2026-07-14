@@ -16,8 +16,8 @@ exercise:
       x + y
     }
   hints: |
-    Remember: R uses '<-' for assignment, and a function returns its last
-    expression automatically — no explicit 'return' needed.
+    - Remember: R uses '<-' for assignment, not '='.
+    - A function returns its last expression automatically — no explicit 'return' needed.
   llm_evaluation_prompt: |
     Evaluate the student's submission:
     {student_code}

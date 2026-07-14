@@ -23,14 +23,13 @@ exercise:
     - It has a syntax error
     - It does not return the DataFrame
   hints: |
-    Gotcha: if a column has all identical values, `max - min` is zero and
-    you get a division-by-zero error. Guard with an `if col_max == col_min`
-    check and set those values to 0.0. Common mistake: forgetting to
-    `return df` at the end — the function must return the modified
-    DataFrame, not None. Watch out for using a list comprehension like
-    `[df[c] = ... for c in columns]` — the exercise requires an explicit
-    for loop. Tip: min-max normalization maps the minimum to 0.0 and the
-    maximum to 1.0.
+    - Tip: min-max normalization maps the minimum to 0.0 and the maximum to 1.0.
+    - Note: the function takes a DataFrame and a list of column names as parameters.
+    - Remember: the exercise requires an explicit `for` loop — a list comprehension is not acceptable.
+  gotchas: |
+    - Gotcha: if a column has all identical values, `max - min` is zero and you get a division-by-zero error — guard with an equality check.
+    - Common mistake: forgetting to `return df` at the end — the function must return the modified DataFrame, not None.
+    - Watch out for using a list comprehension instead of an explicit `for` loop — the exercise requires the latter.
   code_template: |
     import pandas as pd
 

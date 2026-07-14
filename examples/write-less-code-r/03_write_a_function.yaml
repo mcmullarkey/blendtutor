@@ -10,14 +10,13 @@ exercise:
     vector on a 1-5 scale. Reconstruct `survey_data` first — each check runs
     in a fresh R session.
   hints: |
-    Tip: R functions return their last evaluated expression automatically —
-    no explicit `return()` needed. Common mistake: using `{ }` braces
-    without a final expression, which returns NULL. Watch out for vector
-    operations: `6 - x` works element-wise on vectors, so
-    `reverse_score(c(1, 2, 3, 4, 5))` returns `5 4 3 2 1`. Remember that
-    the function must be named exactly `reverse_score` (with underscore,
-    not camelCase). The check reconstructs survey_data before calling your
-    function, so include that construction in your submission.
+    - Tip: R functions return their last evaluated expression automatically — no explicit `return()` needed.
+    - Remember that the function must be named exactly `reverse_score` (with underscore, not camelCase).
+    - Note: the check reconstructs survey_data before calling your function, so include that construction in your submission.
+  gotchas: |
+    - Common mistake: using `{ }` braces without a final expression, which returns NULL.
+    - Watch out for vector operations: `6 - x` works element-wise on vectors, so `reverse_score(c(1, 2, 3, 4, 5))` returns `5 4 3 2 1`.
+    - Gotcha: if you name the function `reverseScore` (camelCase), the check fails because R is case-sensitive.
   code_template: |
     survey_data <- data.frame(
       respondent_id = 1:5,

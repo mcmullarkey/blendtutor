@@ -1,18 +1,21 @@
-//! Integration tests for succinct prompts + expandable hints across both
-//! example courses.
+//! Integration tests for succinct prompts + expandable hints and gotchas
+//! across both example courses.
 //!
 //! Validates that every lesson in `examples/write-less-code-python/` and
 //! `examples/write-less-code-r/`:
 //!   1. Validates cleanly (`blendtutor validate` exits 0)
-//!   2. Carries a non-empty `hints` field of at least 100 characters
-//!   3. Hints contain at least one structural marker (gotcha, tip, etc.)
-//!   4. Hints do not leak the reference solution (anti-spoiler)
-//!   5. Hints are not a copy of the prompt (non-dupe)
-//!   6. Copy-paste-trap lessons retain the literal `stress_6` in the prompt
-//!   7. The `{student_code}` placeholder is retained in `llm_evaluation_prompt`
+//!   2. Carries non-empty `hints` AND `gotchas` fields, each ≥100 characters
+//!   3. Both fields are bullet-formatted (each non-empty line starts with
+//!      `- ` or `* `)
+//!   4. Both fields contain at least one structural marker (gotcha, tip, etc.)
+//!   5. Neither field leaks the reference solution (anti-spoiler)
+//!   6. Neither field is a copy of the prompt (non-dupe)
+//!   7. Cross-field identity: hints ≠ gotchas (not identical text)
+//!   8. Copy-paste-trap lessons retain the literal `stress_6` in the prompt
+//!   9. The `{student_code}` placeholder is retained in `llm_evaluation_prompt`
 //!
 //! Plus a build gate: `blendtutor build` on each course emits lesson JSON
-//! whose `hints` field is non-null.
+//! whose `hints` AND `gotchas` fields are non-null.
 
 mod common;
 
@@ -43,7 +46,7 @@ const LESSON_FILES: &[&str] = &[
     "05_rule_of_three.yaml",
 ];
 
-/// Structural markers that hints must contain at least one of.
+/// Structural markers that hints/gotchas must contain at least one of.
 const STRUCTURAL_MARKERS: &[&str] = &[
     "gotcha",
     "watch out",
@@ -56,8 +59,8 @@ const STRUCTURAL_MARKERS: &[&str] = &[
     "hint",
 ];
 
-/// Minimum length for hints content.
-const MIN_HINTS_LEN: usize = 100;
+/// Minimum length for hints/gotchas content.
+const MIN_CONTENT_LEN: usize = 100;
 
 fn lesson_path(course_dir: &str, filename: &str) -> PathBuf {
     Path::new(course_dir).join(filename)
@@ -68,40 +71,24 @@ fn load_lesson(course_dir: &str, filename: &str) -> Lesson {
         .unwrap_or_else(|e| panic!("lesson {filename} should parse: {e}"))
 }
 
-/// Assert all hints-content invariants for a single lesson.
-fn assert_hints_invariants(course_name: &str, idx: usize, filename: &str, lesson: &Lesson) {
-    let hints = lesson
-        .exercise
-        .hints
-        .as_deref()
-        .unwrap_or_else(|| panic!("{course_name} lesson {idx} ({filename}) should have hints"));
+/// Check that every non-empty line starts with `- ` or `* ` (bullet format).
+fn is_bullet_formatted(content: &str) -> bool {
+    content
+        .lines()
+        .all(|line| line.is_empty() || line.starts_with("- ") || line.starts_with("* "))
+}
 
-    // Invariant 2a: hints non-empty.
-    assert!(
-        !hints.trim().is_empty(),
-        "{course_name} lesson {idx} ({filename}) hints should be non-empty"
-    );
-
-    // Invariant 2b: hints at least 100 characters.
-    assert!(
-        hints.len() >= MIN_HINTS_LEN,
-        "{course_name} lesson {idx} ({filename}) hints should be >= {MIN_HINTS_LEN} chars, got {}: {hints:?}",
-        hints.len()
-    );
-
-    // Invariant 3: at least one structural marker.
-    let lower = hints.to_lowercase();
-    let has_marker = STRUCTURAL_MARKERS.iter().any(|m| lower.contains(m));
-    assert!(
-        has_marker,
-        "{course_name} lesson {idx} ({filename}) hints should contain a structural marker \
-         (one of: {STRUCTURAL_MARKERS:?}), got: {hints:?}"
-    );
-
-    // Invariant 4: solution not leaked into hints (anti-spoiler).
+/// Assert that no solution fragment (≥15 chars) appears in the given content
+/// field (anti-spoiler).
+fn assert_no_solution_leak(
+    course_name: &str,
+    idx: usize,
+    filename: &str,
+    field_name: &str,
+    content: &str,
+    lesson: &Lesson,
+) {
     if let Some(solution) = lesson.exercise.solution.as_deref() {
-        // Check a distinctive fragment of the solution (first non-trivial line)
-        // rather than the whole block, since hints may reference variable names.
         let solution_fragments: Vec<&str> = solution
             .lines()
             .filter(|l| {
@@ -117,25 +104,118 @@ fn assert_hints_invariants(course_name: &str, idx: usize, filename: &str, lesson
         for frag in &solution_fragments {
             let frag_trimmed = frag.trim();
             // Skip very short fragments (variable names, single tokens) that
-            // hints legitimately reference.
+            // hints/gotchas legitimately reference.
             if frag_trimmed.len() < 15 {
                 continue;
             }
             assert!(
-                !hints.contains(frag_trimmed),
-                "{course_name} lesson {idx} ({filename}) hints must not leak solution code \
+                !content.contains(frag_trimmed),
+                "{course_name} lesson {idx} ({filename}) {field_name} must not leak solution code \
                  fragment: {frag_trimmed:?}"
             );
         }
     }
+}
 
-    // Invariant 5: hints are not a copy of the prompt (non-dupe).
+/// Assert all hints-and-gotchas content invariants for a single lesson.
+fn assert_hints_and_gotchas_invariants(
+    course_name: &str,
+    idx: usize,
+    filename: &str,
+    lesson: &Lesson,
+) {
+    let hints = lesson
+        .exercise
+        .hints
+        .as_deref()
+        .unwrap_or_else(|| panic!("{course_name} lesson {idx} ({filename}) should have hints"));
+
+    let gotchas =
+        lesson.exercise.gotchas.as_deref().unwrap_or_else(|| {
+            panic!("{course_name} lesson {idx} ({filename}) should have gotchas")
+        });
+
+    // Invariant: hints non-empty.
+    assert!(
+        !hints.trim().is_empty(),
+        "{course_name} lesson {idx} ({filename}) hints should be non-empty"
+    );
+
+    // Invariant: gotchas non-empty.
+    assert!(
+        !gotchas.trim().is_empty(),
+        "{course_name} lesson {idx} ({filename}) gotchas should be non-empty"
+    );
+
+    // Invariant: hints at least 100 characters.
+    assert!(
+        hints.len() >= MIN_CONTENT_LEN,
+        "{course_name} lesson {idx} ({filename}) hints should be >= {MIN_CONTENT_LEN} chars, got {}: {hints:?}",
+        hints.len()
+    );
+
+    // Invariant: gotchas at least 100 characters.
+    assert!(
+        gotchas.len() >= MIN_CONTENT_LEN,
+        "{course_name} lesson {idx} ({filename}) gotchas should be >= {MIN_CONTENT_LEN} chars, got {}: {gotchas:?}",
+        gotchas.len()
+    );
+
+    // Invariant: hints bullet-formatted.
+    assert!(
+        is_bullet_formatted(hints),
+        "{course_name} lesson {idx} ({filename}) hints should be bullet-formatted: {hints:?}"
+    );
+
+    // Invariant: gotchas bullet-formatted.
+    assert!(
+        is_bullet_formatted(gotchas),
+        "{course_name} lesson {idx} ({filename}) gotchas should be bullet-formatted: {gotchas:?}"
+    );
+
+    // Invariant: at least one structural marker in hints.
+    let hints_lower = hints.to_lowercase();
+    let hints_has_marker = STRUCTURAL_MARKERS.iter().any(|m| hints_lower.contains(m));
+    assert!(
+        hints_has_marker,
+        "{course_name} lesson {idx} ({filename}) hints should contain a structural marker \
+         (one of: {STRUCTURAL_MARKERS:?}), got: {hints:?}"
+    );
+
+    // Invariant: at least one structural marker in gotchas.
+    let gotchas_lower = gotchas.to_lowercase();
+    let gotchas_has_marker = STRUCTURAL_MARKERS.iter().any(|m| gotchas_lower.contains(m));
+    assert!(
+        gotchas_has_marker,
+        "{course_name} lesson {idx} ({filename}) gotchas should contain a structural marker \
+         (one of: {STRUCTURAL_MARKERS:?}), got: {gotchas:?}"
+    );
+
+    // Invariant: solution not leaked into hints (anti-spoiler).
+    assert_no_solution_leak(course_name, idx, filename, "hints", hints, lesson);
+
+    // Invariant: solution not leaked into gotchas (anti-spoiler).
+    assert_no_solution_leak(course_name, idx, filename, "gotchas", gotchas, lesson);
+
+    // Invariant: hints are not a copy of the prompt (non-dupe).
     assert!(
         !hints.contains(&lesson.exercise.prompt),
         "{course_name} lesson {idx} ({filename}) hints must not be a copy of the prompt"
     );
 
-    // Invariant 7: {student_code} placeholder retained in llm_evaluation_prompt.
+    // Invariant: gotchas are not a copy of the prompt (non-dupe).
+    assert!(
+        !gotchas.contains(&lesson.exercise.prompt),
+        "{course_name} lesson {idx} ({filename}) gotchas must not be a copy of the prompt"
+    );
+
+    // Invariant: cross-field identity — hints ≠ gotchas.
+    assert!(
+        hints.trim() != gotchas.trim(),
+        "{course_name} lesson {idx} ({filename}) hints and gotchas must not be identical"
+    );
+
+    // Invariant: {student_code} placeholder retained in llm_evaluation_prompt.
     assert!(
         lesson
             .exercise
@@ -145,7 +225,7 @@ fn assert_hints_invariants(course_name: &str, idx: usize, filename: &str, lesson
     );
 }
 
-// ─── Python course: validate + hints invariants ──────────────────────────────
+// ─── Python course: validate + hints/gotchas invariants ──────────────────────
 
 #[test]
 fn python_validate_each_lesson_exits_zero() {
@@ -161,10 +241,10 @@ fn python_validate_each_lesson_exits_zero() {
 }
 
 #[test]
-fn python_hints_satisfy_all_invariants() {
+fn python_hints_and_gotchas_satisfy_all_invariants() {
     for (idx, filename) in LESSON_FILES.iter().enumerate() {
         let lesson = load_lesson(PYTHON_COURSE_DIR, filename);
-        assert_hints_invariants("Python", idx, filename, &lesson);
+        assert_hints_and_gotchas_invariants("Python", idx, filename, &lesson);
     }
 }
 
@@ -178,7 +258,7 @@ fn python_lesson_2_prompt_retains_stress_6() {
     );
 }
 
-// ─── R course: validate + hints invariants ───────────────────────────────────
+// ─── R course: validate + hints/gotchas invariants ───────────────────────────
 
 #[test]
 fn r_validate_each_lesson_exits_zero() {
@@ -194,10 +274,10 @@ fn r_validate_each_lesson_exits_zero() {
 }
 
 #[test]
-fn r_hints_satisfy_all_invariants() {
+fn r_hints_and_gotchas_satisfy_all_invariants() {
     for (idx, filename) in LESSON_FILES.iter().enumerate() {
         let lesson = load_lesson(R_COURSE_DIR, filename);
-        assert_hints_invariants("R", idx, filename, &lesson);
+        assert_hints_and_gotchas_invariants("R", idx, filename, &lesson);
     }
 }
 
@@ -211,7 +291,7 @@ fn r_lesson_2_prompt_retains_stress_6() {
     );
 }
 
-// ─── Build gate: lesson JSON carries non-null hints ──────────────────────────
+// ─── Build gate: lesson JSON carries non-null hints AND gotchas ─────────────
 
 /// Run `build --target <target> <course> -o <out>` via the built binary.
 fn build(target: &str, course: &str, out: &Path) -> std::process::Output {
@@ -227,14 +307,17 @@ fn build(target: &str, course: &str, out: &Path) -> std::process::Output {
         .unwrap()
 }
 
-/// Assert every lesson JSON in a built site carries a non-null `hints` field.
-fn assert_built_lessons_carry_hints(out: &Path, course_name: &str) {
+/// Assert every lesson JSON in a built site carries non-null `hints` AND
+/// `gotchas` fields.
+fn assert_built_lessons_carry_hints_and_gotchas(out: &Path, course_name: &str) {
     for i in 0..LESSON_FILES.len() {
         let json_path = out.join(format!("lessons/{i}.json"));
         let text = std::fs::read_to_string(&json_path)
             .unwrap_or_else(|e| panic!("{course_name} lessons/{i}.json should exist: {e}"));
         let lesson: Value = serde_json::from_str(&text)
             .unwrap_or_else(|e| panic!("{course_name} lessons/{i}.json should parse: {e}"));
+
+        // hints key present and non-null.
         assert!(
             lesson.get("hints").is_some(),
             "{course_name} lesson {i} JSON must carry a 'hints' key (not absent): {lesson}"
@@ -250,11 +333,28 @@ fn assert_built_lessons_carry_hints(out: &Path, course_name: &str) {
             !hints_str.is_empty(),
             "{course_name} lesson {i} JSON hints should be non-empty: {lesson}"
         );
+
+        // gotchas key present and non-null.
+        assert!(
+            lesson.get("gotchas").is_some(),
+            "{course_name} lesson {i} JSON must carry a 'gotchas' key (not absent): {lesson}"
+        );
+        assert!(
+            !lesson["gotchas"].is_null(),
+            "{course_name} lesson {i} JSON gotchas must be non-null: {lesson}"
+        );
+        let gotchas_str = lesson["gotchas"].as_str().unwrap_or_else(|| {
+            panic!("{course_name} lesson {i} JSON gotchas should be a string: {lesson}")
+        });
+        assert!(
+            !gotchas_str.is_empty(),
+            "{course_name} lesson {i} JSON gotchas should be non-empty: {lesson}"
+        );
     }
 }
 
 #[test]
-fn build_python_course_emits_non_null_hints() {
+fn build_python_course_emits_non_null_hints_and_gotchas() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("site");
 
@@ -266,11 +366,11 @@ fn build_python_course_emits_non_null_hints() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_built_lessons_carry_hints(&out, "Python");
+    assert_built_lessons_carry_hints_and_gotchas(&out, "Python");
 }
 
 #[test]
-fn build_r_course_emits_non_null_hints() {
+fn build_r_course_emits_non_null_hints_and_gotchas() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("site");
 
@@ -282,5 +382,5 @@ fn build_r_course_emits_non_null_hints() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_built_lessons_carry_hints(&out, "R");
+    assert_built_lessons_carry_hints_and_gotchas(&out, "R");
 }

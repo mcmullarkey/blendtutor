@@ -11,13 +11,13 @@ exercise:
     trap: if you copy from reversing another column, you might reverse the
     wrong one — make sure `stress_6_rev` derives from `stress_6`.
   hints: |
-    Gotcha: reverse-scoring means flipping the scale so that a high raw
-    score becomes low. For a 1-5 scale, the formula is `6 - value` (so 1
-    becomes 5, 5 becomes 1). Common mistake: copy-pasting code that
-    references `stress_5` instead of `stress_6` — always double-check the
-    column name. Watch out for assigning to the wrong column: the new
-    column must be `stress_6_rev`, not `stress_5_rev`. Tip: verify with
-    `survey_data$stress_6_rev` which should be `5 4 3 2 1`.
+    - Tip: verify with `survey_data$stress_6_rev` which should be `5 4 3 2 1`.
+    - Note: for a 1-5 scale, the reverse-scoring formula is `6 - value` (so 1 becomes 5, 5 becomes 1).
+    - Remember: the new column must be named `stress_6_rev`, not `stress_5_rev` or any other variant.
+  gotchas: |
+    - Gotcha: reverse-scoring means flipping the scale so that a high raw score becomes low.
+    - Common mistake: copy-pasting code that references `stress_5` instead of `stress_6` — always double-check the column name.
+    - Watch out for assigning to the wrong column — the new column must be `stress_6_rev`, not `stress_5_rev`.
   code_template: |
     survey_data <- data.frame(
       respondent_id = 1:5,

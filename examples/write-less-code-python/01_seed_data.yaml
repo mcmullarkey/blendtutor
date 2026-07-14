@@ -23,13 +23,13 @@ exercise:
     - Missing respondent_id column
     - Has a syntax error
   hints: |
-    Common mistake: forgetting a column or misspelling it. You need all six
-    stress columns (stress_1 through stress_6) plus respondent_id — 7 columns
-    total. Watch out for passing lists of unequal length to the DataFrame
-    constructor; pandas raises a ValueError. Tip: verify with
-    `survey_data.shape` which should print (5, 7). Remember that integer
-    values like [3, 4, 2, 5, 3] are stored as int64 automatically — no
-    explicit dtype needed.
+    - Tip: verify your DataFrame with `survey_data.shape` — it should print (5, 7).
+    - Remember that integer values like [3, 4, 2, 5, 3] are stored as int64 automatically — no explicit dtype needed.
+    - Note: pandas accepts a dict of lists in the DataFrame constructor, each key becomes a column name.
+  gotchas: |
+    - Common mistake: forgetting a column or misspelling it — you need all six stress columns (stress_1 through stress_6) plus respondent_id (7 total).
+    - Watch out for passing lists of unequal length to the DataFrame constructor — pandas raises a ValueError.
+    - Gotcha: if you forget respondent_id, the shape check fails even with all six stress columns present.
   code_template: |
     import pandas as pd
 

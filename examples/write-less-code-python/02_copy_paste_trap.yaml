@@ -11,12 +11,13 @@ exercise:
     contains the reversed values of the `stress_6` column from
     `survey_data` as a numpy array or list.
   hints: |
-    Gotcha: the bug is on the line `stress_6_rev = survey_data['stress_6'].values`
-    — it copies without reversing. To reverse a numpy array or list, append
-    `[::-1]`. Watch out for confusing `.values` (returns a numpy array) with
-    the Series itself — both support slicing, but the check asserts on
-    `stress_6_rev[0]` and `stress_6_rev[-1]`. Tip: the first element of the
-    reversed array should be 5 (the last value of stress_6).
+    - Tip: the first element of the reversed array should be 5 (the last value of stress_6).
+    - Note: to reverse a numpy array or list, append `[::-1]` to the end of your expression.
+    - Remember: `.values` returns a numpy array, which supports slicing just like a list.
+  gotchas: |
+    - Gotcha: the bug is on the line that copies without reversing — the fix is to append `[::-1]`.
+    - Watch out for confusing `.values` (returns a numpy array) with the Series itself — both support slicing.
+    - Common mistake: forgetting to reverse at all — the check asserts on `stress_6_rev[0]` and `stress_6_rev[-1]`.
   code_template: |
     import pandas as pd
 

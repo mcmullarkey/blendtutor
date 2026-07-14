@@ -6,11 +6,18 @@ textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Co
 exercise:
   type: "function_writing"
   prompt: |
-    Write a function called `reverse_score` that takes a numeric vector `x`
-    (on a 1-5 scale) and returns its reverse-scored version: `6 - x`.
-
-    Reconstruct `survey_data` first — each check runs in a fresh R session.
-    Then apply `reverse_score` to `survey_data$stress_6` to verify it works.
+    Write a function `reverse_score(x)` that returns `6 - x` for a numeric
+    vector on a 1-5 scale. Reconstruct `survey_data` first — each check runs
+    in a fresh R session.
+  hints: |
+    Tip: R functions return their last evaluated expression automatically —
+    no explicit `return()` needed. Common mistake: using `{ }` braces
+    without a final expression, which returns NULL. Watch out for vector
+    operations: `6 - x` works element-wise on vectors, so
+    `reverse_score(c(1, 2, 3, 4, 5))` returns `5 4 3 2 1`. Remember that
+    the function must be named exactly `reverse_score` (with underscore,
+    not camelCase). The check reconstructs survey_data before calling your
+    function, so include that construction in your submission.
   code_template: |
     survey_data <- data.frame(
       respondent_id = 1:5,

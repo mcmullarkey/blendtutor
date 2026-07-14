@@ -10,11 +10,9 @@ exercise:
   type: "function_writing"
   prompt: |
     Use purrr and dplyr to reverse-score ALL six stress columns at once,
-    creating new `_rev` columns (stress_1_rev through stress_6_rev).
-
-    Reconstruct `survey_data` first — each check runs in a fresh R session.
-    Use `mutate` with `across` and the `reverse_score` pattern (`6 - .x`)
-    to create the `_rev` columns.
+    creating `stress_1_rev` through `stress_6_rev`. Reconstruct
+    `survey_data` first — each check runs in a fresh R session. Use
+    `mutate` with `across` and the `reverse_score` pattern (`6 - .x`).
 
     The submission is correct if ALL of these are true:
     - Reconstructs `survey_data` with respondent_id and stress_1 through stress_6
@@ -27,6 +25,15 @@ exercise:
     - Does not create any `_rev` columns
     - Has a syntax error
     - Does not reconstruct survey_data
+  hints: |
+    Gotcha: `across()` needs `.names = "{.col}_rev"` to name the output
+    columns correctly — without it, the new columns overwrite the originals.
+    Common mistake: reversing only some columns. You need all six
+    (stress_1_rev through stress_6_rev). Watch out for the `.fns` argument:
+    use `~ 6 - .x` (a formula) or `function(x) 6 - x`. Tip: build a
+    character vector of the stress column names programmatically (e.g.,
+    with `paste0`) and pass it to `all_of()` inside `across`. Remember to
+    pipe with `|>` or `%>%` and reassign the result back to `survey_data`.
   code_template: |
     library(purrr)
     library(dplyr)

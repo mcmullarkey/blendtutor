@@ -15,6 +15,19 @@ exercise:
 
     Min-max normalization formula:
     normalized = (value - min) / (max - min)
+
+    The submission is correct if ALL of these are true:
+    - The function is named `normalize_columns`
+    - It takes a DataFrame and a list of column names as parameters
+    - It uses an explicit `for` loop (e.g., `for col in columns:`)
+    - It normalizes each column to [0, 1] using (value - min) / (max - min)
+    - It returns the modified DataFrame
+
+    The submission is incorrect if ANY of these are true:
+    - It uses a list comprehension instead of a for loop
+    - It does not normalize correctly
+    - It has a syntax error
+    - It does not return the DataFrame
   code_template: |
     import pandas as pd
 
@@ -26,7 +39,12 @@ exercise:
 
     def normalize_columns(df, columns):
         for col in columns:
-            df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+            col_min = df[col].min()
+            col_max = df[col].max()
+            if col_max == col_min:
+                df[col] = 0.0
+            else:
+                df[col] = (df[col] - col_min) / (col_max - col_min)
         return df
   example_usage: |
     df = pd.DataFrame({'a': [0, 10], 'b': [0, 5]})
@@ -44,8 +62,25 @@ exercise:
 
     Exercise: Write a function called `normalize_columns` that takes a
     pandas DataFrame and a list of column names, and normalizes each
-    column to the range [0, 1] using min-max normalization. Use an
-    explicit for loop to iterate over the columns.
+    column to the range [0, 1] using min-max normalization.
+
+    The function MUST use an explicit `for` loop to iterate over the columns.
+    A list comprehension is NOT acceptable, even if it produces correct results.
+
+    Min-max normalization formula: normalized = (value - min) / (max - min)
+
+    A submission is correct if ALL of these are true:
+    1. The function is named `normalize_columns`
+    2. It takes a DataFrame and a list of column names as parameters
+    3. It uses an explicit `for` loop (e.g., `for col in columns:`)
+    4. It normalizes each column to [0, 1] using (value - min) / (max - min)
+    5. It returns the modified DataFrame
+
+    A submission is incorrect if ANY of these are true:
+    1. It uses a list comprehension instead of a for loop
+    2. It does not normalize correctly
+    3. It has a syntax error
+    4. It does not return the DataFrame
 
     Student submitted this code:
     {student_code}

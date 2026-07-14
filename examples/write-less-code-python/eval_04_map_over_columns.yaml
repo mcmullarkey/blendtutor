@@ -7,7 +7,12 @@ cases:
       import pandas as pd
       def normalize_columns(df, columns):
           for col in columns:
-              df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+              col_min = df[col].min()
+              col_max = df[col].max()
+              if col_max == col_min:
+                  df[col] = 0.0
+              else:
+                  df[col] = (df[col] - col_min) / (col_max - col_min)
           return df
     expected: correct
   # Correct: explicit for loop with different variable name
@@ -17,7 +22,10 @@ cases:
           for c in columns:
               minimum = df[c].min()
               maximum = df[c].max()
-              df[c] = (df[c] - minimum) / (maximum - minimum)
+              if maximum == minimum:
+                  df[c] = 0.0
+              else:
+                  df[c] = (df[c] - minimum) / (maximum - minimum)
           return df
     expected: correct
   # Near-miss: valid Python, runs cleanly, but uses list comprehension instead of for loop

@@ -60,10 +60,13 @@ fn tracked_files(root: &Path) -> Vec<String> {
 /// crates' `.R` student-code fixtures (kept under `crates/`).
 fn is_retired_r_package_path(path: &str) -> bool {
     // `crates/` keeps the Rust runner's `.R` student-code fixtures; `legacy-r/`
-    // is the spec's documented relocation alternative to deletion. Neither is
-    // the retired root package, so both are out of scope here (the latter
-    // mirrors the AC2 grep probe's `!legacy-r/**` exclusion).
-    if path.starts_with("crates/") || path.starts_with("legacy-r/") {
+    // is the spec's documented relocation alternative to deletion; `examples/`
+    // holds the example course's `.R` solution files (legitimate educational
+    // content, not retired R package sources). None of these are the retired
+    // root package, so all are out of scope here (the latter two mirror the
+    // AC2 grep probe's `!legacy-r/**` exclusion).
+    if path.starts_with("crates/") || path.starts_with("legacy-r/") || path.starts_with("examples/")
+    {
         return false;
     }
     path.starts_with("R/")

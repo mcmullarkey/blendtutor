@@ -166,8 +166,12 @@ fn layer3_solutions_execute_cleanly() {
     if rscript_absent() {
         return;
     }
+    let skip_lesson4 = purrr_dplyr_absent();
     let lessons = load_all_lessons();
     for (i, lesson) in lessons.iter().enumerate() {
+        if i == 3 && skip_lesson4 {
+            continue;
+        }
         let solution = lesson
             .exercise
             .solution
@@ -189,8 +193,12 @@ fn layer4_checks_pass_against_reference_solution() {
     if rscript_absent() {
         return;
     }
+    let skip_lesson4 = purrr_dplyr_absent();
     let lessons = load_all_lessons();
     for (i, lesson) in lessons.iter().enumerate() {
+        if i == 3 && skip_lesson4 {
+            continue;
+        }
         let solution = lesson
             .exercise
             .solution
@@ -250,8 +258,12 @@ fn layer6_each_lesson_has_genuine_near_miss() {
     if rscript_absent() {
         return;
     }
+    let skip_lesson4 = purrr_dplyr_absent();
     let suites = load_all_eval_suites();
     for (i, suite) in suites.iter().enumerate() {
+        if i == 3 && skip_lesson4 {
+            continue;
+        }
         let has_near_miss = suite.cases.iter().any(|case| {
             case.expected == ExpectedVerdict::Incorrect && rscript_exits_zero(&case.submission)
         });
@@ -352,6 +364,7 @@ fn negative_checks_fail_against_wrong_submissions() {
     if rscript_absent() {
         return;
     }
+    let skip_lesson4 = purrr_dplyr_absent();
     // For each lesson, craft a WRONG submission and assert at least one check fails
     let wrong_submissions: &[(&str, &str)] = &[
         // Lesson 1: wrong dimensions (6 cols instead of 7)
@@ -369,6 +382,11 @@ fn negative_checks_fail_against_wrong_submissions() {
             "survey_data <- data.frame(respondent_id=1:5,stress_1=c(3,4,5,2,1),stress_2=c(2,3,4,5,1),stress_3=c(1,2,3,4,5),stress_4=c(5,4,3,2,1),stress_5=c(4,3,2,1,5),stress_6=c(1,2,3,4,5)); reverse_score <- function(x) 5 - x",
             "stopifnot(identical(reverse_score(c(1, 2, 3, 4, 5)), c(5, 4, 3, 2, 1)))",
         ),
+        // Lesson 4: only reverses stress_1 (not all six) — uses purrr/dplyr
+        (
+            "library(purrr); library(dplyr); survey_data <- data.frame(respondent_id=1:5,stress_1=c(3,4,5,2,1),stress_2=c(2,3,4,5,1),stress_3=c(1,2,3,4,5),stress_4=c(5,4,3,2,1),stress_5=c(4,3,2,1,5),stress_6=c(1,2,3,4,5)); survey_data <- survey_data |> mutate(stress_1_rev = 6 - stress_1)",
+            "stopifnot(all(c('stress_1_rev', 'stress_6_rev') %in% names(survey_data)))",
+        ),
         // Lesson 5: wrong decision (count > 3 instead of count >= 3)
         (
             "survey_data <- data.frame(respondent_id=1:5,stress_1=c(3,4,5,2,1),stress_2=c(2,3,4,5,1),stress_3=c(1,2,3,4,5),stress_4=c(5,4,3,2,1),stress_5=c(4,3,2,1,5),stress_6=c(1,2,3,4,5)); should_abstract <- function(count) count > 3",
@@ -377,6 +395,9 @@ fn negative_checks_fail_against_wrong_submissions() {
     ];
 
     for (i, (wrong, check)) in wrong_submissions.iter().enumerate() {
+        if i == 3 && skip_lesson4 {
+            continue;
+        }
         let program = format!("{wrong}\n{check}");
         let output = StdCommand::new("Rscript")
             .args(["--vanilla", "-e", &program])
@@ -385,6 +406,44 @@ fn negative_checks_fail_against_wrong_submissions() {
         assert!(
             !output.status.success(),
             "lesson {i} check should FAIL against the WRONG submission (check-pass-through cheat)"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Negative 3: near-miss submissions fail at least one check (near-miss-not-near)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn near_miss_submissions_fail_at_least_one_check() {
+    if rscript_absent() {
+        return;
+    }
+    let skip_lesson4 = purrr_dplyr_absent();
+    let lessons = load_all_lessons();
+    let suites = load_all_eval_suites();
+    for (i, (lesson, suite)) in lessons.iter().zip(suites.iter()).enumerate() {
+        if i == 3 && skip_lesson4 {
+            continue;
+        }
+        // Find the near-miss: expected incorrect AND runs cleanly via Rscript
+        let near_miss = suite
+            .cases
+            .iter()
+            .find(|case| {
+                case.expected == ExpectedVerdict::Incorrect && rscript_exits_zero(&case.submission)
+            })
+            .unwrap_or_else(|| {
+                panic!("lesson {i} should have a near-miss case (incorrect + runs cleanly)")
+            });
+        // At least one check must fail against the near-miss submission
+        let any_check_fails = lesson.checks.iter().any(|check| {
+            let program = format!("{}\n{}", near_miss.submission, check);
+            !rscript_exits_zero(&program)
+        });
+        assert!(
+            any_check_fails,
+            "lesson {i} near-miss should fail at least one check (near-miss-not-near guard)"
         );
     }
 }

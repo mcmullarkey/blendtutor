@@ -1,0 +1,27 @@
+# Eval suite for 03_write_a_function.yaml — 4 cases: 2 correct, 2 incorrect, 1 near-miss.
+# The near-miss (case 3) is valid Python that runs cleanly but returns sum instead of mean.
+cases:
+  # Correct: uses .mean()
+  - submission: |-
+      import pandas as pd
+      def mean_stress(df, col):
+          return df[col].mean()
+    expected: correct
+  # Correct: computes mean manually
+  - submission: |-
+      import pandas as pd
+      def mean_stress(df, col):
+          return df[col].sum() / len(df[col])
+    expected: correct
+  # Near-miss: valid Python, runs cleanly, but returns sum instead of mean
+  - submission: |-
+      import pandas as pd
+      def mean_stress(df, col):
+          return df[col].sum()
+    expected: incorrect
+  # Incorrect: syntax error
+  - submission: |-
+      import pandas as pd
+      def mean_stress(df, col
+          return df[col].mean()
+    expected: incorrect

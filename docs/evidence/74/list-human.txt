@@ -1,0 +1,5 @@
+seed-data         python   Seed Data
+copy-paste-trap   python   Copy-Paste Trap
+write-a-function  python   Write a Function
+map-over-columns  python   Map Over Columns
+rule-of-three     python   Rule of Three

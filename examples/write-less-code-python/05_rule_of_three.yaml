@@ -1,0 +1,63 @@
+lesson_name: "Rule of Three"
+language: Python
+description: "Refactor repeated column-stat computations into a single function"
+textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Code, Part II"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    A colleague wrote three nearly identical blocks of code to compute
+    the mean of `stress_1`, `stress_2`, and `stress_3` columns from a
+    DataFrame. Apply the Rule of Three: refactor the repeated code into
+    a single function called `compute_column_means` that takes a
+    DataFrame and a list of column names, and returns a dictionary
+    mapping each column name to its mean.
+  code_template: |
+    import pandas as pd
+
+    # Before (repeated code):
+    # mean_1 = df['stress_1'].mean()
+    # mean_2 = df['stress_2'].mean()
+    # mean_3 = df['stress_3'].mean()
+
+    # After: refactor into one function
+    def compute_column_means(df, columns):
+        ...
+  solution: |
+    import pandas as pd
+
+    def compute_column_means(df, columns):
+        results = {}
+        for col in columns:
+            results[col] = df[col].mean()
+        return results
+  example_usage: |
+    df = pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6]})
+    print(compute_column_means(df, ['a', 'b']))  # {'a': 2.0, 'b': 5.0}
+  success_criteria: |
+    - Function is named `compute_column_means`
+    - Takes a DataFrame and a list of column names
+    - Returns a dictionary mapping column names to means
+    - Eliminates the repeated code pattern
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: Apply the Rule of Three — refactor repeated column-mean
+    computations into a single function called `compute_column_means`
+    that takes a DataFrame and a list of column names, and returns a
+    dictionary mapping each column name to its mean.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.
+
+checks:
+  - "assert compute_column_means(pd.DataFrame({'a': [1, 2, 3]}), ['a']) == {'a': 2.0}"
+  - "assert compute_column_means(pd.DataFrame({'a': [1, 2], 'b': [3, 4]}), ['a', 'b']) == {'a': 1.5, 'b': 3.5}"
+  - "assert compute_column_means(pd.DataFrame({'x': [10, 20, 30]}), ['x']) == {'x': 20.0}"
+
+packages:
+  - pandas

@@ -1,0 +1,72 @@
+lesson_name: "Copy-Paste Trap"
+language: Python
+description: "Fix a copy-paste bug where stress_6 was not properly reversed"
+textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Code, Part II"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    A colleague copy-pasted code to reverse the `stress_6` column but
+    forgot to actually reverse it — they assigned `stress_6` to itself
+    instead of `stress_6[::-1]`. Fix the bug so `stress_6_rev` contains
+    the reversed values of the `stress_6` column from `survey_data`.
+
+    The survey_data DataFrame is provided. Create `stress_6_rev` as a
+    numpy array (or list) containing the values of `stress_6` in
+    reverse order.
+  code_template: |
+    import pandas as pd
+
+    survey_data = pd.DataFrame({
+        'respondent_id': [1, 2, 3, 4, 5],
+        'stress_1': [3, 4, 2, 5, 3],
+        'stress_2': [2, 3, 4, 3, 2],
+        'stress_3': [4, 5, 3, 4, 3],
+        'stress_4': [3, 2, 4, 5, 4],
+        'stress_5': [2, 3, 5, 4, 3],
+        'stress_6': [4, 3, 2, 3, 5],
+    })
+
+    # BUG: copy-paste left stress_6 unreversed
+    stress_6_rev = survey_data['stress_6'].values
+  solution: |
+    import pandas as pd
+
+    survey_data = pd.DataFrame({
+        'respondent_id': [1, 2, 3, 4, 5],
+        'stress_1': [3, 4, 2, 5, 3],
+        'stress_2': [2, 3, 4, 3, 2],
+        'stress_3': [4, 5, 3, 4, 3],
+        'stress_4': [3, 2, 4, 5, 4],
+        'stress_5': [2, 3, 5, 4, 3],
+        'stress_6': [4, 3, 2, 3, 5],
+    })
+
+    stress_6_rev = survey_data['stress_6'].values[::-1]
+  example_usage: |
+    print(stress_6_rev)  # [5 3 2 3 4]
+  success_criteria: |
+    - stress_6_rev contains the reversed values of stress_6
+    - First element is 5 (was last in stress_6)
+    - Last element is 4 (was first in stress_6)
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: Fix the copy-paste bug so `stress_6_rev` contains the
+    reversed values of the `stress_6` column. The original bug assigned
+    `stress_6` to itself instead of reversing it.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.
+
+checks:
+  - "assert stress_6_rev[0] == 5"
+  - "assert stress_6_rev[-1] == 4"
+  - "assert len(stress_6_rev) == 5"
+
+packages:
+  - pandas

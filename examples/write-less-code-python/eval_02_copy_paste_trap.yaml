@@ -1,0 +1,51 @@
+# Eval suite for 02_copy_paste_trap.yaml — 4 cases: 2 correct, 2 incorrect, 1 near-miss.
+# The near-miss (case 3) is valid Python that runs cleanly but doesn't reverse stress_6.
+cases:
+  # Correct: properly reversed
+  - submission: |-
+      import pandas as pd
+      survey_data = pd.DataFrame({
+          'respondent_id': [1, 2, 3, 4, 5],
+          'stress_1': [3, 4, 2, 5, 3],
+          'stress_2': [2, 3, 4, 3, 2],
+          'stress_3': [4, 5, 3, 4, 3],
+          'stress_4': [3, 2, 4, 5, 4],
+          'stress_5': [2, 3, 5, 4, 3],
+          'stress_6': [4, 3, 2, 3, 5],
+      })
+      stress_6_rev = survey_data['stress_6'].values[::-1]
+    expected: correct
+  # Correct: reversed using reversed()
+  - submission: |-
+      import pandas as pd
+      survey_data = pd.DataFrame({
+          'respondent_id': [1, 2, 3, 4, 5],
+          'stress_1': [3, 4, 2, 5, 3],
+          'stress_2': [2, 3, 4, 3, 2],
+          'stress_3': [4, 5, 3, 4, 3],
+          'stress_4': [3, 2, 4, 5, 4],
+          'stress_5': [2, 3, 5, 4, 3],
+          'stress_6': [4, 3, 2, 3, 5],
+      })
+      stress_6_rev = list(reversed(survey_data['stress_6'].values))
+    expected: correct
+  # Near-miss: valid Python, runs cleanly, but stress_6 not reversed (the original bug)
+  - submission: |-
+      import pandas as pd
+      survey_data = pd.DataFrame({
+          'respondent_id': [1, 2, 3, 4, 5],
+          'stress_1': [3, 4, 2, 5, 3],
+          'stress_2': [2, 3, 4, 3, 2],
+          'stress_3': [4, 5, 3, 4, 3],
+          'stress_4': [3, 2, 4, 5, 4],
+          'stress_5': [2, 3, 5, 4, 3],
+          'stress_6': [4, 3, 2, 3, 5],
+      })
+      stress_6_rev = survey_data['stress_6'].values
+    expected: incorrect
+  # Incorrect: syntax error
+  - submission: |-
+      import pandas as pd
+      survey_data = pd.DataFrame({'stress_6': [4, 3, 2, 3, 5]})
+      stress_6_rev = survey_data['stress_6'].values[::
+    expected: incorrect

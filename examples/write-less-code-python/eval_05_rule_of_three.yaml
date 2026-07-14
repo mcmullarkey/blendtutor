@@ -1,0 +1,36 @@
+# Eval suite for 05_rule_of_three.yaml — 4 cases: 2 correct, 2 incorrect, 1 near-miss.
+# The near-miss (case 3) is valid Python that runs cleanly but returns max instead of mean.
+cases:
+  # Correct: uses for loop to build dict of means
+  - submission: |-
+      import pandas as pd
+      def compute_column_means(df, columns):
+          results = {}
+          for col in columns:
+              results[col] = df[col].mean()
+          return results
+    expected: correct
+  # Correct: uses dict comprehension (valid Python, correct result)
+  - submission: |-
+      import pandas as pd
+      def compute_column_means(df, columns):
+          return {col: df[col].mean() for col in columns}
+    expected: correct
+  # Near-miss: valid Python, runs cleanly, but returns max instead of mean
+  - submission: |-
+      import pandas as pd
+      def compute_column_means(df, columns):
+          results = {}
+          for col in columns:
+              results[col] = df[col].max()
+          return results
+    expected: incorrect
+  # Incorrect: syntax error
+  - submission: |-
+      import pandas as pd
+      def compute_column_means(df, columns:
+          results = {}
+          for col in columns:
+              results[col] = df[col].mean()
+          return results
+    expected: incorrect

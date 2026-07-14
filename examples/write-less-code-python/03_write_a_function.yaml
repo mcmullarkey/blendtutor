@@ -1,0 +1,47 @@
+lesson_name: "Write a Function"
+language: Python
+description: "Write a function that computes the mean of a DataFrame column"
+textbook_reference: "Just Enough Software Engineering - Chapter 8: Write Less Code, Part II"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    Write a function called `mean_stress` that takes a pandas DataFrame
+    and a column name, and returns the mean of that column.
+  code_template: |
+    import pandas as pd
+
+    def mean_stress(df, col):
+        ...
+  solution: |
+    import pandas as pd
+
+    def mean_stress(df, col):
+        return df[col].mean()
+  example_usage: |
+    df = pd.DataFrame({'stress': [1, 2, 3]})
+    print(mean_stress(df, 'stress'))  # 2.0
+  success_criteria: |
+    - Function is named `mean_stress`
+    - Takes two parameters (df, col)
+    - Returns the mean of the specified column
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: Write a function called `mean_stress` that takes a pandas
+    DataFrame and a column name, and returns the mean of that column.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.
+
+checks:
+  - "assert mean_stress(pd.DataFrame({'s': [1, 2, 3]}), 's') == 2.0"
+  - "assert mean_stress(pd.DataFrame({'s': [10, 20]}), 's') == 15.0"
+  - "assert mean_stress(pd.DataFrame({'s': [0, 0, 0]}), 's') == 0.0"
+
+packages:
+  - pandas

@@ -1,0 +1,37 @@
+# Eval suite for 04_map_over_columns.yaml — 4 cases: 2 correct, 2 incorrect, 1 near-miss.
+# The near-miss (case 3) is valid Python that runs cleanly but uses list comprehension
+# instead of an explicit for loop (wrong idiom, but functional).
+cases:
+  # Correct: explicit for loop with min-max normalization
+  - submission: |-
+      import pandas as pd
+      def normalize_columns(df, columns):
+          for col in columns:
+              df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+          return df
+    expected: correct
+  # Correct: explicit for loop with different variable name
+  - submission: |-
+      import pandas as pd
+      def normalize_columns(df, columns):
+          for c in columns:
+              minimum = df[c].min()
+              maximum = df[c].max()
+              df[c] = (df[c] - minimum) / (maximum - minimum)
+          return df
+    expected: correct
+  # Near-miss: valid Python, runs cleanly, but uses list comprehension instead of for loop
+  - submission: |-
+      import pandas as pd
+      def normalize_columns(df, columns):
+          [df.__setitem__(c, (df[c] - df[c].min()) / (df[c].max() - df[c].min())) for c in columns]
+          return df
+    expected: incorrect
+  # Incorrect: syntax error
+  - submission: |-
+      import pandas as pd
+      def normalize_columns(df, columns):
+          for col in columns:
+              df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min()
+          return df
+    expected: incorrect

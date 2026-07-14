@@ -135,6 +135,21 @@ the site is cross-origin isolated on Pages without any header configuration.
 (Pyodide-only sites boot on the main thread and do not require this, but the shim
 ships for both targets and is harmless when unused.)
 
+### Live example sites
+
+Two example courses — derived from the "Write Less Code" lesson arc — are built
+and deployed alongside the docs on GitHub Pages:
+
+- **[R example site (webR)](https://mcmullarkey.github.io/blendtutor/examples/r/)**
+  — five R lessons booting webR in the browser.
+- **[Python example site (Pyodide)](https://mcmullarkey.github.io/blendtutor/examples/python/)**
+  — five Python lessons booting Pyodide in the browser.
+
+Each site includes an
+[eval-results page](https://mcmullarkey.github.io/blendtutor/examples/r/eval-results.html)
+([Python](https://mcmullarkey.github.io/blendtutor/examples/python/eval-results.html))
+showing the grading-prompt accuracy recorded by `blendtutor eval`.
+
 ## License
 
 MIT License — see the `LICENSE` file for details.

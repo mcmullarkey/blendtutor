@@ -2029,6 +2029,130 @@ exercise:
         );
     }
 
+    #[test]
+    fn plan_site_runner_core_splits_hints_and_gotchas() {
+        // AC-2 (issue #88): Split hints and gotchas into separate expandable UI
+        // sections. The lesson runner core must have TWO separate functions —
+        // renderHints and renderGotchas — each creating its own <details> with a
+        // unique ID, parsing bullet lines into <ul><li>, using textContent (never
+        // innerHTML), and independently removing stale DOM. renderLesson must
+        // call both. The combined "Hints & Gotchas" panel is gone.
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let core = &file(&webr, "lesson-runner-core.js").contents;
+
+        // Clause 1: renderGotchas function exists (new — the split).
+        assert!(
+            core.contains("function renderGotchas("),
+            "lesson-runner-core.js must define a renderGotchas function"
+        );
+
+        // Clause 2: renderHints function still exists (now hints-only).
+        assert!(
+            core.contains("function renderHints("),
+            "lesson-runner-core.js must define a renderHints function"
+        );
+
+        // Clause 3: lesson.gotchas is referenced (the field is consumed).
+        assert!(
+            core.contains("lesson.gotchas"),
+            "lesson-runner-core.js must reference lesson.gotchas"
+        );
+
+        // Clause 4: unique ID "lesson-gotchas" for the gotchas details.
+        assert!(
+            core.contains(r#""lesson-gotchas""#),
+            "lesson-runner-core.js must set id=\"lesson-gotchas\" on the gotchas details"
+        );
+
+        // Clause 5: the combined "Hints & Gotchas" label is gone.
+        assert!(
+            !core.contains("Hints & Gotchas"),
+            "lesson-runner-core.js must NOT use the combined 'Hints & Gotchas' label"
+        );
+
+        // Clause 6: bullet parsing creates <ul> and <li> elements.
+        assert!(
+            core.contains(r#""ul""#),
+            "lesson-runner-core.js must create <ul> elements for bullet parsing"
+        );
+        assert!(
+            core.contains(r#""li""#),
+            "lesson-runner-core.js must create <li> elements for bullet parsing"
+        );
+
+        // Clause 7: bullet marker detection uses startsWith (for "- " or "* ").
+        assert!(
+            core.contains("startsWith"),
+            "lesson-runner-core.js must use startsWith for bullet marker detection"
+        );
+
+        // Clause 8: textContent is used for <li> text (not innerHTML).
+        // The existing !innerHTML invariant (plan_site_shells_load_codemirror_as_import
+        // clause 6) covers the negative case.
+        assert!(
+            core.contains("textContent"),
+            "lesson-runner-core.js must use textContent for bullet text"
+        );
+
+        // Clause 9: each function independently removes stale DOM (>= 2 .remove()).
+        let remove_count = core.matches(".remove()").count();
+        assert!(
+            remove_count >= 2,
+            "lesson-runner-core.js must have >= 2 .remove() calls (one per section), got {remove_count}"
+        );
+
+        // Clause 10: renderLesson calls both renderHints and renderGotchas.
+        assert!(
+            core.contains("renderHints(lesson.hints)"),
+            "renderLesson must call renderHints(lesson.hints)"
+        );
+        assert!(
+            core.contains("renderGotchas(lesson.gotchas)"),
+            "renderLesson must call renderGotchas(lesson.gotchas)"
+        );
+    }
+
+    #[test]
+    fn plan_site_styles_css_has_gotchas_panel_rules() {
+        // AC-2 (issue #88): The #lesson-gotchas <details> panel must be styled
+        // via var(--bt-*) tokens, parallel to #lesson-hints. Dark mode is
+        // handled by the existing :root token overrides in the @media block —
+        // no hardcoded hex literals in the gotchas rules.
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let css = &file(&webr, "styles.css").contents;
+
+        // Clause 1: #lesson-gotchas selector exists.
+        assert!(
+            css.contains("#lesson-gotchas"),
+            "styles.css must contain a #lesson-gotchas rule"
+        );
+
+        // Clause 2: the gotchas summary toggle has cursor: pointer.
+        let gotchas_pos = css
+            .find("#lesson-gotchas")
+            .expect("#lesson-gotchas rule exists");
+        let after_gotchas = &css[gotchas_pos..];
+        assert!(
+            after_gotchas.contains("cursor: pointer") || after_gotchas.contains("cursor:pointer"),
+            "styles.css must set cursor: pointer on the gotchas summary toggle"
+        );
+
+        // Clause 3: the gotchas rules use var(--bt-*) tokens (no hardcoded hex).
+        let brace = after_gotchas
+            .find('{')
+            .expect("#lesson-gotchas must have an opening brace");
+        let body_start = gotchas_pos + brace + 1;
+        let body_slice = &css[body_start..];
+        let close = body_slice
+            .find('}')
+            .expect("#lesson-gotchas block must close");
+        let gotchas_body = &css[body_start..body_start + close];
+        assert!(
+            gotchas_body.contains("var(--bt-"),
+            "#lesson-gotchas must use var(--bt-*) tokens, got: {gotchas_body}"
+        );
+    }
+
     /// Detect whether a `.cm-gutters` rule sets display:none or visibility:hidden.
     fn gutter_hidden(css: &str) -> bool {
         let mut rest = css;

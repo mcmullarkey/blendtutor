@@ -136,11 +136,39 @@ function setEditorContent(code) {
   }
 }
 
+// Parse bullet-point text into a <ul> with <li> elements. Each line starting
+// with "- " or "* " (after trimming leading whitespace) becomes a list item;
+// the marker is stripped and the remaining text is set via textContent (never
+// parsed as HTML — untrusted lesson content, the same threat model that keeps
+// lesson titles off HTML parsing). Returns null when no bullet lines are found,
+// so the caller can fall back to a <p> with textContent for plain-text content.
+function renderBullets(text) {
+  const bullets = text
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trimStart();
+      return trimmed.startsWith("- ") || trimmed.startsWith("* ");
+    })
+    .map((line) => line.trimStart().slice(2).trim());
+  if (bullets.length === 0) {
+    return null;
+  }
+  const ul = document.createElement("ul");
+  for (const bullet of bullets) {
+    const li = document.createElement("li");
+    li.textContent = bullet;
+    ul.appendChild(li);
+  }
+  return ul;
+}
+
 // Render the lesson's hints as an expandable <details> panel after the prompt.
 // Creates the element only when hints is non-null and non-empty; removes any
-// existing panel when switching to a lesson without hints. Uses textContent
-// (never parsed as HTML) — hints are untrusted lesson content, the same threat
-// model that keeps lesson titles off HTML parsing.
+// existing panel when switching to a lesson without hints. Bullet-point content
+// ("- " or "* " prefixed lines) renders as <ul><li>; plain text falls back to a
+// <p> with textContent. Uses textContent (never parsed as HTML) — hints are
+// untrusted lesson content, the same threat model that keeps lesson titles off
+// HTML parsing.
 function renderHints(hints) {
   const existing = document.getElementById("lesson-hints");
   if (existing) {
@@ -150,12 +178,50 @@ function renderHints(hints) {
     const details = document.createElement("details");
     details.id = "lesson-hints";
     const summary = document.createElement("summary");
-    summary.textContent = "Hints & Gotchas";
+    summary.textContent = "Hints";
     details.appendChild(summary);
-    const body = document.createElement("p");
-    body.textContent = hints;
-    details.appendChild(body);
+    const ul = renderBullets(hints);
+    if (ul) {
+      details.appendChild(ul);
+    } else {
+      const body = document.createElement("p");
+      body.textContent = hints;
+      details.appendChild(body);
+    }
     promptEl.insertAdjacentElement("afterend", details);
+  }
+}
+
+// Render the lesson's gotchas as an expandable <details> panel, inserted after
+// the hints panel (or after the prompt when no hints panel exists). Same bullet
+// parsing and textContent security model as renderHints. Independently removes
+// stale DOM on lesson switch — a lesson without gotchas removes the panel from
+// the previous lesson.
+function renderGotchas(gotchas) {
+  const existing = document.getElementById("lesson-gotchas");
+  if (existing) {
+    existing.remove();
+  }
+  if (gotchas && gotchas.trim()) {
+    const details = document.createElement("details");
+    details.id = "lesson-gotchas";
+    const summary = document.createElement("summary");
+    summary.textContent = "Gotchas";
+    details.appendChild(summary);
+    const ul = renderBullets(gotchas);
+    if (ul) {
+      details.appendChild(ul);
+    } else {
+      const body = document.createElement("p");
+      body.textContent = gotchas;
+      details.appendChild(body);
+    }
+    const hintsEl = document.getElementById("lesson-hints");
+    if (hintsEl) {
+      hintsEl.insertAdjacentElement("afterend", details);
+    } else {
+      promptEl.insertAdjacentElement("afterend", details);
+    }
   }
 }
 
@@ -163,6 +229,7 @@ function renderLesson(lesson) {
   titleEl.textContent = lesson.title;
   promptEl.textContent = lesson.prompt;
   renderHints(lesson.hints);
+  renderGotchas(lesson.gotchas);
   setEditorContent(lesson.code_template ?? "");
   outputEl.textContent = "";
   setStatus("idle", "idle");

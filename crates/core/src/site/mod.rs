@@ -1853,10 +1853,18 @@ exercise:
         // override inside the @media (prefers-color-scheme: dark) block, the
         // cursor stays black and is invisible on the dark surface-code background.
         //
-        // 3 clauses pin the fix:
+        // v2: the initial fix (PR #83) set the cursor to --bt-color-text-primary
+        // (#e0e0e0) at CM6's default 1.2px width. Users reported it was still
+        // faint. v2 widens to 2px and uses pure white (#ffffff) via a dedicated
+        // --bt-color-cursor token for maximum contrast.
+        //
+        // 5 clauses pin the fix:
         //   1. The @media block contains a .cm-editor .cm-cursor rule
         //   2. The rule sets border-left-color (overriding CM6's default black)
         //   3. The border-left-color is NOT black (must be a light value)
+        //   4. The rule sets border-left-width: 2px (wider than CM6 default 1.2px)
+        //   5. The cursor color uses --bt-color-cursor, defined as #ffffff in the
+        //      dark-mode :root block (high-contrast pure white)
         let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
         let css = &file(&webr, "styles.css").contents;
 
@@ -1915,6 +1923,35 @@ exercise:
             !cursor_body.contains("black"),
             ".cm-cursor border-left-color must NOT be black \
              (invisible on dark surface-code background)"
+        );
+
+        // Clause 4: cursor width is 2px (wider than CM6 default 1.2px).
+        // The wider cursor is more visible at the cost of slightly less
+        // precision — acceptable for accessibility.
+        //
+        // The substring "width: 2px" is specific: it matches
+        // "border-left-width: 2px" but NOT "border-left-width: 1.2px"
+        // (the CM6 default). A naive contains("2px") would falsely pass
+        // on 1.2px since "1.2px" contains "2px".
+        assert!(
+            cursor_body.contains("width: 2px"),
+            ".cm-cursor dark-mode rule must set border-left-width: 2px \
+             (CM6 default 1.2px is too faint — widened for accessibility)"
+        );
+
+        // Clause 5: cursor color uses --bt-color-cursor token, which is defined
+        // as #ffffff (pure white) in the dark-mode :root block. This is the
+        // high-contrast color — #e0e0e0 (the previous value via
+        // --bt-color-text-primary) was visible but faint.
+        assert!(
+            cursor_body.contains("var(--bt-color-cursor)"),
+            ".cm-cursor dark-mode rule must use var(--bt-color-cursor) \
+             (dedicated high-contrast cursor token, not --bt-color-text-primary)"
+        );
+        assert!(
+            media_body.contains("--bt-color-cursor: #ffffff"),
+            "dark-mode :root must define --bt-color-cursor: #ffffff \
+             (pure white for maximum contrast against #2d2d2d background)"
         );
     }
 

@@ -53,6 +53,32 @@ const tokHighlightStyle = HighlightStyle.define([
   { tag: tags.operator, class: "tok-operator" },
 ]);
 
+// CM6 theme extension for cursor visibility (v4). Previous CSS-only fixes in
+// styles.css (!important + caret-color, PRs #93/#94) did not work in the live
+// browser despite correct CSS on the deployed site — CM6's injected base-theme
+// styles were winning the cascade. EditorView.theme() injects styles via CM6's
+// own style-module system at a higher precedence than the base theme,
+// bypassing the external CSS cascade entirely.
+//
+// Uses var(--bt-color-cursor) so the cursor adapts to light/dark mode:
+//   - light: #1a1a1a (dark cursor on light background)
+//   - dark:  #ffffff (white cursor on dark background)
+// The fallback #ffffff ensures visibility if the variable is undefined.
+//
+// No &dark selector: the editor does NOT use EditorView.darkTheme — dark mode
+// is driven by prefers-color-scheme, so &dark would never match. The CSS
+// variable resolves correctly via the @media block in styles.css.
+const cursorTheme = EditorView.theme({
+  ".cm-cursor": {
+    borderLeftColor: "var(--bt-color-cursor, #ffffff)",
+    borderLeftWidth: "2px",
+    marginLeft: "-1px",
+  },
+  ".cm-content": {
+    caretColor: "var(--bt-color-cursor, #ffffff)",
+  },
+});
+
 // Build the full CM6 extension array for a given language — a PURE function
 // (§2.1, §5.1): given a language, returns the Extension[] with no side effects.
 // start() calls it once when mounting the EditorView. The array composes:
@@ -61,6 +87,7 @@ const tokHighlightStyle = HighlightStyle.define([
 //   - lineNumbers() for the gutter,
 //   - highlightActiveLine() for the active-line background,
 //   - bracketMatching() for bracket-pair highlighting (.cm-matchingBracket),
+//   - cursorTheme for cursor color/width (bypasses CSS cascade — see above),
 //   - keymap.of([indentWithTab]) so Tab indents/dedents inside the editor
 //     (NOT browser focus traversal — sneaky-pass #3: importing indentWithTab
 //     alone is insufficient; it must be composed via keymap.of),
@@ -81,6 +108,7 @@ function editorExtensions(language) {
     lineNumbers(),
     highlightActiveLine(),
     bracketMatching(),
+    cursorTheme,
     EditorView.contentAttributes.of({ spellcheck: "false" }),
     keymap.of([indentWithTab]),
   ];

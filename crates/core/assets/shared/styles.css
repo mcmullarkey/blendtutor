@@ -614,23 +614,38 @@ footer.site-footer {
     outline-color: rgba(255, 255, 255, 0.2);
   }
 
-  /* Cursor — CM6's default cursor is borderLeft: 1.2px solid black. The
-   * &dark .cm-cursor override in CM6's base theme only fires when the editor
-   * has the cm-dark class (set via EditorView.darkTheme), which this app
-   * does NOT use — dark mode is driven by prefers-color-scheme. Without this
-   * rule the cursor stays black and is invisible on the dark surface-code
-   * background. Uses .cm-editor prefix to match CM6's base-theme specificity
-   * (0,2,0) — a bare .cm-cursor (0,1,0) would lose to CM6's injected rule.
-   * styles.css loads after CM6's injected style tag (CM6 inserts as
-   * firstChild of head), so equal specificity resolves in our favor.
-   *
-   * v2: cursor widened to 2px (from CM6 default 1.2px) and color set to
-   * pure white via --bt-color-cursor for accessibility — the previous
-   * text-primary gray at 1.2px was visible but faint. margin-left adjusted
-   * to -1px to center the wider cursor on the insertion point. */
-  .cm-editor .cm-cursor {
-    border-left-color: var(--bt-color-cursor);
-    border-left-width: 2px;
-    margin-left: -1px;
-  }
+   /* Cursor — CM6's default cursor is borderLeft: 1.2px solid black. The
+    * &dark .cm-cursor override in CM6's base theme only fires when the editor
+    * has the cm-dark class (set via EditorView.darkTheme), which this app
+    * does NOT use — dark mode is driven by prefers-color-scheme. Without this
+    * rule the cursor stays black and is invisible on the dark surface-code
+    * background.
+    *
+    * v2: cursor widened to 2px (from CM6 default 1.2px) and color set to
+    * pure white via --bt-color-cursor for accessibility — the previous
+    * text-primary gray at 1.2px was visible but faint. margin-left adjusted
+    * to -1px to center the wider cursor on the insertion point.
+    *
+    * v3: !important added to all three declarations. CM6's injected default
+    * styles were winning by source order or specificity in the live example
+    * pages, leaving the cursor faint gray despite the override. The
+    * .cm-editor.cm-focused .cm-cursor selector is added alongside .cm-editor
+    * .cm-cursor to cover the focused state at the same specificity. This is
+    * an accessibility fix — !important is justified to guarantee the cursor
+    * is visible regardless of CM6's internal style injection order.
+    *
+    * caret-color is set on .cm-content so the native contenteditable caret
+    * (which renders as faint gray in dark mode) is also white. Without this,
+    * the native caret is visible in addition to or instead of CM6's drawn
+    * cursor, producing a faint gray line. */
+   .cm-editor.cm-focused .cm-cursor,
+   .cm-editor .cm-cursor {
+     border-left-color: var(--bt-color-cursor) !important;
+     border-left-width: 2px !important;
+     margin-left: -1px !important;
+   }
+
+   .cm-content {
+     caret-color: var(--bt-color-cursor);
+   }
 }

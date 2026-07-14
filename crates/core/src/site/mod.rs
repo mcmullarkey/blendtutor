@@ -1858,13 +1858,22 @@ exercise:
         // faint. v2 widens to 2px and uses pure white (#ffffff) via a dedicated
         // --bt-color-cursor token for maximum contrast.
         //
-        // 5 clauses pin the fix:
+        // v3: !important added to all cursor declarations because CM6's injected
+        // default styles were winning by source order or specificity in the live
+        // example pages. A .cm-editor.cm-focused .cm-cursor selector is added
+        // alongside .cm-editor .cm-cursor to cover the focused state. A
+        // caret-color rule on .cm-content ensures the native contenteditable
+        // caret is also white in dark mode (it renders faint gray by default).
+        //
+        // 7 clauses pin the fix:
         //   1. The @media block contains a .cm-editor .cm-cursor rule
         //   2. The rule sets border-left-color (overriding CM6's default black)
         //   3. The border-left-color is NOT black (must be a light value)
         //   4. The rule sets border-left-width: 2px (wider than CM6 default 1.2px)
         //   5. The cursor color uses --bt-color-cursor, defined as #ffffff in the
         //      dark-mode :root block (high-contrast pure white)
+        //   6. The cursor rule uses !important (overrides CM6's injected styles)
+        //   7. A .cm-content rule sets caret-color (native caret also white)
         let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
         let css = &file(&webr, "styles.css").contents;
 
@@ -1952,6 +1961,63 @@ exercise:
             media_body.contains("--bt-color-cursor: #ffffff"),
             "dark-mode :root must define --bt-color-cursor: #ffffff \
              (pure white for maximum contrast against #2d2d2d background)"
+        );
+
+        // Clause 6: cursor rule uses !important on all declarations. CM6's
+        // injected default styles were winning by source order or specificity
+        // in the live example pages, leaving the cursor faint gray. !important
+        // guarantees the override wins regardless of CM6's internal style
+        // injection order. This is an accessibility fix — the justification
+        // for !important is that an invisible cursor is a usability blocker.
+        assert!(
+            cursor_body.contains("!important"),
+            ".cm-cursor dark-mode rule must use !important \
+             (CM6 injected styles win by source order without it)"
+        );
+
+        // Clause 7: a .cm-content rule sets caret-color in the dark-mode block.
+        // The native contenteditable caret renders as faint gray in dark mode;
+        // setting caret-color to the cursor token makes it white. Without this,
+        // the native caret is visible in addition to or instead of CM6's drawn
+        // cursor, producing a faint gray line.
+        //
+        // The .cm-content selector may appear in comment text before the actual
+        // rule. We skip comment mentions by requiring that only whitespace
+        // separates the selector from its opening brace.
+        assert!(
+            media_body.contains("caret-color"),
+            "dark-mode @media block must set caret-color on .cm-content \
+             (native contenteditable caret is faint gray without it)"
+        );
+        let content_selector = ".cm-content";
+        let mut search_from = 0;
+        let content_body: &str = loop {
+            let pos = media_body[search_from..]
+                .find(content_selector)
+                .expect("@media dark block must contain a .cm-content rule");
+            let abs_pos = search_from + pos;
+            let after = &media_body[abs_pos + content_selector.len()..];
+            let brace_offset = after.find('{').expect(".cm-content rule has opening brace");
+            // If only whitespace separates selector from {, this is the rule
+            // (not a comment mention where other text intervenes).
+            if after[..brace_offset].trim().is_empty() {
+                let body_raw = &after[brace_offset + 1..];
+                let close = body_raw
+                    .find('}')
+                    .expect(".cm-content rule has closing brace");
+                break &body_raw[..close];
+            }
+            search_from = abs_pos + content_selector.len();
+        };
+        assert!(
+            content_body.contains("caret-color"),
+            ".cm-content dark-mode rule must set caret-color \
+             (native caret must be white in dark mode)"
+        );
+        assert!(
+            content_body.contains("var(--bt-color-cursor)"),
+            ".cm-content caret-color must use var(--bt-color-cursor) \
+             (same high-contrast token as the drawn cursor)"
         );
     }
 

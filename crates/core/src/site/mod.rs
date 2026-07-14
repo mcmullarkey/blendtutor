@@ -116,6 +116,12 @@ pub struct SiteLesson {
     /// `skip_serializing_if`) so the contract shape stays stable — mirroring the
     /// `solution: null` precedent from ADR-0008.
     pub hints: Option<String>,
+    /// Optional learner-facing gotchas (common pitfalls), rendered as an
+    /// expandable `<details>` panel in the browser. Always serialized (null
+    /// when absent, never dropped via `skip_serializing_if`) so the contract
+    /// shape stays stable — mirroring the `solution: null` and `hints: null`
+    /// precedents from ADR-0008.
+    pub gotchas: Option<String>,
 }
 
 impl SiteLesson {
@@ -134,6 +140,7 @@ impl SiteLesson {
             packages: lesson.packages.clone(),
             solution: lesson.exercise.solution.clone(),
             hints: lesson.exercise.hints.clone(),
+            gotchas: lesson.exercise.gotchas.clone(),
         }
     }
 }
@@ -569,6 +576,10 @@ mod tests {
             site_lesson.hints, lesson.exercise.hints,
             "hints ride the contract verbatim from exercise.hints"
         );
+        assert_eq!(
+            site_lesson.gotchas, lesson.exercise.gotchas,
+            "gotchas ride the contract verbatim from exercise.gotchas"
+        );
     }
 
     #[test]
@@ -698,6 +709,68 @@ mod tests {
         assert!(
             lesson.get("hints").is_some() && lesson["hints"].is_null(),
             "a missing hints serializes as null, never dropped: {lesson}"
+        );
+    }
+
+    #[test]
+    fn plan_site_serializes_gotchas_when_present() {
+        // gotchas is optional: a lesson that carries one must serialize the text
+        // verbatim into the per-lesson JSON so the browser runner can render it.
+        // We parse a lesson with bullet-formatted gotchas and pair it with a slug
+        // from the r-course fixture (the slug is just an identifier).
+        use crate::lesson::Lesson;
+        let yaml = r#"
+lesson_name: "Gotcha Lesson"
+language: R
+exercise:
+  prompt: "Write add_two(x, y)."
+  gotchas: |
+    - R uses '<-' for assignment, not '='.
+    - Functions return their last expression automatically.
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+        let lesson = Lesson::parse(yaml).expect("a lesson with gotchas should parse");
+        let slug = r_course()[0].0.clone();
+        let lessons = [(slug, lesson)];
+        let site = plan(&lessons, BuildTarget::Webr).expect("plans");
+        let first: Value = serde_json::from_str(&file(&site, "lessons/0.json").contents)
+            .expect("the per-lesson JSON parses");
+        assert!(
+            first["gotchas"].is_string(),
+            "a lesson with gotchas serializes them as a JSON string, got: {first}"
+        );
+        assert!(
+            first["gotchas"].as_str().unwrap().contains("'<-'"),
+            "the gotchas text rides the contract verbatim: {first}"
+        );
+    }
+
+    #[test]
+    fn plan_site_serializes_a_missing_gotchas_as_json_null_not_dropped() {
+        // gotchas is optional: a lesson without one must still build, with the
+        // field present-but-null so the contract shape stays stable for the
+        // runner — never silently dropped (which a `skip_serializing_if` would
+        // do, breaking `lessons[i].gotchas`). course_basic's R lesson carries
+        // none. Mirrors the solution: null and hints: null precedents.
+        let r_lessons: Vec<(LessonSlug, Lesson)> = Course::open(Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/course_basic"
+        )))
+        .expect("course_basic opens")
+        .load_lessons()
+        .expect("course_basic lessons load")
+        .into_iter()
+        .filter(|(_, lesson)| lesson.language == Language::R)
+        .collect();
+        assert!(!r_lessons.is_empty(), "course_basic has an R lesson");
+
+        let site =
+            plan(&r_lessons, BuildTarget::Webr).expect("a gotchas-less R course still plans");
+        let lesson: Value =
+            serde_json::from_str(&file(&site, "lessons/0.json").contents).expect("parses");
+        assert!(
+            lesson.get("gotchas").is_some() && lesson["gotchas"].is_null(),
+            "a missing gotchas serializes as null, never dropped: {lesson}"
         );
     }
 

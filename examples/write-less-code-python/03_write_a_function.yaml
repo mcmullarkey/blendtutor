@@ -9,13 +9,13 @@ exercise:
     Write a function `mean_stress(df, col)` that returns the mean of a
     DataFrame column.
   hints: |
-    Tip: pandas Series have a `.mean()` method — no need to sum and divide
-    manually. Common mistake: forgetting to `return` the result (a function
-    without a return statement returns None in Python). Watch out for
-    using `df.col` instead of `df[col]` — dot-access breaks when the column
-    name contains spaces or matches a DataFrame attribute. Remember that
-    `.mean()` returns a float, so `mean_stress(df, 's')` on [1, 2, 3] gives
-    2.0, not 2.
+    - Tip: pandas Series have a `.mean()` method — no need to sum and divide manually.
+    - Remember that `.mean()` returns a float, so `mean_stress(df, 's')` on [1, 2, 3] gives 2.0, not 2.
+    - Note: the function takes two parameters — a DataFrame and a column name (string).
+  gotchas: |
+    - Common mistake: forgetting to `return` the result — a function without a return statement returns None in Python.
+    - Watch out for using `df.col` instead of `df[col]` — dot-access breaks when the column name contains spaces or matches a DataFrame attribute.
+    - Gotcha: passing a column index (integer) instead of a column name (string) raises a KeyError.
   code_template: |
     import pandas as pd
 

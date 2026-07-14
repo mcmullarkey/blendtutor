@@ -82,10 +82,13 @@ pub struct Exercise {
     /// runner can self-verify a correct submission (ADR-0008). It is authoring
     /// data, never sent to the LLM; `Option` so every existing lesson stays valid.
     pub solution: Option<String>,
-    /// Optional learner-facing hints, gotchas, and tips. The static-site build
-    /// serializes them into the lesson JSON so the in-browser runner renders them
-    /// in an expandable `<details>` panel. `Option` so every existing lesson
-    /// stays valid; `Option` defaults to `None` without `#[serde(default)]`.
+    /// Optional learner-facing hints: tips and guidance, authored as a Markdown
+    /// bullet list (each non-empty line starts with `- ` or `* `). The
+    /// static-site build serializes them into the lesson JSON so the
+    /// in-browser runner renders them in an expandable `<details>` panel.
+    /// `Option` so every existing lesson stays valid; validated as bullets at
+    /// the parse boundary (§1.3.1) so malformed content never travels
+    /// downstream. `Option` defaults to `None` without `#[serde(default)]`.
     pub hints: Option<String>,
     /// Optional learner-facing gotchas: common pitfalls and mistakes, authored
     /// as a Markdown bullet list (each non-empty line starts with `- ` or
@@ -179,6 +182,26 @@ impl fmt::Display for ValidationError {
 
 impl Error for ValidationError {}
 
+/// Validate that a field's content is bullet-formatted: each non-empty line
+/// starts with `- ` or `* `. Returns [`ValidationError::InvalidBulletFormat`]
+/// naming the field if any non-empty line lacks a bullet prefix.
+///
+/// Used by [`Lesson::validate_semantics`] for both `hints` and `gotchas` so
+/// malformed content never travels downstream (§1.3.1).
+fn validate_bullet_format(field: &str, content: &str) -> Result<(), ValidationError> {
+    for line in content.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        if !line.starts_with("- ") && !line.starts_with("* ") {
+            return Err(ValidationError::InvalidBulletFormat {
+                field: field.to_string(),
+            });
+        }
+    }
+    Ok(())
+}
+
 impl Lesson {
     /// Parse a lesson from a YAML document.
     ///
@@ -196,10 +219,11 @@ impl Lesson {
 
     /// Enforce the semantic rules that structure alone cannot.
     ///
-    /// Currently two rules: the evaluation prompt must contain the
-    /// `{student_code}` placeholder, and `exercise.gotchas` (if present) must
-    /// be bullet-formatted (each non-empty line starts with `- ` or `* `).
-    /// Split from the structural deserialize so each name covers its body (§5.1).
+    /// Currently three rules: the evaluation prompt must contain the
+    /// `{student_code}` placeholder, `exercise.gotchas` (if present) must be
+    /// bullet-formatted, and `exercise.hints` (if present) must be
+    /// bullet-formatted. Split from the structural deserialize so each name
+    /// covers its body (§5.1).
     fn validate_semantics(&self) -> Result<(), ValidationError> {
         if !self
             .exercise
@@ -209,16 +233,10 @@ impl Lesson {
             return Err(ValidationError::MissingStudentCodePlaceholder);
         }
         if let Some(ref gotchas) = self.exercise.gotchas {
-            for line in gotchas.lines() {
-                if line.is_empty() {
-                    continue;
-                }
-                if !line.starts_with("- ") && !line.starts_with("* ") {
-                    return Err(ValidationError::InvalidBulletFormat {
-                        field: "gotchas".to_string(),
-                    });
-                }
-            }
+            validate_bullet_format("gotchas", gotchas)?;
+        }
+        if let Some(ref hints) = self.exercise.hints {
+            validate_bullet_format("hints", hints)?;
         }
         Ok(())
     }
@@ -420,21 +438,25 @@ lesson_name: "Adder"
 language: R
 exercise:
   prompt: "Write add_two(x, y)."
-  hints: "Remember: R uses '<-' for assignment and functions return their last expression."
+  hints: |
+    - Remember: R uses '<-' for assignment.
+    - Functions return their last expression automatically.
   llm_evaluation_prompt: "Grade this: {student_code}"
 "#;
 
     #[test]
     fn parse_reads_an_optional_hints_field() {
-        // Hints carry learner-facing gotchas and tips the browser renders in an
-        // expandable <details>. With `deny_unknown_fields`, `exercise.hints` must
-        // be modelled or it is rejected as a typo — mirroring `solution`.
+        // Hints carry learner-facing tips the browser renders in an
+        // expandable <details>. With `deny_unknown_fields`, `exercise.hints`
+        // must be modelled or it is rejected as a typo — mirroring `solution`.
+        // Hints must be bullet-formatted (each non-empty line starts with
+        // `- ` or `* `), validated at the parse boundary (§1.3.1).
         let lesson = Lesson::parse(LESSON_WITH_HINTS_YAML)
             .expect("a lesson may carry hints under exercise.hints");
         assert_eq!(
             lesson.exercise.hints.as_deref(),
             Some(
-                "Remember: R uses '<-' for assignment and functions return their last expression."
+                "- Remember: R uses '<-' for assignment.\n- Functions return their last expression automatically.\n"
             ),
             "the hints text is read verbatim from exercise.hints"
         );
@@ -569,19 +591,89 @@ exercise:
         assert_eq!(lesson.exercise.gotchas.as_deref(), Some(""));
     }
 
+    const LESSON_WITH_MALFORMED_HINTS_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+exercise:
+  prompt: "Write add_two(x, y)."
+  hints: "No bullet prefix here."
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
     #[test]
-    fn parse_still_accepts_prose_hints_when_gotchas_validated() {
-        // Validation scope is gotchas ONLY — existing prose hints (not
-        // bullet-formatted) must still parse. The r-course/add_two.yaml
-        // fixture carries prose hints at line 18; loading it must succeed.
+    fn parse_rejects_hints_with_non_bullet_lines() {
+        // Hints must be bullet-formatted (each non-empty line starts with
+        // `- ` or `* `). A prose hints string is rejected at the parse
+        // boundary (§1.3.1) so malformed content never travels downstream.
+        let err = Lesson::parse(LESSON_WITH_MALFORMED_HINTS_YAML)
+            .expect_err("a hints without bullet prefixes is invalid");
+        assert!(
+            matches!(
+                err,
+                ValidationError::InvalidBulletFormat { ref field } if field == "hints"
+            ),
+            "expected InvalidBulletFormat for hints, got {err:?}"
+        );
+        assert!(
+            err.to_string().contains("hints"),
+            "error should name the hints field, got: {err}"
+        );
+    }
+
+    const LESSON_WITH_STAR_BULLETS_HINTS_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+exercise:
+  prompt: "Write add_two(x, y)."
+  hints: |
+    * R uses '<-' for assignment.
+    * Functions return their last expression.
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_accepts_hints_with_star_bullets() {
+        // Star-prefixed bullets (`* `) are as valid as dash-prefixed (`- `),
+        // so an author may use either Markdown bullet style.
+        let lesson = Lesson::parse(LESSON_WITH_STAR_BULLETS_HINTS_YAML)
+            .expect("star-bullet hints should parse");
+        assert!(
+            lesson.exercise.hints.is_some(),
+            "star-bullet hints should be read"
+        );
+    }
+
+    const LESSON_WITH_EMPTY_HINTS_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+exercise:
+  prompt: "Write add_two(x, y)."
+  hints: ""
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+
+    #[test]
+    fn parse_accepts_empty_hints() {
+        // An empty hints string has no non-empty lines to validate, so it
+        // passes validation — mirroring the None case.
+        let lesson = Lesson::parse(LESSON_WITH_EMPTY_HINTS_YAML)
+            .expect("an empty hints string should parse");
+        assert_eq!(lesson.exercise.hints.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn parse_validates_hints_as_bullets_via_fixture() {
+        // Validation scope now covers BOTH hints and gotchas. The
+        // r-course/add_two.yaml fixture carries bullet-formatted hints;
+        // loading it must succeed and the hints must be read.
         let path = Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/fixtures/r-course/add_two.yaml"
         ));
-        let lesson = read_lesson_file(path).expect("prose hints fixture should still parse");
+        let lesson = read_lesson_file(path).expect("bullet-formatted hints fixture should parse");
         assert!(
             lesson.exercise.hints.is_some(),
-            "the fixture's prose hints should still be read"
+            "the fixture's bullet-formatted hints should be read"
         );
     }
 

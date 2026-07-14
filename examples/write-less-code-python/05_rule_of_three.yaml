@@ -10,14 +10,13 @@ exercise:
     `compute_column_means(df, columns)` returning a dict mapping each column
     name to its mean.
   hints: |
-    Tip: the Rule of Three says abstract a pattern once it appears three or
-    more times — here, calling `.mean()` on stress_1, stress_2, stress_3
-    separately. Common mistake: returning a list instead of a dict — the
-    function must map column names to means (e.g., `{'a': 2.0, 'b': 5.0}`).
-    Watch out for forgetting to iterate: a dict comprehension works, but
-    so does an explicit loop assigning each column's mean into a results
-    dict. Remember that `.mean()` returns a float, so the dict values will
-    be floats like 2.0, not integers.
+    - Tip: the Rule of Three says abstract a pattern once it appears three or more times — here, calling `.mean()` on stress_1, stress_2, stress_3 separately.
+    - Remember that `.mean()` returns a float, so the dict values will be floats like 2.0, not integers.
+    - Note: a dict comprehension or an explicit loop both work — the key is mapping column names to their means.
+  gotchas: |
+    - Common mistake: returning a list instead of a dict — the function must map column names to means (e.g., `{'a': 2.0, 'b': 5.0}`).
+    - Watch out for forgetting to iterate at all — you must process every column in the input list.
+    - Gotcha: if you return a list, the check `== {'a': 2.0}` fails because a list is not a dict.
   code_template: |
     import pandas as pd
 

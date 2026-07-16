@@ -2311,4 +2311,145 @@ exercise:
             );
         }
     }
+
+    // --- AC-4: client-side rate limiting — feedback.js source scan (6,7) -------
+
+    #[test]
+    fn feedback_rate_limit_feedback_js_has_rate_limiting() {
+        // Predicate 6: feedback.js contains the rate-limiting patterns. No JS
+        // harness exists, so this is a static source scan of the emitted feedback.js
+        // (verification: code). 6 sub-clauses pin the invariant (§1.5):
+        //   1. "bt_feedback_count" sessionStorage key
+        //   2. window.__btConfig.maxFeedbackPerSession read
+        //   3. limit-reached message string
+        //   4. counter increment AFTER try/catch (failed requests count)
+        //   5. textContent for limit message (NOT innerHTML — XSS defense)
+        //   6. parseInt guard on stored counter
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let feedback = &file(&webr, "feedback.js").contents;
+
+        // Clause 1: the bt_feedback_count sessionStorage key.
+        assert!(
+            feedback.contains("bt_feedback_count"),
+            "feedback.js must use the bt_feedback_count sessionStorage key; feedback={feedback}"
+        );
+
+        // Clause 2: window.__btConfig.maxFeedbackPerSession read.
+        assert!(
+            feedback.contains("__btConfig"),
+            "feedback.js must read window.__btConfig; feedback={feedback}"
+        );
+        assert!(
+            feedback.contains("maxFeedbackPerSession"),
+            "feedback.js must read maxFeedbackPerSession from __btConfig; feedback={feedback}"
+        );
+
+        // Clause 3: a limit-reached message string (the user-facing copy).
+        assert!(
+            feedback.to_lowercase().contains("limit"),
+            "feedback.js must contain a limit-reached message; feedback={feedback}"
+        );
+
+        // Clause 5: textContent for the limit message (NOT innerHTML). The
+        // existing !innerHTML invariant (plan_site_shells_load_codemirror_as_import
+        // clause 6) already guarantees no innerHTML anywhere in lesson-runner-core.js;
+        // here we pin that feedback.js uses textContent for the limit message.
+        assert!(
+            feedback.contains("textContent"),
+            "feedback.js must use textContent for the limit message; feedback={feedback}"
+        );
+
+        // Clause 6: parseInt guard on the stored counter. Without parseInt, a
+        // corrupt or missing sessionStorage value yields a string comparison
+        // (or NaN), silently disabling limiting.
+        assert!(
+            feedback.contains("parseInt"),
+            "feedback.js must use parseInt to guard the stored counter; feedback={feedback}"
+        );
+
+        // Clause 4: counter increment AFTER try/catch (failed requests count).
+        // The increment call must NOT be inside the try block (which would skip
+        // it on error) and must appear after the catch block's renderError call
+        // (the last statement in the catch). We scope the search to handleSubmit
+        // to avoid matching the try/catch in listModels.
+        let handle_submit_pos = feedback
+            .find("async function handleSubmit")
+            .expect("feedback.js must define handleSubmit");
+        let handle_submit_body = &feedback[handle_submit_pos..];
+
+        let try_pos = handle_submit_body
+            .find("try {")
+            .expect("handleSubmit must have a try block");
+        let catch_pos = handle_submit_body
+            .find("} catch (error) {")
+            .expect("handleSubmit must have a catch block");
+        let increment_pos = handle_submit_body
+            .find("incrementFeedbackCount()")
+            .expect("feedback.js must call incrementFeedbackCount in handleSubmit");
+        let render_error_pos = handle_submit_body
+            .find("renderError(container, error)")
+            .expect("handleSubmit must call renderError in the catch block");
+
+        // The increment must NOT be inside the try block (between try { and } catch).
+        assert!(
+            !(increment_pos > try_pos && increment_pos < catch_pos),
+            "incrementFeedbackCount must NOT be inside the try block \
+             (failed requests count — the negative case: increment only inside try \
+             skips failures); feedback={feedback}"
+        );
+        // The increment must be after renderError (the last statement in the catch),
+        // so it is reached on both success and failure paths.
+        assert!(
+            increment_pos > render_error_pos,
+            "incrementFeedbackCount must be called AFTER the try/catch block \
+             (after renderError in the catch — both paths reach it); feedback={feedback}"
+        );
+    }
+
+    #[test]
+    fn feedback_rate_limit_feedback_js_does_not_increment_around_list_models() {
+        // Predicate 7: feedback.js does NOT increment the counter around
+        // listModels (model discovery is not feedback — it doesn't count).
+        // We verify the increment call does not appear in the listModels or
+        // renderModelPicker function bodies.
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let feedback = &file(&webr, "feedback.js").contents;
+
+        // Check listModels: find its body (from the function definition to the
+        // next function definition) and assert no increment call within.
+        let listmodels_start = feedback
+            .find("async function listModels")
+            .expect("feedback.js must define listModels");
+        let after_listmodels = &feedback[listmodels_start..];
+        let listmodels_end = after_listmodels[1..]
+            .find("\nfunction ")
+            .or_else(|| after_listmodels[1..].find("\nasync function "))
+            .map(|p| p + 1)
+            .unwrap_or(after_listmodels.len());
+        let listmodels_body = &after_listmodels[..listmodels_end];
+        assert!(
+            !listmodels_body.contains("incrementFeedbackCount()"),
+            "listModels must NOT call incrementFeedbackCount \
+             (model discovery doesn't count); feedback={feedback}"
+        );
+
+        // Check renderModelPicker: the function that calls listModels. The
+        // increment must not appear here either — the guard and increment live
+        // in handleSubmit, after the model picker phase.
+        let picker_start = feedback
+            .find("async function renderModelPicker")
+            .expect("feedback.js must define renderModelPicker");
+        let after_picker = &feedback[picker_start..];
+        let picker_end = after_picker[1..]
+            .find("\nfunction ")
+            .or_else(|| after_picker[1..].find("\nasync function "))
+            .map(|p| p + 1)
+            .unwrap_or(after_picker.len());
+        let picker_body = &after_picker[..picker_end];
+        assert!(
+            !picker_body.contains("incrementFeedbackCount()"),
+            "renderModelPicker must NOT call incrementFeedbackCount \
+             (model discovery doesn't count); feedback={feedback}"
+        );
+    }
 }

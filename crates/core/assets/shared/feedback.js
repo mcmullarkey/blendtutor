@@ -499,6 +499,54 @@ function renderError(container, error) {
   container.replaceChildren(note);
 }
 
+// --- rate limiting (sessionStorage counter) -----------------------------------
+
+// The sessionStorage key for the per-session feedback request counter. A
+// distinct key (not a provider key slot) so the counter is provider-agnostic:
+// feedback requests count against the limit regardless of which provider the
+// learner chose.
+const FEEDBACK_COUNT_KEY = "bt_feedback_count";
+
+// Read the current feedback request count, defaulting to 0 when the key is
+// absent or holds a non-integer value. The parseInt + || 0 guard ensures a
+// corrupt or missing value never yields NaN (which would make every >=
+// comparison false, silently disabling limiting — the negative case from the
+// spec: "no parseInt guard (NaN disables limiting)").
+function feedbackCount() {
+  return parseInt(sessionStorage.getItem(FEEDBACK_COUNT_KEY)) || 0;
+}
+
+// Whether the learner has reached the per-session feedback request limit.
+// Reads window.__btConfig.maxFeedbackPerSession (emitted by config.js); a max
+// of 0 disables feedback entirely (the limit is reached before any request).
+// The comparison is pure: count >= max. JS is single-threaded so the
+// check+increment is atomic — no race condition between concurrent submits.
+function rateLimitReached() {
+  const max =
+    (window.__btConfig && window.__btConfig.maxFeedbackPerSession) || 0;
+  return feedbackCount() >= max;
+}
+
+// Increment the per-session feedback request counter. Called AFTER the
+// try/catch in handleSubmit — both successful and failed requests count, so
+// a provider outage still bounds cost (the user decision: failed requests
+// count). Model discovery (listModels) does NOT call this — discovery is not
+// feedback.
+function incrementFeedbackCount() {
+  sessionStorage.setItem(FEEDBACK_COUNT_KEY, String(feedbackCount() + 1));
+}
+
+// Render the limit-reached message. textContent only — the message is a fixed
+// string (not model output), but textContent is the consistent XSS defense
+// (mirrors renderVerdict precedent: untrusted text is never parsed as HTML).
+function renderLimitReached(container) {
+  const note = document.createElement("p");
+  note.dataset.byok = "limit-reached";
+  note.textContent =
+    "Feedback request limit reached for this session. Reload the page to reset.";
+  container.replaceChildren(note);
+}
+
 // Render the model picker into the feedback container: a labeled `<select>`
 // populated from the learner's live model roster, defaulting to the named fallback
 // when present. The select carries a distinct `data-byok="model"` marker and lives
@@ -585,7 +633,19 @@ async function handleSubmit() {
     // construction — there is no reachable error to surface, so the loading note is
     // always replaced. If a future provider adds throwing logic *outside* listModels,
     // add the renderError guard here then.
+    //
+    // Rate limiting does NOT apply here: model discovery (listModels) is not a
+    // feedback request, so it does not count against the per-session limit. The
+    // counter is incremented only after the actual feedback try/catch below.
     await renderModelPicker(container, { baseUrl, apiKey, provider: providerId });
+    return;
+  }
+  // The rate-limit guard sits at the top of the feedback phase — after model
+  // discovery (which doesn't count) and before the actual feedback request.
+  // A max of 0 (from config.js) disables feedback entirely: the limit is
+  // reached before any request is sent.
+  if (rateLimitReached()) {
+    renderLimitReached(container);
     return;
   }
   const model = selectedModel(container, providerId);
@@ -598,6 +658,11 @@ async function handleSubmit() {
   } catch (error) {
     renderError(container, error);
   }
+  // Increment AFTER the try/catch — both successful and failed requests count
+  // (the user decision: a provider outage still bounds cost). Placing this
+  // inside the try would skip it on error; placing it inside the catch would
+  // only count failures. Here, both paths reach it.
+  incrementFeedbackCount();
 }
 
 const submitButton = document.querySelector("[data-action=submit]");

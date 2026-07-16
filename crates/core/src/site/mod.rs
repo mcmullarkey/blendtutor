@@ -2297,7 +2297,7 @@ exercise:
         let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
         let pyodide = plan(&python_course(), BuildTarget::Pyodide).expect("plans");
         for (target, site) in [(BuildTarget::Webr, &webr), (BuildTarget::Pyodide, &pyodide)] {
-            let html = &file(&site, "index.html").contents;
+            let html = &file(site, "index.html").contents;
             let config_pos = html
                 .find(r#"src="config.js""#)
                 .unwrap_or_else(|| panic!("{target}: index.html must reference config.js"));

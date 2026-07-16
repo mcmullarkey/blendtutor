@@ -1,0 +1,71 @@
+=== WebR target ===
+--- index.html (head) ---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>blendtutor — interactive R lessons</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://webr.r-wasm.org; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cdn.jsdelivr.net https://webr.r-wasm.org https://repo.r-wasm.org https://api.fireworks.ai https://api.anthropic.com; img-src 'self' data: blob:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self';" />
+    <meta name="referrer" content="no-referrer" />
+    <!--
+      COOP/COEP shim, loaded first. It registers a service worker that re-serves
+      this site cross-origin isolated, so SharedArrayBuffer works on
+      GitHub Pages (which cannot set the headers itself). Must run before
+      anything that depends on isolation.
+    -->
+    <script src="coi-serviceworker.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>blendtutor</h1>
+--- eval-results.html (head) ---
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://webr.r-wasm.org; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cdn.jsdelivr.net https://webr.r-wasm.org https://repo.r-wasm.org https://api.fireworks.ai https://api.anthropic.com; img-src 'self' data: blob:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self';">
+<meta name="referrer" content="no-referrer">
+<title>Eval results</title>
+</head>
+<body data-eval-status="not-validated">
+<h1>Eval results</h1>
+<p>These lessons have <strong>not been validated</strong> — no eval report accompanied this course.</p>
+--- integrity attr count (expect 0) ---
+0
+
+=== Pyodide target ===
+--- index.html (head) ---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>blendtutor — interactive Python lessons</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://webr.r-wasm.org; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cdn.jsdelivr.net https://webr.r-wasm.org https://repo.r-wasm.org https://api.fireworks.ai https://api.anthropic.com; img-src 'self' data: blob:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self';" />
+    <meta name="referrer" content="no-referrer" />
+    <!--
+      COOP/COEP shim, loaded first. It registers a service worker that re-serves
+      this site cross-origin isolated, so SharedArrayBuffer works on
+      GitHub Pages (which cannot set the headers itself). Must run before
+      anything that depends on isolation.
+    -->
+    <script src="coi-serviceworker.js"></script>
+    <!--
+      The Pyodide runtime: a classic script that exposes the global `loadPyodide`
+      the runner calls to boot Python in the browser. Pinned to a versioned CDN
+      build so the site is reproducible.
+    -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"
+            integrity="sha384-Dz8WbRJS+zEg3mTsQKFzS7uiJxTV6CVDI6lD5b49KMnhy6hlO1vl+ru6YCYNiaXz"
+            crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+--- CDN script SRI ---
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"
+            integrity="sha384-Dz8WbRJS+zEg3mTsQKFzS7uiJxTV6CVDI6lD5b49KMnhy6hlO1vl+ru6YCYNiaXz"
+            crossorigin="anonymous"></script>
+--- eval-results.html CSP ---
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://webr.r-wasm.org; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cdn.jsdelivr.net https://webr.r-wasm.org https://repo.r-wasm.org https://api.fireworks.ai https://api.anthropic.com; img-src 'self' data: blob:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self';">

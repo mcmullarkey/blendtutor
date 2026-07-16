@@ -2,3 +2,67 @@ pass
 blendtutor — password required
 <select id="lesson-select" data-test="lesson-select"></select>
 
+=== Rodney re-verification for issue #99 ===
+Thu Jul 16 17:22:05 MDT 2026
+--- start rodney ---
+Chrome started (PID 20417)
+Debug URL: ws://127.0.0.1:60964/devtools/browser/cadd6d55-a430-48b4-8ee0-b1f07c4bcf5d
+--- open decrypt shell ---
+blendtutor — password required
+--- screenshot: decrypt-shell-initial ---
+/Users/carbonite/Documents/coding/portfolio/worktree-issue-99/docs/evidence/99/decrypt-shell-initial.png
+--- enter password ---
+error: JS error: eval js error: SyntaxError: Invalid or unexpected token <nil>
+=== Rodney re-verification attempt 2 for issue #99 ===
+Thu Jul 16 17:22:47 MDT 2026
+--- start rodney ---
+Chrome started (PID 20512)
+Debug URL: ws://127.0.0.1:60981/devtools/browser/feed4a4a-30a5-4611-964f-672ca67e236d
+--- open decrypt shell ---
+blendtutor — password required
+--- screenshot: decrypt-shell-initial ---
+/Users/carbonite/Documents/coding/portfolio/worktree-issue-99/docs/evidence/99/decrypt-shell-initial.png
+--- enter password ---
+error: JS error: eval js error: SyntaxError: Invalid or unexpected token <nil>
+=== Rodney re-verification attempt 3 for issue #99 ===
+Thu Jul 16 17:23:14 MDT 2026
+--- start rodney ---
+Chrome started (PID 20601)
+Debug URL: ws://127.0.0.1:60998/devtools/browser/07992c64-93bb-45df-af47-80851f7a1b79
+--- open decrypt shell ---
+blendtutor — password required
+--- screenshot: decrypt-shell-initial ---
+/Users/carbonite/Documents/coding/portfolio/worktree-issue-99/docs/evidence/99/decrypt-shell-initial.png
+--- enter password ---
+error: JS error: eval js error: SyntaxError: Invalid or unexpected token <nil>
+=== Rodney re-verification attempt 4 for issue #99 ===
+Thu Jul 16 17:23:40 MDT 2026
+--- start rodney ---
+Chrome started (PID 20687)
+Debug URL: ws://127.0.0.1:61015/devtools/browser/2e89b068-a653-4cab-84f9-34fecd20e9b5
+--- open decrypt shell ---
+blendtutor — password required
+--- screenshot: decrypt-shell-initial ---
+/Users/carbonite/Documents/coding/portfolio/worktree-issue-99/docs/evidence/99/decrypt-shell-initial.png
+--- enter password ---
+testpass
+--- click decrypt button ---
+Clicked
+--- wait 10s for decrypt + webR boot ---
+--- screenshot: embedded-key-decrypted ---
+/Users/carbonite/Documents/coding/portfolio/worktree-issue-99/docs/evidence/99/embedded-key-decrypted.png
+--- assert lesson UI loaded ---
+pass
+PASS: #lesson-select present
+--- assert no error banner ---
+pass
+PASS: no error banner / no failed-to-boot text
+--- assert key prompt not shown ---
+pass
+PASS: key prompt absent
+--- assert embedded key in sessionStorage ---
+pass
+PASS: sessionStorage fireworks_api key == fw_test_embed_123
+--- stop rodney ---
+Chrome stopped
+=== Rodney sequence complete ===

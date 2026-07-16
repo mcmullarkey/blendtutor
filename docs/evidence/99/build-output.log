@@ -1,14 +1,4 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.38s
+     Running `target/debug/blendtutor build --target webr --password testpass --embed-key 'fireworks:fw_test_embed_123' crates/core/tests/fixtures/r-course -o /tmp/bt-embed-fix`
 WARNING: The embedded API key for fireworks is unique to this site and should be single-use. Set a spend limit / budget on the key to bound cost. Anyone with the site password can extract the key — use a dedicated key with a tight spend limit.
-built 2 lesson(s) for webr into /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.mBSm4J4D4r/site (password-protected)
-
-=== NEGATIVE: --embed-key without --password ===
-Error: --embed-key requires --password (the API key is encrypted into the site payload; without a password there is nothing to encrypt with)
-EXIT: 1
-
-=== NEGATIVE: provider mismatch (fireworks:sk-ant-xxx) ===
-Error: key for provider `fireworks` must start with `fw_` (got a key starting with `sk-ant-`) — the provider and key must be consistent
-EXIT: 1
-
-=== NEGATIVE: provider mismatch (anthropic:fw_xxx) ===
-Error: key for provider `anthropic` must start with `sk-ant-` (got a key starting with `fw_tes`) — the provider and key must be consistent
-EXIT: 1
+built 2 lesson(s) for webr into /tmp/bt-embed-fix (password-protected)

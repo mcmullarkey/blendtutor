@@ -1876,3 +1876,429 @@ fn build_emits_empty_packages_array_when_lesson_has_no_packages() {
         "packages must be an empty array when lesson has no packages key: {lesson}"
     );
 }
+
+// ── Issue #99: BYOK-builder embedded API key (--embed-key) ──────────
+
+/// Run `build` with optional `--password` and `--embed-key` flags.
+fn build_with_flags(
+    target: &str,
+    course: &str,
+    out: &Path,
+    password: Option<&str>,
+    embed_key: Option<&str>,
+) -> std::process::Output {
+    let mut cmd = Command::cargo_bin("blendtutor").unwrap();
+    cmd.arg("build")
+        .arg("--target")
+        .arg(target)
+        .arg(course)
+        .arg("-o")
+        .arg(out);
+    if let Some(pw) = password {
+        cmd.arg("--password").arg(pw);
+    }
+    if let Some(ek) = embed_key {
+        cmd.arg("--embed-key").arg(ek);
+    }
+    cmd.output().unwrap()
+}
+
+/// A distinctive test Fireworks key — long enough to be a realistic key, short
+/// enough to be readable. The `_` in `fw_` is NOT in the base64 alphabet, so
+/// it can never appear in the encrypted ciphertext.
+const TEST_FW_KEY: &str = "fw_testkey123456789abcdef";
+
+/// A distinctive test Anthropic key. The `-` in `sk-ant-` is NOT in the base64
+/// alphabet, so it can never appear in the encrypted ciphertext.
+const TEST_ANT_KEY: &str = "sk-ant-testkey123456789abcdef";
+
+#[test]
+fn embed_key_with_password_succeeds_and_no_plaintext_key_ships() {
+    // AC-3 (issue #99): building with --embed-key + --password embeds the API
+    // key into the encrypted payload. The key is never visible as plaintext in
+    // any emitted file — it rides inside the AES-256-GCM ciphertext, and the
+    // base64 alphabet excludes `_` and `-`, so `fw_` and `sk-ant` can never
+    // appear in the base64-encoded ciphertext.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build_with_flags(
+        "webr",
+        R_COURSE,
+        &out,
+        Some("secret-pw"),
+        Some(&format!("fireworks:{TEST_FW_KEY}")),
+    );
+    assert!(
+        output.status.success(),
+        "`build --embed-key fireworks:... --password ...` should exit 0, got {:?}; stderr={:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Clause 2: no plaintext API key in ANY emitted file. The key is inside the
+    // encrypted base64 payload — base64 alphabet (A-Za-z0-9+/=) excludes `_`
+    // and `-`, so `fw_testkey...` can never appear in the ciphertext.
+    for (path, contents) in emitted_files(&out) {
+        assert!(
+            !contents.contains(TEST_FW_KEY),
+            "the embedded API key must never ship as plaintext; found in {path:?}"
+        );
+        assert!(
+            !contents.contains("fw_testkey"),
+            "the fw_ key prefix+body must never ship as plaintext; found in {path:?}"
+        );
+    }
+
+    // The decrypt shell is present (index.html is a decrypt shell, not plaintext).
+    let index = std::fs::read_to_string(out.join("index.html")).unwrap();
+    assert!(
+        index.contains("data-encrypted-payload="),
+        "index.html must be a decrypt shell (encrypted payload)"
+    );
+    assert!(
+        !index.contains("<header class=\"site-header\">"),
+        "index.html must not contain plaintext page content"
+    );
+
+    // The shared assets (feedback.js, etc.) are still emitted unchanged.
+    for infra in [
+        "lesson-runner.js",
+        "lesson-runner-core.js",
+        "coi-serviceworker.js",
+        "config.js",
+        "feedback.js",
+        "styles.css",
+        "codemirror.js",
+    ] {
+        assert!(
+            out.join(infra).is_file(),
+            "the built site is missing {infra}"
+        );
+    }
+}
+
+#[test]
+fn embed_key_without_password_is_a_hard_error() {
+    // AC-3 negative: --embed-key without --password must fail hard (exit != 0)
+    // and create NO output directory — the key is encrypted into the payload,
+    // so without a password there is nothing to encrypt with.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build_with_flags(
+        "webr",
+        R_COURSE,
+        &out,
+        None,
+        Some(&format!("fireworks:{TEST_FW_KEY}")),
+    );
+    assert!(
+        !output.status.success(),
+        "--embed-key without --password must fail; stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
+    assert!(
+        stderr.contains("password"),
+        "the failure should name the missing --password; stderr={stderr}"
+    );
+    // No output dir created — fail-fast before write_site.
+    assert!(
+        !out.exists(),
+        "a build refused for --embed-key without --password must not create the output directory"
+    );
+}
+
+#[test]
+fn embed_key_provider_prefix_mismatch_is_a_hard_error() {
+    // AC-3 negative: a provider/key prefix mismatch (e.g. fireworks:sk-ant-xxx)
+    // must fail hard — the provider and key must be consistent.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build_with_flags(
+        "webr",
+        R_COURSE,
+        &out,
+        Some("secret-pw"),
+        Some(&format!("fireworks:{TEST_ANT_KEY}")),
+    );
+    assert!(
+        !output.status.success(),
+        "fireworks:sk-ant-... must fail (provider/key mismatch); stderr={:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !out.exists(),
+        "a refused build must not create the output directory"
+    );
+
+    // Symmetric: anthropic with a fw_ key also fails.
+    let out2 = tmp.path().join("site2");
+    let output2 = build_with_flags(
+        "webr",
+        R_COURSE,
+        &out2,
+        Some("secret-pw"),
+        Some(&format!("anthropic:{TEST_FW_KEY}")),
+    );
+    assert!(
+        !output2.status.success(),
+        "anthropic:fw_... must fail (provider/key mismatch); stderr={:?}",
+        String::from_utf8_lossy(&output2.stderr)
+    );
+    assert!(
+        !out2.exists(),
+        "a refused build must not create the output directory"
+    );
+}
+
+#[test]
+fn embed_key_emits_cli_warnings_to_stderr() {
+    // AC-3: the build emits CLI warnings to stderr about the embedded key being
+    // unique/single-use and the need to set a spend limit/budget/cost.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build_with_flags(
+        "webr",
+        R_COURSE,
+        &out,
+        Some("secret-pw"),
+        Some(&format!("fireworks:{TEST_FW_KEY}")),
+    );
+    assert!(output.status.success(), "build should succeed");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Warning keyword: "WARNING" or "⚠" or "CAUTION"
+    let lower = stderr.to_lowercase();
+    assert!(
+        lower.contains("warning") || stderr.contains("⚠") || lower.contains("caution"),
+        "stderr must contain a warning keyword (WARNING/⚠/CAUTION); stderr={stderr}"
+    );
+    // Unique/single-use keyword
+    assert!(
+        lower.contains("unique") || lower.contains("single-use"),
+        "stderr must mention the key is unique/single-use; stderr={stderr}"
+    );
+    // Spend limit/budget/cost keyword
+    assert!(
+        lower.contains("spend limit") || lower.contains("budget") || lower.contains("cost"),
+        "stderr must mention spend limit/budget/cost; stderr={stderr}"
+    );
+}
+
+#[test]
+fn embed_key_feedback_js_has_apply_embedded_key() {
+    // AC-3: feedback.js contains an applyEmbeddedKey function that reads
+    // window.__btEmbeddedKey, calls storeKey + storeProvider, and clears the
+    // global. It is called at init before submitButton.addEventListener.
+    // handleSubmit is UNCHANGED.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build_with_flags(
+        "webr",
+        R_COURSE,
+        &out,
+        Some("secret-pw"),
+        Some(&format!("fireworks:{TEST_FW_KEY}")),
+    );
+    assert!(output.status.success(), "build should succeed");
+
+    let feedback = std::fs::read_to_string(out.join("feedback.js"))
+        .expect("the built site must ship feedback.js");
+
+    // applyEmbeddedKey function exists.
+    assert!(
+        feedback.contains("function applyEmbeddedKey"),
+        "feedback.js must define applyEmbeddedKey; feedback={feedback}"
+    );
+    // Reads window.__btEmbeddedKey.
+    assert!(
+        feedback.contains("window.__btEmbeddedKey"),
+        "feedback.js must read window.__btEmbeddedKey; feedback={feedback}"
+    );
+    // Calls storeKey + storeProvider.
+    assert!(
+        feedback.contains("storeKey(") && feedback.contains("storeProvider("),
+        "feedback.js applyEmbeddedKey must call storeKey + storeProvider; feedback={feedback}"
+    );
+    // Clears the global after reading.
+    assert!(
+        feedback.contains("window.__btEmbeddedKey = undefined")
+            || feedback.contains("window.__btEmbeddedKey = null"),
+        "feedback.js must clear window.__btEmbeddedKey after reading; feedback={feedback}"
+    );
+    // applyEmbeddedKey is called at init (before submitButton.addEventListener).
+    let apply_pos = feedback
+        .find("applyEmbeddedKey()")
+        .expect("feedback.js must call applyEmbeddedKey() at init");
+    let submit_pos = feedback
+        .find("submitButton.addEventListener")
+        .expect("feedback.js must wire submitButton.addEventListener");
+    assert!(
+        apply_pos < submit_pos,
+        "applyEmbeddedKey() must be called before submitButton.addEventListener"
+    );
+
+    // handleSubmit is unchanged — it still reads the key from sessionStorage
+    // (readKey) and routes through PROVIDERS[providerId].factory. The embedded
+    // key is pre-loaded into sessionStorage by applyEmbeddedKey, so phase 1
+    // (key-entry prompt) is skipped naturally.
+    assert!(
+        feedback.contains("async function handleSubmit"),
+        "feedback.js must still define handleSubmit; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("readKey(providerId)"),
+        "handleSubmit must still read the key from sessionStorage; feedback={feedback}"
+    );
+    assert!(
+        feedback.contains("PROVIDERS[providerId].factory"),
+        "handleSubmit must still route through PROVIDERS[providerId].factory; feedback={feedback}"
+    );
+}
+
+#[test]
+fn embed_key_decrypt_shell_handles_embedded_key_payload() {
+    // AC-3: the decrypt shell (decrypt-shell.html) handles the JSON payload
+    // {"html":"...","embeddedKey":{...}} — after decrypting, it extracts
+    // embeddedKey and sets window.__btEmbeddedKey before rendering the page.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build_with_flags(
+        "webr",
+        R_COURSE,
+        &out,
+        Some("secret-pw"),
+        Some(&format!("fireworks:{TEST_FW_KEY}")),
+    );
+    assert!(output.status.success(), "build should succeed");
+
+    let index = std::fs::read_to_string(out.join("index.html")).unwrap();
+    // The decrypt shell must try JSON.parse on the decrypted content and check
+    // for embeddedKey.
+    assert!(
+        index.contains("JSON.parse"),
+        "decrypt shell must try JSON.parse on decrypted content; index={index}"
+    );
+    assert!(
+        index.contains("embeddedKey"),
+        "decrypt shell must check for embeddedKey in parsed JSON; index={index}"
+    );
+    assert!(
+        index.contains("window.__btEmbeddedKey"),
+        "decrypt shell must set window.__btEmbeddedKey; index={index}"
+    );
+}
+
+#[test]
+fn embed_key_cross_target_byte_identity() {
+    // AC-3: feedback.js is byte-identical across targets (shared asset). The
+    // applyEmbeddedKey function is in the shared feedback.js, not forked per
+    // target.
+    let tmp = tempfile::tempdir().unwrap();
+    let webr_out = tmp.path().join("webr");
+    let pyo_out = tmp.path().join("pyodide");
+
+    assert!(
+        build_with_flags(
+            "webr",
+            R_COURSE,
+            &webr_out,
+            Some("secret-pw"),
+            Some(&format!("fireworks:{TEST_FW_KEY}"))
+        )
+        .status
+        .success()
+    );
+    assert!(
+        build_with_flags(
+            "pyodide",
+            PYTHON_COURSE,
+            &pyo_out,
+            Some("secret-pw"),
+            Some(&format!("fireworks:{TEST_FW_KEY}"))
+        )
+        .status
+        .success()
+    );
+
+    let webr_feedback = std::fs::read_to_string(webr_out.join("feedback.js")).unwrap();
+    let pyo_feedback = std::fs::read_to_string(pyo_out.join("feedback.js")).unwrap();
+    assert_eq!(
+        webr_feedback, pyo_feedback,
+        "feedback.js must be byte-identical across targets (shared asset, applyEmbeddedKey not forked)"
+    );
+
+    // The decrypt shell is also shared (same template, different encrypted
+    // payloads). The JS logic (JSON.parse, embeddedKey check) must be identical.
+    let webr_index = std::fs::read_to_string(webr_out.join("index.html")).unwrap();
+    let pyo_index = std::fs::read_to_string(pyo_out.join("index.html")).unwrap();
+    assert!(
+        webr_index.contains("JSON.parse") && webr_index.contains("embeddedKey"),
+        "webr decrypt shell must handle embeddedKey"
+    );
+    assert!(
+        pyo_index.contains("JSON.parse") && pyo_index.contains("embeddedKey"),
+        "pyodide decrypt shell must handle embeddedKey"
+    );
+}
+
+#[test]
+fn embed_key_existing_negative_scans_still_pass() {
+    // AC-3: the existing negative scan tests (sk-ant, fw_) still pass when
+    // --embed-key is used — the key is inside the encrypted base64 payload, and
+    // the base64 alphabet excludes `_` and `-`, so `fw_` and `sk-ant` never
+    // appear in any emitted file.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("site");
+
+    let output = build_with_flags(
+        "webr",
+        R_COURSE,
+        &out,
+        Some("secret-pw"),
+        Some(&format!("fireworks:{TEST_FW_KEY}")),
+    );
+    assert!(output.status.success(), "build should succeed");
+
+    // Scan ALL emitted files for fw_ and sk-ant — neither should appear.
+    for (path, contents) in emitted_files(&out) {
+        assert!(
+            !contents.contains("fw_"),
+            "fw_ must never ship as plaintext (it's inside encrypted base64); found in {path:?}"
+        );
+        assert!(
+            !contents.contains("sk-ant"),
+            "sk-ant must never ship as plaintext; found in {path:?}"
+        );
+    }
+
+    // Also test with an Anthropic key.
+    let out2 = tmp.path().join("site2");
+    let output2 = build_with_flags(
+        "webr",
+        R_COURSE,
+        &out2,
+        Some("secret-pw"),
+        Some(&format!("anthropic:{TEST_ANT_KEY}")),
+    );
+    assert!(
+        output2.status.success(),
+        "build with anthropic key should succeed"
+    );
+    for (path, contents) in emitted_files(&out2) {
+        assert!(
+            !contents.contains("sk-ant"),
+            "sk-ant must never ship as plaintext (it's inside encrypted base64); found in {path:?}"
+        );
+        assert!(
+            !contents.contains("fw_"),
+            "fw_ must never ship as plaintext; found in {path:?}"
+        );
+    }
+}

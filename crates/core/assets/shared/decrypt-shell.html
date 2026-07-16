@@ -164,7 +164,25 @@
               derivedKey,
               ciphertext,
             );
-            const html = new TextDecoder().decode(decrypted);
+            let html = new TextDecoder().decode(decrypted);
+
+            // Check for an embedded API key in the payload. When --embed-key
+            // is used at build time, the index.html payload is a JSON object
+            // {"html":"...","embeddedKey":{"provider":"...","key":"..."}}.
+            // Extract the key and set window.__btEmbeddedKey before rendering
+            // so feedback.js's applyEmbeddedKey can pre-load it into
+            // sessionStorage (skipping the key-entry prompt). When no key is
+            // embedded, the payload is plain HTML — JSON.parse fails and we
+            // fall back to treating the plaintext as HTML.
+            try {
+              const parsed = JSON.parse(html);
+              if (parsed && parsed.embeddedKey && parsed.html) {
+                window.__btEmbeddedKey = parsed.embeddedKey;
+                html = parsed.html;
+              }
+            } catch (_e) {
+              // Not JSON — plain HTML payload (no embedded key)
+            }
 
             // Parse the decrypted HTML and inject it into the current page
             const parser = new DOMParser();

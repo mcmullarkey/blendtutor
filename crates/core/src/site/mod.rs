@@ -591,6 +591,44 @@ fn is_content_file(path: &str) -> bool {
         || (path.starts_with("lessons/") && path.ends_with(".json"))
 }
 
+/// An API key embedded in an encrypted site payload (§1.2 — a represented
+/// state, not a loose string). When present, the key rides inside the
+/// AES-256-GCM-encrypted `index.html` payload as a JSON object
+/// `{"html":"...","embeddedKey":{"provider":"...","key":"..."}}`. The decrypt
+/// shell extracts it and sets `window.__btEmbeddedKey` before the page
+/// renders, so `feedback.js`'s `applyEmbeddedKey` can pre-load it into
+/// sessionStorage — skipping the key-entry prompt.
+///
+/// The key is never baked into any shipped file as plaintext: it is inside
+/// the ciphertext, and the base64 alphabet (`A-Za-z0-9+/=`) excludes `_` and
+/// `-`, so the `fw_` / `sk-ant-` prefixes can never appear in the encoded
+/// output.
+#[derive(Debug, Clone, Serialize)]
+pub struct EmbeddedKey {
+    /// The provider id: `fireworks` or `anthropic`.
+    pub provider: String,
+    /// The API key (e.g. `fw_...` or `sk-ant-...`).
+    pub key: String,
+}
+
+/// The JSON wire format for an index.html payload that carries an embedded
+/// key (§3.2 — the Rust↔JS contract). Serialized as
+/// `{"html":"<page>","embeddedKey":{"provider":"...","key":"..."}}` so the
+/// decrypt shell can extract the key and the page HTML from a single
+/// decrypted blob. When no key is embedded, the payload is plain HTML (no
+/// JSON wrapping) — the decrypt shell detects this by trying `JSON.parse`
+/// and falling back to treating the plaintext as HTML.
+#[derive(Serialize)]
+struct EmbeddedPayload<'a> {
+    /// The original page HTML (the content that would be encrypted on its own
+    /// when no key is embedded).
+    html: &'a str,
+    /// The embedded API key, carried alongside the HTML so the decrypt shell
+    /// can set `window.__btEmbeddedKey` before rendering.
+    #[serde(rename = "embeddedKey")]
+    embedded_key: &'a EmbeddedKey,
+}
+
 /// Encrypt all content files in a planned site, replacing them with decrypt
 /// shells (for HTML pages) or base64-encoded encrypted payloads (for JSON
 /// files).
@@ -600,18 +638,43 @@ fn is_content_file(path: &str) -> bool {
 /// passed through unchanged. Content files (index.html, lessons/*.json,
 /// lessons.json, eval-results.html) are encrypted with AES-256-GCM + PBKDF2.
 ///
+/// When `embed_key` is `Some`, the `index.html` payload is a JSON object
+/// `{"html":"...","embeddedKey":{...}}` (§3.2) so the decrypt shell can
+/// extract the key and pre-load it into the learner's sessionStorage. The key
+/// is inside the ciphertext — never plaintext in any shipped file.
+///
 /// `plan_site` is unchanged — this is a separate post-processing step (§2.1),
 /// so the 55+ existing `plan_site` tests are unaffected.
 pub fn encrypt_site_files(
     site: &SiteFiles,
     password: &str,
+    embed_key: Option<&EmbeddedKey>,
     rng: &mut (impl RngCore + CryptoRng),
 ) -> SiteFiles {
     let mut encrypted_files = Vec::with_capacity(site.files().len());
     for file in site.files() {
         let path_str = file.path.to_string_lossy();
         if path_str == "index.html" || path_str == "eval-results.html" {
-            let payload = crypto::encrypt(&file.contents, password, rng);
+            // When an embed key is present, the index.html payload is a JSON
+            // object {"html":"...","embeddedKey":{...}} so the decrypt shell
+            // can extract the key and set window.__btEmbeddedKey before
+            // rendering. eval-results.html does not load feedback.js, so it
+            // does not need the embedded key — it stays as plain encrypted
+            // HTML (the decrypt shell detects this via JSON.parse fallback).
+            let plaintext = if path_str == "index.html" {
+                if let Some(ek) = embed_key {
+                    serde_json::to_string(&EmbeddedPayload {
+                        html: &file.contents,
+                        embedded_key: ek,
+                    })
+                    .expect("the embedded payload serializes infallibly")
+                } else {
+                    file.contents.clone()
+                }
+            } else {
+                file.contents.clone()
+            };
+            let payload = crypto::encrypt(&plaintext, password, rng);
             encrypted_files.push(SiteFile {
                 path: file.path.clone(),
                 contents: render_decrypt_shell(&payload),
@@ -2866,7 +2929,7 @@ exercise:
         ] {
             let planned = plan(&course, target).expect("plans");
             let mut rng = rand_core::OsRng;
-            let encrypted = encrypt_site_files(&planned, TEST_PASSWORD, &mut rng);
+            let encrypted = encrypt_site_files(&planned, TEST_PASSWORD, None, &mut rng);
             let index = &file(&encrypted, "index.html").contents;
 
             // --- Clause 1: index.html is decrypt shell with data-encrypted-payload/
@@ -3119,7 +3182,7 @@ exercise:
         // encrypted site from the loop above.
         let webr_planned = plan(&r_course(), BuildTarget::Webr).expect("plans");
         let mut rng = rand_core::OsRng;
-        let enc = encrypt_site_files(&webr_planned, TEST_PASSWORD, &mut rng);
+        let enc = encrypt_site_files(&webr_planned, TEST_PASSWORD, None, &mut rng);
         let lesson0 = &file(&enc, "lessons/0.json").contents;
         assert!(
             serde_json::from_str::<Value>(lesson0).is_err(),

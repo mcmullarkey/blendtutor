@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::course::LessonSlug;
+use crate::course::{LessonSlug, SiteConfig};
 use crate::lesson::{Language, Lesson};
 
 /// Which browser runtime a built site targets, and so which language it serves.
@@ -309,20 +309,39 @@ pub(super) struct TargetAssets<'a> {
     pub lesson_runner_js: &'a str,
 }
 
+/// Render the `config.js` contract file: the `window.__btConfig` global the
+/// feedback.js rate limiter reads. Pure (§2.2): a direct projection of the
+/// [`SiteConfig`] into the JS contract shape — the Rust→JS boundary for
+/// site-level configuration (§3.2), alongside the per-lesson JSON contract.
+fn config_js(site_config: &SiteConfig) -> String {
+    format!(
+        "window.__btConfig = {{ maxFeedbackPerSession: {} }};",
+        site_config.max_feedback_per_session
+    )
+}
+
 /// Assemble a site from one target's [`TargetAssets`] and the loaded lessons.
 ///
 /// The shared scaffolding both targets reuse (§4.2): a target supplies only its
-/// own shell and runner; the runner core, the COOP/COEP shim, and the per-lesson
-/// JSON contract — keyed by position, never by slug, so an author's slug can never
-/// reach the filesystem as a path — are identical across targets and laid out here
-/// in deterministic order. The slug rides inside the JSON as `id`; `lessons.json`
-/// is the ordered slug index the runner enumerates.
-fn assemble(assets: TargetAssets<'_>, lessons: &[(LessonSlug, Lesson)]) -> SiteFiles {
+/// own shell and runner; the runner core, the COOP/COEP shim, the `config.js`
+/// contract, and the per-lesson JSON contract — keyed by position, never by
+/// slug, so an author's slug can never reach the filesystem as a path — are
+/// identical across targets and laid out here in deterministic order. The slug
+/// rides inside the JSON as `id`; `lessons.json` is the ordered slug index the
+/// runner enumerates. `config.js` sits immediately before `feedback.js` so the
+/// `window.__btConfig` global is available when the rate limiter reads it.
+fn assemble(
+    assets: TargetAssets<'_>,
+    lessons: &[(LessonSlug, Lesson)],
+    site_config: &SiteConfig,
+) -> SiteFiles {
+    let config_contents = config_js(site_config);
     let mut files = vec![
         asset("index.html", assets.index_html),
         asset("lesson-runner.js", assets.lesson_runner_js),
         asset("lesson-runner-core.js", LESSON_RUNNER_CORE_JS),
         asset("coi-serviceworker.js", COI_SERVICEWORKER_JS),
+        asset("config.js", &config_contents),
         asset("feedback.js", FEEDBACK_JS),
         asset("styles.css", STYLES_CSS),
         asset("codemirror.js", CODEMIRROR_JS),
@@ -488,6 +507,7 @@ pub fn plan_site(
     lessons: &[(LessonSlug, Lesson)],
     target: BuildTarget,
     eval: &EvalSummary,
+    site_config: &SiteConfig,
 ) -> Result<SiteFiles, PlanError> {
     for (slug, lesson) in lessons {
         if lesson.language != target.language() {
@@ -499,8 +519,8 @@ pub fn plan_site(
         }
     }
     let mut site = match target {
-        BuildTarget::Webr => webr::plan(lessons),
-        BuildTarget::Pyodide => pyodide::plan(lessons),
+        BuildTarget::Webr => webr::plan(lessons, site_config),
+        BuildTarget::Pyodide => pyodide::plan(lessons, site_config),
     };
     site.files.push(SiteFile {
         path: "eval-results.html".into(),
@@ -568,9 +588,16 @@ mod tests {
 
     /// Plan a site with no eval validation — the default for the tests about
     /// lesson assembly, not the eval-results page. Eval folding is exercised by the
-    /// dedicated tests below with an explicit [`EvalSummary`].
+    /// dedicated tests below with an explicit [`EvalSummary`]. Uses the default
+    /// [`SiteConfig`] (max_feedback_per_session = 20) — site-config behavior is
+    /// exercised by the dedicated `feedback_rate_limit_*` tests below.
     fn plan(lessons: &[(LessonSlug, Lesson)], target: BuildTarget) -> Result<SiteFiles, PlanError> {
-        plan_site(lessons, target, &EvalSummary::NotValidated)
+        plan_site(
+            lessons,
+            target,
+            &EvalSummary::NotValidated,
+            &SiteConfig::default(),
+        )
     }
 
     #[test]
@@ -1472,6 +1499,7 @@ exercise:
             &EvalSummary::Validated {
                 accuracy: 0.6666666666666666,
             },
+            &SiteConfig::default(),
         )
         .expect("plans");
         let validated_page = file(&validated, "eval-results.html").contents.clone();
@@ -1479,8 +1507,13 @@ exercise:
         assert!(validated_page.contains(EvalSummary::VALIDATED_MARKER));
         assert!(!validated_page.contains(EvalSummary::NOT_VALIDATED_MARKER));
 
-        let unvalidated =
-            plan_site(&r_course(), BuildTarget::Webr, &EvalSummary::NotValidated).expect("plans");
+        let unvalidated = plan_site(
+            &r_course(),
+            BuildTarget::Webr,
+            &EvalSummary::NotValidated,
+            &SiteConfig::default(),
+        )
+        .expect("plans");
         assert!(
             file(&unvalidated, "eval-results.html")
                 .contents
@@ -1495,6 +1528,7 @@ exercise:
             &EvalSummary::Validated {
                 accuracy: 0.6666666666666666,
             },
+            &SiteConfig::default(),
         )
         .expect("plans");
         assert_eq!(
@@ -2479,5 +2513,246 @@ exercise:
             rest = &rest[body_start + close..];
         }
         false
+    }
+
+    // --- AC-4: client-side rate limiting — config.js emission (predicates 4-5) --
+
+    #[test]
+    fn feedback_rate_limit_plan_site_emits_config_js() {
+        // Predicate 4: plan_site emits config.js with "maxFeedbackPerSession": 5.
+        // The config.js file is the Rust→JS contract for site-level configuration
+        // (§3.2): it carries window.__btConfig = { maxFeedbackPerSession: N },
+        // which feedback.js reads to enforce the per-session rate limit.
+        let site_config = SiteConfig {
+            max_feedback_per_session: 5,
+        };
+        let site = plan_site(
+            &r_course(),
+            BuildTarget::Webr,
+            &EvalSummary::NotValidated,
+            &site_config,
+        )
+        .expect("plans");
+        let config = file(&site, "config.js");
+        assert!(
+            config.contents.contains("window.__btConfig"),
+            "config.js must set window.__btConfig; got: {}",
+            config.contents
+        );
+        assert!(
+            config.contents.contains("maxFeedbackPerSession"),
+            "config.js must contain maxFeedbackPerSession; got: {}",
+            config.contents
+        );
+        assert!(
+            config.contents.contains("maxFeedbackPerSession: 5"),
+            "config.js must carry the configured max (5); got: {}",
+            config.contents
+        );
+
+        // The default SiteConfig (max=20) emits 20 — the default the feedback
+        // rate limiter reads when no [site] section is present.
+        let default_site = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let default_config = file(&default_site, "config.js");
+        assert!(
+            default_config
+                .contents
+                .contains("maxFeedbackPerSession: 20"),
+            "config.js must carry the default max (20); got: {}",
+            default_config.contents
+        );
+
+        // config.js is byte-identical across targets (shared contract, §4.2).
+        let pyodide = plan_site(
+            &python_course(),
+            BuildTarget::Pyodide,
+            &EvalSummary::NotValidated,
+            &site_config,
+        )
+        .expect("plans");
+        assert_eq!(
+            file(&site, "config.js").contents,
+            file(&pyodide, "config.js").contents,
+            "config.js must be byte-identical across targets for the same SiteConfig"
+        );
+    }
+
+    #[test]
+    fn feedback_rate_limit_shells_load_config_before_feedback() {
+        // Predicate 5: both targets' index.html load config.js BEFORE feedback.js.
+        // config.js sets window.__btConfig synchronously (classic script, not a
+        // deferred module) so the global is available when feedback.js (a deferred
+        // module) reads it. A shell that loads feedback.js first would leave
+        // __btConfig undefined at rate-limit check time.
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let pyodide = plan(&python_course(), BuildTarget::Pyodide).expect("plans");
+        for (target, site) in [(BuildTarget::Webr, &webr), (BuildTarget::Pyodide, &pyodide)] {
+            let html = &file(site, "index.html").contents;
+            let config_pos = html
+                .find(r#"src="config.js""#)
+                .unwrap_or_else(|| panic!("{target}: index.html must reference config.js"));
+            let feedback_pos = html
+                .find(r#"src="feedback.js""#)
+                .unwrap_or_else(|| panic!("{target}: index.html must reference feedback.js"));
+            assert!(
+                config_pos < feedback_pos,
+                "{target}: config.js must load before feedback.js (so __btConfig is set \
+                 before the rate limiter reads it)"
+            );
+        }
+    }
+
+    // --- AC-4: client-side rate limiting — feedback.js source scan (6,7) -------
+
+    #[test]
+    fn feedback_rate_limit_feedback_js_has_rate_limiting() {
+        // Predicate 6: feedback.js contains the rate-limiting patterns. No JS
+        // harness exists, so this is a static source scan of the emitted feedback.js
+        // (verification: code). 6 sub-clauses pin the invariant (§1.5):
+        //   1. "bt_feedback_count" sessionStorage key
+        //   2. window.__btConfig.maxFeedbackPerSession read
+        //   3. limit-reached message string
+        //   4. counter increment AFTER try/catch (failed requests count)
+        //   5. textContent for limit message (NOT innerHTML — XSS defense)
+        //   6. parseInt guard on stored counter
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let feedback = &file(&webr, "feedback.js").contents;
+
+        // Clause 1: the bt_feedback_count sessionStorage key.
+        assert!(
+            feedback.contains("bt_feedback_count"),
+            "feedback.js must use the bt_feedback_count sessionStorage key; feedback={feedback}"
+        );
+
+        // Clause 2: window.__btConfig.maxFeedbackPerSession read.
+        assert!(
+            feedback.contains("__btConfig"),
+            "feedback.js must read window.__btConfig; feedback={feedback}"
+        );
+        assert!(
+            feedback.contains("maxFeedbackPerSession"),
+            "feedback.js must read maxFeedbackPerSession from __btConfig; feedback={feedback}"
+        );
+
+        // Clause 3: a limit-reached message string (the user-facing copy).
+        assert!(
+            feedback.to_lowercase().contains("limit"),
+            "feedback.js must contain a limit-reached message; feedback={feedback}"
+        );
+
+        // Clause 5: textContent for the limit message (NOT innerHTML). The
+        // existing !innerHTML invariant (plan_site_shells_load_codemirror_as_import
+        // clause 6) already guarantees no innerHTML in lesson-runner-core.js;
+        // here we pin that feedback.js also never uses .innerHTML (property
+        // access) — the comment at line ~473 mentions `innerHTML` in backticks
+        // (no dot), so checking `.innerHTML` catches only real property access.
+        // This covers the limit message AND all other rendering (verdict,
+        // error, pending) — feedback.js handles untrusted model output, so
+        // innerHTML is never safe.
+        assert!(
+            feedback.contains("textContent"),
+            "feedback.js must use textContent for the limit message; feedback={feedback}"
+        );
+        assert!(
+            !feedback.contains(".innerHTML"),
+            "feedback.js must NOT use .innerHTML (XSS defense — untrusted model output \
+             and limit messages use textContent); feedback={feedback}"
+        );
+
+        // Clause 6: parseInt guard on the stored counter. Without parseInt, a
+        // corrupt or missing sessionStorage value yields a string comparison
+        // (or NaN), silently disabling limiting. We check for `parseInt(`
+        // (the call, with opening paren) rather than bare `parseInt` — the
+        // word appears in explanatory comments but only the call enforces the
+        // guard at runtime.
+        assert!(
+            feedback.contains("parseInt("),
+            "feedback.js must call parseInt() to guard the stored counter; feedback={feedback}"
+        );
+
+        // Clause 4: counter increment AFTER try/catch (failed requests count).
+        // The increment call must NOT be inside the try block (which would skip
+        // it on error) and must appear after the catch block's renderError call
+        // (the last statement in the catch). We scope the search to handleSubmit
+        // to avoid matching the try/catch in listModels.
+        let handle_submit_pos = feedback
+            .find("async function handleSubmit")
+            .expect("feedback.js must define handleSubmit");
+        let handle_submit_body = &feedback[handle_submit_pos..];
+
+        let try_pos = handle_submit_body
+            .find("try {")
+            .expect("handleSubmit must have a try block");
+        let catch_pos = handle_submit_body
+            .find("} catch (error) {")
+            .expect("handleSubmit must have a catch block");
+        let increment_pos = handle_submit_body
+            .find("incrementFeedbackCount()")
+            .expect("feedback.js must call incrementFeedbackCount in handleSubmit");
+        let render_error_pos = handle_submit_body
+            .find("renderError(container, error)")
+            .expect("handleSubmit must call renderError in the catch block");
+
+        // The increment must NOT be inside the try block (between try { and } catch).
+        assert!(
+            !(increment_pos > try_pos && increment_pos < catch_pos),
+            "incrementFeedbackCount must NOT be inside the try block \
+             (failed requests count — the negative case: increment only inside try \
+             skips failures); feedback={feedback}"
+        );
+        // The increment must be after renderError (the last statement in the catch),
+        // so it is reached on both success and failure paths.
+        assert!(
+            increment_pos > render_error_pos,
+            "incrementFeedbackCount must be called AFTER the try/catch block \
+             (after renderError in the catch — both paths reach it); feedback={feedback}"
+        );
+    }
+
+    #[test]
+    fn feedback_rate_limit_feedback_js_does_not_increment_around_list_models() {
+        // Predicate 7: feedback.js does NOT increment the counter around
+        // listModels (model discovery is not feedback — it doesn't count).
+        // We verify the increment call does not appear in the listModels or
+        // renderModelPicker function bodies.
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let feedback = &file(&webr, "feedback.js").contents;
+
+        // Check listModels: find its body (from the function definition to the
+        // next function definition) and assert no increment call within.
+        let listmodels_start = feedback
+            .find("async function listModels")
+            .expect("feedback.js must define listModels");
+        let after_listmodels = &feedback[listmodels_start..];
+        let listmodels_end = after_listmodels[1..]
+            .find("\nfunction ")
+            .or_else(|| after_listmodels[1..].find("\nasync function "))
+            .map(|p| p + 1)
+            .unwrap_or(after_listmodels.len());
+        let listmodels_body = &after_listmodels[..listmodels_end];
+        assert!(
+            !listmodels_body.contains("incrementFeedbackCount()"),
+            "listModels must NOT call incrementFeedbackCount \
+             (model discovery doesn't count); feedback={feedback}"
+        );
+
+        // Check renderModelPicker: the function that calls listModels. The
+        // increment must not appear here either — the guard and increment live
+        // in handleSubmit, after the model picker phase.
+        let picker_start = feedback
+            .find("async function renderModelPicker")
+            .expect("feedback.js must define renderModelPicker");
+        let after_picker = &feedback[picker_start..];
+        let picker_end = after_picker[1..]
+            .find("\nfunction ")
+            .or_else(|| after_picker[1..].find("\nasync function "))
+            .map(|p| p + 1)
+            .unwrap_or(after_picker.len());
+        let picker_body = &after_picker[..picker_end];
+        assert!(
+            !picker_body.contains("incrementFeedbackCount()"),
+            "renderModelPicker must NOT call incrementFeedbackCount \
+             (model discovery doesn't count); feedback={feedback}"
+        );
     }
 }

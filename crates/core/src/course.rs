@@ -50,6 +50,40 @@ pub struct ManifestEntry {
     pub path: PathBuf,
 }
 
+/// The default maximum feedback requests per browser session when the `[site]`
+/// section is absent or omits `max_feedback_per_session`. Lifted to a named
+/// function so both the serde default and [`SiteConfig::default`] share one
+/// source (§5.1) — a future tuning change touches one place.
+const fn default_max_feedback() -> u32 {
+    20
+}
+
+/// Site-level configuration from the optional `[site]` section of
+/// `blendtutor.toml`.
+///
+/// Unknown keys are rejected (§1.3.1) so an author's typo in `[site]` fails
+/// loudly rather than dropping silently, matching the lesson and manifest
+/// models. The `max_feedback_per_session` field defaults to 20 when the `[site]`
+/// section is present but omits it (via `#[serde(default = "default_max_feedback")]`);
+/// when the entire `[site]` section is absent, [`Manifest::site`] is `None` and
+/// the caller applies [`SiteConfig::default`] (which also yields 20).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SiteConfig {
+    /// The maximum number of feedback requests a learner may make per browser
+    /// session. Defaults to 20. A value of 0 disables feedback entirely.
+    #[serde(default = "default_max_feedback")]
+    pub max_feedback_per_session: u32,
+}
+
+impl Default for SiteConfig {
+    fn default() -> Self {
+        SiteConfig {
+            max_feedback_per_session: default_max_feedback(),
+        }
+    }
+}
+
 /// A course manifest: the ordered list of lessons a course contains, parsed from
 /// `blendtutor.toml`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -57,6 +91,10 @@ pub struct ManifestEntry {
 pub struct Manifest {
     /// The lessons this course lists, in author order.
     pub lessons: Vec<ManifestEntry>,
+    /// Site-level configuration from the optional `[site]` section. `None` when
+    /// the section is absent; the caller applies [`SiteConfig::default`] (max=20).
+    #[serde(default)]
+    pub site: Option<SiteConfig>,
 }
 
 impl Manifest {
@@ -219,6 +257,13 @@ impl Course {
                     })
             })
             .collect()
+    }
+
+    /// The site-level configuration from the manifest's `[site]` section, if
+    /// present. Returns `None` when the course has no `[site]` section; the
+    /// caller applies [`SiteConfig::default`] (max=20) in that case.
+    pub fn site_config(&self) -> Option<&SiteConfig> {
+        self.manifest.site.as_ref()
     }
 }
 
@@ -512,6 +557,126 @@ pathh = "add_two.yaml"
             err.id().to_string(),
             "broken",
             "the failure names the manifest slug of the lesson that broke"
+        );
+    }
+
+    // --- AC-4: client-side rate limiting — SiteConfig parse (predicates 1-3) ----
+
+    #[test]
+    fn feedback_rate_limit_manifest_parses_max_from_site_section() {
+        // Predicate 1: Manifest::parse on [site] max_feedback_per_session = 5
+        // yields manifest.site.max_feedback_per_session == 5.
+        let manifest = Manifest::parse(
+            r#"
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"
+
+[site]
+max_feedback_per_session = 5
+"#,
+        )
+        .expect("a manifest with [site] max=5 should parse");
+        assert_eq!(
+            manifest
+                .site
+                .as_ref()
+                .expect("site config present when [site] is given")
+                .max_feedback_per_session,
+            5,
+        );
+    }
+
+    #[test]
+    fn feedback_rate_limit_manifest_defaults_to_20_without_site_section() {
+        // Predicate 2: Manifest::parse without [site] yields default 20.
+        // The absent [site] section makes manifest.site None; the caller applies
+        // SiteConfig::default() which carries max=20 (#[serde(default)]).
+        let manifest = Manifest::parse(
+            r#"
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"
+"#,
+        )
+        .expect("a manifest without [site] should parse");
+        assert!(
+            manifest.site.is_none(),
+            "absent [site] yields None; the caller applies SiteConfig::default()"
+        );
+        // The default the caller applies carries max=20.
+        assert_eq!(SiteConfig::default().max_feedback_per_session, 20);
+    }
+
+    #[test]
+    fn feedback_rate_limit_manifest_rejects_negative_max() {
+        // Predicate 3: Manifest::parse on max_feedback_per_session = -1 is Err
+        // (u32 rejects negatives at the parse boundary — §1.3.1).
+        let err = Manifest::parse(
+            r#"
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"
+
+[site]
+max_feedback_per_session = -1
+"#,
+        )
+        .expect_err("a negative max must be rejected (u32 rejects negatives)");
+        assert!(
+            matches!(err, ManifestError::Parse(_)),
+            "a negative max is a parse error, got: {err:?}"
+        );
+    }
+
+    // --- Course::site_config accessor — kills mutants on the method itself -----
+
+    #[test]
+    fn site_config_returns_the_manifests_site_section_when_present() {
+        // The accessor must return the actual [site] config, not None and not a
+        // default — a non-default max (5) pins both: None fails is_some, default
+        // (max=20) fails the value check.
+        let manifest = Manifest::parse(
+            r#"
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"
+
+[site]
+max_feedback_per_session = 5
+"#,
+        )
+        .expect("a manifest with [site] max=5 should parse");
+        let course = Course {
+            root: PathBuf::from("."),
+            manifest,
+        };
+        let config = course
+            .site_config()
+            .expect("site_config must return Some when [site] is present");
+        assert_eq!(config.max_feedback_per_session, 5);
+    }
+
+    #[test]
+    fn site_config_returns_none_when_no_site_section() {
+        // Without [site], the accessor returns None — the caller applies
+        // SiteConfig::default() (max=20). Returning a leaked default here would
+        // break the None contract the build relies on.
+        let manifest = Manifest::parse(
+            r#"
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"
+"#,
+        )
+        .expect("a manifest without [site] should parse");
+        let course = Course {
+            root: PathBuf::from("."),
+            manifest,
+        };
+        assert!(
+            course.site_config().is_none(),
+            "site_config must return None when [site] is absent"
         );
     }
 }

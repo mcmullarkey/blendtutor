@@ -14,6 +14,17 @@ use crate::lesson::Lesson;
 use super::{SiteFiles, TargetAssets};
 
 /// The page shell — boots the shim, the webR runtime, and the runner.
+///
+/// # SRI gap (accepted)
+///
+/// Unlike the Pyodide target (which loads its runtime via a classic `<script>`
+/// tag and so can carry a Subresource Integrity hash), webR is loaded as an ES
+/// module import inside `lesson-runner.js`. The HTML `integrity` attribute is
+/// not valid on `<script type="module">` imports — the browser ignores it — so
+/// no `<script>` tag in this shell carries an `integrity` attribute. The CSP
+/// `script-src` allow-list (cdn.jsdelivr.net + webr.r-wasm.org) is the
+/// mitigation: only those two origins may serve scripts. A future restructuring
+/// to `<link rel="modulepreload">` with a versioned URL would enable SRI.
 const INDEX_HTML: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/assets/webr/index.html"

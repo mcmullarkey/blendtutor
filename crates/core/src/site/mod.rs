@@ -392,6 +392,35 @@ pub fn eval_summary_from_report_json(json: &str) -> Result<EvalSummary, EvalRepo
     })
 }
 
+/// The Content-Security-Policy for every built site — the single source of
+/// truth (§1.3.1, §3.2). Both target shells hardcode this same string in their
+/// `<meta http-equiv="Content-Security-Policy">` tag, and [`eval_results_html`]
+/// references this const directly. The test
+/// `plan_site_emits_csp_sri_and_referrer_policy` is the boundary guard that
+/// pins the shells to the const — a drift is a test failure, not a runtime
+/// error.
+///
+/// - `script-src` allows `'unsafe-eval'` + `'wasm-unsafe-eval'` (webR/Pyodide
+///   need `eval` and WASM), both CDN origins, but NO wildcards (`https:`, `*`,
+///   `'unsafe-inline'`).
+/// - `style-src` allows `'unsafe-inline'` because CM6's `StyleModule` injects
+///   `<style>` tags at runtime.
+/// - `connect-src` includes both LLM providers (Fireworks + Anthropic) for
+///   BYOK feedback, and `repo.r-wasm.org` for webR package installs.
+/// - `worker-src` allows `blob:` for webR's channel workers.
+const CSP_POLICY: &str = "\
+default-src 'self'; \
+script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' \
+https://cdn.jsdelivr.net https://webr.r-wasm.org; \
+style-src 'self' 'unsafe-inline'; \
+connect-src 'self' https://cdn.jsdelivr.net https://webr.r-wasm.org \
+https://repo.r-wasm.org https://api.fireworks.ai https://api.anthropic.com; \
+img-src 'self' data: blob:; \
+worker-src 'self' blob:; \
+frame-src 'none'; \
+object-src 'none'; \
+base-uri 'self';";
+
 /// Render the standalone eval-results page for a site's [`EvalSummary`].
 ///
 /// §5.1: the single function mapping the validation state to its page. Each state
@@ -421,13 +450,16 @@ fn eval_results_html(summary: &EvalSummary) -> String {
          <head>\n\
          <meta charset=\"utf-8\">\n\
          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\
+         <meta http-equiv=\"Content-Security-Policy\" content=\"{csp_policy}\">\n\
+         <meta name=\"referrer\" content=\"no-referrer\">\n\
          <title>Eval results</title>\n\
          </head>\n\
          <body {status}>\n\
          <h1>Eval results</h1>\n\
          <p>{body}</p>\n\
          </body>\n\
-         </html>\n"
+         </html>\n",
+        csp_policy = CSP_POLICY,
     )
 }
 
@@ -2165,6 +2197,264 @@ exercise:
             gotchas_body.contains("var(--bt-"),
             "#lesson-gotchas must use var(--bt-*) tokens, got: {gotchas_body}"
         );
+    }
+
+    #[test]
+    fn plan_site_emits_csp_sri_and_referrer_policy() {
+        // AC-1 (issue #96): CSP + SRI + Referrer Policy on all built sites.
+        // Free hardening: a Content-Security-Policy meta tag restricts what
+        // origins may serve scripts/styles/connections, SRI pins CDN scripts to
+        // a known hash, and a referrer policy prevents leaking the site URL to
+        // cross-origin LLM providers.
+        //
+        // 11 clauses pin the security envelope (§1.5 — predicates, not
+        // coincident shape):
+        //   1. Exactly one CSP meta tag in head, before first script tag
+        //   2. CSP content = single CSP_POLICY const (no wildcard schemes in
+        //      script-src: no https:, http:, *, 'unsafe-inline')
+        //   3. script-src includes both CDN origins (cdn.jsdelivr.net +
+        //      webr.r-wasm.org) in BOTH targets
+        //   4. connect-src includes self, cdn.jsdelivr.net, webr.r-wasm.org,
+        //      repo.r-wasm.org, api.fireworks.ai, api.anthropic.com
+        //   5. style-src includes 'unsafe-inline' (CM6 StyleModule injects
+        //      style tags)
+        //   6. worker-src includes 'self' blob: (WebR channel workers)
+        //   7. Exactly one referrer meta tag, content="no-referrer"
+        //   8. Pyodide CDN script has non-empty integrity (sha256/384/512
+        //      prefix) + crossorigin="anonymous"
+        //   9. WebR target: NO integrity attributes on any HTML tag (ES module
+        //      import can't have SRI — gap accepted, documented)
+        //   10. eval-results.html has same CSP + referrer meta
+        //   11. CSP_POLICY defined as single const in site/mod.rs
+
+        // Clause 11: CSP_POLICY is a single const — referencing it here proves
+        // it exists at compile time. A CSP string duplicated per target would
+        // not have a single named source the test can pin.
+        let csp = CSP_POLICY;
+        assert!(
+            !csp.is_empty(),
+            "CSP_POLICY must be a non-empty const, not a placeholder"
+        );
+
+        for (target, course) in [
+            (BuildTarget::Webr, r_course()),
+            (BuildTarget::Pyodide, python_course()),
+        ] {
+            let site = plan_site(&course, target, &EvalSummary::NotValidated).expect("plans");
+            let html = &file(&site, "index.html").contents;
+
+            // --- Clause 1: exactly one CSP meta tag in head, before first script
+            let csp_meta = r#"<meta http-equiv="Content-Security-Policy""#;
+            let csp_count = html.matches(csp_meta).count();
+            assert_eq!(
+                csp_count, 1,
+                "{target}: expected exactly one CSP meta tag, got {csp_count}"
+            );
+            let csp_pos = html.find(csp_meta).expect("CSP meta exists");
+            let head_close = html.find("</head>").expect("head closes");
+            assert!(
+                csp_pos < head_close,
+                "{target}: CSP meta must be inside <head>"
+            );
+            let first_script_pos = html.find("<script").expect("at least one script tag");
+            assert!(
+                csp_pos < first_script_pos,
+                "{target}: CSP meta must appear before first <script> tag"
+            );
+
+            // --- Clause 2: CSP content matches CSP_POLICY const, no wildcards
+            let csp_content = extract_meta_content(html, "Content-Security-Policy")
+                .expect("CSP content attribute is present");
+            assert_eq!(
+                csp_content, csp,
+                "{target}: CSP content must match CSP_POLICY const exactly"
+            );
+            let script_src = extract_csp_directive(&csp_content, "script-src");
+            assert!(
+                !script_src.is_empty(),
+                "{target}: CSP must have a script-src directive"
+            );
+            let script_sources: Vec<&str> = script_src.split_whitespace().collect();
+            for wildcard in ["https:", "http:", "*", "'unsafe-inline'"] {
+                assert!(
+                    !script_sources.contains(&wildcard),
+                    "{target}: script-src must not contain wildcard `{wildcard}`, \
+                     sources: {script_src}"
+                );
+            }
+
+            // --- Clause 3: script-src includes both CDN origins in BOTH targets
+            assert!(
+                script_src.contains("https://cdn.jsdelivr.net"),
+                "{target}: script-src must include cdn.jsdelivr.net"
+            );
+            assert!(
+                script_src.contains("https://webr.r-wasm.org"),
+                "{target}: script-src must include webr.r-wasm.org"
+            );
+
+            // --- Clause 4: connect-src includes all required origins
+            let connect_src = extract_csp_directive(&csp_content, "connect-src");
+            for origin in [
+                "https://cdn.jsdelivr.net",
+                "https://webr.r-wasm.org",
+                "https://repo.r-wasm.org",
+                "https://api.fireworks.ai",
+                "https://api.anthropic.com",
+            ] {
+                assert!(
+                    connect_src.contains(origin),
+                    "{target}: connect-src must include {origin}, got: {connect_src}"
+                );
+            }
+
+            // --- Clause 5: style-src includes 'unsafe-inline'
+            let style_src = extract_csp_directive(&csp_content, "style-src");
+            assert!(
+                style_src.contains("'unsafe-inline'"),
+                "{target}: style-src must include 'unsafe-inline' \
+                 (CM6 StyleModule injects style tags), got: {style_src}"
+            );
+
+            // --- Clause 6: worker-src includes 'self' blob:
+            let worker_src = extract_csp_directive(&csp_content, "worker-src");
+            assert!(
+                worker_src.contains("'self'") && worker_src.contains("blob:"),
+                "{target}: worker-src must include 'self' blob: \
+                 (WebR channel workers), got: {worker_src}"
+            );
+
+            // --- Clause 7: exactly one referrer meta, content="no-referrer"
+            let referrer_meta = r#"<meta name="referrer""#;
+            let referrer_count = html.matches(referrer_meta).count();
+            assert_eq!(
+                referrer_count, 1,
+                "{target}: expected exactly one referrer meta tag, got {referrer_count}"
+            );
+            let referrer_content =
+                extract_meta_content(html, "referrer").expect("referrer content");
+            assert_eq!(
+                referrer_content, "no-referrer",
+                "{target}: referrer meta must have content=\"no-referrer\""
+            );
+            let referrer_pos = html.find(referrer_meta).expect("referrer meta exists");
+            assert!(
+                referrer_pos < first_script_pos,
+                "{target}: referrer meta must appear before first <script> tag"
+            );
+
+            // --- Clauses 8/9: SRI per target
+            match target {
+                BuildTarget::Pyodide => {
+                    // Clause 8: Pyodide CDN script has non-empty integrity +
+                    // crossorigin="anonymous"
+                    let cdn_pos = html
+                        .find(r#"src="https://cdn.jsdelivr.net/pyodide"#)
+                        .expect("pyodide CDN script exists");
+                    // Find the closing > of this script tag
+                    let tag_end = html[cdn_pos..]
+                        .find('>')
+                        .map(|p| cdn_pos + p)
+                        .expect("pyodide CDN script tag closes");
+                    let script_tag = &html[cdn_pos..=tag_end];
+
+                    // integrity attribute with sha256/384/512 prefix
+                    let integrity = extract_attr_value(script_tag, "integrity")
+                        .expect("pyodide CDN script must have integrity attribute");
+                    assert!(
+                        integrity.starts_with("sha256-")
+                            || integrity.starts_with("sha384-")
+                            || integrity.starts_with("sha512-"),
+                        "pyodide CDN integrity must start with sha256/384/512 prefix, \
+                         got: {integrity}"
+                    );
+                    assert!(
+                        integrity.len() > 10,
+                        "pyodide CDN integrity must be non-empty (not just the prefix), \
+                         got: {integrity}"
+                    );
+
+                    // crossorigin="anonymous"
+                    let crossorigin = extract_attr_value(script_tag, "crossorigin")
+                        .expect("pyodide CDN script must have crossorigin attribute");
+                    assert_eq!(
+                        crossorigin, "anonymous",
+                        "pyodide CDN script must have crossorigin=\"anonymous\""
+                    );
+                }
+                BuildTarget::Webr => {
+                    // Clause 9: WebR target has NO integrity attributes on any
+                    // HTML tag. webR is loaded as an ES module import, which
+                    // cannot carry an HTML integrity attribute — the SRI gap is
+                    // accepted and documented in code comments.
+                    assert!(
+                        !html.contains("integrity="),
+                        "webr index.html must NOT contain any integrity attributes \
+                         (ES module import SRI gap — accepted, documented)"
+                    );
+                }
+            }
+
+            // --- Clause 10: eval-results.html has same CSP + referrer meta
+            let eval_html = &file(&site, "eval-results.html").contents;
+            let eval_csp = extract_meta_content(eval_html, "Content-Security-Policy")
+                .expect("eval-results.html must have CSP meta");
+            assert_eq!(
+                eval_csp, csp,
+                "{target}: eval-results.html CSP must match CSP_POLICY const"
+            );
+            let eval_referrer =
+                extract_meta_content(eval_html, "referrer").expect("eval-results referrer");
+            assert_eq!(
+                eval_referrer, "no-referrer",
+                "{target}: eval-results.html must have referrer content=\"no-referrer\""
+            );
+        }
+    }
+
+    /// Extract the `content` attribute value from a `<meta>` tag identified by
+    /// its `http-equiv` or `name` attribute. Returns `None` if the tag or its
+    /// content attribute is not found.
+    fn extract_meta_content(html: &str, key: &str) -> Option<String> {
+        for prefix in [format!(r#"http-equiv="{key}""#), format!(r#"name="{key}""#)] {
+            if let Some(pos) = html.find(&prefix) {
+                let after = &html[pos + prefix.len()..];
+                if let Some(content_pos) = after.find(r#"content=""#) {
+                    let start = content_pos + r#"content=""#.len();
+                    let rest = &after[start..];
+                    if let Some(end) = rest.find('"') {
+                        return Some(rest[..end].to_string());
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Extract a CSP directive's value (the sources after the directive name,
+    /// up to the next `;` or end of string).
+    fn extract_csp_directive<'a>(csp: &'a str, directive: &str) -> &'a str {
+        let needle = format!("{directive} ");
+        if let Some(pos) = csp.find(&needle) {
+            let start = pos + needle.len();
+            let rest = &csp[start..];
+            let end = rest.find(';').unwrap_or(rest.len());
+            &rest[..end]
+        } else {
+            ""
+        }
+    }
+
+    /// Extract an attribute value from an HTML tag fragment. The `tag` slice
+    /// should start at or before the attribute and end at or after the closing
+    /// `>`. Returns `None` if the attribute is not found.
+    fn extract_attr_value(tag: &str, attr: &str) -> Option<String> {
+        let needle = format!(r#"{attr}=""#);
+        let pos = tag.find(&needle)?;
+        let start = pos + needle.len();
+        let rest = &tag[start..];
+        let end = rest.find('"')?;
+        Some(rest[..end].to_string())
     }
 
     /// Detect whether a `.cm-gutters` rule sets display:none or visibility:hidden.

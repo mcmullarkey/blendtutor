@@ -628,4 +628,55 @@ max_feedback_per_session = -1
             "a negative max is a parse error, got: {err:?}"
         );
     }
+
+    // --- Course::site_config accessor — kills mutants on the method itself -----
+
+    #[test]
+    fn site_config_returns_the_manifests_site_section_when_present() {
+        // The accessor must return the actual [site] config, not None and not a
+        // default — a non-default max (5) pins both: None fails is_some, default
+        // (max=20) fails the value check.
+        let manifest = Manifest::parse(
+            r#"
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"
+
+[site]
+max_feedback_per_session = 5
+"#,
+        )
+        .expect("a manifest with [site] max=5 should parse");
+        let course = Course {
+            root: PathBuf::from("."),
+            manifest,
+        };
+        let config = course
+            .site_config()
+            .expect("site_config must return Some when [site] is present");
+        assert_eq!(config.max_feedback_per_session, 5);
+    }
+
+    #[test]
+    fn site_config_returns_none_when_no_site_section() {
+        // Without [site], the accessor returns None — the caller applies
+        // SiteConfig::default() (max=20). Returning a leaked default here would
+        // break the None contract the build relies on.
+        let manifest = Manifest::parse(
+            r#"
+[[lessons]]
+id = "add-two"
+path = "add_two.yaml"
+"#,
+        )
+        .expect("a manifest without [site] should parse");
+        let course = Course {
+            root: PathBuf::from("."),
+            manifest,
+        };
+        assert!(
+            course.site_config().is_none(),
+            "site_config must return None when [site] is absent"
+        );
+    }
 }

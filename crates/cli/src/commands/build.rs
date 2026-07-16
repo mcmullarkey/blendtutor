@@ -28,15 +28,22 @@ pub fn parse_target(value: &str) -> Result<BuildTarget, String> {
     }
 }
 
-/// Open the course, load its lessons, fold in any eval report, plan the site, and
-/// write it to `out`.
+/// Open the course, load its lessons, fold in any eval report, plan the site,
+/// optionally encrypt it with a password, and write it to `out`.
 ///
 /// Gather → transform (pure) → persist: opening the course, reading the eval
 /// report, and writing the site are the effectful shell around the pure
 /// [`site::plan_site`]. A language/target mismatch is refused by `plan_site`
 /// *before* `write_site` runs (the `?` short-circuits), so a refused build never
-/// creates `out` (§1.3.1).
-pub fn run(dir: &Path, target: BuildTarget, out: &Path) -> anyhow::Result<ExitCode> {
+/// creates `out` (§1.3.1). When `password` is `Some`, the planned site is
+/// post-processed by [`site::encrypt_site_files`] before writing — a separate
+/// pure step that preserves `plan_site`'s contract (§2.1).
+pub fn run(
+    dir: &Path,
+    target: BuildTarget,
+    out: &Path,
+    password: Option<&str>,
+) -> anyhow::Result<ExitCode> {
     let course = Course::open(dir)?;
     let lessons = course.load_lessons()?;
     let eval = load_eval_summary(dir)?;
@@ -45,13 +52,27 @@ pub fn run(dir: &Path, target: BuildTarget, out: &Path) -> anyhow::Result<ExitCo
     // default, not plan_site (§2.1: plan_site is pure, takes explicit input).
     let default_site = SiteConfig::default();
     let site_config = course.site_config().unwrap_or(&default_site);
-    let site = site::plan_site(&lessons, target, &eval, site_config)?;
+    let planned = site::plan_site(&lessons, target, &eval, site_config)?;
+    let site = if let Some(pw) = password {
+        let mut rng = rand_core::OsRng;
+        site::encrypt_site_files(&planned, pw, &mut rng)
+    } else {
+        planned
+    };
     site::write_site(out, &site)?;
-    println!(
-        "built {} lesson(s) for {target} into {}",
-        lessons.len(),
-        out.display()
-    );
+    if password.is_some() {
+        println!(
+            "built {} lesson(s) for {target} into {} (password-protected)",
+            lessons.len(),
+            out.display()
+        );
+    } else {
+        println!(
+            "built {} lesson(s) for {target} into {}",
+            lessons.len(),
+            out.display()
+        );
+    }
     Ok(ExitCode::SUCCESS)
 }
 

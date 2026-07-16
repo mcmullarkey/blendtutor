@@ -16,6 +16,7 @@ clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
+rand_core = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

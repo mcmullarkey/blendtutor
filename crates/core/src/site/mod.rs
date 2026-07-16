@@ -19,9 +19,12 @@ use std::error::Error;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use base64::Engine;
+use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use crate::course::{LessonSlug, SiteConfig};
+use crate::crypto;
 use crate::lesson::{Language, Lesson};
 
 /// Which browser runtime a built site targets, and so which language it serves.
@@ -544,6 +547,88 @@ pub fn write_site(out_dir: &Path, site: &SiteFiles) -> std::io::Result<()> {
         std::fs::write(&dest, &file.contents)?;
     }
     Ok(())
+}
+
+/// The decrypt shell template — a static asset embedded at compile time (§4.1).
+/// Placeholders `{{payload}}`, `{{salt}}`, `{{iv}}`, `{{iterations}}` are filled
+/// in by [`render_decrypt_shell`]. The shell provides a password input, a decrypt
+/// button, an error element, and inline WebCrypto JS that derives a key via
+/// PBKDF2, decrypts the original page via AES-GCM, injects it into the DOM, and
+/// monkeypatches `fetch` for transparent lesson-JSON decryption.
+const DECRYPT_SHELL_HTML: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/shared/decrypt-shell.html"
+));
+
+/// Render the decrypt shell by filling in the placeholders with the encrypted
+/// payload's base64-encoded values (§5.1 — one thing: format the shell).
+fn render_decrypt_shell(payload: &crypto::EncryptedPayload) -> String {
+    DECRYPT_SHELL_HTML
+        .replace(
+            "{{payload}}",
+            &base64::engine::general_purpose::STANDARD.encode(&payload.ciphertext),
+        )
+        .replace(
+            "{{salt}}",
+            &base64::engine::general_purpose::STANDARD.encode(payload.salt),
+        )
+        .replace(
+            "{{iv}}",
+            &base64::engine::general_purpose::STANDARD.encode(payload.nonce),
+        )
+        .replace("{{iterations}}", &crypto::PBKDF2_ITERATIONS.to_string())
+}
+
+/// Whether a planned file is a content file that should be encrypted (vs an
+/// infrastructure file passed through unchanged). Content files: `index.html`,
+/// `eval-results.html`, `lessons/*.json`, `lessons.json`. Infrastructure files:
+/// `lesson-runner.js`, `lesson-runner-core.js`, `coi-serviceworker.js`,
+/// `config.js`, `feedback.js`, `styles.css`, `codemirror.js`.
+fn is_content_file(path: &str) -> bool {
+    path == "index.html"
+        || path == "eval-results.html"
+        || path == "lessons.json"
+        || (path.starts_with("lessons/") && path.ends_with(".json"))
+}
+
+/// Encrypt all content files in a planned site, replacing them with decrypt
+/// shells (for HTML pages) or base64-encoded encrypted payloads (for JSON
+/// files).
+///
+/// Pure (§5.1): transforms a [`SiteFiles`] into an encrypted [`SiteFiles`].
+/// Infrastructure files (lesson-runner.js, feedback.js, styles.css, etc.) are
+/// passed through unchanged. Content files (index.html, lessons/*.json,
+/// lessons.json, eval-results.html) are encrypted with AES-256-GCM + PBKDF2.
+///
+/// `plan_site` is unchanged — this is a separate post-processing step (§2.1),
+/// so the 55+ existing `plan_site` tests are unaffected.
+pub fn encrypt_site_files(
+    site: &SiteFiles,
+    password: &str,
+    rng: &mut (impl RngCore + CryptoRng),
+) -> SiteFiles {
+    let mut encrypted_files = Vec::with_capacity(site.files().len());
+    for file in site.files() {
+        let path_str = file.path.to_string_lossy();
+        if path_str == "index.html" || path_str == "eval-results.html" {
+            let payload = crypto::encrypt(&file.contents, password, rng);
+            encrypted_files.push(SiteFile {
+                path: file.path.clone(),
+                contents: render_decrypt_shell(&payload),
+            });
+        } else if is_content_file(&path_str) {
+            let payload = crypto::encrypt(&file.contents, password, rng);
+            encrypted_files.push(SiteFile {
+                path: file.path.clone(),
+                contents: payload.to_base64(),
+            });
+        } else {
+            encrypted_files.push(file.clone());
+        }
+    }
+    SiteFiles {
+        files: encrypted_files,
+    }
 }
 
 #[cfg(test)]
@@ -2274,7 +2359,7 @@ exercise:
             (BuildTarget::Webr, r_course()),
             (BuildTarget::Pyodide, python_course()),
         ] {
-            let site = plan_site(&course, target, &EvalSummary::NotValidated).expect("plans");
+            let site = plan(&course, target).expect("plans");
             let html = &file(&site, "index.html").contents;
 
             // --- Clause 1: exactly one CSP meta tag in head, before first script
@@ -2754,5 +2839,332 @@ exercise:
             "renderModelPicker must NOT call incrementFeedbackCount \
              (model discovery doesn't count); feedback={feedback}"
         );
+    }
+
+    // --- AC-2 (issue #97): password protection — pure Rust AES-256-GCM -------
+
+    /// The password used in encrypt_site_files tests — distinctive enough that a
+    /// false-positive substring match in any emitted file is unlikely.
+    const TEST_PASSWORD: &str = "test-password-12345";
+
+    #[test]
+    fn encrypt_site_files_password_protects_all_content_files() {
+        // AC-2 (issue #97): encrypt_site_files produces a SiteFiles where every
+        // content file is encrypted and every infrastructure file is unchanged.
+        // 17 clauses pin the invariant, tested for BOTH targets (clause 16).
+        //
+        // The probe: cargo test -p blendtutor-core --lib \
+        //   site::tests::encrypt_site_files_password_protects_all_content_files
+        //
+        // Note: PBKDF2 with 600k iterations is intentionally slow. This test
+        // minimizes encrypt calls: one full encrypt_site_files per target, plus
+        // a few crypto::encrypt calls for the salt/nonce uniqueness clauses.
+
+        for (target, course) in [
+            (BuildTarget::Webr, r_course()),
+            (BuildTarget::Pyodide, python_course()),
+        ] {
+            let planned = plan(&course, target).expect("plans");
+            let mut rng = rand_core::OsRng;
+            let encrypted = encrypt_site_files(&planned, TEST_PASSWORD, &mut rng);
+            let index = &file(&encrypted, "index.html").contents;
+
+            // --- Clause 1: index.html is decrypt shell with data-encrypted-payload/
+            //     salt/iv base64 attrs ---
+            assert!(
+                index.contains("data-encrypted-payload="),
+                "{target}: index.html must have data-encrypted-payload attr"
+            );
+            assert!(
+                index.contains("data-salt="),
+                "{target}: index.html must have data-salt attr"
+            );
+            assert!(
+                index.contains("data-iv="),
+                "{target}: index.html must have data-iv attr"
+            );
+            let payload_val = extract_data_attr(index, "data-encrypted-payload")
+                .unwrap_or_else(|| panic!("{target}: data-encrypted-payload has a value"));
+            let salt_val = extract_data_attr(index, "data-salt")
+                .unwrap_or_else(|| panic!("{target}: data-salt has a value"));
+            let iv_val = extract_data_attr(index, "data-iv")
+                .unwrap_or_else(|| panic!("{target}: data-iv has a value"));
+            assert!(!payload_val.is_empty(), "{target}: payload is non-empty");
+            assert!(!salt_val.is_empty(), "{target}: salt is non-empty");
+            assert!(!iv_val.is_empty(), "{target}: iv is non-empty");
+
+            // --- Clause 2: password input + decrypt button present ---
+            assert!(
+                index.contains(r#"type="password""#) && index.contains("decrypt-password"),
+                "{target}: index.html must have a password input"
+            );
+            assert!(
+                index.contains(r#"id="decrypt-button""#),
+                "{target}: index.html must have a decrypt button"
+            );
+
+            // --- Clause 3: inline crypto.subtle.deriveKey (PBKDF2) +
+            //     crypto.subtle.decrypt (AES-GCM) JS ---
+            assert!(
+                index.contains("crypto.subtle.deriveKey"),
+                "{target}: inline JS must call crypto.subtle.deriveKey (PBKDF2)"
+            );
+            assert!(
+                index.contains("crypto.subtle.decrypt"),
+                "{target}: inline JS must call crypto.subtle.decrypt (AES-GCM)"
+            );
+
+            // --- Clause 4: no plaintext lesson content in index.html ---
+            for plaintext_marker in [
+                r#"<header class="site-header">"#,
+                r#"<main class="workspace">"#,
+                r#"<footer class="site-footer">"#,
+                "lesson-select",
+                "Run checks",
+                "Submit for feedback",
+                "Booting webR",
+                "Booting Pyodide",
+            ] {
+                assert!(
+                    !index.contains(plaintext_marker),
+                    "{target}: encrypted index.html must NOT contain plaintext \
+                     page-shell content `{plaintext_marker}`"
+                );
+            }
+
+            // --- Clause 5: every lessons/*.json is encrypted ciphertext
+            //     (serde_json::from_str fails) ---
+            let lesson_files: Vec<_> = encrypted
+                .files()
+                .iter()
+                .filter(|f| {
+                    f.path.starts_with("lessons/") && f.path.to_string_lossy().ends_with(".json")
+                })
+                .collect();
+            assert!(
+                !lesson_files.is_empty(),
+                "{target}: encrypted site must still have lessons/*.json files"
+            );
+            for lf in &lesson_files {
+                assert!(
+                    serde_json::from_str::<Value>(&lf.contents).is_err(),
+                    "{target}: lessons/{} must be encrypted ciphertext (serde_json::from_str \
+                     fails), got: {}",
+                    lf.path.display(),
+                    &lf.contents
+                );
+            }
+
+            // --- Clause 6: lessons.json is encrypted ciphertext ---
+            let lessons_json = &file(&encrypted, "lessons.json").contents;
+            assert!(
+                serde_json::from_str::<Value>(lessons_json).is_err(),
+                "{target}: lessons.json must be encrypted ciphertext (serde_json::from_str \
+                 fails), got: {lessons_json}"
+            );
+
+            // --- Clause 7: password string not in any emitted file ---
+            for f in encrypted.files() {
+                assert!(
+                    !f.contents.contains(TEST_PASSWORD),
+                    "{target}: password string must not appear in any emitted file; found in {}",
+                    f.path.display()
+                );
+            }
+
+            // --- Clause 10: IV decodes to 12 bytes, not all zeros ---
+            let iv_bytes = base64::engine::general_purpose::STANDARD
+                .decode(&iv_val)
+                .unwrap_or_else(|e| panic!("{target}: data-iv is valid base64: {e}"));
+            assert_eq!(
+                iv_bytes.len(),
+                12,
+                "{target}: IV must decode to 12 bytes, got {}",
+                iv_bytes.len()
+            );
+            assert!(
+                iv_bytes.iter().any(|&b| b != 0),
+                "{target}: IV must not be all zeros"
+            );
+
+            // --- Clause 11: inline JS contains literal 600000 (PBKDF2 iterations) ---
+            assert!(
+                index.contains("600000"),
+                "{target}: inline JS must contain literal 600000 (PBKDF2 iterations)"
+            );
+
+            // --- Clause 12: coi-serviceworker.js script before inline decrypt
+            //     script (BOTH targets) ---
+            let coi_pos = index
+                .find(r#"src="coi-serviceworker.js""#)
+                .unwrap_or_else(|| panic!("{target}: coi-serviceworker.js must be referenced"));
+            let inline_script_pos = index
+                .rfind("<script>")
+                .unwrap_or_else(|| panic!("{target}: must have an inline <script> block"));
+            assert!(
+                coi_pos < inline_script_pos,
+                "{target}: coi-serviceworker.js must appear before the inline decrypt script"
+            );
+
+            // --- Clause 13: decrypt JS has catch block with error message ---
+            assert!(
+                index.contains("catch"),
+                "{target}: decrypt JS must have a catch block"
+            );
+            assert!(
+                index.to_lowercase().contains("decryption failed")
+                    || index.to_lowercase().contains("wrong password"),
+                "{target}: decrypt JS catch block must have an error message"
+            );
+
+            // --- Clause 14: shared assets still emitted unchanged ---
+            for infra in [
+                "lesson-runner.js",
+                "lesson-runner-core.js",
+                "coi-serviceworker.js",
+                "config.js",
+                "feedback.js",
+                "styles.css",
+                "codemirror.js",
+            ] {
+                assert_eq!(
+                    file(&planned, infra).contents,
+                    file(&encrypted, infra).contents,
+                    "{target}: {infra} must be byte-identical before and after encryption"
+                );
+            }
+
+            // --- Clause 15: eval-results.html also encrypted ---
+            let eval_html = &file(&encrypted, "eval-results.html").contents;
+            assert!(
+                eval_html.contains("data-encrypted-payload="),
+                "{target}: eval-results.html must be a decrypt shell with data-encrypted-payload"
+            );
+            assert!(
+                eval_html.contains("data-salt=") && eval_html.contains("data-iv="),
+                "{target}: eval-results.html must have data-salt and data-iv attrs"
+            );
+            assert!(
+                !eval_html.contains("Eval results") || eval_html.contains("password required"),
+                "{target}: eval-results.html must not contain plaintext eval content"
+            );
+
+            // --- Clause 16: both Webr and Pyodide targets work ---
+            // (This loop runs for both targets — reaching here for both proves it.)
+
+            // --- Clause 18: fetch monkeypatch has try/catch fallback for
+            //     non-encrypted responses (404 HTML, third-party resources with
+            //     "lessons/" in URL). Without this, atob() throws
+            //     InvalidCharacterError on non-base64 content and the fetch
+            //     promise rejects with no fallback. response.clone() is
+            //     required because response.text() consumes the body — without
+            //     clone, the catch block would return an empty response. ---
+            {
+                let fetch_start = index
+                    .find("window.fetch =")
+                    .unwrap_or_else(|| panic!("{target}: must have fetch monkeypatch"));
+                let rest = &index[fetch_start..];
+                let fetch_end = rest
+                    .find("};")
+                    .unwrap_or_else(|| panic!("{target}: fetch monkeypatch must be closed"));
+                let fetch_code = &rest[..fetch_end];
+                assert!(
+                    fetch_code.contains("try") && fetch_code.contains("catch"),
+                    "{target}: fetch monkeypatch must have try/catch for non-encrypted responses"
+                );
+                assert!(
+                    fetch_code.contains("response.clone()"),
+                    "{target}: fetch monkeypatch must clone response before reading (body consumption guard)"
+                );
+                assert!(
+                    fetch_code.contains("return response"),
+                    "{target}: fetch monkeypatch catch block must fall back to returning original response"
+                );
+            }
+        }
+
+        // --- Clause 8: two calls with same password+content yield different
+        //     salts (uses crypto::encrypt directly to avoid full-site re-encrypt) ---
+        let mut rng_a = rand_core::OsRng;
+        let mut rng_b = rand_core::OsRng;
+        let p1 = crate::crypto::encrypt("same content", TEST_PASSWORD, &mut rng_a);
+        let p2 = crate::crypto::encrypt("same content", TEST_PASSWORD, &mut rng_b);
+        assert_ne!(p1.salt, p2.salt, "two calls must yield different salts");
+
+        // --- Clause 9: two calls yield different nonces ---
+        assert_ne!(
+            p1.nonce, p2.nonce,
+            "two calls must yield different nonces (GCM catastrophic-failure guard)"
+        );
+
+        // --- Clause 17: roundtrip — crypto::decrypt(crypto::encrypt(...)) ---
+        let mut rng = rand_core::OsRng;
+        let plaintext = "hello, encrypted world!";
+        let payload = crate::crypto::encrypt(plaintext, "secret", &mut rng);
+        let decrypted = crate::crypto::decrypt(&payload, "secret")
+            .expect("roundtrip with correct password must succeed");
+        assert_eq!(
+            decrypted, plaintext,
+            "crypto roundtrip must recover the original plaintext"
+        );
+
+        // Negative: wrong password = Err
+        assert!(
+            crate::crypto::decrypt(&payload, "wrong").is_err(),
+            "wrong password must fail decryption"
+        );
+
+        // Negative: base64-encoding-as-encryption caught — lesson JSONs are not
+        // valid JSON (they are base64 ciphertext, not JSON). Reuses the Webr
+        // encrypted site from the loop above.
+        let webr_planned = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let mut rng = rand_core::OsRng;
+        let enc = encrypt_site_files(&webr_planned, TEST_PASSWORD, &mut rng);
+        let lesson0 = &file(&enc, "lessons/0.json").contents;
+        assert!(
+            serde_json::from_str::<Value>(lesson0).is_err(),
+            "lesson JSON must not be valid JSON (base64-encoding-as-encryption guard)"
+        );
+
+        // Negative: JSON-bypass caught — ALL lesson JSONs are encrypted, not
+        // just index.html.
+        let lesson_count = enc
+            .files()
+            .iter()
+            .filter(|f| {
+                f.path.starts_with("lessons/") && f.path.to_string_lossy().ends_with(".json")
+            })
+            .count();
+        for i in 0..lesson_count {
+            let path = format!("lessons/{i}.json");
+            let content = &file(&enc, &path).contents;
+            assert!(
+                serde_json::from_str::<Value>(content).is_err(),
+                "JSON-bypass guard: {path} must be encrypted (not plaintext JSON)"
+            );
+        }
+
+        // Negative: hardcoded-key JS caught — the decrypt shell must read the
+        // password from the user input, not contain a hardcoded key.
+        let index = &file(&enc, "index.html").contents;
+        assert!(
+            index.contains("decrypt-password"),
+            "decrypt shell must read password from user input (no hardcoded key)"
+        );
+        assert!(
+            !index.contains("hardcoded") && !index.contains("HARDCODED"),
+            "decrypt shell must not reference a hardcoded key"
+        );
+    }
+
+    /// Extract the value of a `data-*` attribute from an HTML string.
+    /// Returns the attribute value (between the quotes), or None if not found.
+    fn extract_data_attr(html: &str, attr: &str) -> Option<String> {
+        let needle = format!(r#"{attr}=""#);
+        let pos = html.find(&needle)?;
+        let start = pos + needle.len();
+        let rest = &html[start..];
+        let end = rest.find('"')?;
+        Some(rest[..end].to_string())
     }
 }

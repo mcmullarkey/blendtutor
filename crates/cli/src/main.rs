@@ -86,6 +86,9 @@ enum Commands {
         /// Output directory for the generated site.
         #[arg(short = 'o', long)]
         out: PathBuf,
+        /// Password for site encryption (site is unencrypted when omitted).
+        #[arg(long)]
+        password: Option<String>,
     },
 }
 
@@ -119,6 +122,11 @@ fn main() -> anyhow::Result<ExitCode> {
         Commands::New { target } => match target {
             NewTarget::Lesson { lang, id } => commands::new::run(lang, &id),
         },
-        Commands::Build { path, target, out } => commands::build::run(&path, target, &out),
+        Commands::Build {
+            path,
+            target,
+            out,
+            password,
+        } => commands::build::run(&path, target, &out, password.as_deref()),
     }
 }

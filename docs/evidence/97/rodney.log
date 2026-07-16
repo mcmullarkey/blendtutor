@@ -1,0 +1,22 @@
+=== Rodney probes for issue #97 (password protection decrypt shell) ===
+
+Chrome started (PID 94752)
+Debug URL: ws://127.0.0.1:60008/devtools/browser/37de5ab2-ff3c-4438-9743-2b943e5f88f5
+blendtutor — password required
+--- probe: decrypt-button exists ---
+pass
+PASS: decrypt-button exists
+--- probe: password input exists ---
+pass
+PASS: decrypt-password exists
+--- probe: error element exists ---
+pass
+PASS: decrypt-error exists
+--- action: enter wrong password and click decrypt ---
+Typed: wrong
+Clicked
+--- wait 3s for async decrypt ---
+--- probe: error message appears ---
+pass
+PASS: error message displayed
+Chrome stopped

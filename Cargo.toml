@@ -26,3 +26,8 @@ tokio = { version = "1", features = ["rt", "macros", "process", "time", "io-util
 toml = "0.8"
 regex-lite = "0.1"
 wiremock = "0.6"
+aes-gcm = "0.10"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+sha2 = "0.10"
+rand_core = { version = "0.6", features = ["std"] }
+base64 = "0.22"

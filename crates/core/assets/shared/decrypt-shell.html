@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>blendtutor — password required</title>
+    <!--
+      COOP/COEP shim, loaded first. It registers a service worker that re-serves
+      this site cross-origin isolated, so SharedArrayBuffer works on
+      GitHub Pages (which cannot set the headers itself). Must run before
+      anything that depends on isolation — including the inline decrypt script.
+    -->
+    <script src="coi-serviceworker.js"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        background: #f5f5f5;
+      }
+      #decrypt-form {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        max-width: 400px;
+      }
+      #decrypt-password {
+        padding: 0.5rem;
+        font-size: 1rem;
+        width: 200px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      #decrypt-button {
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        cursor: pointer;
+        margin-left: 0.5rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #f0f0f0;
+      }
+      #decrypt-button:hover {
+        background: #e0e0e0;
+      }
+      #decrypt-error {
+        color: #c00;
+        margin-top: 1rem;
+        min-height: 1.2em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="decrypt-form">
+      <h1>Password required</h1>
+      <p>This site is password-protected. Enter the password to decrypt.</p>
+      <div>
+        <input
+          type="password"
+          id="decrypt-password"
+          placeholder="Password"
+          autocomplete="current-password"
+        />
+        <button id="decrypt-button" type="button">Decrypt</button>
+      </div>
+      <p id="decrypt-error"></p>
+    </div>
+    <div
+      id="encrypted-content"
+      data-encrypted-payload="{{payload}}"
+      data-salt="{{salt}}"
+      data-iv="{{iv}}"
+      hidden
+    ></div>
+    <script>
+      const ITERATIONS = {{iterations}};
+      let derivedKey = null;
+
+      // Fetch monkeypatch: transparently decrypt lesson JSONs.
+      // Intercepts fetch() calls for lessons/*.json and lessons.json, decrypts
+      // the base64-encoded (salt || nonce || ciphertext) response, and returns
+      // the plaintext JSON. Zero runner modification — the lesson runner's
+      // fetch() calls work unchanged.
+      const originalFetch = window.fetch;
+      window.fetch = async function (...args) {
+        const response = await originalFetch.apply(this, args);
+        const url =
+          typeof args[0] === "string"
+            ? args[0]
+            : args[0] && args[0].url
+              ? args[0].url
+              : "";
+        if (derivedKey && (url.includes("lessons/") || url.endsWith("lessons.json"))) {
+          // Clone before reading — if the response isn't encrypted (404 HTML,
+          // third-party resource), atob/decrypt throws and we fall back to
+          // the original response. Without clone, response.text() consumes
+          // the body and the fallback would return an empty response.
+          const cloned = response.clone();
+          try {
+            const encryptedText = await cloned.text();
+            const bytes = Uint8Array.from(atob(encryptedText), (c) => c.charCodeAt(0));
+            const salt = bytes.slice(0, 16);
+            const iv = bytes.slice(16, 28);
+            const ciphertext = bytes.slice(28);
+            const decrypted = await crypto.subtle.decrypt(
+              { name: "AES-GCM", iv: iv },
+              derivedKey,
+              ciphertext,
+            );
+            const plaintext = new TextDecoder().decode(decrypted);
+            return new Response(plaintext, {
+              headers: { "Content-Type": "application/json" },
+            });
+          } catch (e) {
+            return response;
+          }
+        }
+        return response;
+      };
+
+      document
+        .getElementById("decrypt-button")
+        .addEventListener("click", async () => {
+          const password = document.getElementById("decrypt-password").value;
+          const errorEl = document.getElementById("decrypt-error");
+          errorEl.textContent = "";
+
+          try {
+            const container = document.getElementById("encrypted-content");
+            const payloadB64 = container.dataset.encryptedPayload;
+            const saltB64 = container.dataset.salt;
+            const ivB64 = container.dataset.iv;
+
+            const salt = Uint8Array.from(atob(saltB64), (c) => c.charCodeAt(0));
+            const iv = Uint8Array.from(atob(ivB64), (c) => c.charCodeAt(0));
+            const ciphertext = Uint8Array.from(atob(payloadB64), (c) =>
+              c.charCodeAt(0),
+            );
+
+            // Derive key via PBKDF2 (WebCrypto)
+            const keyMaterial = await crypto.subtle.importKey(
+              "raw",
+              new TextEncoder().encode(password),
+              "PBKDF2",
+              false,
+              ["deriveKey"],
+            );
+            derivedKey = await crypto.subtle.deriveKey(
+              { name: "PBKDF2", salt: salt, iterations: ITERATIONS, hash: "SHA-256" },
+              keyMaterial,
+              { name: "AES-GCM", length: 256 },
+              false,
+              ["decrypt"],
+            );
+
+            // Decrypt the page content via AES-GCM (WebCrypto)
+            const decrypted = await crypto.subtle.decrypt(
+              { name: "AES-GCM", iv: iv },
+              derivedKey,
+              ciphertext,
+            );
+            const html = new TextDecoder().decode(decrypted);
+
+            // Parse the decrypted HTML and inject it into the current page
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+
+            // Copy head elements (styles, metas) — skip coi-serviceworker.js
+            // (already loaded by the decrypt shell)
+            doc.querySelectorAll("head link, head meta").forEach((el) => {
+              document.head.appendChild(el);
+            });
+
+            // Replace body content with the decrypted body
+            document.body.innerHTML = doc.body.innerHTML;
+
+            // Re-inject scripts (innerHTML does not execute scripts)
+            document.body.querySelectorAll("script").forEach((oldScript) => {
+              const newScript = document.createElement("script");
+              for (const attr of oldScript.attributes) {
+                newScript.setAttribute(attr.name, attr.value);
+              }
+              newScript.textContent = oldScript.textContent;
+              oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+          } catch (err) {
+            errorEl.textContent =
+              "Decryption failed: wrong password or corrupt data.";
+          }
+        });
+    </script>
+  </body>
+</html>

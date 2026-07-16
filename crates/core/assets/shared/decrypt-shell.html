@@ -96,20 +96,29 @@
               ? args[0].url
               : "";
         if (derivedKey && (url.includes("lessons/") || url.endsWith("lessons.json"))) {
-          const encryptedText = await response.text();
-          const bytes = Uint8Array.from(atob(encryptedText), (c) => c.charCodeAt(0));
-          const salt = bytes.slice(0, 16);
-          const iv = bytes.slice(16, 28);
-          const ciphertext = bytes.slice(28);
-          const decrypted = await crypto.subtle.decrypt(
-            { name: "AES-GCM", iv: iv },
-            derivedKey,
-            ciphertext,
-          );
-          const plaintext = new TextDecoder().decode(decrypted);
-          return new Response(plaintext, {
-            headers: { "Content-Type": "application/json" },
-          });
+          // Clone before reading — if the response isn't encrypted (404 HTML,
+          // third-party resource), atob/decrypt throws and we fall back to
+          // the original response. Without clone, response.text() consumes
+          // the body and the fallback would return an empty response.
+          const cloned = response.clone();
+          try {
+            const encryptedText = await cloned.text();
+            const bytes = Uint8Array.from(atob(encryptedText), (c) => c.charCodeAt(0));
+            const salt = bytes.slice(0, 16);
+            const iv = bytes.slice(16, 28);
+            const ciphertext = bytes.slice(28);
+            const decrypted = await crypto.subtle.decrypt(
+              { name: "AES-GCM", iv: iv },
+              derivedKey,
+              ciphertext,
+            );
+            const plaintext = new TextDecoder().decode(decrypted);
+            return new Response(plaintext, {
+              headers: { "Content-Type": "application/json" },
+            });
+          } catch (e) {
+            return response;
+          }
         }
         return response;
       };

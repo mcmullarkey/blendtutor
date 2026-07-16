@@ -3051,6 +3051,36 @@ exercise:
 
             // --- Clause 16: both Webr and Pyodide targets work ---
             // (This loop runs for both targets — reaching here for both proves it.)
+
+            // --- Clause 18: fetch monkeypatch has try/catch fallback for
+            //     non-encrypted responses (404 HTML, third-party resources with
+            //     "lessons/" in URL). Without this, atob() throws
+            //     InvalidCharacterError on non-base64 content and the fetch
+            //     promise rejects with no fallback. response.clone() is
+            //     required because response.text() consumes the body — without
+            //     clone, the catch block would return an empty response. ---
+            {
+                let fetch_start = index
+                    .find("window.fetch =")
+                    .unwrap_or_else(|| panic!("{target}: must have fetch monkeypatch"));
+                let rest = &index[fetch_start..];
+                let fetch_end = rest
+                    .find("};")
+                    .unwrap_or_else(|| panic!("{target}: fetch monkeypatch must be closed"));
+                let fetch_code = &rest[..fetch_end];
+                assert!(
+                    fetch_code.contains("try") && fetch_code.contains("catch"),
+                    "{target}: fetch monkeypatch must have try/catch for non-encrypted responses"
+                );
+                assert!(
+                    fetch_code.contains("response.clone()"),
+                    "{target}: fetch monkeypatch must clone response before reading (body consumption guard)"
+                );
+                assert!(
+                    fetch_code.contains("return response"),
+                    "{target}: fetch monkeypatch catch block must fall back to returning original response"
+                );
+            }
         }
 
         // --- Clause 8: two calls with same password+content yield different

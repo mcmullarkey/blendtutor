@@ -1,0 +1,5 @@
+   Compiling blendtutor-core v0.1.0 (/Users/carbonite/Documents/coding/portfolio/worktree-issue-97/crates/core)
+   Compiling blendtutor-cli v0.1.0 (/Users/carbonite/Documents/coding/portfolio/worktree-issue-97/crates/cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.11s
+     Running `target/debug/blendtutor build --target webr --password testpass crates/core/tests/fixtures/r-course -o /tmp/bt-encrypt-test`
+built 2 lesson(s) for webr into /tmp/bt-encrypt-test (password-protected)

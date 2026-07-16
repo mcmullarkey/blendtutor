@@ -3144,6 +3144,49 @@ exercise:
                     "{target}: fetch monkeypatch catch block must fall back to returning original response"
                 );
             }
+
+            // --- Clause 19: fetch monkeypatch derives a PER-FILE key using
+            //     each file's own salt, not the index.html-derived key.
+            //     encrypt_site_files generates a fresh salt per file, so
+            //     reusing derivedKey (derived from index.html's salt) fails
+            //     the GCM auth tag on every lesson JSON. The monkeypatch must
+            //     call crypto.subtle.deriveKey with the file's salt and use
+            //     that per-file key for decryption. ---
+            {
+                let fetch_start = index
+                    .find("window.fetch =")
+                    .unwrap_or_else(|| panic!("{target}: must have fetch monkeypatch"));
+                let rest = &index[fetch_start..];
+                let fetch_end = rest
+                    .find("};")
+                    .unwrap_or_else(|| panic!("{target}: fetch monkeypatch must be closed"));
+                let fetch_code = &rest[..fetch_end];
+                assert!(
+                    fetch_code.contains("deriveKey"),
+                    "{target}: fetch monkeypatch must derive a per-file key (deriveKey call)"
+                );
+                assert!(
+                    fetch_code.contains("salt: salt"),
+                    "{target}: fetch monkeypatch must derive key from the file's own salt, not index.html's salt"
+                );
+                assert!(
+                    !fetch_code.contains("derivedKey"),
+                    "{target}: fetch monkeypatch must NOT reuse derivedKey (index.html key) for lesson decryption"
+                );
+            }
+
+            // --- Clause 20: password stored at top level so the fetch
+            //     monkeypatch can derive per-file keys. The monkeypatch runs
+            //     outside the click handler, so it needs access to the password
+            //     via a top-level variable. ---
+            assert!(
+                index.contains("userPassword"),
+                "{target}: decrypt shell must store password in a top-level userPassword variable for per-file key derivation"
+            );
+            assert!(
+                index.contains("userPassword = password"),
+                "{target}: decrypt shell must capture the password into userPassword in the click handler"
+            );
         }
 
         // --- Clause 8: two calls with same password+content yield different

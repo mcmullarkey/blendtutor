@@ -1,0 +1,22 @@
+=== E2E Verification: Per-File Salt Decryption Fix ===
+
+Build: blendtutor build examples/write-less-code-r --target webr --password testpass123 --embed-key anthropic:sk-ant-test123
+
+Fetch monkeypatch checks:
+  deriveKey present: True
+  salt: salt present: True
+  fileKey present: True
+  derivedKey absent: True
+  userPassword present: True
+
+Per-file salt decryption (the fix):
+  lessons/0.json: OK (Seed Data)
+  lessons/1.json: OK (Copy-Paste Trap)
+  lessons/2.json: OK (Write a Function)
+  lessons/3.json: OK (Map Over Columns)
+  lessons/4.json: OK (Rule of Three)
+  lessons.json: OK ((list, 5 entries))
+
+Bug reproduction: index.html salt FAILS on lesson JSON (expected): InvalidTag
+
+=== Fix verified: per-file key derivation works, old approach fails ===

@@ -2352,19 +2352,32 @@ exercise:
 
         // Clause 5: textContent for the limit message (NOT innerHTML). The
         // existing !innerHTML invariant (plan_site_shells_load_codemirror_as_import
-        // clause 6) already guarantees no innerHTML anywhere in lesson-runner-core.js;
-        // here we pin that feedback.js uses textContent for the limit message.
+        // clause 6) already guarantees no innerHTML in lesson-runner-core.js;
+        // here we pin that feedback.js also never uses .innerHTML (property
+        // access) — the comment at line ~473 mentions `innerHTML` in backticks
+        // (no dot), so checking `.innerHTML` catches only real property access.
+        // This covers the limit message AND all other rendering (verdict,
+        // error, pending) — feedback.js handles untrusted model output, so
+        // innerHTML is never safe.
         assert!(
             feedback.contains("textContent"),
             "feedback.js must use textContent for the limit message; feedback={feedback}"
         );
+        assert!(
+            !feedback.contains(".innerHTML"),
+            "feedback.js must NOT use .innerHTML (XSS defense — untrusted model output \
+             and limit messages use textContent); feedback={feedback}"
+        );
 
         // Clause 6: parseInt guard on the stored counter. Without parseInt, a
         // corrupt or missing sessionStorage value yields a string comparison
-        // (or NaN), silently disabling limiting.
+        // (or NaN), silently disabling limiting. We check for `parseInt(`
+        // (the call, with opening paren) rather than bare `parseInt` — the
+        // word appears in explanatory comments but only the call enforces the
+        // guard at runtime.
         assert!(
-            feedback.contains("parseInt"),
-            "feedback.js must use parseInt to guard the stored counter; feedback={feedback}"
+            feedback.contains("parseInt("),
+            "feedback.js must call parseInt() to guard the stored counter; feedback={feedback}"
         );
 
         // Clause 4: counter increment AFTER try/catch (failed requests count).

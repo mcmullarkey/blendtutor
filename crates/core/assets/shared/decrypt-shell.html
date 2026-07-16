@@ -80,12 +80,23 @@
     <script>
       const ITERATIONS = {{iterations}};
       let derivedKey = null;
+      // The password is stored at top level so the fetch monkeypatch can
+      // derive a per-file key. Each content file (lessons/*.json, lessons.json)
+      // is encrypted with its own fresh salt, so the monkeypatch cannot reuse
+      // derivedKey (which is derived from index.html's salt) — it must derive
+      // a new key per file using that file's salt (extracted from the payload).
+      let userPassword = null;
 
       // Fetch monkeypatch: transparently decrypt lesson JSONs.
       // Intercepts fetch() calls for lessons/*.json and lessons.json, decrypts
       // the base64-encoded (salt || nonce || ciphertext) response, and returns
       // the plaintext JSON. Zero runner modification — the lesson runner's
       // fetch() calls work unchanged.
+      //
+      // Each content file has its own salt (encrypt_site_files generates a
+      // fresh salt+nonce per file), so we derive a per-file key using the
+      // file's salt extracted from the payload — NOT the index.html key (which
+      // uses index.html's salt and would fail the GCM auth tag on every lesson).
       const originalFetch = window.fetch;
       window.fetch = async function (...args) {
         const response = await originalFetch.apply(this, args);
@@ -95,7 +106,7 @@
             : args[0] && args[0].url
               ? args[0].url
               : "";
-        if (derivedKey && (url.includes("lessons/") || url.endsWith("lessons.json"))) {
+        if (userPassword && (url.includes("lessons/") || url.endsWith("lessons.json"))) {
           // Clone before reading — if the response isn't encrypted (404 HTML,
           // third-party resource), atob/decrypt throws and we fall back to
           // the original response. Without clone, response.text() consumes
@@ -107,9 +118,27 @@
             const salt = bytes.slice(0, 16);
             const iv = bytes.slice(16, 28);
             const ciphertext = bytes.slice(28);
+            // Derive a per-file key using THIS file's salt — not the
+            // index.html key. Each content file gets its own fresh salt from
+            // encrypt_site_files, so reusing the index.html key would fail
+            // the GCM auth tag on every lesson JSON.
+            const keyMaterial = await crypto.subtle.importKey(
+              "raw",
+              new TextEncoder().encode(userPassword),
+              "PBKDF2",
+              false,
+              ["deriveKey"],
+            );
+            const fileKey = await crypto.subtle.deriveKey(
+              { name: "PBKDF2", salt: salt, iterations: ITERATIONS, hash: "SHA-256" },
+              keyMaterial,
+              { name: "AES-GCM", length: 256 },
+              false,
+              ["decrypt"],
+            );
             const decrypted = await crypto.subtle.decrypt(
               { name: "AES-GCM", iv: iv },
-              derivedKey,
+              fileKey,
               ciphertext,
             );
             const plaintext = new TextDecoder().decode(decrypted);
@@ -127,6 +156,9 @@
         .getElementById("decrypt-button")
         .addEventListener("click", async () => {
           const password = document.getElementById("decrypt-password").value;
+          // Store the password at top level so the fetch monkeypatch can
+          // derive per-file keys for lesson JSON decryption.
+          userPassword = password;
           const errorEl = document.getElementById("decrypt-error");
           errorEl.textContent = "";
 
@@ -164,7 +196,25 @@
               derivedKey,
               ciphertext,
             );
-            const html = new TextDecoder().decode(decrypted);
+            let html = new TextDecoder().decode(decrypted);
+
+            // Check for an embedded API key in the payload. When --embed-key
+            // is used at build time, the index.html payload is a JSON object
+            // {"html":"...","embeddedKey":{"provider":"...","key":"..."}}.
+            // Extract the key and set window.__btEmbeddedKey before rendering
+            // so feedback.js's applyEmbeddedKey can pre-load it into
+            // sessionStorage (skipping the key-entry prompt). When no key is
+            // embedded, the payload is plain HTML — JSON.parse fails and we
+            // fall back to treating the plaintext as HTML.
+            try {
+              const parsed = JSON.parse(html);
+              if (parsed && parsed.embeddedKey && parsed.html) {
+                window.__btEmbeddedKey = parsed.embeddedKey;
+                html = parsed.html;
+              }
+            } catch (_e) {
+              // Not JSON — plain HTML payload (no embedded key)
+            }
 
             // Parse the decrypted HTML and inject it into the current page
             const parser = new DOMParser();

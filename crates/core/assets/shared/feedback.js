@@ -665,6 +665,28 @@ async function handleSubmit() {
   incrementFeedbackCount();
 }
 
+// --- embedded key (build-time --embed-key) -------------------------------------
+
+// Apply an embedded API key (if present) before wiring the submit button. The
+// decrypt shell sets window.__btEmbeddedKey when the encrypted payload carried
+// an embedded key (build with --embed-key); applyEmbeddedKey stores it in
+// sessionStorage and clears the global, so handleSubmit's key-entry phase is
+// skipped naturally — the key is already in the provider's slot when
+// readKey(providerId) runs. handleSubmit is UNCHANGED.
+//
+// The global is cleared after reading so the key does not linger in window
+// longer than necessary (defense in depth — the key lives in sessionStorage,
+// not a window global, after this point).
+function applyEmbeddedKey() {
+  const embedded = window.__btEmbeddedKey;
+  if (embedded && embedded.provider && embedded.key) {
+    storeProvider(embedded.provider);
+    storeKey(embedded.key, embedded.provider);
+    window.__btEmbeddedKey = undefined;
+  }
+}
+applyEmbeddedKey();
+
 const submitButton = document.querySelector("[data-action=submit]");
 if (submitButton) {
   submitButton.addEventListener("click", handleSubmit);

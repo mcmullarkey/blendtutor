@@ -240,4 +240,42 @@ mod tests {
             Err(CryptoError::InvalidPayload)
         ));
     }
+
+    /// A key derived from file A's salt cannot decrypt file B's ciphertext,
+    /// even when both files share the same password. This is the crypto-level
+    /// root cause of the fetch-monkeypatch bug: each content file gets its own
+    /// fresh salt from `encrypt`, so the browser must derive a per-file key
+    /// using THAT file's salt — not reuse a key derived from index.html's salt.
+    #[test]
+    fn per_file_salt_prevents_cross_file_decryption() {
+        let mut rng = OsRng;
+        let payload_a = encrypt("index page html", "shared-pw", &mut rng);
+        let payload_b = encrypt("lesson json content", "shared-pw", &mut rng);
+
+        // Sanity: each file has its own salt.
+        assert_ne!(
+            payload_a.salt, payload_b.salt,
+            "two encrypt calls must yield different salts"
+        );
+
+        // Construct a Frankenstein payload: B's ciphertext + B's nonce, but
+        // A's salt. This simulates the bug — deriving a key from A's salt
+        // (index.html) and trying to decrypt B (a lesson JSON).
+        let frankenstein = EncryptedPayload {
+            ciphertext: payload_b.ciphertext.clone(),
+            salt: payload_a.salt, // wrong salt!
+            nonce: payload_b.nonce,
+        };
+        assert!(
+            decrypt(&frankenstein, "shared-pw").is_err(),
+            "a key derived from file A's salt must NOT decrypt file B's ciphertext \
+             — the browser fetch monkeypatch must derive a per-file key"
+        );
+
+        // Control: B decrypts fine with its own salt (correct password).
+        assert!(
+            decrypt(&payload_b, "shared-pw").is_ok(),
+            "file B must decrypt with its own salt + correct password"
+        );
+    }
 }

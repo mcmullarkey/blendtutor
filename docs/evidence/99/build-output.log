@@ -1,0 +1,4 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.38s
+     Running `target/debug/blendtutor build --target webr --password testpass --embed-key 'fireworks:fw_test_embed_123' crates/core/tests/fixtures/r-course -o /tmp/bt-embed-fix`
+WARNING: The embedded API key for fireworks is unique to this site and should be single-use. Set a spend limit / budget on the key to bound cost. Anyone with the site password can extract the key — use a dedicated key with a tight spend limit.
+built 2 lesson(s) for webr into /tmp/bt-embed-fix (password-protected)

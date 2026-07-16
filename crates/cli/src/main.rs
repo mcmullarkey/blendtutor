@@ -89,6 +89,13 @@ enum Commands {
         /// Password for site encryption (site is unencrypted when omitted).
         #[arg(long)]
         password: Option<String>,
+        /// Embed an API key in the encrypted payload (requires --password).
+        /// Format: `provider:key` (e.g. `fireworks:fw_xxx`, `anthropic:sk-ant-xxx`).
+        /// The key is encrypted into the site payload and pre-loaded into the
+        /// learner's sessionStorage at decrypt time, so the key-entry prompt
+        /// is skipped.
+        #[arg(long)]
+        embed_key: Option<String>,
     },
 }
 
@@ -127,6 +134,13 @@ fn main() -> anyhow::Result<ExitCode> {
             target,
             out,
             password,
-        } => commands::build::run(&path, target, &out, password.as_deref()),
+            embed_key,
+        } => commands::build::run(
+            &path,
+            target,
+            &out,
+            password.as_deref(),
+            embed_key.as_deref(),
+        ),
     }
 }

@@ -9,7 +9,7 @@
 //! [`super::BuildTarget`] seam: a second target adds an impl + assets, reusing the
 //! shared layout and the lesson-JSON contract (§3.2, §3.4, §4.2).
 
-use crate::course::LessonSlug;
+use crate::course::{LessonSlug, SiteConfig};
 use crate::lesson::Lesson;
 
 use super::{SiteFiles, TargetAssets};
@@ -29,12 +29,13 @@ const LESSON_RUNNER_JS: &str = include_str!(concat!(
 /// Assemble the Pyodide site for `lessons`. Pure: the caller has already verified
 /// every lesson is Python (§1.3.1), so this only contributes the Pyodide shell +
 /// runner to the shared [`super::assemble`] scaffolding.
-pub(super) fn plan(lessons: &[(LessonSlug, Lesson)]) -> SiteFiles {
+pub(super) fn plan(lessons: &[(LessonSlug, Lesson)], site_config: &SiteConfig) -> SiteFiles {
     super::assemble(
         TargetAssets {
             index_html: INDEX_HTML,
             lesson_runner_js: LESSON_RUNNER_JS,
         },
         lessons,
+        site_config,
     )
 }

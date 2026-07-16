@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use anyhow::Context;
-use blendtutor_core::course::Course;
+use blendtutor_core::course::{Course, SiteConfig};
 use blendtutor_core::site::{self, BuildTarget, EvalSummary};
 
 /// The conventional name of the Slice-13 eval report a course bundles to have its
@@ -40,7 +40,12 @@ pub fn run(dir: &Path, target: BuildTarget, out: &Path) -> anyhow::Result<ExitCo
     let course = Course::open(dir)?;
     let lessons = course.load_lessons()?;
     let eval = load_eval_summary(dir)?;
-    let site = site::plan_site(&lessons, target, &eval)?;
+    // The site config from the manifest's [site] section, or the default
+    // (max_feedback_per_session = 20) when absent — the caller decides the
+    // default, not plan_site (§2.1: plan_site is pure, takes explicit input).
+    let default_site = SiteConfig::default();
+    let site_config = course.site_config().unwrap_or(&default_site);
+    let site = site::plan_site(&lessons, target, &eval, site_config)?;
     site::write_site(out, &site)?;
     println!(
         "built {} lesson(s) for {target} into {}",

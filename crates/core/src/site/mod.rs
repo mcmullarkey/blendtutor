@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::course::LessonSlug;
+use crate::course::{LessonSlug, SiteConfig};
 use crate::lesson::{Language, Lesson};
 
 /// Which browser runtime a built site targets, and so which language it serves.
@@ -309,20 +309,39 @@ pub(super) struct TargetAssets<'a> {
     pub lesson_runner_js: &'a str,
 }
 
+/// Render the `config.js` contract file: the `window.__btConfig` global the
+/// feedback.js rate limiter reads. Pure (§2.2): a direct projection of the
+/// [`SiteConfig`] into the JS contract shape — the Rust→JS boundary for
+/// site-level configuration (§3.2), alongside the per-lesson JSON contract.
+fn config_js(site_config: &SiteConfig) -> String {
+    format!(
+        "window.__btConfig = {{ maxFeedbackPerSession: {} }};",
+        site_config.max_feedback_per_session
+    )
+}
+
 /// Assemble a site from one target's [`TargetAssets`] and the loaded lessons.
 ///
 /// The shared scaffolding both targets reuse (§4.2): a target supplies only its
-/// own shell and runner; the runner core, the COOP/COEP shim, and the per-lesson
-/// JSON contract — keyed by position, never by slug, so an author's slug can never
-/// reach the filesystem as a path — are identical across targets and laid out here
-/// in deterministic order. The slug rides inside the JSON as `id`; `lessons.json`
-/// is the ordered slug index the runner enumerates.
-fn assemble(assets: TargetAssets<'_>, lessons: &[(LessonSlug, Lesson)]) -> SiteFiles {
+/// own shell and runner; the runner core, the COOP/COEP shim, the `config.js`
+/// contract, and the per-lesson JSON contract — keyed by position, never by
+/// slug, so an author's slug can never reach the filesystem as a path — are
+/// identical across targets and laid out here in deterministic order. The slug
+/// rides inside the JSON as `id`; `lessons.json` is the ordered slug index the
+/// runner enumerates. `config.js` sits immediately before `feedback.js` so the
+/// `window.__btConfig` global is available when the rate limiter reads it.
+fn assemble(
+    assets: TargetAssets<'_>,
+    lessons: &[(LessonSlug, Lesson)],
+    site_config: &SiteConfig,
+) -> SiteFiles {
+    let config_contents = config_js(site_config);
     let mut files = vec![
         asset("index.html", assets.index_html),
         asset("lesson-runner.js", assets.lesson_runner_js),
         asset("lesson-runner-core.js", LESSON_RUNNER_CORE_JS),
         asset("coi-serviceworker.js", COI_SERVICEWORKER_JS),
+        asset("config.js", &config_contents),
         asset("feedback.js", FEEDBACK_JS),
         asset("styles.css", STYLES_CSS),
         asset("codemirror.js", CODEMIRROR_JS),
@@ -456,6 +475,7 @@ pub fn plan_site(
     lessons: &[(LessonSlug, Lesson)],
     target: BuildTarget,
     eval: &EvalSummary,
+    site_config: &SiteConfig,
 ) -> Result<SiteFiles, PlanError> {
     for (slug, lesson) in lessons {
         if lesson.language != target.language() {
@@ -467,8 +487,8 @@ pub fn plan_site(
         }
     }
     let mut site = match target {
-        BuildTarget::Webr => webr::plan(lessons),
-        BuildTarget::Pyodide => pyodide::plan(lessons),
+        BuildTarget::Webr => webr::plan(lessons, site_config),
+        BuildTarget::Pyodide => pyodide::plan(lessons, site_config),
     };
     site.files.push(SiteFile {
         path: "eval-results.html".into(),
@@ -536,9 +556,16 @@ mod tests {
 
     /// Plan a site with no eval validation — the default for the tests about
     /// lesson assembly, not the eval-results page. Eval folding is exercised by the
-    /// dedicated tests below with an explicit [`EvalSummary`].
+    /// dedicated tests below with an explicit [`EvalSummary`]. Uses the default
+    /// [`SiteConfig`] (max_feedback_per_session = 20) — site-config behavior is
+    /// exercised by the dedicated `feedback_rate_limit_*` tests below.
     fn plan(lessons: &[(LessonSlug, Lesson)], target: BuildTarget) -> Result<SiteFiles, PlanError> {
-        plan_site(lessons, target, &EvalSummary::NotValidated)
+        plan_site(
+            lessons,
+            target,
+            &EvalSummary::NotValidated,
+            &SiteConfig::default(),
+        )
     }
 
     #[test]
@@ -1440,6 +1467,7 @@ exercise:
             &EvalSummary::Validated {
                 accuracy: 0.6666666666666666,
             },
+            &SiteConfig::default(),
         )
         .expect("plans");
         let validated_page = file(&validated, "eval-results.html").contents.clone();
@@ -1447,8 +1475,13 @@ exercise:
         assert!(validated_page.contains(EvalSummary::VALIDATED_MARKER));
         assert!(!validated_page.contains(EvalSummary::NOT_VALIDATED_MARKER));
 
-        let unvalidated =
-            plan_site(&r_course(), BuildTarget::Webr, &EvalSummary::NotValidated).expect("plans");
+        let unvalidated = plan_site(
+            &r_course(),
+            BuildTarget::Webr,
+            &EvalSummary::NotValidated,
+            &SiteConfig::default(),
+        )
+        .expect("plans");
         assert!(
             file(&unvalidated, "eval-results.html")
                 .contents
@@ -1463,6 +1496,7 @@ exercise:
             &EvalSummary::Validated {
                 accuracy: 0.6666666666666666,
             },
+            &SiteConfig::default(),
         )
         .expect("plans");
         assert_eq!(
@@ -2189,5 +2223,92 @@ exercise:
             rest = &rest[body_start + close..];
         }
         false
+    }
+
+    // --- AC-4: client-side rate limiting — config.js emission (predicates 4-5) --
+
+    #[test]
+    fn feedback_rate_limit_plan_site_emits_config_js() {
+        // Predicate 4: plan_site emits config.js with "maxFeedbackPerSession": 5.
+        // The config.js file is the Rust→JS contract for site-level configuration
+        // (§3.2): it carries window.__btConfig = { maxFeedbackPerSession: N },
+        // which feedback.js reads to enforce the per-session rate limit.
+        let site_config = SiteConfig {
+            max_feedback_per_session: 5,
+        };
+        let site = plan_site(
+            &r_course(),
+            BuildTarget::Webr,
+            &EvalSummary::NotValidated,
+            &site_config,
+        )
+        .expect("plans");
+        let config = file(&site, "config.js");
+        assert!(
+            config.contents.contains("window.__btConfig"),
+            "config.js must set window.__btConfig; got: {}",
+            config.contents
+        );
+        assert!(
+            config.contents.contains("maxFeedbackPerSession"),
+            "config.js must contain maxFeedbackPerSession; got: {}",
+            config.contents
+        );
+        assert!(
+            config.contents.contains("maxFeedbackPerSession: 5"),
+            "config.js must carry the configured max (5); got: {}",
+            config.contents
+        );
+
+        // The default SiteConfig (max=20) emits 20 — the default the feedback
+        // rate limiter reads when no [site] section is present.
+        let default_site = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let default_config = file(&default_site, "config.js");
+        assert!(
+            default_config
+                .contents
+                .contains("maxFeedbackPerSession: 20"),
+            "config.js must carry the default max (20); got: {}",
+            default_config.contents
+        );
+
+        // config.js is byte-identical across targets (shared contract, §4.2).
+        let pyodide = plan_site(
+            &python_course(),
+            BuildTarget::Pyodide,
+            &EvalSummary::NotValidated,
+            &site_config,
+        )
+        .expect("plans");
+        assert_eq!(
+            file(&site, "config.js").contents,
+            file(&pyodide, "config.js").contents,
+            "config.js must be byte-identical across targets for the same SiteConfig"
+        );
+    }
+
+    #[test]
+    fn feedback_rate_limit_shells_load_config_before_feedback() {
+        // Predicate 5: both targets' index.html load config.js BEFORE feedback.js.
+        // config.js sets window.__btConfig synchronously (classic script, not a
+        // deferred module) so the global is available when feedback.js (a deferred
+        // module) reads it. A shell that loads feedback.js first would leave
+        // __btConfig undefined at rate-limit check time.
+        let webr = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let pyodide = plan(&python_course(), BuildTarget::Pyodide).expect("plans");
+        for (target, site) in [(BuildTarget::Webr, &webr), (BuildTarget::Pyodide, &pyodide)] {
+            let html = &file(&site, "index.html").contents;
+            let config_pos = html
+                .find(r#"src="config.js""#)
+                .unwrap_or_else(|| panic!("{target}: index.html must reference config.js"));
+            let feedback_pos = html
+                .find(r#"src="feedback.js""#)
+                .unwrap_or_else(|| panic!("{target}: index.html must reference feedback.js"));
+            assert!(
+                config_pos < feedback_pos,
+                "{target}: config.js must load before feedback.js (so __btConfig is set \
+                 before the rate limiter reads it)"
+            );
+        }
     }
 }

@@ -49,3 +49,14 @@ jobs:
       # Uses grep (not rg) so ubuntu-latest needs no extra install.
       - name: Model alignment
         run: ./scripts/check-model-alignment.sh
+
+  quarto-render:
+    name: quarto render
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Quarto extension render test
+        run: bash scripts/tests/test_quarto_render.sh

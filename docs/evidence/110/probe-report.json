@@ -2,21 +2,49 @@
   "issue": "110",
   "branch": "110-webr-shared-boot-adapter",
   "worktree": "/Users/carbonite/Documents/coding/portfolio/blendtutor-110",
-  "timestamp": "2026-07-23T19:30:52Z",
+  "timestamp": "2026-07-23T20:11:46Z",
   "probes": [
-    { "name": "1. crossOriginIsolated === false (degraded channel)", "status": "PASS", "details": null },
-    { "name": "2. Before first Run: no webr.wasm fetch (lazy boot)", "status": "PASS", "details": null },
-    { "name": "3. First Run: boot progress shown", "status": "PASS", "details": null },
-    { "name": "4. Exercise 1 output contains [1] 5", "status": "PASS", "details": null },
-    { "name": "5. Second Run: NO boot progress (shared instance)", "status": "PASS", "details": null },
-    { "name": "6. Exercise 2 output contains [1] FALSE (Shelter isolation)", "status": "PASS", "details": null },
-    { "name": "7. Concurrent run guard: second concurrent Run rejected", "status": "PASS", "details": null },
-    { "name": "8. Boot state machine: getBootState() returns 'ready' after boot", "status": "PASS", "details": null }
+    {
+      "name": "1. crossOriginIsolated === false (degraded channel)",
+      "status": "PASS",
+      "details": null
+    },
+    {
+      "name": "2. Before first Run: no webr.wasm fetch (lazy boot)",
+      "status": "PASS",
+      "details": null
+    },
+    {
+      "name": "3. First Run: boot progress shown",
+      "status": "PASS",
+      "details": null
+    },
+    {
+      "name": "4. Exercise 1 output contains [1] 5",
+      "status": "FAIL",
+      "details": "ASSERT FAILED: Exercise 1 output should contain '[1] 5', got: Error: Error in `x <- 5`: could not find function \"<-\""
+    },
+    {
+      "name": "5. Second Run: NO boot progress (shared instance)",
+      "status": "PASS",
+      "details": null
+    },
+    {
+      "name": "6. Exercise 2 output contains [1] FALSE (Shelter isolation)",
+      "status": "FAIL",
+      "details": "ASSERT FAILED: Exercise 2 output should contain 'FALSE' (x does not leak across Shelter), got: Error: Error in `print(exists(\"x\"))`: could not find function \"print\""
+    },
+    {
+      "name": "7. Concurrent run guard: second concurrent Run rejected",
+      "status": "PASS",
+      "details": null
+    },
+    {
+      "name": "8. Boot state machine: getBootState() returns 'ready' after boot",
+      "status": "PASS",
+      "details": null
+    }
   ],
-  "screenshots": [
-    { "path": "docs/evidence/110/initial-state.png", "ui_state": "Fixture page before any Run button is clicked", "ac_reference": "AC-5 lazy boot / initial state" },
-    { "path": "docs/evidence/110/boot-progress.png", "ui_state": "First Run clicked, boot progress/status visible while webR boots", "ac_reference": "AC-5 first-run boot progress" },
-    { "path": "docs/evidence/110/final-state.png", "ui_state": "Both exercises completed; Exercise 1 shows [1] 5 and Exercise 2 shows [1] FALSE", "ac_reference": "AC-5 shared instance, per-run Shelter isolation, concurrent-run guard" }
-  ],
-  "verdict": "PROBES_PASS"
+  "screenshots": [],
+  "verdict": "PROBES_FAIL"
 }

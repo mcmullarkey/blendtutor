@@ -1,5 +1,6 @@
 ---
 title: Minimal blendtutor fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
 ---
 
 ## Hello from Quarto

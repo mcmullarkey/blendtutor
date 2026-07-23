@@ -1,0 +1,62 @@
+=== AC-1 test (test_quarto_render.sh) ===
+== Assertion 1: contributes.filters present in _extension.yml ==
+  PASS: contributes.filters key present
+  PASS: blendtutor.lua listed in contributes.filters
+== Assertion 2: blendtutor.lua is valid Pandoc filter ==
+  PASS: blendtutor.lua defines Pandoc function
+  PASS: blendtutor.lua returns doc unmodified
+== Assertion 2b: .qmd YAML declares explicit filter path ==
+  PASS: filter path declared in .qmd YAML
+== Assertions 3-7: quarto render + content survival + filter load ==
+  SKIP: quarto not installed locally — render assertions skipped
+  (CI installs quarto via quarto-dev/quarto-actions/setup@v2)
+  FAIL: quarto render exits 0 — quarto not installed
+  FAIL: standard content survived — quarto not installed
+  FAIL: blendtutor content (add(a, b)) survived — quarto not installed
+  FAIL: blendtutor content (stopifnot) survived — quarto not installed
+  FAIL: filter loaded (bt-exercise present) — quarto not installed
+== Assertion 8: CI setup@v2 + no continue-on-error ==
+  PASS: CI uses quarto-dev/quarto-actions/setup@v2
+  PASS: no continue-on-error in quarto-render job
+
+=========================================
+  Results: 7 passed, 5 failed
+=========================================
+
+=== AC-2 test (test_quarto_filter.sh) ===
+Using render tool: pandoc
+== Structural guard: .qmd YAML declares explicit filter path ==
+  PASS: filter path declared in filter.qmd YAML
+== Assertions 1-6: HTML render + JSON contract ==
+  PASS: render exits 0
+All assertions passed (4 widgets verified)
+  PASS: >=3 bt-exercise widgets with all 9 keys
+  PASS: full exercise values correct (prompt <code>, code_template <-, checks len 2, solution 'a + b', hints <-, gotchas null, packages [])
+  PASS: minimal Python: packages parsed, all 9 keys present
+  PASS: empty exercise: all 9 keys present (null/[] for absent)
+  PASS: IDs distinct, titles non-empty
+  PASS: llm_evaluation_prompt ABSENT
+== Assertion 7: non-HTML format skips widget emission ==
+  PASS: non-HTML render exits 0
+  PASS: no bt-exercise in non-HTML output
+  PASS: warning emitted for non-HTML format
+== Assertion 8: invalid language warning + skip ==
+  PASS: invalid-lang render exits 0
+  PASS: no bt-exercise for invalid language
+  PASS: warning for invalid language
+== Assertion 9: missing language warning + skip ==
+  PASS: missing-lang render exits 0
+  PASS: no bt-exercise for missing language
+  PASS: warning for missing language
+
+=========================================
+  Results: 17 passed, 0 failed
+=========================================
+All tests passed.
+
+=== Rust test suite ===
+        PASS [  63.438s] (264/265) blendtutor-cli::build embed_key_existing_negative_scans_still_pass
+        SLOW [> 60.000s] (───────) blendtutor-core site::tests::encrypt_site_files_password_protects_all_content_files
+        PASS [  90.839s] (265/265) blendtutor-core site::tests::encrypt_site_files_password_protects_all_content_files
+────────────
+     Summary [ 118.982s] 265 tests run: 265 passed (2 slow), 0 skipped

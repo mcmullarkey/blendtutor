@@ -1,0 +1,8 @@
+---
+title: Missing language test
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+::: {.blendtutor}
+This exercise has no language attribute and should be skipped.
+:::

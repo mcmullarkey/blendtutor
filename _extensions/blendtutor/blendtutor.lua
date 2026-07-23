@@ -1,17 +1,301 @@
 --- blendtutor.lua ---
--- WHAT:  No-op Pandoc filter scaffold for the blendtutor Quarto extension.
+-- WHAT:  Pandoc filter that parses ::: {.blendtutor} divs into widget HTML
+--        with embedded 9-key SiteLesson JSON (ADR-0008 contract).
 -- WHERE: _extensions/blendtutor/blendtutor.lua (loaded via _extension.yml contributes.filters)
--- NOT:   No AST transformation, no HTML dependencies, no runtime JS injection.
---         This is the skeleton — subsequent ACs add fenced-div processing.
+-- NOT:   No runtime JS injection, no asset loading, no code execution.
+--        This filter owns the div→widget AST transform only (§4.1).
 --
--- Quarto auto-discovers this filter via the _extensions/ directory. The .qmd
--- frontmatter must NOT declare `filters: [blendtutor]` — that bypasses the
--- extension mechanism. The extension manifest (_extension.yml) is the single
--- source of truth for filter registration.
+-- This filter is loaded via explicit path in .qmd YAML:
+--   filters: [_extensions/blendtutor/blendtutor.lua]
+-- Quarto resolves the path relative to the project root and loads the Lua
+-- filter directly, bypassing extension discovery entirely. This works in both
+-- standalone and project modes. For distribution via `quarto add`, the
+-- _extension.yml contributes.filters mechanism is used instead.
+--
+-- SiteLesson JSON contract (9 keys, ADR-0008):
+--   id, title, prompt, code_template, checks, packages, solution, hints, gotchas
+-- llm_evaluation_prompt is NEVER emitted (server/CLI concern, §3.2 leak).
 
---- No-op filter: returns the document unmodified.
+-- Module-level exercise counter for auto-generated IDs (bt-exercise-<index>).
+-- Reset in Pandoc() so each document starts at 0.
+local exercise_count = 0
+
+-- ---------------------------------------------------------------------------
+-- JSON encoding helpers (Lua has no built-in JSON encoder)
+-- ---------------------------------------------------------------------------
+
+--- Escape a string for safe inclusion in a JSON string value.
+-- @param s The raw string
+-- @return The JSON-escaped string (without surrounding quotes)
+local function json_escape(s)
+  s = s:gsub("\\", "\\\\")
+  s = s:gsub('"', '\\"')
+  s = s:gsub("\n", "\\n")
+  s = s:gsub("\r", "\\r")
+  s = s:gsub("\t", "\\t")
+  -- Escape remaining C0 control chars (U+0000-U+001F) per JSON spec.
+  -- Placed after explicit \n\r\t escapes so those short forms are preserved;
+  -- the gsub only matches control chars not yet replaced by steps above.
+  s = s:gsub("[%c]", function(c)
+    return string.format("\\u%04x", string.byte(c))
+  end)
+  -- Prevent </script> breakout: the HTML parser closes <script> at the first
+  -- </script> sequence regardless of the type attribute (type only controls
+  -- execution, not parsing). Escaping < to \u003c prevents the sequence from
+  -- appearing in the JSON payload, keeping the script tag intact.
+  s = s:gsub("<", "\\u003c")
+  return s
+end
+
+--- Encode a string as a JSON string value (with surrounding quotes).
+-- @param s The raw string
+-- @return A JSON string literal
+local function json_string(s)
+  return '"' .. json_escape(s) .. '"'
+end
+
+--- Encode a Lua table (sequence) as a JSON array of strings.
+-- @param arr A sequence (array) of strings
+-- @return A JSON array literal
+local function json_array(arr)
+  local parts = {}
+  for _, v in ipairs(arr) do
+    parts[#parts + 1] = json_string(v)
+  end
+  return "[" .. table.concat(parts, ",") .. "]"
+end
+
+--- Encode a value as a JSON string or null.
+-- @param v A string or nil
+-- @return A JSON string literal or "null"
+local function json_value(v)
+  if v == nil then
+    return "null"
+  end
+  return json_string(v)
+end
+
+-- ---------------------------------------------------------------------------
+-- Rendering helpers (pandoc.write for AST→format conversion)
+-- ---------------------------------------------------------------------------
+
+--- Render a list of Pandoc blocks to HTML.
+-- @param blocks A List of Pandoc Block elements
+-- @return An HTML string (empty string if blocks is empty)
+local function render_html(blocks)
+  if #blocks == 0 then
+    return ""
+  end
+  local doc = pandoc.Pandoc(blocks, pandoc.Meta{})
+  return pandoc.write(doc, "html")
+end
+
+--- Render a list of Pandoc blocks to markdown (for hints/gotchas raw text).
+-- @param blocks A List of Pandoc Block elements
+-- @return A markdown string, or nil if blocks is empty
+local function render_markdown(blocks)
+  if #blocks == 0 then
+    return nil
+  end
+  local doc = pandoc.Pandoc(blocks, pandoc.Meta{})
+  local md = pandoc.write(doc, "markdown")
+  -- Strip trailing whitespace/newlines added by pandoc.write
+  md = md:gsub("%s+$", "")
+  if md == "" then
+    return nil
+  end
+  return md
+end
+
+-- ---------------------------------------------------------------------------
+-- Validation helpers
+-- ---------------------------------------------------------------------------
+
+--- Check if the current output format is HTML.
+-- @return true if FORMAT is "html", false otherwise
+local function is_html_format()
+  return FORMAT == "html"
+end
+
+--- Validate that a language is in the supported set {r, python}.
+-- @param lang The language string from the div attribute
+-- @return true if supported, false otherwise
+local function validate_language(lang)
+  return lang == "r" or lang == "python"
+end
+
+--- Parse a comma-separated packages attribute into an array.
+-- @param attr_value The raw packages attribute (e.g. "numpy,pandas") or nil
+-- @return An array of package name strings (empty if absent)
+local function parse_packages(attr_value)
+  if attr_value == nil or attr_value == "" then
+    return {}
+  end
+  local packages = {}
+  for pkg in attr_value:gmatch("[^,]+") do
+    -- Trim leading/trailing whitespace
+    pkg = pkg:gsub("^%s+", ""):gsub("%s+$", "")
+    if pkg ~= "" then
+      packages[#packages + 1] = pkg
+    end
+  end
+  return packages
+end
+
+-- ---------------------------------------------------------------------------
+-- Inner block parsing
+-- ---------------------------------------------------------------------------
+
+--- Parse the inner blocks of a blendtutor div into SiteLesson fields.
+--
+-- Parsing rules:
+--   - Prose (Para/Plain) before the first CodeBlock → prompt (rendered to HTML)
+--   - First CodeBlock without .checks/.solution class → code_template
+--   - CodeBlocks with .checks class → checks array
+--   - CodeBlock with .solution class → solution
+--   - Nested Div with .hints class → hints (rendered to markdown)
+--   - Nested Div with .gotchas class → gotchas (rendered to markdown)
+--
+-- @param blocks A List of Pandoc Block elements (the div's content)
+-- @return A table with prompt, code_template, checks, solution, hints, gotchas
+local function parse_inner_blocks(blocks)
+  local prompt_blocks = {}
+  local code_template = nil
+  local checks = {}
+  local solution = nil
+  local hints = nil
+  local gotchas = nil
+  local found_code = false
+
+  for _, block in ipairs(blocks) do
+    if block.t == "CodeBlock" then
+      found_code = true
+      if block.classes:includes("checks") then
+        checks[#checks + 1] = block.text
+      elseif block.classes:includes("solution") then
+        solution = block.text
+      else
+        -- First code block without .checks/.solution = code_template
+        if code_template == nil then
+          code_template = block.text
+        end
+      end
+    elseif block.t == "Div" then
+      if block.classes:includes("hints") then
+        hints = render_markdown(block.content)
+      end
+      if block.classes:includes("gotchas") then
+        gotchas = render_markdown(block.content)
+      end
+    elseif not found_code and (block.t == "Para" or block.t == "Plain") then
+      prompt_blocks[#prompt_blocks + 1] = block
+    end
+  end
+
+  return {
+    prompt = render_html(prompt_blocks),
+    code_template = code_template,
+    checks = checks,
+    solution = solution,
+    hints = hints,
+    gotchas = gotchas,
+  }
+end
+
+-- ---------------------------------------------------------------------------
+-- Payload builder
+-- ---------------------------------------------------------------------------
+
+--- Build the 9-key SiteLesson JSON payload.
+-- @param index The exercise index (0-based)
+-- @param parsed The parsed inner blocks table
+-- @param packages The packages array
+-- @return A JSON string
+local function build_payload(index, parsed, packages)
+  local id = "bt-exercise-" .. index
+  local title = "Exercise " .. (index + 1)
+
+  local parts = {
+    '"id":' .. json_string(id),
+    '"title":' .. json_string(title),
+    '"prompt":' .. json_string(parsed.prompt),
+    '"code_template":' .. json_value(parsed.code_template),
+    '"checks":' .. json_array(parsed.checks),
+    '"packages":' .. json_array(packages),
+    '"solution":' .. json_value(parsed.solution),
+    '"hints":' .. json_value(parsed.hints),
+    '"gotchas":' .. json_value(parsed.gotchas),
+  }
+
+  return "{" .. table.concat(parts, ",") .. "}"
+end
+
+-- ---------------------------------------------------------------------------
+-- Widget emitter
+-- ---------------------------------------------------------------------------
+
+--- Emit the widget HTML as a Pandoc RawBlock.
+-- @param payload The JSON string
+-- @return A pandoc.RawBlock("html", ...) element
+local function emit_widget(payload)
+  local html = '<div class="bt-exercise">\n'
+    .. '<script type="application/json">' .. payload .. "</script>\n"
+    .. "</div>"
+  return pandoc.RawBlock("html", html)
+end
+
+-- ---------------------------------------------------------------------------
+-- Main Div filter
+-- ---------------------------------------------------------------------------
+
+--- Process a Div element. If it has the "blendtutor" class, parse it into a
+-- widget. Otherwise, pass through unchanged.
+-- @param div A Pandoc Div element
+-- @return A RawBlock with widget HTML, or nil (pass-through), or the original div (skip)
+function Div(div)
+  if not div.classes:includes("blendtutor") then
+    return nil
+  end
+
+  -- Non-HTML formats: warn + return div unchanged (no widget emission)
+  if not is_html_format() then
+    io.stderr:write("[blendtutor] WARNING: bt-exercise widgets only emitted for HTML output; "
+      .. "skipping for format: " .. tostring(FORMAT) .. "\n")
+    return div
+  end
+
+  -- Validate language attribute
+  local lang = div.attributes["language"]
+  if lang == nil or lang == "" then
+    io.stderr:write("[blendtutor] WARNING: blendtutor div missing language attribute; skipping.\n")
+    return div
+  end
+
+  if not validate_language(lang) then
+    io.stderr:write('[blendtutor] WARNING: unsupported language "' .. lang
+      .. '"; supported: r, python. Skipping.\n')
+    return div
+  end
+
+  -- Parse packages from div attribute (comma-separated)
+  local packages = parse_packages(div.attributes["packages"])
+
+  -- Parse inner blocks into SiteLesson fields
+  local parsed = parse_inner_blocks(div.content)
+
+  -- Build and emit widget
+  local index = exercise_count
+  exercise_count = exercise_count + 1
+
+  local payload = build_payload(index, parsed, packages)
+  return emit_widget(payload)
+end
+
+--- Reset the exercise counter at document level (called after all Div elements).
+-- Kept as a no-op for AC-1 compatibility (returns doc unmodified).
 -- @param doc Pandoc document object
 -- @return doc unmodified
 function Pandoc(doc)
+  exercise_count = 0
   return doc
 end

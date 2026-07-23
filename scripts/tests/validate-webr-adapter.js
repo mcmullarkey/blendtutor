@@ -275,6 +275,121 @@ assert(adapterSrc.match(/return\s+bootPromise/) !== null,
   "webr-adapter.js returns stored boot promise (dedup)");
 
 // ---------------------------------------------------------------------------
+// 7. Behavioral tests — adapter with mocked webR module
+// ---------------------------------------------------------------------------
+//
+// These tests import the ACTUAL adapter and exercise it with a mock webR
+// module, verifying runtime behavior (not just source-string patterns).
+// The mock is configured via globalThis.__webrMockConfig before each test.
+//
+// These tests would have FAILED before commit 34ffe21 (which removed the
+// broad catch fallback around captureR and the console.warn around
+// installPackages). Before that commit:
+//   - captureR errors were caught by an inner try/catch that fell back to
+//     evalR, returning ok:true instead of ok:false.
+//   - installPackages errors were caught and console.warn'\''d, returning
+//     ok:true instead of ok:false.
+
+const mockUrl = pathToFileURL(join(__dirname, "mock-webr.mjs")).href;
+const adapterUrl = pathToFileURL(adapterPath).href;
+
+async function runBehavioralTests() {
+  const { createWebRAdapter } = await import(adapterUrl);
+
+  // --- Test 1: R runtime error propagation (fix-now #1) ---
+  // Before fix: inner catch fell back to evalR, returning ok:true (wrong)
+  // After fix:  error propagates to outer catch, returning ok:false (correct)
+  // The mock includes evalR (returns "fallback from evalR") so that if someone
+  // re-adds the inner catch fallback, this test FAILS (evalR returns ok:true).
+  {
+    globalThis.__webrMockConfig = {
+      captureRThrows: "R runtime error: object 'nonexistent_var' not found",
+      evalRResult: "fallback from evalR",
+    };
+    const adapter = createWebRAdapter({ cdnUrl: mockUrl });
+    const result = await adapter.run("nonexistent_var");
+    assert(result.ok === false,
+      "BEHAVIORAL: R runtime error (captureR throws) returns ok:false, not swallowed by inner catch fallback to evalR");
+    assert(result.output.includes("Error:"),
+      "BEHAVIORAL: R runtime error surfaced in output with Error: prefix");
+    assert(result.output.includes("nonexistent_var"),
+      "BEHAVIORAL: R runtime error message preserved in output");
+    assert(!result.output.includes("fallback from evalR"),
+      "BEHAVIORAL: evalR fallback NOT used, error propagated to outer catch not evalR");
+  }
+
+  // --- Test 2: Package install error surfaced via output (consider #2) ---
+  // Before fix: console.warn swallowed the error, run continued with ok:true (wrong)
+  // After fix:  error propagates to outer catch, returning ok:false, no console.warn (correct)
+  {
+    let warnCalled = false;
+    const originalWarn = console.warn;
+    console.warn = () => { warnCalled = true; };
+    globalThis.__webrMockConfig = {
+      installPackagesThrows: "package 'nonexistent' is not available",
+    };
+    const adapter = createWebRAdapter({ cdnUrl: mockUrl });
+    const result = await adapter.run("x <- 1", [], ["nonexistent"]);
+    console.warn = originalWarn;
+    assert(result.ok === false,
+      "BEHAVIORAL: Package install error returns ok:false, not swallowed by console.warn");
+    assert(result.output.includes("Error:"),
+      "BEHAVIORAL: Package install error surfaced in output");
+    assert(result.output.includes("nonexistent"),
+      "BEHAVIORAL: Package install error message preserved in output");
+    assert(!warnCalled,
+      "BEHAVIORAL: Package install error NOT console.warn'd, surfaced via output instead");
+  }
+
+  // --- Test 3: Normal execution (positive control) ---
+  // Verifies the happy path still works after removing the fallback.
+  {
+    globalThis.__webrMockConfig = {
+      captureRResult: {
+        output: [{ type: "stdout", data: "[1] 5" }],
+        result: { type: "integer", names: null, values: [5] },
+      },
+    };
+    const adapter = createWebRAdapter({ cdnUrl: mockUrl });
+    const result = await adapter.run("x <- 5; print(x)");
+    assert(result.ok === true,
+      "BEHAVIORAL: Normal R execution returns ok:true");
+    assert(result.output.includes("[1] 5"),
+      "BEHAVIORAL: Normal R execution output contains [1] 5");
+  }
+
+  // --- Test 4: Error during run still returns ok:false (purge runs in finally) ---
+  // The finally block must run purge() regardless of success/failure.
+  {
+    globalThis.__webrMockConfig = {
+      captureRThrows: "R error during evaluation",
+    };
+    const adapter = createWebRAdapter({ cdnUrl: mockUrl });
+    const result = await adapter.run("stop('error')");
+    assert(result.ok === false,
+      "BEHAVIORAL: Error during run returns ok:false, purge still runs in finally");
+  }
+
+  // --- Test 5: webR.newShelter() produces a working Shelter (captureR callable) ---
+  // Before fix: used new webR.Shelter() which produced a Shelter without methods
+  // After fix:  uses webR.newShelter() which passes the webR instance internally
+  {
+    globalThis.__webrMockConfig = {
+      captureRResult: { output: [{ type: "stdout", data: "ok" }] },
+    };
+    const adapter = createWebRAdapter({ cdnUrl: mockUrl });
+    const result = await adapter.run("1 + 1");
+    assert(result.ok === true,
+      "BEHAVIORAL: webR.newShelter() produces a working Shelter, captureR callable");
+  }
+
+  // Clean up mock config
+  delete globalThis.__webrMockConfig;
+}
+
+await runBehavioralTests();
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 

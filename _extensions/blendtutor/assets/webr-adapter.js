@@ -23,9 +23,11 @@
 //   promise — no re-boot. The shared instance is reused across all exercises.
 //
 // Per-run Shelter isolation (§3.4):
-//   Each run() creates a new Shelter via webR.newShelter(), evaluates code,
-//   then shelter.purge() in finally. Variables do not leak between exercises.
-//   Exercise 2's exists("x") returns FALSE because Exercise 1's x was purged.
+//   Each run() creates a new Shelter via `await new webR.Shelter()`, evaluates
+//   code, then shelter.purge() in finally. Variables do not leak between
+//   exercises. Exercise 2's exists("x") returns FALSE because Exercise 1's x
+//   was purged. The Shelter constructor is async — it returns a Promise that
+//   resolves to the Shelter instance, so `await` is mandatory.
 //
 // Concurrent run guard (§5.3):
 //   Adapter-level `running` flag. Second run() while first is executing →
@@ -171,8 +173,8 @@ export function createWebRAdapter(options = {}) {
      * Concurrent calls are rejected (§5.3).
      *
      * Per-run Shelter isolation (§3.4): each call creates a new
-     * webR.Shelter(), evaluates the code, captures output, then purges
-     * the Shelter in finally. Variables do not leak between exercises.
+     * `await new webR.Shelter()`, evaluates the code, captures output, then
+     * purges the Shelter in finally. Variables do not leak between exercises.
      *
      * @param {string} code — R code to evaluate.
      * @param {string[]} [checks=[]] — Check expressions (unused by webR adapter,
@@ -224,12 +226,14 @@ export function createWebRAdapter(options = {}) {
         // do not leak into another. Exercise 2's exists("x") returns FALSE
         // because Exercise 1's x was purged after its run completed.
         //
-        // webR.newShelter() is the documented API for creating a Shelter.
-        // The Shelter constructor requires the webR instance, which
-        // newShelter() passes internally. Constructing a Shelter directly
-        // without the webR instance produces a Shelter without methods
-        // (captureR, purge), causing "shelter.evalR is not a function" errors.
-        shelter = webR.newShelter();
+        // `new webR.Shelter()` is the documented API. The Shelter constructor
+        // is async — it returns a Promise that resolves to the Shelter
+        // instance (with captureR, purge methods). The `await` is mandatory;
+        // without it, `shelter` is an unresolved Promise and captureR/purge
+        // are undefined, causing "shelter.captureR is not a function" errors.
+        // This matches the reference implementation in
+        // crates/core/assets/webr/lesson-runner.js (line 32).
+        shelter = await new webR.Shelter();
 
         // Capture output from R code evaluation.
         // captureR wraps the code in capture.output() and returns

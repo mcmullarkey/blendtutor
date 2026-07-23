@@ -230,18 +230,21 @@ assert(probeSrc.includes("shared") || probeSrc.includes("no boot") || probeSrc.i
 // contains the required patterns. The behavioral test is done by rodney
 // in the browser.
 
-// Verify the adapter creates a Shelter per run via webR.newShelter() (not `new webR.Shelter()`)
-// `new webR.Shelter()` does NOT work — the Shelter constructor requires the webR
-// instance, which webR.newShelter() passes internally. Using `new webR.Shelter()`
-// produces a Shelter without methods (captureR, evalR, purge), causing runtime errors.
-const shelterMatches = adapterSrc.match(/webR\.newShelter\(\)/g);
+// Verify the adapter creates a Shelter per run via `await new webR.Shelter()`
+// (not `webR.newShelter()`). The Shelter constructor is async — it returns a
+// Promise that resolves to the Shelter instance. The `await` is mandatory;
+// without it, `shelter` is an unresolved Promise and captureR/purge are
+// undefined. This matches the reference implementation in
+// crates/core/assets/webr/lesson-runner.js (line 32).
+const shelterMatches = adapterSrc.match(/await\s+new\s+webR\.Shelter\s*\(\s*\)/g);
 assert(shelterMatches !== null && shelterMatches.length >= 1,
-  "webr-adapter.js creates Shelter via webR.newShelter() (not `new webR.Shelter()`)");
+  "webr-adapter.js creates Shelter via `await new webR.Shelter()` (not webR.newShelter())");
 
-// Verify the adapter does NOT use `new webR.Shelter()` (broken — missing webR instance)
-const brokenShelterMatches = adapterSrc.match(/new\s+webR\.Shelter\s*\(/g);
+// Verify the adapter does NOT use `webR.newShelter()` (not a function on the
+// webR instance — the correct API is `new webR.Shelter()`)
+const brokenShelterMatches = adapterSrc.match(/webR\.newShelter\s*\(/g);
 assert(brokenShelterMatches === null,
-  "webr-adapter.js must NOT use `new webR.Shelter()` — use webR.newShelter() instead");
+  "webr-adapter.js must NOT use webR.newShelter() — use `await new webR.Shelter()` instead");
 
 // Verify the adapter does NOT use shelter.evalR() for code execution
 // (Shelter API in the CDN build does not expose evalR; captureR is the correct method)
@@ -370,9 +373,10 @@ async function runBehavioralTests() {
       "BEHAVIORAL: Error during run returns ok:false, purge still runs in finally");
   }
 
-  // --- Test 5: webR.newShelter() produces a working Shelter (captureR callable) ---
-  // Before fix: used new webR.Shelter() which produced a Shelter without methods
-  // After fix:  uses webR.newShelter() which passes the webR instance internally
+  // --- Test 5: `await new webR.Shelter()` produces a working Shelter (captureR callable) ---
+  // Before fix: used webR.newShelter() which is not a function on the webR instance
+  // After fix:  uses `await new webR.Shelter()` — async constructor returns Promise
+  //              that resolves to the Shelter instance with captureR/purge methods
   {
     globalThis.__webrMockConfig = {
       captureRResult: { output: [{ type: "stdout", data: "ok" }] },
@@ -380,7 +384,7 @@ async function runBehavioralTests() {
     const adapter = createWebRAdapter({ cdnUrl: mockUrl });
     const result = await adapter.run("1 + 1");
     assert(result.ok === true,
-      "BEHAVIORAL: webR.newShelter() produces a working Shelter, captureR callable");
+      "BEHAVIORAL: `await new webR.Shelter()` produces a working Shelter, captureR callable");
   }
 
   // Clean up mock config

@@ -1,0 +1,39 @@
+---
+title: webR adapter test fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## webR Shared-Boot Adapter Test
+
+### Exercise 1: Variable Assignment
+
+::: {.blendtutor language="r"}
+Assign x to 5 and print it.
+
+```r
+x <- 5
+print(x)
+```
+:::
+
+### Exercise 2: Shelter Isolation
+
+::: {.blendtutor language="r"}
+Check if x exists (should be FALSE — per-run Shelter isolation).
+
+```r
+print(exists("x"))
+```
+:::
+
+<script type="module">
+  import { scanExercises, buildRegistry, start } from "../_extensions/blendtutor/assets/exercise-runtime.js";
+  import { createWebRAdapter } from "../_extensions/blendtutor/assets/webr-adapter.js";
+
+  const adapter = createWebRAdapter({
+    onBootProgress: (msg) => console.log("[webr-boot]", msg),
+  });
+  const registry = buildRegistry(scanExercises());
+  window.__btWebRAdapter = adapter;
+  start(registry, adapter);
+</script>

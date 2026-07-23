@@ -1,0 +1,66 @@
+{
+  "issue": "110",
+  "branch": "110-webr-shared-boot-adapter",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/blendtutor-110",
+  "timestamp": "2026-07-23T21:30:00Z",
+  "probes": [
+    {
+      "name": "1. crossOriginIsolated === false (degraded channel)",
+      "status": "PASS",
+      "details": null
+    },
+    {
+      "name": "2. Before first Run: no webr.wasm fetch (lazy boot)",
+      "status": "PASS",
+      "details": null
+    },
+    {
+      "name": "3. First Run: boot progress shown",
+      "status": "PASS",
+      "details": null
+    },
+    {
+      "name": "4. Exercise 1 output contains [1] 5",
+      "status": "PASS",
+      "details": "Output: '[1] 5'"
+    },
+    {
+      "name": "5. Second Run: NO boot progress (shared instance)",
+      "status": "PASS",
+      "details": null
+    },
+    {
+      "name": "6. Exercise 2 output contains [1] FALSE (Shelter isolation)",
+      "status": "PASS",
+      "details": "Output: '[1] FALSE'"
+    },
+    {
+      "name": "7. Concurrent run guard: second concurrent Run rejected",
+      "status": "PASS",
+      "details": null
+    },
+    {
+      "name": "8. Boot state machine: getBootState() returns 'ready' after boot",
+      "status": "PASS",
+      "details": null
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "docs/evidence/110/initial-state.png",
+      "ui_state": "Fixture loaded, no exercise run yet",
+      "ac_reference": "AC-5 lazy boot / initial UI state"
+    },
+    {
+      "path": "docs/evidence/110/boot-progress.png",
+      "ui_state": "First Run clicked, webR boot progress visible",
+      "ac_reference": "AC-5 clause 3"
+    },
+    {
+      "path": "docs/evidence/110/final-state.png",
+      "ui_state": "Both exercises completed with pass status; Exercise 1 output [1] 5, Exercise 2 output [1] FALSE",
+      "ac_reference": "AC-5 clauses 4, 5, 6"
+    }
+  ],
+  "verdict": "PROBES_PASS"
+}

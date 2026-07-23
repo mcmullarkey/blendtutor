@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AC-5 webR Adapter Test Fixture</title>
+  <link rel="stylesheet" href="../../_extensions/blendtutor/assets/styles.css">
+</head>
+<body>
+  <!--
+    AC-5 webR adapter test fixture: 2 R exercises testing lazy boot,
+    shared instance, and per-run Shelter isolation.
+
+    Exercise 1: x <- 5; print(x) → output [1] 5
+    Exercise 2: print(exists("x")) → output [1] FALSE (Shelter isolation)
+
+    The webR adapter is loaded via ES module import below.
+    Boot is lazy: no WASM fetch until first Run button click.
+  -->
+
+  <h1>AC-5 webR Shared-Boot Adapter Test</h1>
+
+  <!-- Exercise 1: Variable assignment + print -->
+  <div class="bt-exercise" data-language="r">
+    <script type="application/json">{
+      "id": "bt-exercise-0",
+      "title": "R Variable Assignment",
+      "prompt": "Assign x to 5 and print it.",
+      "code_template": "x <- 5\nprint(x)",
+      "checks": [],
+      "packages": [],
+      "solution": null,
+      "hints": null,
+      "gotchas": null
+    }</script>
+  </div>
+
+  <!-- Exercise 2: Shelter isolation check -->
+  <div class="bt-exercise" data-language="r">
+    <script type="application/json">{
+      "id": "bt-exercise-1",
+      "title": "Shelter Isolation",
+      "prompt": "Check if x exists (should be FALSE — per-run Shelter isolation).",
+      "code_template": "print(exists(\"x\"))",
+      "checks": [],
+      "packages": [],
+      "solution": null,
+      "hints": null,
+      "gotchas": null
+    }</script>
+  </div>
+
+  <script type="module">
+    import { scanExercises, buildRegistry, start } from "../../_extensions/blendtutor/assets/exercise-runtime.js";
+    import { createWebRAdapter } from "../../_extensions/blendtutor/assets/webr-adapter.js";
+
+    const adapter = createWebRAdapter({
+      onBootProgress: (msg) => console.log("[webr-boot]", msg),
+    });
+    const registry = buildRegistry(scanExercises());
+    window.__btWebRAdapter = adapter; // exposed for probe verification
+    start(registry, adapter);
+  </script>
+</body>
+</html>

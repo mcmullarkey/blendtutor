@@ -273,4 +273,29 @@ export const pyodideAdapter = {
       }
     }
   },
+
+  /**
+   * Check whether boot has been initiated (lazy trigger, clause 3).
+   *
+   * Returns true once bootPyodide() has been called (bootPromise !== null).
+   * Before the first boot()/run() call, returns false — confirming no WASM
+   * is loaded until explicitly triggered.
+   *
+   * @returns {boolean} — true if boot has been initiated.
+   */
+  isBooted() {
+    return bootPromise !== null;
+  },
+
+  /**
+   * Get the booted Pyodide instance (for testing/debugging, clause 6).
+   *
+   * Returns the resolved Pyodide instance from the boot promise. Allows
+   * probes to spy on pyodide.toPy to verify namespace.destroy() is called.
+   *
+   * @returns {Promise<Pyodide>} — The booted Pyodide instance.
+   */
+  async getPyodide() {
+    return await bootPyodide();
+  },
 };

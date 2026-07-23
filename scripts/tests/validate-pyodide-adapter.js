@@ -303,6 +303,69 @@ assert(
 );
 
 // ---------------------------------------------------------------------------
+// 18. Lua filter — valid Quarto include_text location ("head", not "html")
+// ---------------------------------------------------------------------------
+// CI crashes with "Illegal value for dependency location. html is not a
+// valid location." when quarto.doc.include_text("html", ...) is used.
+// Valid locations are: "head", "before-body", "after-body".
+assert(
+  /quarto\.doc\.include_text\(\s*["']head["']/.test(luaSrc),
+  "Lua filter uses quarto.doc.include_text(\"head\", ...) — valid Quarto include location",
+);
+assert(
+  !/quarto\.doc\.include_text\(\s*["']html["']/.test(luaSrc),
+  "Lua filter must NOT use quarto.doc.include_text(\"html\", ...) — invalid Quarto API (causes CI crash)",
+);
+
+// ---------------------------------------------------------------------------
+// 19. Adapter — isBooted() method (lazy trigger, clause 3)
+// ---------------------------------------------------------------------------
+assert(
+  /isBooted\s*\(\s*\)/.test(adapterSrc),
+  "adapter has isBooted() method for boot state inspection (lazy trigger)",
+);
+assert(
+  /return\s+bootPromise\s*!==\s*null/.test(adapterSrc),
+  "isBooted() returns bootPromise !== null (3-state boot machine)",
+);
+
+// ---------------------------------------------------------------------------
+// 20. Adapter — getPyodide() method (PyProxy cleanup testing, clause 6)
+// ---------------------------------------------------------------------------
+assert(
+  /async\s+getPyodide\s*\(\s*\)/.test(adapterSrc),
+  "adapter has async getPyodide() method for testing/debugging (clause 6)",
+);
+assert(
+  /return\s+await\s+bootPyodide\(\)/.test(adapterSrc),
+  "getPyodide() returns await bootPyodide() (idempotent boot)",
+);
+
+// ---------------------------------------------------------------------------
+// 21. Rodney probe — test 3 is behavioral (checks isBooted, not just method types)
+// ---------------------------------------------------------------------------
+assert(
+  /adapter\.isBooted\(\)/.test(probeSrc),
+  "rodney probe test 3 checks adapter.isBooted() — behavioral, not structural-only",
+);
+
+// ---------------------------------------------------------------------------
+// 22. Rodney probe — test 6 spies on namespace.destroy() (PyProxy cleanup)
+// ---------------------------------------------------------------------------
+assert(
+  /destroyCalled/.test(probeSrc),
+  "rodney probe test 6 tracks destroyCalled — spies on namespace.destroy()",
+);
+assert(
+  /pyodide\.toPy\s*=/.test(probeSrc),
+  "rodney probe test 6 monkey-patches pyodide.toPy to intercept namespace creation",
+);
+assert(
+  /destroyCalled.*true|assert\(destroyCalled/.test(probeSrc),
+  "rodney probe test 6 asserts destroyCalled is true (PyProxy cleanup verified)",
+);
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 console.log(`\n=== AC-6 Pyodide Adapter Validation Results ===`);

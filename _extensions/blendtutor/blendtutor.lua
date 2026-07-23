@@ -326,7 +326,7 @@ function Pandoc(doc)
     local cdn_script = '<script src="' .. PYODIDE_CDN .. '"></script>'
     -- Try Quarto API first (injects in <head>), fall back to RawBlock.
     if quarto and quarto.doc and quarto.doc.include_text then
-      quarto.doc.include_text("html", cdn_script)
+      quarto.doc.include_text("head", cdn_script)
     else
       -- Pandoc fallback: prepend to document body.
       table.insert(doc.blocks, 1, pandoc.RawBlock("html", cdn_script))

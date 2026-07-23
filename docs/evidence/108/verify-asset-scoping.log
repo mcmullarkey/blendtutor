@@ -1,0 +1,28 @@
+== Test 1: no @import in scoped CSS ==
+  PASS: no @import in scoped CSS
+== Test 2: --bt-* custom properties preserved ==
+  PASS: --bt-* preserved (34 custom properties)
+== Test 3: :root blocks not scoped ==
+  PASS: :root blocks not scoped (1 found)
+  PASS: :root blocks not scoped — :root selector is global
+== Test 4: @media block preserved ==
+  PASS: @media block preserved (1 found)
+== Test 5: @keyframes preserved ==
+  PASS: @keyframes preserved (1 found)
+== Test 6: body{} transformed to .bt-exercise{} ==
+  PASS: body{} transformed to .bt-exercise{}
+== Test 7: page-layout props stripped from .bt-exercise{} ==
+  PASS: page-layout props stripped (none found in .bt-exercise{})
+== Test 8: typography props retained in .bt-exercise{} ==
+  PASS: typography props retained (5 props)
+== Test 9: all selectors scoped under .bt-exercise ==
+  PASS: all selectors scoped under .bt-exercise (except :root)
+== Test 10: no unscoped page-level IDs ==
+  PASS: no unscoped page-level IDs
+== Test 11: @media inner selectors scoped (except :root) ==
+  PASS: @media inner selectors scoped (except :root)
+
+=========================================
+  Results: 12 passed, 0 failed
+=========================================
+All tests passed.

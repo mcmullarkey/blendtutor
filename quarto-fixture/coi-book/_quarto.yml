@@ -1,9 +1,0 @@
-project:
-  type: book
-
-book:
-  title: COI per-page isolation test
-  chapters:
-    - index.qmd
-    - chapter-coi.qmd
-    - chapter-no-coi.qmd

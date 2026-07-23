@@ -1,4 +1,7 @@
 Using render tool: pandoc
+WARNING: using pandoc (local dev fallback); CI uses quarto.
+  Pandoc ignores _quarto.yml project files; quarto respects them.
+  If a fixture directory contains _quarto.yml, results may differ.
 == Clause 1: coi="true" activates ==
   PASS: coi-true.qmd render exits 0
   PASS: coi="true" activates — script tag present
@@ -11,6 +14,7 @@ Using render tool: pandoc
 == Clause 4: byte-parity (vendored == source) ==
   PASS: byte-parity — vendored coi-serviceworker.js byte-identical to source
 == Clause 5: per-page isolation ==
+  PASS: structural guard — no _quarto.yml in coi-book/ (standalone render)
   PASS: per-page isolation — coi chapter has script tag
   PASS: per-page isolation — no-coi chapter has no script tag
   PASS: per-page isolation — index has no script tag
@@ -24,6 +28,6 @@ Using render tool: pandoc
   PASS: no hardcode — no script tag when coi attribute absent
 
 =========================================
-  Results: 14 passed, 0 failed
+  Results: 15 passed, 0 failed
 =========================================
 All tests passed.

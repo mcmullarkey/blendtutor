@@ -46,6 +46,12 @@ fi
 
 echo "Using render tool: $RENDER_TOOL"
 
+if [ "$RENDER_TOOL" = "pandoc" ]; then
+  echo "WARNING: using pandoc (local dev fallback); CI uses quarto."
+  echo "  Pandoc ignores _quarto.yml project files; quarto respects them."
+  echo "  If a fixture directory contains _quarto.yml, results may differ."
+fi
+
 # ---------------------------------------------------------------------------
 # Render helpers
 # ---------------------------------------------------------------------------
@@ -54,7 +60,7 @@ render_to_html() {
   local input="$1"
   local output="$2"
   if [ "$RENDER_TOOL" = "quarto" ]; then
-    quarto render "$input" --to html 2>&1
+    quarto render "$input" --to html -o "$output" 2>&1
   else
     pandoc "$input" --from markdown --to html \
       --lua-filter "$LUA_FILTER" -o "$output" 2>&1
@@ -207,6 +213,17 @@ fi
 # ---------------------------------------------------------------------------
 
 echo "== Clause 5: per-page isolation =="
+
+# Structural guard — no _quarto.yml in coi-book/ (prevents book-project mode).
+# A _quarto.yml with type: book in coi-book/ causes quarto to enter book-project
+# mode when rendering individual files, producing no output at expected paths.
+# Pandoc ignores _quarto.yml, masking this in local dev (mock/reality drift).
+# This guard catches the regression without needing quarto installed.
+if [ -f "$FIXTURE_DIR/coi-book/_quarto.yml" ]; then
+  ko "structural guard — _quarto.yml must NOT exist in coi-book/ (causes book-project mode in quarto)"
+else
+  ok "structural guard — no _quarto.yml in coi-book/ (standalone render)"
+fi
 
 # Render chapter-coi.qmd (has coi="true") — script tag should be present.
 COI_BOOK_COI_HTML="$FIXTURE_DIR/coi-book/chapter-coi.html"

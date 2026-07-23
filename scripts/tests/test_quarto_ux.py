@@ -299,6 +299,55 @@ def check_css_hints_solution(css: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Rendered HTML checks (styles.css <link> injection)
+# ---------------------------------------------------------------------------
+
+
+def check_styles_css_loaded() -> None:
+    """Verify styles.css is loaded in rendered Quarto HTML.
+
+    Renders ux.qmd to HTML and checks that a <link> tag for styles.css
+    is present in the <head>. This test would fail if the Lua filter
+    does not inject styles.css — the bug fixed in this commit.
+    """
+    quarto_bin = shutil_which("quarto")
+    if not quarto_bin:
+        candidate = "/private/tmp/quarto/bin/quarto"
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            quarto_bin = candidate
+    if not quarto_bin:
+        ko("styles.css loaded in rendered HTML — quarto not installed")
+        return
+
+    result = subprocess.run(
+        [quarto_bin, "render", str(QMD_PATH), "--to", "html"],
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+        timeout=60,
+        check=False,
+    )
+    if result.returncode != 0:
+        ko(
+            f"styles.css loaded in rendered HTML — render failed (exit {result.returncode})"
+        )
+        if result.stderr:
+            print(f"  stderr: {result.stderr}", file=sys.stderr)
+        return
+
+    html_path = REPO_ROOT / "quarto-fixture" / "ux.html"
+    if not html_path.exists():
+        ko("styles.css loaded in rendered HTML — output file not found")
+        return
+
+    html = html_path.read_text()
+    if 'href="_extensions/blendtutor/assets/styles.css"' in html:
+        ok("styles.css <link> present in rendered HTML")
+    else:
+        ko("styles.css <link> present in rendered HTML — not found in rendered output")
+
+
+# ---------------------------------------------------------------------------
 # Behavioral checks via Node.js (pure function execution)
 # ---------------------------------------------------------------------------
 
@@ -529,6 +578,9 @@ def main() -> int:
 
     print("\n-- CSS: hints + solution styling --")
     check_css_hints_solution(css)
+
+    print("\n-- Rendered HTML: styles.css <link> injection --")
+    check_styles_css_loaded()
 
     print("\n-- Behavioral checks (Node.js) --")
     check_node_behavioral()

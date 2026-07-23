@@ -1,6 +1,6 @@
 # Rodney probes for issue #113
 verdict: PROBES_FAIL
-timestamp: 2026-07-23T23:36:28.516Z
+timestamp: 2026-07-23T23:46:31.282Z
 
 - PASS: clause-1: hints visible/absent
   assertion passed

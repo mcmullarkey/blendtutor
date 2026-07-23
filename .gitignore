@@ -32,3 +32,6 @@ screenshots/
 /quarto-fixture/coi-book/*.html
 /quarto-fixture/_site/
 /quarto-fixture/*_files/
+
+/.quarto/
+**/*.quarto_ipynb

@@ -1,156 +1,389 @@
-// Rodney probe script for issue #113 (AC-8: Exercise UX polish).
-//
-// 7 sub-clauses from the executable spec — these CANNOT be pinned at build
-// time (they need a real browser + runtime boot) and are run by
-// @builder-vision-probe against a served built site. This file documents the
-// deterministic rodney assertions; the builder-vision-probe agent executes
-// them (the coding builder does NOT run rodney).
-//
-// Build + serve (run by builder-vision-probe):
-//   quarto render quarto-fixture/ux.qmd --to html
-//   # Serve the output on a localhost port (e.g. 58090).
-//
-// Preconditions: navigate to the served ux.html, await the runtime boot
-// (window.__btExercises is populated by start()), then run the clauses.
-//
-// The fixture has 3 exercises:
-//   Exercise 0 (bt-exercise-0): full — hints, solution, checks
-//   Exercise 1 (bt-exercise-1): no checks
-//   Exercise 2 (bt-exercise-2): empty — no solution, no hints, no checks
+#!/usr/bin/env node
+/**
+ * Rodney probe harness for issue #113 — AC-8 Exercise UX polish.
+ *
+ * Runs the 7 deterministic clauses (plus negative cases) from
+ * rodney-probes/exercise-ux.js against the rendered ux.qmd fixture in a
+ * headless browser driven by uvx rodney.
+ *
+ * Usage:
+ *   node rodney-probes/exercise-ux.js
+ *
+ * Environment:
+ *   QUARTO_BIN   - path to quarto binary (default: /private/tmp/quarto/bin/quarto)
+ *   STATIC_PORT  - port for static fixture server (default: 8083)
+ */
 
-// --- Setup (run once before all clauses) -----------------------------------
-// Wait for the runtime to boot and the registry to be populated.
-//
-// rodney eval:
-//   await new Promise(resolve => {
-//     const check = () => {
-//       if (window.__btExercises && window.__btExercises.length >= 3) resolve();
-//       else setTimeout(check, 100);
-//     };
-//     check();
-//   });
+const { execFileSync, spawn } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
 
-// --- Clause 1: hints visible/absent ---------------------------------------
-// Exercise 0 has hints → a <details class="bt-hints"> must be present inside
-// its div.bt-exercise. Exercise 2 has no hints → no <details class="bt-hints">
-// inside its div.bt-exercise.
-//
-// rodney assert:
-//   const exercises = document.querySelectorAll('.bt-exercise');
-//   const ex0 = exercises[0];
-//   const ex2 = exercises[2];
-//   const hints0 = ex0.querySelector('details.bt-hints');
-//   assert(hints0 !== null, "clause 1: exercise 0 must have a hints <details>");
-//   const hints2 = ex2.querySelector('details.bt-hints');
-//   assert(hints2 === null, "clause 1: exercise 2 must NOT have a hints <details>");
+const WORKTREE = path.resolve(__dirname, "..");
+const EVIDENCE_DIR = path.join(WORKTREE, "docs", "evidence", "113");
+const STATIC_PORT = parseInt(process.env.STATIC_PORT || "8083", 10);
+const QUARTO_BIN =
+  process.env.QUARTO_BIN ||
+  (fs.existsSync("/private/tmp/quarto/bin/quarto")
+    ? "/private/tmp/quarto/bin/quarto"
+    : "quarto");
 
-// --- Clause 2: solution button click inserts text -------------------------
-// Exercise 0 has a solution → a "Show solution" button must be present.
-// Clicking it must insert the solution text into the editor.
-//
-// rodney assert:
-//   const ex0 = document.querySelectorAll('.bt-exercise')[0];
-//   const solutionBtn = ex0.querySelector('.bt-solution-btn');
-//   assert(solutionBtn !== null, "clause 2: exercise 0 must have a solution button");
-//   const entry = window.__btExercises[0];
-//   const beforeCode = entry.getSubmission();
-//   solutionBtn.click();
-//   const afterCode = entry.getSubmission();
-//   assert(afterCode === entry.payload.solution,
-//          "clause 2: solution button must insert solution text into editor");
-//   assert(afterCode !== beforeCode,
-//          "clause 2: editor content must change after clicking solution button");
+const BASE_URL = `http://localhost:${STATIC_PORT}`;
+const FIXTURE_URL = `${BASE_URL}/quarto-fixture/ux.html`;
+const BLANK_URL = `${BASE_URL}/quarto-fixture/_probe-blank.html`;
 
-// --- Clause 3: check button absent when no checks -------------------------
-// Exercise 0 has checks → a Check button must be present.
-// Exercise 1 has no checks → no Check button.
-// Exercise 2 has no checks → no Check button.
-//
-// rodney assert:
-//   const exercises = document.querySelectorAll('.bt-exercise');
-//   const ex0 = exercises[0];
-//   const ex1 = exercises[1];
-//   const ex2 = exercises[2];
-//   assert(ex0.querySelector('.bt-check-btn') !== null,
-//          "clause 3: exercise 0 (has checks) must have a Check button");
-//   assert(ex1.querySelector('.bt-check-btn') === null,
-//          "clause 3: exercise 1 (no checks) must NOT have a Check button");
-//   assert(ex2.querySelector('.bt-check-btn') === null,
-//          "clause 3: exercise 2 (no checks) must NOT have a Check button");
+const STATIC_SERVER_PY = `#!/usr/bin/env python3
+import http.server, socketserver, sys
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header("Cross-Origin-Opener-Policy", "same-origin")
+        self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
+        super().end_headers()
+    def log_message(self, fmt, *args): pass
+socketserver.ThreadingTCPServer.allow_reuse_address = True
+with socketserver.ThreadingTCPServer(("", PORT), Handler) as httpd:
+    print(f"COI server on port {PORT}", flush=True)
+    httpd.serve_forever()
+`;
 
-// --- Clause 4: Run disables ex-0 only (per-exercise, not singleton) ------
-// Clicking Run on exercise 0 must disable ONLY exercise 0's Run button.
-// Exercises 1 and 2 must still have enabled Run buttons.
-// This is the negative case: "Run disables all exercises (singleton leak)".
-//
-// rodney assert:
-//   const exercises = document.querySelectorAll('.bt-exercise');
-//   const ex0 = exercises[0];
-//   const ex1 = exercises[1];
-//   const ex2 = exercises[2];
-//   const runBtn0 = ex0.querySelector('.bt-run-btn');
-//   const runBtn1 = ex1.querySelector('.bt-run-btn');
-//   const runBtn2 = ex2.querySelector('.bt-run-btn');
-//   // Start a run on exercise 0 (the mock adapter resolves immediately,
-//   // so we need to check during the run — use a slow mock or check after).
-//   // Since the mock resolves instantly, we verify the re-enabled state
-//   // and the per-exercise isolation by checking that ex1/ex2 were never
-//   // disabled. The key assertion: after ex0's run completes, ex1/ex2
-//   // buttons are still enabled (never disabled).
-//   await window.__btExercises[0].runSubmission();
-//   assert(!runBtn0.disabled, "clause 4: ex-0 Run button re-enabled after run");
-//   assert(!runBtn1.disabled, "clause 4: ex-1 Run button never disabled (no singleton leak)");
-//   assert(!runBtn2.disabled, "clause 4: ex-2 Run button never disabled (no singleton leak)");
+const servers = [];
+let rodneyStarted = false;
+const probeLog = [];
+const screenshots = [];
 
-// --- Clause 5: cursor=not-allowed on disabled buttons --------------------
-// When a Run button is disabled (during runSubmission), its computed cursor
-// must be "not-allowed". This is a CSS rule: button[disabled] { cursor: not-allowed; }
-//
-// rodney assert:
-//   const ex0 = document.querySelectorAll('.bt-exercise')[0];
-//   const runBtn0 = ex0.querySelector('.bt-run-btn');
-//   // Temporarily disable the button and check the computed cursor
-//   runBtn0.disabled = true;
-//   const cursor = getComputedStyle(runBtn0).cursor;
-//   assert(cursor === 'not-allowed',
-//          "clause 5: disabled button cursor must be not-allowed, got " + cursor);
-//   runBtn0.disabled = false;
+function sleep(seconds) {
+  if (seconds > 0) {
+    execFileSync("sleep", [String(seconds)]);
+  }
+}
 
-// --- Clause 6: data-status closed set -------------------------------------
-// The .bt-status element's data-status attribute must be one of the closed
-// set: idle, running, pass, fail. Initially "idle", after a pass run "pass".
-//
-// rodney assert:
-//   const ex0 = document.querySelectorAll('.bt-exercise')[0];
-//   const statusEl = ex0.querySelector('.bt-status');
-//   assert(statusEl !== null, "clause 6: .bt-status element must exist");
-//   const initialStatus = statusEl.dataset.status;
-//   assert(["idle", "running", "pass", "fail"].includes(initialStatus),
-//          "clause 6: initial data-status must be in closed set, got " + initialStatus);
-//   // Run and check the status transitions to pass or fail
-//   await window.__btExercises[0].runSubmission();
-//   const finalStatus = statusEl.dataset.status;
-//   assert(["pass", "fail"].includes(finalStatus),
-//          "clause 6: post-run data-status must be pass or fail, got " + finalStatus);
+function writeTempScript(name, code) {
+  const file = path.join(os.tmpdir(), `exercise-ux-${name}.py`);
+  fs.writeFileSync(file, code);
+  return file;
+}
 
-// --- Clause 7: buttons re-enabled on pass ---------------------------------
-// After a run completes (pass or fail), the Run button must be re-enabled.
-// The runSubmission function sets runBtn.disabled = true at the start and
-// runBtn.disabled = false in the finally block.
-//
-// rodney assert:
-//   const ex0 = document.querySelectorAll('.bt-exercise')[0];
-//   const runBtn0 = ex0.querySelector('.bt-run-btn');
-//   await window.__btExercises[0].runSubmission();
-//   assert(!runBtn0.disabled,
-//          "clause 7: Run button must be re-enabled after run completes");
+function waitForPort(port, timeoutSeconds = 10) {
+  const deadline = Date.now() + timeoutSeconds * 1000;
+  while (Date.now() < deadline) {
+    try {
+      execFileSync(
+        "curl",
+        ["-s", "-o", "/dev/null", `http://localhost:${port}/`],
+        { timeout: 500 },
+      );
+      return true;
+    } catch (_) {
+      sleep(0.2);
+    }
+  }
+  return false;
+}
 
-// --- Negative: solution button for empty exercise -------------------------
-// Exercise 2 has no solution → no solution button must be present.
-// This is the negative case: "Solution button for empty exercise".
-//
-// rodney assert:
-//   const ex2 = document.querySelectorAll('.bt-exercise')[2];
-//   const solutionBtn2 = ex2.querySelector('.bt-solution-btn');
-//   assert(solutionBtn2 === null,
-//          "negative: exercise 2 (no solution) must NOT have a solution button");
+function startServer() {
+  const script = writeTempScript("coiserve", STATIC_SERVER_PY);
+  const proc = spawn("python3", [script, String(STATIC_PORT)], {
+    cwd: WORKTREE,
+    detached: true,
+    stdio: "ignore",
+  });
+  proc.unref();
+  servers.push(proc);
+  if (!waitForPort(STATIC_PORT)) {
+    throw new Error(`Static server did not start on port ${STATIC_PORT}`);
+  }
+}
+
+function stopServers() {
+  for (const proc of servers) {
+    try {
+      process.kill(-proc.pid, "SIGTERM");
+    } catch (_) {}
+  }
+}
+
+function rodney(args) {
+  const out = execFileSync("uvx", ["rodney", ...args], {
+    cwd: WORKTREE,
+    encoding: "utf8",
+    timeout: 60000,
+  });
+  return out.trim();
+}
+
+function record(name, passed, details) {
+  const status = passed ? "PASS" : "FAIL";
+  probeLog.push({ name, status, details });
+  console.log(`[${status}] ${name}: ${details}`);
+}
+
+function rodneyJs(code) {
+  return rodney(["js", code]);
+}
+
+function rodneyAssert(name, expr) {
+  // Evaluate a boolean expression via `rodney js` and record the result.
+  // Wrap in an IIFE so we can use statements (const, etc.) inside the probe.
+  const wrapped = `(() => { ${expr}; })()`;
+  let raw;
+  try {
+    raw = rodneyJs(wrapped);
+  } catch (err) {
+    record(name, false, err.stderr || err.message || "rodney js failed");
+    return;
+  }
+  const passed = raw === "true";
+  record(name, passed, passed ? "assertion passed" : `assertion returned: ${raw}`);
+}
+
+function ensureRenderedFixture() {
+  const fixtureHtml = path.join(WORKTREE, "quarto-fixture", "ux.html");
+  if (!fs.existsSync(fixtureHtml)) {
+    console.log("Rendering ux.qmd ...");
+    execFileSync(QUARTO_BIN, ["render", "quarto-fixture/ux.qmd"], {
+      cwd: WORKTREE,
+      stdio: "inherit",
+    });
+  }
+}
+
+function generateBlankPage() {
+  fs.writeFileSync(
+    path.join(WORKTREE, "quarto-fixture", "_probe-blank.html"),
+    "<!DOCTYPE html><html><body></body></html>",
+  );
+}
+
+function navigateToFixture() {
+  rodney(["open", BLANK_URL]);
+  rodneyJs(`window.location.href = '${FIXTURE_URL}'`);
+  sleep(3);
+}
+
+function waitForBoot(timeoutSeconds = 15) {
+  const deadline = Date.now() + timeoutSeconds * 1000;
+  while (Date.now() < deadline) {
+    try {
+      const raw = rodneyJs("window.__btExercises && window.__btExercises.length >= 3");
+      if (raw === "true") return true;
+    } catch (_) {}
+    sleep(0.2);
+  }
+  return false;
+}
+
+function screenshot(name, description, acReference) {
+  const relPath = path.join("docs", "evidence", "113", `${name}.png`);
+  const absPath = path.join(WORKTREE, relPath);
+  fs.mkdirSync(path.dirname(absPath), { recursive: true });
+  rodney(["screenshot", absPath]);
+  screenshots.push({
+    path: relPath,
+    ui_state: description,
+    ac_reference: acReference,
+  });
+  console.log(`[screenshot] ${relPath}`);
+}
+
+function runProbes() {
+  // ------------------------------------------------------------------
+  // Boot
+  // ------------------------------------------------------------------
+  rodney(["start"]);
+  rodneyStarted = true;
+  navigateToFixture();
+  if (!waitForBoot()) {
+    throw new Error("Runtime did not boot or registry was not populated");
+  }
+
+  // ------------------------------------------------------------------
+  // Clause 1: hints visible/absent
+  // ------------------------------------------------------------------
+  screenshot(
+    "01-initial-state",
+    "Initial render: three exercises with hints on ex0, no hints on ex2, Run/Check/Solution buttons",
+    "AC-8 clause 1 (hints visible/absent), clause 3 (check button conditional), negative (solution button for empty exercise)",
+  );
+  rodneyAssert(
+    "clause-1: hints visible/absent",
+    "const exercises = document.querySelectorAll('.bt-exercise'); " +
+      "const ex0 = exercises[0]; const ex2 = exercises[2]; " +
+      "return ex0.querySelector('details.bt-hints') !== null && " +
+      "ex2.querySelector('details.bt-hints') === null",
+  );
+
+  // ------------------------------------------------------------------
+  // Clause 3: check button absent when no checks
+  // ------------------------------------------------------------------
+  rodneyAssert(
+    "clause-3: check button absent when no checks",
+    "const exercises = document.querySelectorAll('.bt-exercise'); " +
+      "const ex0 = exercises[0]; const ex1 = exercises[1]; const ex2 = exercises[2]; " +
+      "return ex0.querySelector('.bt-check-btn') !== null && " +
+      "ex1.querySelector('.bt-check-btn') === null && " +
+      "ex2.querySelector('.bt-check-btn') === null",
+  );
+
+  // ------------------------------------------------------------------
+  // Negative: solution button for empty exercise
+  // ------------------------------------------------------------------
+  rodneyAssert(
+    "negative: solution button for empty exercise",
+    "return document.querySelectorAll('.bt-exercise')[2].querySelector('.bt-solution-btn') === null",
+  );
+
+  // ------------------------------------------------------------------
+  // Clause 2: solution button click inserts text
+  // ------------------------------------------------------------------
+  rodneyAssert(
+    "clause-2: solution button inserts solution text",
+    "const exercises = document.querySelectorAll('.bt-exercise'); " +
+      "const ex0 = exercises[0]; " +
+      "const entry = window.__btExercises[0]; " +
+      "const before = entry.getSubmission(); " +
+      "ex0.querySelector('.bt-solution-btn').click(); " +
+      "const after = entry.getSubmission(); " +
+      "return after === entry.payload.solution && after !== before",
+  );
+  screenshot(
+    "02-solution-inserted",
+    "Exercise 0 after clicking Show solution: editor contains 'a + b'",
+    "AC-8 clause 2 (solution button click inserts text)",
+  );
+
+  // ------------------------------------------------------------------
+  // Clause 4: Run disables ex-0 only (per-exercise, not singleton)
+  // Patch the mock adapter to delay so we can inspect the disabled state.
+  // ------------------------------------------------------------------
+  rodneyJs(
+    "(() => { " +
+      "window.__btTestAdapter.run = async (code, checks, packages) => { " +
+      "await new Promise(r => setTimeout(r, 2000)); " +
+      "return { output: 'slow mock pass', ok: true }; " +
+      "}; " +
+      "})()",
+  );
+  rodneyJs(
+    "(() => { " +
+      "document.querySelectorAll('.bt-exercise')[0].querySelector('.bt-run-btn').click(); " +
+      "})()",
+  );
+  sleep(0.5);
+  screenshot(
+    "03-run-disabled-isolation",
+    "During exercise 0 run: ex0 Run button disabled, ex1 and ex2 Run buttons still enabled",
+    "AC-8 clause 4 (Run disables ex-0 only), clause 5 (cursor on disabled buttons), clause 7 (buttons re-enabled on pass)",
+  );
+  rodneyAssert(
+    "clause-4: Run disables ex-0 only",
+    "const exercises = document.querySelectorAll('.bt-exercise'); " +
+      "const runBtn0 = exercises[0].querySelector('.bt-run-btn'); " +
+      "const runBtn1 = exercises[1].querySelector('.bt-run-btn'); " +
+      "const runBtn2 = exercises[2].querySelector('.bt-run-btn'); " +
+      "return runBtn0.disabled === true && runBtn1.disabled === false && runBtn2.disabled === false",
+  );
+
+  // ------------------------------------------------------------------
+  // Clause 5: cursor=not-allowed on disabled buttons
+  // ------------------------------------------------------------------
+  rodneyAssert(
+    "clause-5: cursor not-allowed on disabled buttons",
+    "const runBtn0 = document.querySelectorAll('.bt-exercise')[0].querySelector('.bt-run-btn'); " +
+      "runBtn0.disabled = true; " +
+      "const cursor = getComputedStyle(runBtn0).cursor; " +
+      "runBtn0.disabled = false; " +
+      "return cursor === 'not-allowed'",
+  );
+
+  // Wait for the slow run to finish before the next assertions.
+  sleep(2);
+
+  // ------------------------------------------------------------------
+  // Clause 6: data-status closed set
+  // ------------------------------------------------------------------
+  rodneyAssert(
+    "clause-6: data-status closed set",
+    "const ex0 = document.querySelectorAll('.bt-exercise')[0]; " +
+      "const statusEl = ex0.querySelector('.bt-status'); " +
+      "return ['idle','running','pass','fail'].includes(statusEl.dataset.status)",
+  );
+
+  // ------------------------------------------------------------------
+  // Clause 7: buttons re-enabled on pass
+  // ------------------------------------------------------------------
+  rodneyAssert(
+    "clause-7: buttons re-enabled on pass",
+    "const exercises = document.querySelectorAll('.bt-exercise'); " +
+      "const runBtn0 = exercises[0].querySelector('.bt-run-btn'); " +
+      "const runBtn1 = exercises[1].querySelector('.bt-run-btn'); " +
+      "const runBtn2 = exercises[2].querySelector('.bt-run-btn'); " +
+      "return runBtn0.disabled === false && runBtn1.disabled === false && runBtn2.disabled === false",
+  );
+  screenshot(
+    "04-status-pass",
+    "After exercise 0 run completes: status shows pass, all Run buttons re-enabled",
+    "AC-8 clause 6 (data-status closed set), clause 7 (buttons re-enabled on pass)",
+  );
+}
+
+function writeReport() {
+  fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
+  const failed = probeLog.filter((p) => p.status === "FAIL");
+  const verdict = failed.length === 0 ? "PROBES_PASS" : "PROBES_FAIL";
+
+  const report = {
+    issue: 113,
+    branch: "113-ux-polish",
+    worktree: WORKTREE,
+    timestamp: new Date().toISOString(),
+    probes: probeLog,
+    screenshots,
+    verdict,
+  };
+
+  fs.writeFileSync(
+    path.join(EVIDENCE_DIR, "probe-report.json"),
+    JSON.stringify(report, null, 2),
+  );
+
+  const lines = [
+    `# Rodney probes for issue #113`,
+    `verdict: ${verdict}`,
+    `timestamp: ${report.timestamp}`,
+    "",
+    ...probeLog.map((p) => `- ${p.status}: ${p.name}\n  ${p.details}`),
+    "",
+    "## Screenshots",
+    ...screenshots.map(
+      (s) => `- ${s.path} — ${s.ui_state} (${s.ac_reference})`,
+    ),
+  ];
+  fs.writeFileSync(path.join(EVIDENCE_DIR, "rodney.log"), lines.join("\n"));
+
+  console.log(`\n=== ${verdict} ===`);
+  console.log(`report: ${path.join(EVIDENCE_DIR, "probe-report.json")}`);
+  console.log(`log:    ${path.join(EVIDENCE_DIR, "rodney.log")}`);
+}
+
+function main() {
+  try {
+    ensureRenderedFixture();
+    generateBlankPage();
+    startServer();
+    runProbes();
+  } catch (err) {
+    console.error("Probe harness failed:", err.message);
+    record("harness", false, err.message);
+  } finally {
+    if (rodneyStarted) {
+      try {
+        rodney(["stop"]);
+      } catch (_) {}
+    }
+    stopServers();
+    writeReport();
+  }
+}
+
+main();

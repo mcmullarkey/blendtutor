@@ -71,7 +71,7 @@ else
     local input="$1"
     local output="$2"
     if [ "$RENDER_TOOL" = "quarto" ]; then
-      quarto render "$input" --to html -o "$output" 2>&1
+      quarto render "$input" --to html 2>&1
     else
       pandoc "$input" --from markdown --to html \
         --lua-filter "$LUA_FILTER" -o "$output" 2>&1

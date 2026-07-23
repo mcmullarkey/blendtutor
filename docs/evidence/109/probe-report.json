@@ -1,0 +1,51 @@
+{
+  "issue": 109,
+  "branch": "109-multi-exercise-runtime-core",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/blendtutor",
+  "timestamp": "2026-07-23T16:05:26Z",
+  "probes": [
+    {
+      "name": "runtime-probe.js (builder script on runtime.html)",
+      "status": "PASS",
+      "details": "13 assertions; 13 PASS, 0 FAIL. Assertion 7 (per-exercise data-status isolation) previously failed due to test-ordering artifact — assertion 6 left exercise 1 status as 'pass' from a successful runSubmission(). Fixed: assertion 7 now resets exercise 1 to 'idle' before the isolation check, so it tests real cross-exercise leakage rather than stale state."
+    },
+    {
+      "name": "runtime-edge-probe.js (builder script on runtime-edge.html)",
+      "status": "PASS",
+      "details": "3 edge-case assertions all pass: malformed JSON isolation, duplicate-id defense, graceful degradation (CM6 fail -> textarea)."
+    },
+    {
+      "name": "direct deterministic checks (runtime.html)",
+      "status": "PASS",
+      "details": "registry Array length 3 with get(id), 3 .cm-editor instances, window.__bt undefined, no #submission, per-exercise data-status isolation in fresh state."
+    },
+    {
+      "name": "direct deterministic checks (runtime-edge.html)",
+      "status": "PASS",
+      "details": "registry length 3 after malformed+duplicate skipped, duplicate-id defense, CM6-fail null editorView, textarea fallback present."
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "docs/evidence/109/runtime-initial.png",
+      "ui_state": "runtime.html initial load: 3 bt-exercise widgets with CodeMirror 6 editors (R + Python + empty template)",
+      "ac_reference": "AC-4 multi-exercise runtime core"
+    },
+    {
+      "path": "docs/evidence/109/runtime-after-runs.png",
+      "ui_state": "runtime.html after clicking Run on exercises 0 and 1, showing per-exercise status and output",
+      "ac_reference": "AC-4 per-exercise run/check isolation"
+    },
+    {
+      "path": "docs/evidence/109/runtime-edge-initial.png",
+      "ui_state": "runtime-edge.html initial load: malformed JSON, duplicate ID, CM6-fail, and valid exercises",
+      "ac_reference": "AC-4 duplicate-id defense and graceful degradation"
+    },
+    {
+      "path": "docs/evidence/109/runtime-edge-cm6-fallback.png",
+      "ui_state": "CM6-fail exercise rendered as a textarea fallback",
+      "ac_reference": "AC-4 graceful degradation (CM6 fail -> textarea)"
+    }
+  ],
+  "verdict": "PROBES_PASS"
+}

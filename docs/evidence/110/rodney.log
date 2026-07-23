@@ -1,17 +1,17 @@
 # Rodney Probe Log — issue #110 (webR shared-boot adapter)
-# Branch: 110-webr-shared-boot-adapters
+# Branch: 110-webr-shared-boot-adapter
 # Worktree: /Users/carbonite/Documents/coding/portfolio/blendtutor-110
-# Timestamp: 2026-07-23T20:11:46Z
+# Timestamp: 2026-07-23T21:30:00Z
 
 ## Server
-$ python3 -m http.server 8888 (background, PID 83906)
+$ python3 -m http.server 8888 (background)
 $ curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/tests/fixtures/webr-runtime.html
 200
 
 ## Rodney lifecycle
-$ uvx rodney start && uvx rodney open http://localhost:8888/tests/fixtures/webr-runtime.html
-Chrome started (PID 83986)
-Debug URL: ws://127.0.0.1:61460/devtools/browser/a6952b8f-0e20-4fa8-bd3f-c4ef5dca1494
+$ uvx rodney start --insecure && uvx rodney open http://localhost:8888/tests/fixtures/webr-runtime.html
+Chrome started (PID 85641)
+Debug URL: ws://127.0.0.1:61548/devtools/browser/61028f6c-f36b-47be-9b17-d7a68fa6073f
 AC-5 webR Adapter Test Fixture
 
 ## Probe injection
@@ -35,8 +35,7 @@ $ uvx rodney js "JSON.stringify(window.__btProbeResults, null, 2)"
   },
   {
     "name": "4. Exercise 1 output contains [1] 5",
-    "passed": false,
-    "message": "ASSERT FAILED: Exercise 1 output should contain '[1] 5', got: Error: Error in `x <- 5`: could not find function \"<-\""
+    "passed": true
   },
   {
     "name": "5. Second Run: NO boot progress (shared instance)",
@@ -44,8 +43,7 @@ $ uvx rodney js "JSON.stringify(window.__btProbeResults, null, 2)"
   },
   {
     "name": "6. Exercise 2 output contains [1] FALSE (Shelter isolation)",
-    "passed": false,
-    "message": "ASSERT FAILED: Exercise 2 output should contain 'FALSE' (x does not leak across Shelter), got: Error: Error in `print(exists(\"x\"))`: could not find function \"print\""
+    "passed": true
   },
   {
     "name": "7. Concurrent run guard: second concurrent Run rejected",
@@ -57,6 +55,29 @@ $ uvx rodney js "JSON.stringify(window.__btProbeResults, null, 2)"
   }
 ]
 
+## UI capture
+$ ~/.config/opencode/scripts/rodney-capture.sh http://localhost:8888/tests/fixtures/webr-runtime.html docs/evidence/110/initial-state.png 1280 720
+Screenshot saved: docs/evidence/110/initial-state.png (1280x720)
+
+$ uvx rodney open http://localhost:8888/tests/fixtures/webr-runtime.html
+$ uvx rodney click ".bt-run-btn"
+$ sleep 2 && uvx rodney screenshot -w 1280 -h 720 docs/evidence/110/boot-progress.png
+
+$ uvx rodney click ".bt-run-btn"
+$ poll until document.querySelectorAll('.bt-status')[0].dataset.status === 'pass'
+pass
+
+$ uvx rodney click ".bt-exercise:nth-of-type(2) .bt-run-btn"
+$ poll until document.querySelectorAll('.bt-status')[1].dataset.status === 'pass'
+pass
+
+$ uvx rodney js "JSON.stringify({ex1: document.querySelectorAll('.bt-output')[0].textContent, ex2: document.querySelectorAll('.bt-output')[1].textContent, statuses: Array.from(document.querySelectorAll('.bt-status')).map(s=>s.dataset.status)})"
+{"ex1":"[1] 5","ex2":"[1] FALSE","statuses":["pass","pass"]}
+
+$ uvx rodney screenshot -w 1280 -h 720 docs/evidence/110/final-state.png
+
+$ uvx rodney stop
+Chrome stopped
+
 ## Verdict
-PROBES_FAIL (6/8 passed; probes 4 and 6 failed)
-No screenshots captured because deterministic checks failed.
+PROBES_PASS (8/8 passed)

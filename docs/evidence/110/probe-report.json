@@ -2,7 +2,7 @@
   "issue": "110",
   "branch": "110-webr-shared-boot-adapter",
   "worktree": "/Users/carbonite/Documents/coding/portfolio/blendtutor-110",
-  "timestamp": "2026-07-23T20:11:46Z",
+  "timestamp": "2026-07-23T21:30:00Z",
   "probes": [
     {
       "name": "1. crossOriginIsolated === false (degraded channel)",
@@ -21,8 +21,8 @@
     },
     {
       "name": "4. Exercise 1 output contains [1] 5",
-      "status": "FAIL",
-      "details": "ASSERT FAILED: Exercise 1 output should contain '[1] 5', got: Error: Error in `x <- 5`: could not find function \"<-\""
+      "status": "PASS",
+      "details": "Output: '[1] 5'"
     },
     {
       "name": "5. Second Run: NO boot progress (shared instance)",
@@ -31,8 +31,8 @@
     },
     {
       "name": "6. Exercise 2 output contains [1] FALSE (Shelter isolation)",
-      "status": "FAIL",
-      "details": "ASSERT FAILED: Exercise 2 output should contain 'FALSE' (x does not leak across Shelter), got: Error: Error in `print(exists(\"x\"))`: could not find function \"print\""
+      "status": "PASS",
+      "details": "Output: '[1] FALSE'"
     },
     {
       "name": "7. Concurrent run guard: second concurrent Run rejected",
@@ -45,6 +45,22 @@
       "details": null
     }
   ],
-  "screenshots": [],
-  "verdict": "PROBES_FAIL"
+  "screenshots": [
+    {
+      "path": "docs/evidence/110/initial-state.png",
+      "ui_state": "Fixture loaded, no exercise run yet",
+      "ac_reference": "AC-5 lazy boot / initial UI state"
+    },
+    {
+      "path": "docs/evidence/110/boot-progress.png",
+      "ui_state": "First Run clicked, webR boot progress visible",
+      "ac_reference": "AC-5 clause 3"
+    },
+    {
+      "path": "docs/evidence/110/final-state.png",
+      "ui_state": "Both exercises completed with pass status; Exercise 1 output [1] 5, Exercise 2 output [1] FALSE",
+      "ac_reference": "AC-5 clauses 4, 5, 6"
+    }
+  ],
+  "verdict": "PROBES_PASS"
 }

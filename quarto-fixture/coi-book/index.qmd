@@ -1,0 +1,8 @@
+---
+title: Introduction (no COI)
+filters: [../../_extensions/blendtutor/blendtutor.lua]
+---
+
+# Introduction
+
+This page does NOT opt into COI. No script tag should be present.

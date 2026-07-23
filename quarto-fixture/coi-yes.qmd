@@ -1,0 +1,10 @@
+---
+title: COI yes fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## COI yes — must NOT activate (only "true" accepted)
+
+::: {coi="yes"}
+This page uses "yes" which is NOT the accepted value.
+:::

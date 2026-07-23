@@ -1,0 +1,18 @@
+---
+title: COI with Python exercise — no R exercises
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## COI + Python exercise (no R)
+
+::: {.blendtutor language="python" coi="true"}
+Set `x` to 42.
+
+```python
+x = 42
+```
+
+```{.python .checks}
+assert x == 42
+```
+:::

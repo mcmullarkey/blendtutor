@@ -1,0 +1,11 @@
+---
+title: COI via YAML metadata
+filters: [../_extensions/blendtutor/blendtutor.lua]
+coi: true
+---
+
+## COI activated via YAML metadata
+
+This page opts into cross-origin isolation via document-level YAML `coi: true`.
+
+No div attribute needed — the YAML metadata activates COI for the entire page.

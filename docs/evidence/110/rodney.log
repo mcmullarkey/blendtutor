@@ -1,7 +1,8 @@
-=== AC-5 webR Adapter Rodney Probe Results — Issue #110 ===
+=== AC-5 webR Adapter Rodney Probe Results — Issue #110 (re-run) ===
 Branch: 110-webr-shared-boot-adapter
+Worktree: /Users/carbonite/Documents/coding/portfolio/blendtutor-110
 Fixture: tests/fixtures/webr-runtime.html
-Timestamp: 2026-07-23T17:01:00Z
+Timestamp: 2026-07-23T12:03:30Z
 
 Probe script: scripts/tests/webr-probe.js (8 assertions)
 
@@ -10,10 +11,10 @@ Results:
   PASS: 2. Before first Run: no webr.wasm fetch (lazy boot)
   PASS: 3. First Run: boot progress shown
   FAIL: 4. Exercise 1 output contains [1] 5
-        ASSERT FAILED: Exercise 1 output should contain '[1] 5', got: Error: shelter.evalR is not a function
+        ASSERT FAILED: Exercise 1 output should contain '[1] 5', got: Error: webR.newShelter is not a function
   PASS: 5. Second Run: NO boot progress (shared instance)
   FAIL: 6. Exercise 2 output contains [1] FALSE (Shelter isolation)
-        ASSERT FAILED: Exercise 2 output should contain 'FALSE' (x does not leak across Shelter), got: Error: shelter.evalR is not a function
+        ASSERT FAILED: Exercise 2 output should contain 'FALSE' (x does not leak across Shelter), got: Error: webR.newShelter is not a function
   PASS: 7. Concurrent run guard: second concurrent Run rejected
   PASS: 8. Boot state machine: getBootState() returns 'ready' after boot
 
@@ -22,9 +23,9 @@ Failed: 2/8
 
 Verdict: PROBES_FAIL
 
-NOTE: The webR Shelter object returned by `new webR.Shelter()` does not expose
-`evalR` in the loaded CDN build, so the adapter's captureR/evalR fallback path
-fails. Both output assertions (4 and 6) fail with "shelter.evalR is not a function".
-Lazy boot, shared instance, concurrent guard, and boot state machine all pass.
-
+NOTE: The latest fix changed the Shelter creation to `webR.newShelter()`, but the
+loaded CDN build does not expose `newShelter` on the WebR instance. Runtime
+inspection shows `webR.Shelter` exists and is the async Shelter constructor:
+`shelter = await new webR.Shelter()`. That is the API that exposes `captureR`.
+Tests 4 and 6 still fail because the adapter cannot create a usable Shelter.
 Screenshots skipped per Phase 1 protocol because deterministic checks failed.

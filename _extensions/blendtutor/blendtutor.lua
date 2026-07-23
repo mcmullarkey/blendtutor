@@ -33,6 +33,19 @@ local has_python = false
 -- loadPyodide is a global function, not an ES module export (§3.4).
 local PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"
 
+-- COI flags (AC-9, ADR-0015) — opt-in cross-origin isolation.
+-- has_coi: set in Div() when coi="true" is found on ANY div, or in Pandoc()
+--          when YAML metadata coi: true is present.
+-- hasCoiDone: dedup guard — prevents duplicate coi-serviceworker.js injection
+--             when multiple coi="true" divs exist on the same page.
+-- Both reset in Pandoc() so each document gets a fresh check (per-page isolation).
+local has_coi = false
+local hasCoiDone = false
+
+-- Path to vendored coi-serviceworker.js (synced via sync-quarto-assets.sh, mode=copy).
+-- The service worker re-serves pages with COOP/COEP headers for SharedArrayBuffer.
+local COI_SCRIPT_PATH = "_extensions/blendtutor/assets/coi-serviceworker.js"
+
 -- ---------------------------------------------------------------------------
 -- JSON encoding helpers (Lua has no built-in JSON encoder)
 -- ---------------------------------------------------------------------------
@@ -266,6 +279,14 @@ end
 -- @param div A Pandoc Div element
 -- @return A RawBlock with widget HTML, or nil (pass-through), or the original div (skip)
 function Div(div)
+  -- Check for COI activation (AC-9, ADR-0015) — on ANY div, not just blendtutor.
+  -- COI is a page-level concern, separate from exercise runtime (§3).
+  -- Only the exact string "true" activates; "false", "yes", "" are rejected (§1).
+  if div.attributes["coi"] == "true" then
+    has_coi = true
+  end
+
+  -- Non-blendtutor divs: pass through (COI flag already set above if present).
   if not div.classes:includes("blendtutor") then
     return nil
   end
@@ -319,6 +340,16 @@ end
 function Pandoc(doc)
   exercise_count = 0
 
+  -- Check YAML metadata for coi: true (AC-9, ADR-0015).
+  -- YAML boolean true activates COI at the document level (no div needed).
+  -- Also accepts string "true" for robustness across YAML parsers.
+  local yaml_coi = doc.meta["coi"]
+  if yaml_coi == true then
+    has_coi = true
+  elseif type(yaml_coi) == "string" and yaml_coi == "true" then
+    has_coi = true
+  end
+
   -- Inject CDN script tag if Python exercises are present (AC-6).
   -- has_python is set in Div() which runs before Pandoc().
   if has_python and is_html_format() and not hasDoneSetup then
@@ -333,9 +364,26 @@ function Pandoc(doc)
     end
   end
 
-  -- Reset flags for next document
+  -- Inject coi-serviceworker.js if COI is activated (AC-9, ADR-0015).
+  -- has_coi is set in Div() (coi="true" attribute) or above (YAML coi: true).
+  -- hasCoiDone guard ensures one activation path per page (§5 — no duplicates).
+  if has_coi and is_html_format() and not hasCoiDone then
+    hasCoiDone = true
+    local coi_script = '<script src="' .. COI_SCRIPT_PATH .. '"></script>'
+    -- Try Quarto API first (injects in <head>), fall back to RawBlock.
+    if quarto and quarto.doc and quarto.doc.include_text then
+      quarto.doc.include_text("in-header", coi_script)
+    else
+      -- Pandoc fallback: prepend to document body.
+      table.insert(doc.blocks, 1, pandoc.RawBlock("html", coi_script))
+    end
+  end
+
+  -- Reset flags for next document (per-page isolation, §3).
   has_python = false
   hasDoneSetup = false
+  has_coi = false
+  hasCoiDone = false
 
   return doc
 end

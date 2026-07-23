@@ -1,0 +1,139 @@
+=== COI Filter Test ===
+Using render tool: pandoc
+== Clause 1: coi="true" activates ==
+  PASS: coi-true.qmd render exits 0
+  PASS: coi="true" activates — script tag present
+== Clause 2: false/yes/empty rejected ==
+  PASS: coi="false" rejected — no script tag
+  PASS: coi="yes" rejected — no script tag
+  PASS: coi="" rejected — no script tag
+== Clause 3: dedup (one script tag for multiple coi="true" divs) ==
+  PASS: dedup — exactly one script tag (1 found)
+== Clause 4: byte-parity (vendored == source) ==
+  PASS: byte-parity — vendored coi-serviceworker.js byte-identical to source
+== Clause 5: per-page isolation ==
+  PASS: per-page isolation — coi chapter has script tag
+  PASS: per-page isolation — no-coi chapter has no script tag
+  PASS: per-page isolation — index has no script tag
+== Clause 6: no R exercises still registers ==
+  PASS: no R exercises still registers — coi script tag present
+== Clause 7: coi-yaml (document-level YAML activates) ==
+  PASS: coi-yaml — script tag present (YAML coi: true activates)
+== Negative: script src does NOT 404 ==
+  PASS: script src resolves — coi-serviceworker.js exists at _extensions/blendtutor/assets/coi-serviceworker.js
+== Negative: filter does NOT hardcode script tag ==
+  PASS: no hardcode — no script tag when coi attribute absent
+
+=========================================
+  Results: 14 passed, 0 failed
+=========================================
+All tests passed.
+
+=== Quarto Filter Test ===
+Using render tool: pandoc
+== Structural guard: .qmd YAML declares explicit filter path ==
+  PASS: filter path declared in filter.qmd YAML
+== Assertions 1-6: HTML render + JSON contract ==
+  PASS: render exits 0
+All assertions passed (4 widgets verified)
+  PASS: >=3 bt-exercise widgets with all 9 keys
+  PASS: full exercise values correct (prompt <code>, code_template <-, checks len 2, solution 'a + b', hints <-, gotchas null, packages [])
+  PASS: minimal Python: packages parsed, all 9 keys present
+  PASS: empty exercise: all 9 keys present (null/[] for absent)
+  PASS: IDs distinct, titles non-empty
+  PASS: llm_evaluation_prompt ABSENT
+== Assertion 7: non-HTML format skips widget emission ==
+  PASS: non-HTML render exits 0
+  PASS: no bt-exercise in non-HTML output
+  PASS: warning emitted for non-HTML format
+== Assertion 8: invalid language warning + skip ==
+  PASS: invalid-lang render exits 0
+  PASS: no bt-exercise for invalid language
+  PASS: warning for invalid language
+== Assertion 9: missing language warning + skip ==
+  PASS: missing-lang render exits 0
+  PASS: no bt-exercise for missing language
+  PASS: warning for missing language
+
+=========================================
+  Results: 17 passed, 0 failed
+=========================================
+All tests passed.
+
+=== Pyodide Adapter Test ===
+== Part 1: Node.js validation ==
+
+=== AC-6 Pyodide Adapter Validation Results ===
+Passed: 60
+Failed: 0
+All validations passed.
+  PASS: Node.js validation passed
+== Part 2: Quarto render pyodide.qmd ==
+Using render tool: pandoc
+  PASS: pyodide.qmd render exits 0
+  PASS: >=2 bt-exercise widgets in pyodide.qmd (2 found)
+  PASS: CDN script tag injected for Python exercises
+  PASS: exactly one pyodide.js CDN script tag
+  PASS: mixed-lang.qmd render exits 0
+  PASS: >=2 bt-exercise widgets in mixed-lang.qmd (2 found)
+  PASS: CDN script tag injected for mixed-lang (Python present)
+== Part 3: Negative case — no CDN for R-only ==
+  PASS: r-only.qmd render exits 0
+  PASS: >=2 bt-exercise widgets in r-only.qmd (2 found)
+  PASS: CDN NOT injected for R-only — pyodide.js CDN URL absent from HTML
+
+=========================================
+  Results: 11 passed, 0 failed
+=========================================
+All tests passed.
+
+=== Sync Assets Test ===
+== Assertion 1: codemirror.js exists in vendored assets ==
+  PASS: codemirror.js exists at _extensions/blendtutor/assets/codemirror.js
+== Assertion 2: codemirror.js byte-identical to source ==
+  PASS: codemirror.js byte-identical (cmp exit 0)
+== Assertion 3: codemirror.js >= 690000 bytes ==
+  PASS: codemirror.js is 693348 bytes (>= 690000)
+== Assertion 4: styles.css exists in vendored assets ==
+  PASS: styles.css exists at _extensions/blendtutor/assets/styles.css
+== Assertion 5: sync script exists + executable ==
+  PASS: sync script exists at scripts/sync-quarto-assets.sh
+  PASS: sync script is executable
+== Assertion 6: --check exits 0 (probe) ==
+  ok: codemirror.js matches source
+  ok: styles.css matches source
+  ok: coi-serviceworker.js matches source
+All assets in sync.
+  PASS: --check exits 0 (assets in sync)
+== Assertion 7: idempotency (sync produces no git diff) ==
+  synced: codemirror.js → codemirror.js (copy)
+  synced: styles.css → styles.css (scope)
+  synced: coi-serviceworker.js → coi-serviceworker.js (copy)
+  PASS: idempotency: sync produces no git diff
+== Assertion 8: no symlinks in assets dir ==
+  PASS: no symlinks in assets dir
+== Assertion 9: drift detection (--check exits 1) ==
+  ok: styles.css matches source
+  ok: coi-serviceworker.js matches source
+  PASS: drift detection: --check exits 1 when vendored modified
+== Assertion 10: missing source detection (--check exits 2) ==
+  PASS: missing source: --check exits 2
+== Assertion 11: symlink detection (--check exits 3) ==
+  PASS: symlink detection: --check exits 3
+  synced: codemirror.js → codemirror.js (copy)
+  synced: styles.css → styles.css (scope)
+  synced: coi-serviceworker.js → coi-serviceworker.js (copy)
+
+=========================================
+  Results: 12 passed, 0 failed
+=========================================
+All tests passed.
+
+=== Sync Parity Check ===
+  ok: codemirror.js matches source
+  ok: styles.css matches source
+  ok: coi-serviceworker.js matches source
+All assets in sync.
+
+=== Cargo Fmt Check ===
+cargo fmt: OK

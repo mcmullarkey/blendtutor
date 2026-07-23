@@ -97,6 +97,11 @@ enum Commands {
         #[arg(long)]
         embed_key: Option<String>,
     },
+    /// Export a lesson YAML file to a Quarto `.qmd` fenced-div snippet.
+    ExportQuarto {
+        /// Path to the lesson YAML file.
+        lesson: PathBuf,
+    },
 }
 
 /// What `blendtutor new` creates. A nested subcommand rather than a positional
@@ -142,5 +147,6 @@ fn main() -> anyhow::Result<ExitCode> {
             password.as_deref(),
             embed_key.as_deref(),
         ),
+        Commands::ExportQuarto { lesson } => commands::export_quarto::run(&lesson),
     }
 }

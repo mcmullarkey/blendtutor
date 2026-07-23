@@ -1,0 +1,30 @@
+=== AC-5 webR Adapter Rodney Probe Results — Issue #110 ===
+Branch: 110-webr-shared-boot-adapter
+Fixture: tests/fixtures/webr-runtime.html
+Timestamp: 2026-07-23T17:01:00Z
+
+Probe script: scripts/tests/webr-probe.js (8 assertions)
+
+Results:
+  PASS: 1. crossOriginIsolated === false (degraded channel)
+  PASS: 2. Before first Run: no webr.wasm fetch (lazy boot)
+  PASS: 3. First Run: boot progress shown
+  FAIL: 4. Exercise 1 output contains [1] 5
+        ASSERT FAILED: Exercise 1 output should contain '[1] 5', got: Error: shelter.evalR is not a function
+  PASS: 5. Second Run: NO boot progress (shared instance)
+  FAIL: 6. Exercise 2 output contains [1] FALSE (Shelter isolation)
+        ASSERT FAILED: Exercise 2 output should contain 'FALSE' (x does not leak across Shelter), got: Error: shelter.evalR is not a function
+  PASS: 7. Concurrent run guard: second concurrent Run rejected
+  PASS: 8. Boot state machine: getBootState() returns 'ready' after boot
+
+Passed: 6/8
+Failed: 2/8
+
+Verdict: PROBES_FAIL
+
+NOTE: The webR Shelter object returned by `new webR.Shelter()` does not expose
+`evalR` in the loaded CDN build, so the adapter's captureR/evalR fallback path
+fails. Both output assertions (4 and 6) fail with "shelter.evalR is not a function".
+Lazy boot, shared instance, concurrent guard, and boot state machine all pass.
+
+Screenshots skipped per Phase 1 protocol because deterministic checks failed.

@@ -60,3 +60,21 @@ jobs:
 
       - name: Quarto extension render test
         run: bash scripts/tests/test_quarto_render.sh
+
+  asset-parity:
+    name: asset parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Sync assets
+        run: bash scripts/sync-quarto-assets.sh
+
+      - name: Check no drift (git diff --exit-code)
+        run: git diff --exit-code
+
+      - name: Asset scoping verification
+        run: python3 scripts/tests/verify_asset_scoping.py
+
+      - name: Asset sync integration test
+        run: bash scripts/tests/test_sync_assets.sh

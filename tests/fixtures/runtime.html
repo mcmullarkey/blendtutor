@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AC-4 Runtime Test Fixture</title>
+  <link rel="stylesheet" href="../../_extensions/blendtutor/assets/styles.css">
+</head>
+<body>
+  <!--
+    AC-4 runtime test fixture: 3 exercises (R + Python + empty-template).
+    Each div.bt-exercise has data-language + script[type=application/json] payload.
+    The mock adapter is loaded via ES module import below.
+  -->
+
+  <h1>AC-4 Multi-Exercise Runtime Test</h1>
+
+  <!-- Exercise 1: Full R exercise -->
+  <div class="bt-exercise" data-language="r">
+    <script type="application/json">{
+      "id": "bt-exercise-0",
+      "title": "R Exercise",
+      "prompt": "Write a function add(a, b) that returns the sum.",
+      "code_template": "add <- function(a, b) { ___ }",
+      "checks": ["stopifnot(add(1, 2) == 3)", "stopifnot(add(0, 0) == 0)"],
+      "packages": [],
+      "solution": "a + b",
+      "hints": "Use the <- operator to assign the function body.",
+      "gotchas": null
+    }</script>
+  </div>
+
+  <!-- Exercise 2: Python exercise -->
+  <div class="bt-exercise" data-language="python">
+    <script type="application/json">{
+      "id": "bt-exercise-1",
+      "title": "Python Exercise",
+      "prompt": "Print hello world.",
+      "code_template": "print('hello world')",
+      "checks": ["assert 'hello' in output"],
+      "packages": ["numpy", "pandas"],
+      "solution": null,
+      "hints": null,
+      "gotchas": null
+    }</script>
+  </div>
+
+  <!-- Exercise 3: Empty template exercise -->
+  <div class="bt-exercise" data-language="r">
+    <script type="application/json">{
+      "id": "bt-exercise-2",
+      "title": "Empty Exercise",
+      "prompt": "",
+      "code_template": null,
+      "checks": [],
+      "packages": [],
+      "solution": null,
+      "hints": null,
+      "gotchas": null
+    }</script>
+  </div>
+
+  <script type="module">
+    import { scanExercises, buildRegistry, start } from "../../_extensions/blendtutor/assets/exercise-runtime.js";
+    import { createMockAdapter } from "./mock-adapter.js";
+
+    const mockAdapter = createMockAdapter();
+    const registry = buildRegistry(scanExercises());
+    window.__btTestAdapter = mockAdapter; // exposed for probe verification
+    start(registry, mockAdapter);
+  </script>
+</body>
+</html>

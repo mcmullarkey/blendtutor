@@ -1,0 +1,28 @@
+# Rodney probes for issue #112
+verdict: PROBES_PASS
+timestamp: 2026-07-23T21:29:05.770Z
+
+- PASS: clause-9: feedback UI visible per exercise
+  found 2 feedback button(s) (expected 2)
+- PASS: clause-1: key prompt shown for first exercise
+  key prompt rendered
+- PASS: clause-1: key stored after prompt
+  model picker rendered after saving key
+- PASS: clause-7: fetch payload has STUDENT_CODE fences
+  begin=true, end=true, code=true
+- PASS: clause-3: key reused across exercises
+  ex2 key prompt skipped=true, model picker=true, stored key=fake-key-123
+- PASS: clause-4: provider switch changes fetch URL
+  anthropic endpoints called: ["http://localhost:8081/v1/models","http://localhost:8081/v1/messages"]
+- PASS: clause-5: non-local provider override rejected
+  result=https://api.fireworks.ai/inference/v1
+- PASS: clause-5: credentialed provider override rejected
+  result=https://api.fireworks.ai/inference/v1
+- PASS: clause-5: localhost provider override honored
+  result=http://localhost:8081
+- PASS: clause-8: concurrent feedback guard
+  1 /chat/completions call(s) after two quick clicks
+- PASS: clause-2: per-exercise feedback containers
+  2 feedback container(s) (expected 2)
+- PASS: clause-6: llm_evaluation_prompt absent
+  llm_evaluation_prompt not found in exercise-feedback.js or feedback.qmd

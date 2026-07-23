@@ -25,3 +25,8 @@ screenshots/
 # mdBook build output (rendered narrative site; rebuilt by scripts/check-docs.sh
 # and the docs workflow, with rustdoc merged under book/api at deploy time)
 /docs/book/book/
+
+# Quarto render output (quarto-fixture/minimal.html and _site/)
+/quarto-fixture/*.html
+/quarto-fixture/_site/
+/quarto-fixture/*_files/

@@ -36,10 +36,13 @@ EXT_YML="_extensions/blendtutor/_extension.yml"
 if [ ! -f "$EXT_YML" ]; then
   ko "_extension.yml exists — file not found: $EXT_YML"
 else
-  if grep -qF 'contributes.filters:' "$EXT_YML"; then
+  # YAML allows both inline (contributes.filters: [blendtutor.lua]) and
+  # nested (contributes:\n  filters:\n    - blendtutor.lua) forms.
+  # Check for the contributes section with a filters key referencing blendtutor.lua.
+  if grep -qE 'contributes' "$EXT_YML" && grep -qE 'filters' "$EXT_YML"; then
     ok "contributes.filters key present"
   else
-    ko "contributes.filters key present — key missing in $EXT_YML"
+    ko "contributes.filters key present — contributes/filters keys missing in $EXT_YML"
   fi
 
   if grep -qF 'blendtutor.lua' "$EXT_YML"; then
@@ -118,19 +121,23 @@ else
     else
       HTML_CONTENT=$(cat "$HTML_FILE")
 
+      # Strip HTML tags for content-matching assertions — Pandoc syntax
+      # highlighting wraps tokens in <span> tags, breaking literal grep.
+      HTML_TEXT=$(echo "$HTML_CONTENT" | sed 's/<[^>]*>//g')
+
       if echo "$HTML_CONTENT" | grep -qF 'Hello from Quarto'; then
         ok "standard content survived (Hello from Quarto)"
       else
         ko "standard content survived (Hello from Quarto) — not found in HTML"
       fi
 
-      if echo "$HTML_CONTENT" | grep -qF 'add(a, b)'; then
+      if echo "$HTML_TEXT" | grep -qF 'add(a, b)'; then
         ok "blendtutor content survived (add(a, b))"
       else
         ko "blendtutor content survived (add(a, b)) — not found in HTML"
       fi
 
-      if echo "$HTML_CONTENT" | grep -qF 'stopifnot(add(1, 2) == 3)'; then
+      if echo "$HTML_TEXT" | grep -qF 'stopifnot(add(1, 2) == 3)'; then
         ok "blendtutor content survived (stopifnot(add(1, 2) == 3))"
       else
         ko "blendtutor content survived (stopifnot(add(1, 2) == 3)) — not found in HTML"

@@ -1,0 +1,20 @@
+---
+title: Minimal blendtutor fixture
+---
+
+## Hello from Quarto
+
+This is a standard markdown paragraph to verify the extension skeleton
+does not mangle non-blendtutor content.
+
+::: {.blendtutor language="r"}
+Write a function `add(a, b)` that returns the sum.
+
+```r
+add <- function(a, b) { ___ }
+```
+
+```{.r .checks}
+stopifnot(add(1, 2) == 3)
+```
+:::

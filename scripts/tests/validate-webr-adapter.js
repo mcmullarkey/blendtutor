@@ -98,11 +98,11 @@ assert(adapterSrc.includes("finally"),
 // object-lifecycle tracking (purge frees R objects), but captureR evaluates
 // code in .GlobalEnv by default. Variables created with `<-` persist in
 // .GlobalEnv across Shelter boundaries. The adapter MUST pass a fresh env
-// (new.env(parent=emptyenv())) via captureR's `env` option so code evaluates
+// (new.env(parent=baseenv())) via captureR's `env` option so code evaluates
 // in an isolated environment. local() wrapping does NOT work in webR 0.6.0
 // (rodney probe confirms x leaks despite local()).
-assert(adapterSrc.includes("new.env(parent=emptyenv())"),
-  "webr-adapter.js creates fresh env via evalR('new.env(parent=emptyenv())') for isolation");
+assert(adapterSrc.includes("new.env(parent=baseenv())"),
+  "webr-adapter.js creates fresh env via evalR('new.env(parent=baseenv())') for isolation");
 assert(adapterSrc.includes("{ env: freshEnv }") || adapterSrc.includes("env: freshEnv"),
   "webr-adapter.js passes fresh env to captureR via { env: freshEnv } option");
 assert(!adapterSrc.includes("local({"),
@@ -263,12 +263,12 @@ assert(brokenShelterMatches === null,
 // Verify the adapter uses shelter.evalR() ONLY for creating a fresh environment
 // (not for executing user code or installing packages). captureR is the correct
 // method for code execution because it captures stdout/stderr. evalR is used
-// solely to create new.env(parent=emptyenv()) for per-run isolation.
+// solely to create new.env(parent=baseenv()) for per-run isolation.
 const shelterEvalRMatches = adapterSrc.match(/shelter\.evalR\s*\(/g);
 assert(shelterEvalRMatches !== null && shelterEvalRMatches.length >= 1,
-  "webr-adapter.js uses shelter.evalR() to create fresh env (new.env(parent=emptyenv()))");
-assert(adapterSrc.includes('evalR("new.env(parent=emptyenv())")'),
-  "webr-adapter.js uses evalR only for new.env(parent=emptyenv()) — not for code execution");
+  "webr-adapter.js uses shelter.evalR() to create fresh env (new.env(parent=baseenv()))");
+assert(adapterSrc.includes('evalR("new.env(parent=baseenv())")'),
+  "webr-adapter.js uses evalR only for new.env(parent=baseenv()) — not for code execution");
 
 // Verify the adapter does NOT use evalR for package installation (RCE prevention)
 // evalR(`install.packages("${pkg}")`) allows RCE if pkg contains malicious R code
@@ -436,8 +436,8 @@ async function runBehavioralTests() {
       "BEHAVIORAL: evalR called to create fresh env");
     assert(globalThis.__webrMockEvalRCalls.some(c => c.includes("new.env")),
       "BEHAVIORAL: evalR called with new.env() to create fresh environment");
-    assert(globalThis.__webrMockEvalRCalls.some(c => c.includes("emptyenv")),
-      "BEHAVIORAL: evalR called with parent=emptyenv() for full isolation");
+    assert(globalThis.__webrMockEvalRCalls.some(c => c.includes("baseenv")),
+      "BEHAVIORAL: evalR called with parent=baseenv() for isolation (base R available, .GlobalEnv blocked)");
   }
 
   // Clean up mock config

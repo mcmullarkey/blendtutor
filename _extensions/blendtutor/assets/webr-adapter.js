@@ -38,7 +38,7 @@
 // but in practice x <- 5 inside local() still leaks to .GlobalEnv in webR
 // 0.6.0 — the rodney probe confirms Exercise 2 outputs [1] TRUE instead of
 // [1] FALSE. Root cause: captureR evaluates in .GlobalEnv regardless of
-// local() wrapping. Fix: pass a fresh env (new.env(parent=emptyenv())) via
+// local() wrapping. Fix: pass a fresh env (new.env(parent=baseenv())) via
 // captureR's `env` option so eval_r evaluates in the fresh env, not
 // .GlobalEnv. Variables created with <- are assigned to the fresh env, which
 // is destroyed by shelter.purge().
@@ -264,10 +264,16 @@ export function createWebRAdapter(options = {}) {
         // directly via captureR's `env` option, so eval_r evaluates in the
         // fresh env.
         //
-        // new.env(parent=emptyenv()) creates an env with NO parent —
-        // exists("x") cannot search up to .GlobalEnv. The env is tracked by
-        // the Shelter and destroyed by purge().
-        const freshEnv = await shelter.evalR("new.env(parent=emptyenv())");
+        // new.env(parent=baseenv()) creates an env whose parent is base R —
+        // base functions (<-, print, exists) are available, but exists("x")
+        // cannot search up to .GlobalEnv. The env is tracked by the Shelter
+        // and destroyed by purge().
+        //
+        // NOTE: emptyenv() was tried first (no parent at all) but broke R
+        // evaluation — <-, print, exists are all base functions and were
+        // unavailable, causing "could not find function '<-'" errors.
+        // baseenv() gives access to base R while still blocking .GlobalEnv.
+        const freshEnv = await shelter.evalR("new.env(parent=baseenv())");
 
         // Capture output from R code evaluation.
         // captureR wraps the code in capture.output() and returns

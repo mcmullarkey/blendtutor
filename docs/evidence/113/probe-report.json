@@ -1,0 +1,71 @@
+{
+  "issue": 113,
+  "branch": "113-ux-polish",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/blendtutor-113",
+  "timestamp": "2026-07-23T23:36:28.516Z",
+  "probes": [
+    {
+      "name": "clause-1: hints visible/absent",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-3: check button absent when no checks",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "negative: solution button for empty exercise",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-2: solution button inserts solution text",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-4: Run disables ex-0 only",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-5: cursor not-allowed on disabled buttons",
+      "status": "FAIL",
+      "details": "assertion returned: false"
+    },
+    {
+      "name": "clause-6: data-status closed set",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-7: buttons re-enabled on pass",
+      "status": "PASS",
+      "details": "assertion passed"
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "docs/evidence/113/01-initial-state.png",
+      "ui_state": "Initial render: three exercises with hints on ex0, no hints on ex2, Run/Check/Solution buttons",
+      "ac_reference": "AC-8 clause 1 (hints visible/absent), clause 3 (check button conditional), negative (solution button for empty exercise)"
+    },
+    {
+      "path": "docs/evidence/113/02-solution-inserted.png",
+      "ui_state": "Exercise 0 after clicking Show solution: editor contains 'a + b'",
+      "ac_reference": "AC-8 clause 2 (solution button click inserts text)"
+    },
+    {
+      "path": "docs/evidence/113/03-run-disabled-isolation.png",
+      "ui_state": "During exercise 0 run: ex0 Run button disabled, ex1 and ex2 Run buttons still enabled",
+      "ac_reference": "AC-8 clause 4 (Run disables ex-0 only), clause 5 (cursor on disabled buttons), clause 7 (buttons re-enabled on pass)"
+    },
+    {
+      "path": "docs/evidence/113/04-status-pass.png",
+      "ui_state": "After exercise 0 run completes: status shows pass, all Run buttons re-enabled",
+      "ac_reference": "AC-8 clause 6 (data-status closed set), clause 7 (buttons re-enabled on pass)"
+    }
+  ],
+  "verdict": "PROBES_FAIL"
+}

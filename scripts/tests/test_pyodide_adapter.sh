@@ -99,22 +99,22 @@ else
     HTML_CONTENT=$(cat "$PYODIDE_HTML")
 
     # Check for >=2 bt-exercise widgets
-    EXERCISE_COUNT=$(echo "$HTML_CONTENT" | grep -c 'class="bt-exercise"' || true)
+    EXERCISE_COUNT=$(printf '%s' "$HTML_CONTENT" | grep -c 'class="bt-exercise"' || true)
     if [ "$EXERCISE_COUNT" -ge 2 ]; then
       ok ">=2 bt-exercise widgets in pyodide.qmd ($EXERCISE_COUNT found)"
     else
       ko ">=2 bt-exercise widgets — found $EXERCISE_COUNT"
     fi
 
-    # Check for CDN script tag injection
-    if echo "$HTML_CONTENT" | grep -qF 'cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js'; then
+    # Check for CDN script tag injection (use printf to avoid pipefail SIGPIPE)
+    if printf '%s' "$HTML_CONTENT" | grep -qF 'cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js'; then
       ok "CDN script tag injected for Python exercises"
     else
       ko "CDN script tag injected — pyodide.js CDN URL not found in HTML"
     fi
 
     # Check exactly one CDN script tag
-    CDN_COUNT=$(echo "$HTML_CONTENT" | grep -c 'cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js' || true)
+    CDN_COUNT=$(printf '%s' "$HTML_CONTENT" | grep -c 'cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js' || true)
     if [ "$CDN_COUNT" -eq 1 ]; then
       ok "exactly one pyodide.js CDN script tag"
     else
@@ -142,7 +142,7 @@ else
     MIXED_CONTENT=$(cat "$MIXED_HTML")
 
     # Check for >=2 bt-exercise widgets
-    MIXED_EXERCISE_COUNT=$(echo "$MIXED_CONTENT" | grep -c 'class="bt-exercise"' || true)
+    MIXED_EXERCISE_COUNT=$(printf '%s' "$MIXED_CONTENT" | grep -c 'class="bt-exercise"' || true)
     if [ "$MIXED_EXERCISE_COUNT" -ge 2 ]; then
       ok ">=2 bt-exercise widgets in mixed-lang.qmd ($MIXED_EXERCISE_COUNT found)"
     else
@@ -150,7 +150,7 @@ else
     fi
 
     # Check for CDN script tag (Python exercise present)
-    if echo "$MIXED_CONTENT" | grep -qF 'cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js'; then
+    if printf '%s' "$MIXED_CONTENT" | grep -qF 'cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js'; then
       ok "CDN script tag injected for mixed-lang (Python present)"
     else
       ko "CDN script tag injected for mixed-lang — pyodide.js CDN URL not found"
@@ -168,25 +168,42 @@ if [ -z "$RENDER_TOOL" ]; then
   echo "SKIP: no render tool — negative case skipped"
   ko "Negative case — no render tool"
 else
-  # Use the existing filter.qmd which has R + Python exercises
-  FILTER_HTML="$FIXTURE_DIR/filter.html"
-  rm -f "$FILTER_HTML"
+  # Render r-only.qmd — R-only fixture with NO Python exercises.
+  # CDN must NOT be injected when no Python exercise is present.
+  R_ONLY_HTML="$FIXTURE_DIR/r-only.html"
+  rm -f "$R_ONLY_HTML"
 
-  FILTER_OUTPUT=$(render_to_html "$FIXTURE_DIR/filter.qmd" "$FILTER_HTML") && FILTER_RC=0 || FILTER_RC=$?
+  R_ONLY_OUTPUT=$(render_to_html "$FIXTURE_DIR/r-only.qmd" "$R_ONLY_HTML") && R_ONLY_RC=0 || R_ONLY_RC=$?
 
-  if [ "$FILTER_RC" -ne 0 ]; then
-    ko "filter.qmd render exits 0 — exit code $FILTER_RC"
+  if [ "$R_ONLY_RC" -ne 0 ]; then
+    ko "r-only.qmd render exits 0 — exit code $R_ONLY_RC"
+    echo "  render output: $R_ONLY_OUTPUT" >&2
   else
-    ok "filter.qmd render exits 0"
+    ok "r-only.qmd render exits 0"
   fi
 
-  if [ -f "$FILTER_HTML" ]; then
-    FILTER_CONTENT=$(cat "$FILTER_HTML")
-    # filter.qmd has a Python exercise, so CDN should be injected
-    if echo "$FILTER_CONTENT" | grep -qF 'cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js'; then
-      ok "CDN injected when Python exercise present (filter.qmd)"
+  if [ ! -f "$R_ONLY_HTML" ]; then
+    ko "r-only.html exists — not found: $R_ONLY_HTML"
+    ko ">=2 bt-exercise widgets (R-only) — HTML missing"
+    ko "CDN NOT injected for R-only — HTML missing"
+  else
+    R_ONLY_CONTENT=$(cat "$R_ONLY_HTML")
+
+    # Check for >=2 bt-exercise widgets
+    R_ONLY_EXERCISE_COUNT=$(printf '%s' "$R_ONLY_CONTENT" | grep -c 'class="bt-exercise"' || true)
+    if [ "$R_ONLY_EXERCISE_COUNT" -ge 2 ]; then
+      ok ">=2 bt-exercise widgets in r-only.qmd ($R_ONLY_EXERCISE_COUNT found)"
     else
-      ko "CDN injected when Python exercise present — not found"
+      ko ">=2 bt-exercise widgets in r-only.qmd — found $R_ONLY_EXERCISE_COUNT"
+    fi
+
+    # NEGATIVE CASE: CDN must NOT be injected when no Python exercise is present.
+    # This is the key negative test — if the filter injects CDN for R-only
+    # exercises, the has_python flag is broken.
+    if printf '%s' "$R_ONLY_CONTENT" | grep -qF 'cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js'; then
+      ko "CDN NOT injected for R-only — pyodide.js CDN URL found in R-only HTML (should be absent)"
+    else
+      ok "CDN NOT injected for R-only — pyodide.js CDN URL absent from HTML"
     fi
   fi
 fi

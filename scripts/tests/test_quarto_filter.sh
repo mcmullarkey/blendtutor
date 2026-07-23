@@ -160,13 +160,13 @@ if [ ! -f "$LATEX_FILE" ]; then
   ko "warning emitted for non-HTML — file missing"
 else
   LATEX_CONTENT=$(cat "$LATEX_FILE")
-  if echo "$LATEX_CONTENT" | grep -q 'bt-exercise'; then
+  if grep -q 'bt-exercise' <<< "$LATEX_CONTENT"; then
     ko "no bt-exercise in non-HTML — found 'bt-exercise' in latex output"
   else
     ok "no bt-exercise in non-HTML output"
   fi
 
-  if echo "$LATEX_OUTPUT" | grep -qiE 'WARNING.*(html|format|skip)'; then
+  if grep -qiE 'WARNING.*(html|format|skip)' <<< "$LATEX_OUTPUT"; then
     ok "warning emitted for non-HTML format"
   else
     ko "warning emitted for non-HTML format — no warning in stderr"
@@ -197,13 +197,13 @@ if [ ! -f "$INVALID_HTML" ]; then
   ko "warning for invalid language — file missing"
 else
   INVALID_CONTENT=$(cat "$INVALID_HTML")
-  if echo "$INVALID_CONTENT" | grep -q 'bt-exercise'; then
+  if grep -q 'bt-exercise' <<< "$INVALID_CONTENT"; then
     ko "no bt-exercise for invalid language — found 'bt-exercise'"
   else
     ok "no bt-exercise for invalid language"
   fi
 
-  if echo "$INVALID_OUTPUT" | grep -qiE 'WARNING.*(ruby|unsupported|skip)'; then
+  if grep -qiE 'WARNING.*(ruby|unsupported|skip)' <<< "$INVALID_OUTPUT"; then
     ok "warning for invalid language"
   else
     ko "warning for invalid language — no warning in stderr"
@@ -234,13 +234,13 @@ if [ ! -f "$MISSING_HTML" ]; then
   ko "warning for missing language — file missing"
 else
   MISSING_CONTENT=$(cat "$MISSING_HTML")
-  if echo "$MISSING_CONTENT" | grep -q 'bt-exercise'; then
+  if grep -q 'bt-exercise' <<< "$MISSING_CONTENT"; then
     ko "no bt-exercise for missing language — found 'bt-exercise'"
   else
     ok "no bt-exercise for missing language"
   fi
 
-  if echo "$MISSING_OUTPUT" | grep -qiE 'WARNING.*(missing|skip)'; then
+  if grep -qiE 'WARNING.*(missing|skip)' <<< "$MISSING_OUTPUT"; then
     ok "warning for missing language"
   else
     ko "warning for missing language — no warning in stderr"

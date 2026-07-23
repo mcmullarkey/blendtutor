@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AC-6 Pyodide Adapter Test Fixture</title>
+  <link rel="stylesheet" href="../../_extensions/blendtutor/assets/styles.css">
+</head>
+<body>
+  <!--
+    AC-6 Pyodide adapter test fixture: 2 Python exercises.
+    Exercise 1 sets x = 42. Exercise 2 asserts x is NOT in globals
+    (per-run fresh globals). The pyodide-adapter.js is imported as an
+    ES module, the adapter instance is set on window.__btPyodideAdapter
+    so the rodney probe can access it, and exercise-runtime.js start()
+    is called with the adapter.
+  -->
+  <h1>AC-6 Pyodide Adapter Test</h1>
+  <div class="bt-exercise" data-language="python">
+    <script type="application/json">{
+      "id": "bt-exercise-0",
+      "title": "Set variable",
+      "prompt": "Set x to 42.",
+      "code_template": "x = 42",
+      "checks": ["assert x == 42"],
+      "packages": [],
+      "solution": null,
+      "hints": null,
+      "gotchas": null
+    }</script>
+  </div>
+  <div class="bt-exercise" data-language="python">
+    <script type="application/json">{
+      "id": "bt-exercise-1",
+      "title": "Fresh globals",
+      "prompt": "The variable x from exercise 1 must not exist here.",
+      "code_template": "# x should not be defined in this fresh namespace",
+      "checks": ["assert \"x\" not in globals(), \"shared globals leaked: x is visible\""],
+      "packages": [],
+      "solution": null,
+      "hints": null,
+      "gotchas": null
+    }</script>
+  </div>
+  <script type="module">
+    import { scanExercises, buildRegistry, start } from "../../_extensions/blendtutor/assets/exercise-runtime.js";
+    import { pyodideAdapter } from "../../_extensions/blendtutor/assets/pyodide-adapter.js";
+    window.__btPyodideAdapter = pyodideAdapter;
+    const registry = buildRegistry(scanExercises());
+    start(registry, pyodideAdapter);
+  </script>
+</body>
+</html>

@@ -247,6 +247,61 @@ assert(
   `rodney probe should have >=7 assertions, found ${probeAssertions}`,
 );
 
+
+// ---------------------------------------------------------------------------
+// 15. Test fixture — tests/fixtures/pyodide.html wires adapter to window
+// ---------------------------------------------------------------------------
+const fixturePath = join(repoRoot, "tests", "fixtures", "pyodide.html");
+assert(existsSync(fixturePath), "tests/fixtures/pyodide.html exists");
+const fixtureSrc = readFileSync(fixturePath, "utf-8");
+assert(
+  fixtureSrc.includes("window.__btPyodideAdapter = pyodideAdapter"),
+  "fixture sets window.__btPyodideAdapter = pyodideAdapter (wires adapter)",
+);
+assert(
+  fixtureSrc.includes("import { pyodideAdapter }"),
+  "fixture imports pyodideAdapter from pyodide-adapter.js",
+);
+assert(
+  fixtureSrc.includes("start(registry, pyodideAdapter)"),
+  "fixture calls start(registry, pyodideAdapter)",
+);
+
+// ---------------------------------------------------------------------------
+// 16. Rodney probe — no vacuous-pass (asserts adapter defined, no if guards)
+// ---------------------------------------------------------------------------
+assert(
+  probeSrc.includes("window.__btPyodideAdapter must be defined"),
+  "probe asserts window.__btPyodideAdapter is defined (no vacuous-pass)",
+);
+assert(
+  !/if\s*\(adapter\)/.test(probeSrc),
+  "probe has no if(adapter) guards (vacuous-pass vulnerability fixed)",
+);
+assert(
+  !/if\s*\(!adapter\)\s*return/.test(probeSrc),
+  "probe has no if(!adapter) return guards (vacuous-pass fixed)",
+);
+
+// ---------------------------------------------------------------------------
+// 17. r-only.qmd — R-only fixture for negative case (no CDN injection)
+// ---------------------------------------------------------------------------
+const rOnlyQmd = join(repoRoot, "quarto-fixture", "r-only.qmd");
+assert(existsSync(rOnlyQmd), "r-only.qmd exists");
+const rOnlyQmdSrc = readFileSync(rOnlyQmd, "utf-8");
+assert(
+  rOnlyQmdSrc.includes("filters: [../_extensions/blendtutor/blendtutor.lua]"),
+  "r-only.qmd declares explicit filter path",
+);
+assert(
+  rOnlyQmdSrc.includes('language="r"'),
+  "r-only.qmd has R exercises",
+);
+assert(
+  !rOnlyQmdSrc.includes('language="python"'),
+  "r-only.qmd has NO Python exercises (negative case fixture)",
+);
+
 // ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------

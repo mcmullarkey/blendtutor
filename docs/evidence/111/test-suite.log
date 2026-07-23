@@ -1,7 +1,8 @@
 == Part 1: Node.js validation ==
 
+
 === AC-6 Pyodide Adapter Validation Results ===
-Passed: 38
+Passed: 49
 Failed: 0
 All validations passed.
   PASS: Node.js validation passed
@@ -15,10 +16,11 @@ Using render tool: pandoc
   PASS: >=2 bt-exercise widgets in mixed-lang.qmd (2 found)
   PASS: CDN script tag injected for mixed-lang (Python present)
 == Part 3: Negative case — no CDN for R-only ==
-  PASS: filter.qmd render exits 0
-  PASS: CDN injected when Python exercise present (filter.qmd)
+  PASS: r-only.qmd render exits 0
+  PASS: >=2 bt-exercise widgets in r-only.qmd (2 found)
+  PASS: CDN NOT injected for R-only — pyodide.js CDN URL absent from HTML
 
 =========================================
-  Results: 10 passed, 0 failed
+  Results: 11 passed, 0 failed
 =========================================
 All tests passed.

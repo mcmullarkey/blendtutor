@@ -164,19 +164,19 @@ else
       # highlighting wraps tokens in <span> tags, breaking literal grep.
       HTML_TEXT=$(echo "$HTML_CONTENT" | sed 's/<[^>]*>//g')
 
-      if echo "$HTML_CONTENT" | grep -qF 'Hello from Quarto'; then
+      if grep -qF 'Hello from Quarto' <<< "$HTML_CONTENT"; then
         ok "standard content survived (Hello from Quarto)"
       else
         ko "standard content survived (Hello from Quarto) — not found in HTML"
       fi
 
-      if echo "$HTML_TEXT" | grep -qF 'add(a, b)'; then
+      if grep -qF 'add(a, b)' <<< "$HTML_TEXT"; then
         ok "blendtutor content survived (add(a, b))"
       else
         ko "blendtutor content survived (add(a, b)) — not found in HTML"
       fi
 
-      if echo "$HTML_TEXT" | grep -qF 'stopifnot(add(1, 2) == 3)'; then
+      if grep -qF 'stopifnot(add(1, 2) == 3)' <<< "$HTML_TEXT"; then
         ok "blendtutor content survived (stopifnot(add(1, 2) == 3))"
       else
         ko "blendtutor content survived (stopifnot(add(1, 2) == 3)) — not found in HTML"
@@ -188,7 +188,7 @@ else
       # so this is the load-proving guard. Without the explicit filter path in
       # the .qmd YAML, Quarto never loads the blendtutor filter and no
       # bt-exercise widget is produced.
-      if echo "$HTML_CONTENT" | grep -qF 'bt-exercise'; then
+      if grep -qF 'bt-exercise' <<< "$HTML_CONTENT"; then
         ok "filter loaded (bt-exercise widget present in HTML)"
       else
         ko "filter loaded (bt-exercise widget present in HTML) — not found; filter never ran"

@@ -1,0 +1,34 @@
+---
+title: R-only fixture (no Python — CDN must NOT be injected)
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## R-only exercises (no Python)
+
+### Exercise 1: R exercise
+
+::: {.blendtutor language="r"}
+Write a function `add(a, b)` that returns the sum.
+
+```r
+add <- function(a, b) { ___ }
+```
+
+```{.r .checks}
+stopifnot(add(1, 2) == 3)
+```
+:::
+
+### Exercise 2: Another R exercise
+
+::: {.blendtutor language="r"}
+Set `x` to 10.
+
+```r
+x <- 10
+```
+
+```{.r .checks}
+stopifnot(x == 10)
+```
+:::

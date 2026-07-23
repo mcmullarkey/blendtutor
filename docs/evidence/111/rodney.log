@@ -1,0 +1,26 @@
+AC-6 Pyodide Adapter Probe Results — Issue #111 (Pyodide shared-boot adapter)
+Branch: 111-pyodide-shared-boot-adapter
+Worktree: /Users/carbonite/Documents/coding/portfolio/blendtutor
+Timestamp: 2026-07-23T12:55:32-06:00
+Fixture: http://localhost:8080/tests/fixtures/pyodide.html
+Probe: rodney-probes/pyodide-adapter.js
+
+Server: python3 -m http.server 8080 (repo root)
+Browser: uvx rodney start --local
+Probe injected: <script src="http://localhost:8080/rodney-probes/pyodide-adapter.js">
+
+Rodney assertions:
+- window.__btPyodideAdapter defined: PASS
+- window.__btProbeResults length === 7: PASS
+- window.__btProbeResults.every(r => r.passed): PASS
+
+Per-test results:
+1. CDN injection — exactly one pinned pyodide.js script tag: PASS
+2. Single boot — loadPyodide called once (idempotent): PASS
+3. Lazy trigger — boot state machine works (null → booted): PASS
+4. Per-run fresh globals — exercise 2 can't see exercise 1's variables: PASS
+5. Error surface — Python error surfaces as structured error: PASS
+6. PyProxy cleanup — namespace.destroy() in finally: PASS
+7. Coexistence with webR — independent, zero shared state: PASS
+
+Verdict: PROBES_PASS

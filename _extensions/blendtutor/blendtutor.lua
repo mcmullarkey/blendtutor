@@ -20,6 +20,19 @@
 -- Reset in Pandoc() so each document starts at 0.
 local exercise_count = 0
 
+-- hasDoneSetup guard — prevents double CDN injection of pyodide.js (AC-6).
+-- Set to true after the first Python exercise triggers CDN injection.
+-- Reset in Pandoc() so each document gets a fresh check.
+local hasDoneSetup = false
+
+-- has_python flag — set in Div() when a language="python" exercise is found.
+-- Read in Pandoc() (which runs AFTER Div()) to conditionally inject CDN.
+local has_python = false
+
+-- Pinned CDN URL for pyodide.js (classic script, not ES module).
+-- loadPyodide is a global function, not an ES module export (§3.4).
+local PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"
+
 -- ---------------------------------------------------------------------------
 -- JSON encoding helpers (Lua has no built-in JSON encoder)
 -- ---------------------------------------------------------------------------
@@ -277,6 +290,12 @@ function Div(div)
     return div
   end
 
+  -- Track Python exercises for CDN injection (AC-6).
+  -- Pandoc() runs AFTER Div() and reads this flag.
+  if lang == "python" then
+    has_python = true
+  end
+
   -- Parse packages from div attribute (comma-separated)
   local packages = parse_packages(div.attributes["packages"])
 
@@ -291,11 +310,32 @@ function Div(div)
   return emit_widget(payload)
 end
 
---- Reset the exercise counter at document level (called after all Div elements).
--- Kept as a no-op for AC-1 compatibility (returns doc unmodified).
+--- Reset counters and inject CDN script tag at document level.
+-- Called AFTER all Div elements (pandoc calls Div first, then Pandoc).
+-- If any Python exercise was found (has_python flag), injects the pyodide.js
+-- CDN script tag via the hasDoneSetup guard (AC-6).
 -- @param doc Pandoc document object
--- @return doc unmodified
+-- @return doc (possibly modified with CDN script tag prepended)
 function Pandoc(doc)
   exercise_count = 0
+
+  -- Inject CDN script tag if Python exercises are present (AC-6).
+  -- has_python is set in Div() which runs before Pandoc().
+  if has_python and is_html_format() and not hasDoneSetup then
+    hasDoneSetup = true
+    local cdn_script = '<script src="' .. PYODIDE_CDN .. '"></script>'
+    -- Try Quarto API first (injects in <head>), fall back to RawBlock.
+    if quarto and quarto.doc and quarto.doc.include_text then
+      quarto.doc.include_text("in-header", cdn_script)
+    else
+      -- Pandoc fallback: prepend to document body.
+      table.insert(doc.blocks, 1, pandoc.RawBlock("html", cdn_script))
+    end
+  end
+
+  -- Reset flags for next document
+  has_python = false
+  hasDoneSetup = false
+
   return doc
 end

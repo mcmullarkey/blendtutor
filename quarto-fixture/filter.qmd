@@ -1,0 +1,42 @@
+---
+title: Filter test fixture
+---
+
+## Filter test
+
+### Full R exercise
+
+::: {.blendtutor language="r"}
+Write a function `add(a, b)` that returns the sum.
+
+```r
+add <- function(a, b) { ___ }
+```
+
+```{.r .checks}
+stopifnot(add(1, 2) == 3)
+```
+
+```{.r .checks}
+stopifnot(add(0, 0) == 0)
+```
+
+```{.r .solution}
+a + b
+```
+
+::: {.hints}
+Use the `<-` operator to assign the function body.
+:::
+:::
+
+### Minimal Python exercise
+
+::: {.blendtutor language="python" packages="numpy,pandas"}
+Print hello world.
+:::
+
+### Empty exercise
+
+::: {.blendtutor language="r"}
+:::

@@ -28,5 +28,6 @@ screenshots/
 
 # Quarto render output (quarto-fixture/minimal.html and _site/)
 /quarto-fixture/*.html
+/quarto-fixture/*.tex
 /quarto-fixture/_site/
 /quarto-fixture/*_files/

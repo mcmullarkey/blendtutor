@@ -1,0 +1,7 @@
+---
+title: Missing language test
+---
+
+::: {.blendtutor}
+This exercise has no language attribute and should be skipped.
+:::

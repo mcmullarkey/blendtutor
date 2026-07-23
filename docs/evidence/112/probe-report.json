@@ -1,0 +1,96 @@
+{
+  "issue": 112,
+  "branch": "112-exercise-feedback",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/blendtutor-112",
+  "timestamp": "2026-07-23T21:29:05.770Z",
+  "probes": [
+    {
+      "name": "clause-9: feedback UI visible per exercise",
+      "status": "PASS",
+      "details": "found 2 feedback button(s) (expected 2)"
+    },
+    {
+      "name": "clause-1: key prompt shown for first exercise",
+      "status": "PASS",
+      "details": "key prompt rendered"
+    },
+    {
+      "name": "clause-1: key stored after prompt",
+      "status": "PASS",
+      "details": "model picker rendered after saving key"
+    },
+    {
+      "name": "clause-7: fetch payload has STUDENT_CODE fences",
+      "status": "PASS",
+      "details": "begin=true, end=true, code=true"
+    },
+    {
+      "name": "clause-3: key reused across exercises",
+      "status": "PASS",
+      "details": "ex2 key prompt skipped=true, model picker=true, stored key=fake-key-123"
+    },
+    {
+      "name": "clause-4: provider switch changes fetch URL",
+      "status": "PASS",
+      "details": "anthropic endpoints called: [\"http://localhost:8081/v1/models\",\"http://localhost:8081/v1/messages\"]"
+    },
+    {
+      "name": "clause-5: non-local provider override rejected",
+      "status": "PASS",
+      "details": "result=https://api.fireworks.ai/inference/v1"
+    },
+    {
+      "name": "clause-5: credentialed provider override rejected",
+      "status": "PASS",
+      "details": "result=https://api.fireworks.ai/inference/v1"
+    },
+    {
+      "name": "clause-5: localhost provider override honored",
+      "status": "PASS",
+      "details": "result=http://localhost:8081"
+    },
+    {
+      "name": "clause-8: concurrent feedback guard",
+      "status": "PASS",
+      "details": "1 /chat/completions call(s) after two quick clicks"
+    },
+    {
+      "name": "clause-2: per-exercise feedback containers",
+      "status": "PASS",
+      "details": "2 feedback container(s) (expected 2)"
+    },
+    {
+      "name": "clause-6: llm_evaluation_prompt absent",
+      "status": "PASS",
+      "details": "llm_evaluation_prompt not found in exercise-feedback.js or feedback.qmd"
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor-112/docs/evidence/112/01-initial-state.png",
+      "ui_state": "two exercises with per-exercise Get feedback buttons",
+      "ac_reference": "AC-7 clause 9"
+    },
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor-112/docs/evidence/112/02-ex1-key-prompt.png",
+      "ui_state": "first exercise asks for provider + API key",
+      "ac_reference": "AC-7 clause 1"
+    },
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor-112/docs/evidence/112/03-ex1-model-picker.png",
+      "ui_state": "model picker rendered after key saved",
+      "ac_reference": "AC-7 clause 1"
+    },
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor-112/docs/evidence/112/04-ex1-verdict.png",
+      "ui_state": "verdict rendered after feedback fetch",
+      "ac_reference": "AC-7 clause 7"
+    },
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor-112/docs/evidence/112/05-ex2-model-picker.png",
+      "ui_state": "second exercise reuses key without prompting",
+      "ac_reference": "AC-7 clause 3"
+    }
+  ],
+  "verdict": "PROBES_PASS"
+}

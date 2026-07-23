@@ -1,0 +1,64 @@
+=== AC-7 Per-exercise BYOK LLM feedback — test_quarto_feedback.py ===
+
+  PASS: exercise-feedback.js exists
+  PASS: feedback.qmd exists
+-- Clause 6: llm_evaluation_prompt ABSENT --
+  PASS: llm_evaluation_prompt ABSENT from exercise-feedback.js
+  PASS: llm_evaluation_prompt ABSENT from feedback.qmd
+
+-- Source-pattern checks --
+  PASS: pure function exported: neutralize
+  PASS: pure function exported: buildPrompt
+  PASS: pure function exported: parseModels
+  PASS: pure function exported: modelRoster
+  PASS: pure function exported: feedbackRequest
+  PASS: pure function exported: toVerdict
+  PASS: pure function exported: fireworksRequest
+  PASS: pure function exported: fireworksToVerdict
+  PASS: pure function exported: providerBaseUrl
+  PASS: STUDENT_CODE fences present in source
+  PASS: PROVIDERS map has fireworks + anthropic
+  PASS: provider-scoped key slots present (fireworks_api_key, anthropic_api_key)
+  PASS: key slot is provider-scoped (not exercise-scoped)
+  PASS: storeKey + readKey present (shared key handling)
+  PASS: no singleton getElementById('feedback') — per-exercise scoping
+  PASS: no window.__bt singleton access (uses __btExercises registry)
+  PASS: ?provider= override parsed via URLSearchParams
+  PASS: localhost-only gate present (non-local override rejected)
+  PASS: per-exercise concurrent feedback guard present
+  PASS: mountFeedback/mountAllFeedback present (per-exercise mount)
+  PASS: feedback UI elements carry data-byok/data-feedback markers
+  PASS: fetch() called in backends (feedback is not silently skipped)
+  PASS: no module-level applyEmbeddedKey() call (pure layer importable)
+
+-- Behavioral checks (Node.js) --
+  PASS: buildPrompt emits STUDENT_CODE_BEGIN fence
+  PASS: buildPrompt emits STUDENT_CODE_END fence
+  PASS: buildPrompt includes task
+  PASS: buildPrompt includes student code
+  PASS: buildPrompt includes captured output
+  PASS: buildPrompt includes checks
+  PASS: neutralize strips forged STUDENT_CODE_BEGIN
+  PASS: neutralize replaces with marker
+  PASS: key reused from shared sessionStorage slot (entered once)
+  PASS: provider switched to anthropic
+  PASS: provider switched back to fireworks
+  PASS: localhost override honored
+  PASS: non-local override rejected (key exfil prevented)
+  PASS: non-local override falls back to provider base URL
+  PASS: credentialed override rejected
+  PASS: parseModels extracts model ids
+  PASS: modelRoster falls back when list empty
+  PASS: feedbackRequest embeds prompt in messages
+  PASS: feedbackRequest forces feedback tool
+  PASS: toVerdict maps Anthropic tool call to Verdict
+  PASS: fireworksToVerdict maps OpenAI tool call to Verdict
+  PASS: Node.js behavioral tests passed (all pure-function assertions)
+
+-- feedback.qmd structure --
+  PASS: feedback.qmd has 2 exercises (>=2 for key-reuse test)
+  PASS: feedback.qmd imports exercise-feedback.js
+  PASS: feedback.qmd imports exercise-runtime.js (AC-4 dependency)
+  PASS: feedback.qmd calls mountFeedback/mountAllFeedback
+
+=== Results: 32 passed, 0 failed ===

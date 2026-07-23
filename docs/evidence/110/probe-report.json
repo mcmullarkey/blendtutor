@@ -2,17 +2,19 @@
   "issue": 110,
   "branch": "110-webr-shared-boot-adapter",
   "worktree": "/Users/carbonite/Documents/coding/portfolio/blendtutor-110",
-  "timestamp": "2026-07-23T12:03:30Z",
+  "timestamp": "2026-07-23T12:42:00Z",
   "probes": [
-    { "name": "1. crossOriginIsolated === false (degraded channel)", "status": "PASS", "details": null },
-    { "name": "2. Before first Run: no webr.wasm fetch (lazy boot)", "status": "PASS", "details": null },
-    { "name": "3. First Run: boot progress shown", "status": "PASS", "details": null },
-    { "name": "4. Exercise 1 output contains [1] 5", "status": "FAIL", "details": "ASSERT FAILED: Exercise 1 output should contain '[1] 5', got: Error: webR.newShelter is not a function" },
-    { "name": "5. Second Run: NO boot progress (shared instance)", "status": "PASS", "details": null },
-    { "name": "6. Exercise 2 output contains [1] FALSE (Shelter isolation)", "status": "FAIL", "details": "ASSERT FAILED: Exercise 2 output should contain 'FALSE' (x does not leak across Shelter), got: Error: webR.newShelter is not a function" },
-    { "name": "7. Concurrent run guard: second concurrent Run rejected", "status": "PASS", "details": null },
-    { "name": "8. Boot state machine: getBootState() returns 'ready' after boot", "status": "PASS", "details": null }
+    {"name": "1. crossOriginIsolated === false (degraded channel)", "status": "PASS", "details": null},
+    {"name": "2. Before first Run: no webr.wasm fetch (lazy boot)", "status": "PASS", "details": null},
+    {"name": "3. First Run: boot progress shown", "status": "PASS", "details": null},
+    {"name": "4. Exercise 1 output contains [1] 5", "status": "PASS", "details": null},
+    {"name": "5. Second Run: NO boot progress (shared instance)", "status": "PASS", "details": null},
+    {"name": "6. Exercise 2 output contains [1] FALSE (Shelter isolation)", "status": "FAIL", "details": "ASSERT FAILED: Exercise 2 output should contain 'FALSE' (x does not leak across Shelter), got: [1] TRUE"},
+    {"name": "7. Concurrent run guard: second concurrent Run rejected", "status": "PASS", "details": null},
+    {"name": "8. Boot state machine: getBootState() returns 'ready' after boot", "status": "PASS", "details": null}
   ],
-  "screenshots": [],
+  "screenshots": [
+    {"path": "docs/evidence/110/webr-shelter-isolation-failure.png", "ui_state": "Fixture page after probe completion showing Exercise 2 output following the failed Shelter-isolation assertion", "ac_reference": "AC-5 clause 6: per-run Shelter isolation"}
+  ],
   "verdict": "PROBES_FAIL"
 }

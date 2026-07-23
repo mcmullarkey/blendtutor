@@ -1,31 +1,28 @@
-=== AC-5 webR Adapter Rodney Probe Results — Issue #110 (re-run) ===
+AC-5 webR Adapter Probe Results — Issue #110 (webR shared-boot adapter)
 Branch: 110-webr-shared-boot-adapter
-Worktree: /Users/carbonite/Documents/coding/portfolio/blendtutor-110
-Fixture: tests/fixtures/webr-runtime.html
-Timestamp: 2026-07-23T12:03:30Z
+Fixture: http://localhost:8889/tests/fixtures/webr-runtime.html
+Probe: scripts/tests/webr-probe.js
+Timestamp: 2026-07-23T12:42:00Z
 
-Probe script: scripts/tests/webr-probe.js (8 assertions)
+Rodney commands:
+  uvx rodney start --local
+  uvx rodney open http://localhost:8889/tests/fixtures/webr-runtime.html
+  uvx rodney js "document.head.appendChild(Object.assign(document.createElement('script'),{src:'/scripts/tests/webr-probe.js',type:'module'}))"
+  sleep 20 && uvx rodney js "typeof window.__btProbeResults === 'undefined' ? 'not yet' : JSON.stringify(window.__btProbeResults)"
 
 Results:
   PASS: 1. crossOriginIsolated === false (degraded channel)
   PASS: 2. Before first Run: no webr.wasm fetch (lazy boot)
   PASS: 3. First Run: boot progress shown
-  FAIL: 4. Exercise 1 output contains [1] 5
-        ASSERT FAILED: Exercise 1 output should contain '[1] 5', got: Error: webR.newShelter is not a function
+  PASS: 4. Exercise 1 output contains [1] 5
   PASS: 5. Second Run: NO boot progress (shared instance)
   FAIL: 6. Exercise 2 output contains [1] FALSE (Shelter isolation)
-        ASSERT FAILED: Exercise 2 output should contain 'FALSE' (x does not leak across Shelter), got: Error: webR.newShelter is not a function
+        ASSERT FAILED: Exercise 2 output should contain 'FALSE' (x does not leak across Shelter), got: [1] TRUE
   PASS: 7. Concurrent run guard: second concurrent Run rejected
   PASS: 8. Boot state machine: getBootState() returns 'ready' after boot
 
-Passed: 6/8
-Failed: 2/8
-
 Verdict: PROBES_FAIL
 
-NOTE: The latest fix changed the Shelter creation to `webR.newShelter()`, but the
-loaded CDN build does not expose `newShelter` on the WebR instance. Runtime
-inspection shows `webR.Shelter` exists and is the async Shelter constructor:
-`shelter = await new webR.Shelter()`. That is the API that exposes `captureR`.
-Tests 4 and 6 still fail because the adapter cannot create a usable Shelter.
-Screenshots skipped per Phase 1 protocol because deterministic checks failed.
+Additional DOM state after probe completion:
+  Exercise 2 output: "Another exercise already running. Please wait for it to finish."
+  Exercise 2 status: fail

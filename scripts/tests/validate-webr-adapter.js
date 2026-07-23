@@ -94,13 +94,19 @@ assert(adapterSrc.includes("purge"),
 assert(adapterSrc.includes("finally"),
   "webr-adapter.js has finally block for Shelter cleanup");
 
-// Environment isolation via local() — Shelter provides object-lifecycle
-// tracking but NOT environment isolation. Variables created with `<-` in
-// captureR persist in the global R env across Shelter boundaries. The
-// adapter MUST wrap code in local({ ... }) to evaluate in a fresh R env.
-// Reference: crates/core/assets/webr/lesson-runner.js line 37.
-assert(adapterSrc.includes("local({"),
-  "webr-adapter.js wraps code in local({ ... }) for environment isolation (Shelter alone is insufficient)");
+// Environment isolation via captureR `env` option — Shelter provides
+// object-lifecycle tracking (purge frees R objects), but captureR evaluates
+// code in .GlobalEnv by default. Variables created with `<-` persist in
+// .GlobalEnv across Shelter boundaries. The adapter MUST pass a fresh env
+// (new.env(parent=emptyenv())) via captureR's `env` option so code evaluates
+// in an isolated environment. local() wrapping does NOT work in webR 0.6.0
+// (rodney probe confirms x leaks despite local()).
+assert(adapterSrc.includes("new.env(parent=emptyenv())"),
+  "webr-adapter.js creates fresh env via evalR('new.env(parent=emptyenv())') for isolation");
+assert(adapterSrc.includes("{ env: freshEnv }") || adapterSrc.includes("env: freshEnv"),
+  "webr-adapter.js passes fresh env to captureR via { env: freshEnv } option");
+assert(!adapterSrc.includes("local({"),
+  "webr-adapter.js must NOT use local() wrapper — it does not isolate in webR 0.6.0 (use env option instead)");
 
 // CDN URL
 assert(adapterSrc.includes("webr.r-wasm.org"),
@@ -254,11 +260,15 @@ const brokenShelterMatches = adapterSrc.match(/webR\.newShelter\s*\(/g);
 assert(brokenShelterMatches === null,
   "webr-adapter.js must NOT use webR.newShelter() — use `await new webR.Shelter()` instead");
 
-// Verify the adapter does NOT use shelter.evalR() for code execution
-// (Shelter API in the CDN build does not expose evalR; captureR is the correct method)
+// Verify the adapter uses shelter.evalR() ONLY for creating a fresh environment
+// (not for executing user code or installing packages). captureR is the correct
+// method for code execution because it captures stdout/stderr. evalR is used
+// solely to create new.env(parent=emptyenv()) for per-run isolation.
 const shelterEvalRMatches = adapterSrc.match(/shelter\.evalR\s*\(/g);
-assert(shelterEvalRMatches === null,
-  "webr-adapter.js must NOT use shelter.evalR() — use shelter.captureR() instead");
+assert(shelterEvalRMatches !== null && shelterEvalRMatches.length >= 1,
+  "webr-adapter.js uses shelter.evalR() to create fresh env (new.env(parent=emptyenv()))");
+assert(adapterSrc.includes('evalR("new.env(parent=emptyenv())")'),
+  "webr-adapter.js uses evalR only for new.env(parent=emptyenv()) — not for code execution");
 
 // Verify the adapter does NOT use evalR for package installation (RCE prevention)
 // evalR(`install.packages("${pkg}")`) allows RCE if pkg contains malicious R code
@@ -395,13 +405,14 @@ async function runBehavioralTests() {
       "BEHAVIORAL: `await new webR.Shelter()` produces a working Shelter, captureR callable");
   }
 
-  // --- Test 6: Code wrapped in local({ ... }) for environment isolation ---
-  // Before fix: captureR received raw code → variables leaked across runs
-  // After fix:  captureR receives `local({\n${code}\n})` → fresh R env per call
-  // This test would FAIL if the local() wrapper is removed — the mock records
-  // the exact code string passed to captureR.
+  // --- Test 6: Fresh env passed to captureR via `env` option ---
+  // Before fix: captureR received code wrapped in local() → x leaked to .GlobalEnv
+  // After fix:  captureR receives raw code + { env: freshEnv } → code evaluates
+  //             in fresh env, not .GlobalEnv. Variables do not leak.
+  // This test would FAIL if the env option is removed or local() is re-added.
   {
     globalThis.__webrMockCaptureRCalls = [];
+    globalThis.__webrMockEvalRCalls = [];
     globalThis.__webrMockConfig = {
       captureRResult: { output: [{ type: "stdout", data: "[1] 5" }] },
     };
@@ -409,13 +420,24 @@ async function runBehavioralTests() {
     await adapter.run("x <- 5; print(x)");
     assert(globalThis.__webrMockCaptureRCalls.length === 1,
       "BEHAVIORAL: captureR called exactly once");
-    const capturedCode = globalThis.__webrMockCaptureRCalls[0];
-    assert(capturedCode.startsWith("local({"),
-      `BEHAVIORAL: code passed to captureR must be wrapped in local({ ... }), got: ${capturedCode}`);
-    assert(capturedCode.includes("x <- 5; print(x)"),
-      "BEHAVIORAL: original code preserved inside local() wrapper");
-    assert(capturedCode.trim().endsWith("})"),
-      `BEHAVIORAL: code passed to captureR must end with }}), got: ${capturedCode}`);
+    const call = globalThis.__webrMockCaptureRCalls[0];
+    // Code must NOT be wrapped in local() — it should be raw
+    assert(!call.code.startsWith("local({"),
+      `BEHAVIORAL: code must NOT be wrapped in local(), got: ${call.code}`);
+    assert(call.code.includes("x <- 5; print(x)"),
+      "BEHAVIORAL: original code passed to captureR (not wrapped)");
+    // Must pass env option with fresh env
+    assert(call.options && call.options.env,
+      "BEHAVIORAL: captureR must receive { env: freshEnv } option");
+    assert(call.options.env.__isMockEnv === true,
+      "BEHAVIORAL: env option must be the fresh env from evalR");
+    // Must call evalR to create fresh env
+    assert(globalThis.__webrMockEvalRCalls.length >= 1,
+      "BEHAVIORAL: evalR called to create fresh env");
+    assert(globalThis.__webrMockEvalRCalls.some(c => c.includes("new.env")),
+      "BEHAVIORAL: evalR called with new.env() to create fresh environment");
+    assert(globalThis.__webrMockEvalRCalls.some(c => c.includes("emptyenv")),
+      "BEHAVIORAL: evalR called with parent=emptyenv() for full isolation");
   }
 
   // Clean up mock config

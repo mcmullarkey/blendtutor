@@ -23,11 +23,25 @@
 //   promise — no re-boot. The shared instance is reused across all exercises.
 //
 // Per-run Shelter isolation (§3.4):
-//   Each run() creates a new Shelter via `await new webR.Shelter()`, evaluates
-//   code, then shelter.purge() in finally. Variables do not leak between
-//   exercises. Exercise 2's exists("x") returns FALSE because Exercise 1's x
-//   was purged. The Shelter constructor is async — it returns a Promise that
-//   resolves to the Shelter instance, so `await` is mandatory.
+//   Each run() creates a new `await new webR.Shelter()`, evaluates code in a
+//   fresh R environment (via captureR's `env` option), then `shelter.purge()`
+//   in finally. Variables do not leak between exercises. Exercise 2's
+//   exists("x") returns FALSE because Exercise 1's x was in a fresh env that
+//   was discarded with the Shelter. The Shelter constructor is async — it
+//   returns a Promise that resolves to the Shelter instance, so `await` is
+//   mandatory.
+//
+// WHY env option, NOT local(): webR's captureR() evaluates code via
+// webr::eval_r(), which uses eval(parse(text=code), envir=parent.frame()).
+// The parent.frame() is the environment passed to captureR's `env` option
+// (defaults to .GlobalEnv). Wrapping code in local() SHOULD isolate variables,
+// but in practice x <- 5 inside local() still leaks to .GlobalEnv in webR
+// 0.6.0 — the rodney probe confirms Exercise 2 outputs [1] TRUE instead of
+// [1] FALSE. Root cause: captureR evaluates in .GlobalEnv regardless of
+// local() wrapping. Fix: pass a fresh env (new.env(parent=emptyenv())) via
+// captureR's `env` option so eval_r evaluates in the fresh env, not
+// .GlobalEnv. Variables created with <- are assigned to the fresh env, which
+// is destroyed by shelter.purge().
 //
 // Concurrent run guard (§5.3):
 //   Adapter-level `running` flag. Second run() while first is executing →
@@ -224,7 +238,7 @@ export function createWebRAdapter(options = {}) {
         // Per-run Shelter isolation (§3.4).
         // Each run gets a fresh Shelter — variables from one exercise
         // do not leak into another. Exercise 2's exists("x") returns FALSE
-        // because Exercise 1's x was purged after its run completed.
+        // because Exercise 1's x was in a fresh env that was discarded.
         //
         // `new webR.Shelter()` is the documented API. The Shelter constructor
         // is async — it returns a Promise that resolves to the Shelter
@@ -235,24 +249,33 @@ export function createWebRAdapter(options = {}) {
         // crates/core/assets/webr/lesson-runner.js (line 32).
         shelter = await new webR.Shelter();
 
-        // Wrap code in local({ ... }) for environment isolation.
+        // Create a fresh R environment with no parent for per-run isolation.
         //
-        // webR Shelter provides object-lifecycle tracking (purge frees R
-        // objects), but does NOT provide environment isolation — variables
-        // created with `<-` in captureR are assigned to the global R
-        // environment and persist across Shelter boundaries. Without local(),
-        // Exercise 1's `x <- 5` leaks into Exercise 2's `exists("x")` → TRUE.
+        // captureR() evaluates code via webr::eval_r(), which uses
+        // eval(parse(text=code), envir=parent.frame()). The parent.frame()
+        // is the environment passed to captureR's `env` option (defaults to
+        // .GlobalEnv). Without a fresh env, variables created with <- persist
+        // in .GlobalEnv across runs — Exercise 1's x leaks into Exercise 2.
         //
-        // local() evaluates code in a fresh R environment, so variables
-        // created inside do not persist. This matches the reference
-        // implementation in crates/core/assets/webr/lesson-runner.js (line 37).
-        const isolatedCode = `local({\n${code}\n})`;
+        // local() wrapping does NOT fix this in webR 0.6.0: the rodney probe
+        // confirms x still leaks despite wrapping code in local(). Root cause:
+        // local() creates a child of .GlobalEnv, but captureR's evaluation
+        // path bypasses local()'s scoping. The fix is to pass a fresh env
+        // directly via captureR's `env` option, so eval_r evaluates in the
+        // fresh env.
+        //
+        // new.env(parent=emptyenv()) creates an env with NO parent —
+        // exists("x") cannot search up to .GlobalEnv. The env is tracked by
+        // the Shelter and destroyed by purge().
+        const freshEnv = await shelter.evalR("new.env(parent=emptyenv())");
 
         // Capture output from R code evaluation.
         // captureR wraps the code in capture.output() and returns
         // { result: RObject, output: Array<{type, data}> }.
+        // The `env` option ensures code is evaluated in freshEnv, not
+        // .GlobalEnv — variables do not leak across runs.
         let outputText = "";
-        const captured = await shelter.captureR(isolatedCode);
+        const captured = await shelter.captureR(code, { env: freshEnv });
         // output is an array of { type: 'stdout'|'stderr'|'message'|'warning', data: string }
         if (captured.output && captured.output.length > 0) {
           outputText = captured.output.map((o) => o.data).join("\n");

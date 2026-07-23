@@ -34,12 +34,13 @@ class Shelter {
   constructor() {
     const config = globalThis.__webrMockConfig || {};
     return Promise.resolve({
-      async captureR(code) {
-        // Record the code argument so tests can verify local() wrapping.
+      async captureR(code, options = {}) {
+        // Record the code argument and options so tests can verify env-based
+        // isolation (not local() wrapper).
         if (!globalThis.__webrMockCaptureRCalls) {
           globalThis.__webrMockCaptureRCalls = [];
         }
-        globalThis.__webrMockCaptureRCalls.push(code);
+        globalThis.__webrMockCaptureRCalls.push({ code, options });
         if (config.captureRThrows) {
           throw new Error(config.captureRThrows);
         }
@@ -51,9 +52,21 @@ class Shelter {
         );
       },
       async evalR(code) {
+        // Record evalR calls so tests can verify fresh env creation.
+        if (!globalThis.__webrMockEvalRCalls) {
+          globalThis.__webrMockEvalRCalls = [];
+        }
+        globalThis.__webrMockEvalRCalls.push(code);
+        if (config.evalRThrows) {
+          throw new Error(config.evalRThrows);
+        }
+        // Return a mock env object. The adapter passes this to captureR's
+        // `env` option. The mock just needs to be truthy and have a toString.
         const resultStr = config.evalRResult || "";
         return {
           toString: async () => resultStr,
+          // Marker so tests can identify the fresh env object.
+          __isMockEnv: true,
         };
       },
       async purge() {

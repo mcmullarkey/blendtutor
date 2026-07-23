@@ -1,0 +1,19 @@
+== Assertion 1: contributes.filters present in _extension.yml ==
+  PASS: contributes.filters key present
+  PASS: blendtutor.lua listed in contributes.filters
+== Assertion 2: blendtutor.lua is valid Pandoc filter ==
+  PASS: blendtutor.lua defines Pandoc function
+  PASS: blendtutor.lua returns doc unmodified
+== Assertions 3-6: quarto render + content survival ==
+  PASS: quarto render exits 0
+  PASS: standard content survived (Hello from Quarto)
+  PASS: blendtutor content survived (add(a, b))
+  PASS: blendtutor content survived (stopifnot(add(1, 2) == 3))
+== Assertion 7: CI setup@v2 + no continue-on-error ==
+  PASS: CI uses quarto-dev/quarto-actions/setup@v2
+  PASS: no continue-on-error in quarto-render job
+
+=========================================
+  Results: 10 passed, 0 failed
+=========================================
+All tests passed.

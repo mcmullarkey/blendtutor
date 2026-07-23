@@ -1,3 +1,30 @@
+=== test_quarto_render.sh ===
+== Assertion 1: contributes.filters present in _extension.yml ==
+  PASS: contributes.filters key present
+  PASS: blendtutor.lua listed in contributes.filters
+== Assertion 2: blendtutor.lua is valid Pandoc filter ==
+  PASS: blendtutor.lua defines Pandoc function
+  PASS: blendtutor.lua returns doc unmodified
+== Assertion 2b: _quarto.yml activates blendtutor extension ==
+  PASS: _quarto.yml exists at project root
+  PASS: blendtutor listed in extensions
+== Assertions 3-7: quarto render + content survival + filter load ==
+  SKIP: quarto not installed locally — render assertions skipped
+  (CI installs quarto via quarto-dev/quarto-actions/setup@v2)
+  FAIL: quarto render exits 0 — quarto not installed
+  FAIL: standard content survived — quarto not installed
+  FAIL: blendtutor content (add(a, b)) survived — quarto not installed
+  FAIL: blendtutor content (stopifnot) survived — quarto not installed
+  FAIL: filter loaded (bt-exercise present) — quarto not installed
+== Assertion 8: CI setup@v2 + no continue-on-error ==
+  PASS: CI uses quarto-dev/quarto-actions/setup@v2
+  PASS: no continue-on-error in quarto-render job
+
+=========================================
+  Results: 8 passed, 5 failed
+=========================================
+
+=== test_quarto_filter.sh ===
 Using render tool: pandoc
 == Assertions 1-6: HTML render + JSON contract ==
   PASS: render exits 0

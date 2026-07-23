@@ -15,12 +15,15 @@
 # structurally dead extension, CI green but filter never loads.
 # Caught by assertion 1 which grep-checks the exact key.
 #
-# Negative case (PR #119 regression): .qmd rendered without `filters: [blendtutor]`
-# in a standalone (no _quarto.yml) context → Quarto skips _extensions/ discovery
-# → filter never loads → content survives raw but NO bt-exercise widget emitted.
-# Caught by assertion 7 which grep-checks for the bt-exercise class div that only
-# the loaded filter can produce. Content-survival assertions (5-6) pass trivially
-# without the filter, so the bt-exercise check is the load-proving guard.
+# Negative case (PR #119 regression): .qmd rendered without a _quarto.yml at the
+# project root → Quarto treats the file as standalone → skips _extensions/
+# discovery → filter never loads → content survives raw but NO bt-exercise widget
+# emitted. Caught by assertion 7 which grep-checks for the bt-exercise class div
+# that only the loaded filter can produce. Content-survival assertions (5-6) pass
+# trivially without the filter, so the bt-exercise check is the load-proving guard.
+# Fix: _quarto.yml at repo root with `extensions: [blendtutor]` activates the
+# extension at the project level so all .qmd files within the project load the
+# filter automatically (assertion 2b).
 #
 # Usage: bash scripts/tests/test_quarto_render.sh
 set -euo pipefail
@@ -82,6 +85,30 @@ else
     ok "blendtutor.lua returns doc unmodified"
   else
     ko "blendtutor.lua returns doc unmodified — 'return doc' not found"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Assertion 2b — _quarto.yml activates blendtutor extension at project root
+# ---------------------------------------------------------------------------
+
+echo "== Assertion 2b: _quarto.yml activates blendtutor extension =="
+
+QUARTO_YML="_quarto.yml"
+
+if [ ! -f "$QUARTO_YML" ]; then
+  ko "_quarto.yml exists at project root — file not found: $QUARTO_YML"
+  ko "blendtutor listed in extensions — file missing"
+else
+  ok "_quarto.yml exists at project root"
+
+  # The extensions key must list blendtutor so Quarto activates the extension
+  # at the project level. Without this, Quarto treats .qmd files as standalone
+  # documents and never scans _extensions/ — the filter never loads (PR #119).
+  if grep -qE 'extensions:' "$QUARTO_YML" && grep -qF 'blendtutor' "$QUARTO_YML"; then
+    ok "blendtutor listed in extensions"
+  else
+    ko "blendtutor listed in extensions — extensions key or blendtutor entry missing in $QUARTO_YML"
   fi
 fi
 
@@ -156,9 +183,9 @@ else
       # Assertion 7 — filter actually loaded: the bt-exercise widget div is only
       # emitted by the loaded blendtutor filter. Content-survival checks above
       # pass trivially when the filter never runs (raw div content survives),
-      # so this is the load-proving guard. Without `filters: [blendtutor]` in a
-      # standalone .qmd (no _quarto.yml), Quarto skips _extensions/ discovery and
-      # no bt-exercise widget is produced.
+      # so this is the load-proving guard. Without _quarto.yml at the project
+      # root activating the blendtutor extension, Quarto skips _extensions/
+      # discovery and no bt-exercise widget is produced.
       if echo "$HTML_CONTENT" | grep -qF 'bt-exercise'; then
         ok "filter loaded (bt-exercise widget present in HTML)"
       else

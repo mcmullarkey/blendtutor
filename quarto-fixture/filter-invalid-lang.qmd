@@ -1,6 +1,5 @@
 ---
 title: Invalid language test
-filters: [blendtutor]
 ---
 
 ::: {.blendtutor language="ruby"}

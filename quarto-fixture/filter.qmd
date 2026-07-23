@@ -1,6 +1,5 @@
 ---
 title: Filter test fixture
-filters: [blendtutor]
 ---
 
 ## Filter test

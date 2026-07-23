@@ -230,10 +230,39 @@ assert(probeSrc.includes("shared") || probeSrc.includes("no boot") || probeSrc.i
 // contains the required patterns. The behavioral test is done by rodney
 // in the browser.
 
-// Verify the adapter creates a Shelter per run (not shared)
-const shelterMatches = adapterSrc.match(/new\s+webR\.Shelter|new\s+WebR\.Shelter/gi);
+// Verify the adapter creates a Shelter per run via webR.newShelter() (not `new webR.Shelter()`)
+// `new webR.Shelter()` does NOT work — the Shelter constructor requires the webR
+// instance, which webR.newShelter() passes internally. Using `new webR.Shelter()`
+// produces a Shelter without methods (captureR, evalR, purge), causing runtime errors.
+const shelterMatches = adapterSrc.match(/webR\.newShelter\(\)/g);
 assert(shelterMatches !== null && shelterMatches.length >= 1,
-  "webr-adapter.js creates new Shelter per run");
+  "webr-adapter.js creates Shelter via webR.newShelter() (not `new webR.Shelter()`)");
+
+// Verify the adapter does NOT use `new webR.Shelter()` (broken — missing webR instance)
+const brokenShelterMatches = adapterSrc.match(/new\s+webR\.Shelter\s*\(/g);
+assert(brokenShelterMatches === null,
+  "webr-adapter.js must NOT use `new webR.Shelter()` — use webR.newShelter() instead");
+
+// Verify the adapter does NOT use shelter.evalR() for code execution
+// (Shelter API in the CDN build does not expose evalR; captureR is the correct method)
+const shelterEvalRMatches = adapterSrc.match(/shelter\.evalR\s*\(/g);
+assert(shelterEvalRMatches === null,
+  "webr-adapter.js must NOT use shelter.evalR() — use shelter.captureR() instead");
+
+// Verify the adapter does NOT use evalR for package installation (RCE prevention)
+// evalR(`install.packages("${pkg}")`) allows RCE if pkg contains malicious R code
+const evalRPkgMatches = adapterSrc.match(/evalR\s*\(\s*[`"]install\.packages/g);
+assert(evalRPkgMatches === null,
+  "webr-adapter.js must NOT use evalR for package installation (RCE risk — use webR.installPackages())");
+
+// Verify the adapter uses webR.installPackages() for package installation
+assert(adapterSrc.includes("webR.installPackages"),
+  "webr-adapter.js uses webR.installPackages() for package installation");
+
+// Verify the adapter throws an error if installPackages is not available
+// (instead of silently falling back to evalR)
+assert(adapterSrc.includes("typeof webR.installPackages") && adapterSrc.includes("throw"),
+  "webr-adapter.js throws error if webR.installPackages is not available (no evalR fallback)");
 
 // Verify shelter.purge() is in a finally block
 assert(adapterSrc.match(/finally\s*\{[^}]*purge/s) !== null,

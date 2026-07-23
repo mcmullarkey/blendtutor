@@ -23,7 +23,7 @@
 //   promise — no re-boot. The shared instance is reused across all exercises.
 //
 // Per-run Shelter isolation (§3.4):
-//   Each run() creates a new webR.Shelter(), evaluates code, captures output,
+//   Each run() creates a new Shelter via webR.newShelter(), evaluates code,
 //   then shelter.purge() in finally. Variables do not leak between exercises.
 //   Exercise 2's exists("x") returns FALSE because Exercise 1's x was purged.
 //
@@ -204,17 +204,18 @@ export function createWebRAdapter(options = {}) {
         if (newPackages.length > 0) {
           onBootProgress(`Installing packages: ${newPackages.join(", ")}…`);
           for (const pkg of newPackages) {
-            try {
-              if (typeof webR.installPackages === "function") {
-                await webR.installPackages([pkg]);
-              } else {
-                // Fallback: use evalR to install the package.
-                await webR.evalR(`install.packages("${pkg}")`);
-              }
-              installedPackages.add(pkg);
-            } catch (err) {
-              console.warn(`[webr-adapter] Failed to install package "${pkg}":`, err);
+            // Security: use webR.installPackages() only — NEVER interpolate
+            // package names into R source code. String interpolation of
+            // package names into R install calls would allow RCE if a
+            // package name contains malicious R code.
+            if (typeof webR.installPackages !== "function") {
+              throw new Error(
+                `webR.installPackages is not available — cannot install package "${pkg}". ` +
+                  "Ensure you are using a supported webR version.",
+              );
             }
+            await webR.installPackages([pkg]);
+            installedPackages.add(pkg);
           }
         }
 
@@ -222,22 +223,22 @@ export function createWebRAdapter(options = {}) {
         // Each run gets a fresh Shelter — variables from one exercise
         // do not leak into another. Exercise 2's exists("x") returns FALSE
         // because Exercise 1's x was purged after its run completed.
-        shelter = new webR.Shelter();
+        //
+        // webR.newShelter() is the documented API for creating a Shelter.
+        // The Shelter constructor requires the webR instance, which
+        // newShelter() passes internally. Constructing a Shelter directly
+        // without the webR instance produces a Shelter without methods
+        // (captureR, purge), causing "shelter.evalR is not a function" errors.
+        shelter = webR.newShelter();
 
         // Capture output from R code evaluation.
         // captureR wraps the code in capture.output() and returns
         // { result: RObject, output: Array<{type, data}> }.
         let outputText = "";
-        try {
-          const captured = await shelter.captureR(code);
-          // output is an array of { type: 'stdout'|'stderr'|'message'|'warning', data: string }
-          if (captured.output && captured.output.length > 0) {
-            outputText = captured.output.map((o) => o.data).join("\n");
-          }
-        } catch {
-          // Fallback: if captureR is not available, use evalR + toString.
-          const result = await shelter.evalR(code);
-          outputText = await result.toString();
+        const captured = await shelter.captureR(code);
+        // output is an array of { type: 'stdout'|'stderr'|'message'|'warning', data: string }
+        if (captured.output && captured.output.length > 0) {
+          outputText = captured.output.map((o) => o.data).join("\n");
         }
 
         return { output: outputText, ok: true };

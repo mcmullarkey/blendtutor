@@ -1,5 +1,6 @@
 ---
 title: Missing language test
+filters: [blendtutor]
 ---
 
 ::: {.blendtutor}

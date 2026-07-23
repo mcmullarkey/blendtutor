@@ -40,3 +40,17 @@ Print hello world.
 
 ::: {.blendtutor language="r"}
 :::
+
+### XSS + gotchas exercise
+
+::: {.blendtutor language="r"}
+Practice safe string handling.
+
+```r
+payload <- "</script>"
+```
+
+::: {.hints .gotchas}
+Use `<-` for assignment. Escape `</script>` in strings.
+:::
+:::

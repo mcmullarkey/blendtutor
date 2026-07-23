@@ -31,6 +31,17 @@ local function json_escape(s)
   s = s:gsub("\n", "\\n")
   s = s:gsub("\r", "\\r")
   s = s:gsub("\t", "\\t")
+  -- Escape remaining C0 control chars (U+0000-U+001F) per JSON spec.
+  -- Placed after explicit \n\r\t escapes so those short forms are preserved;
+  -- the gsub only matches control chars not yet replaced by steps above.
+  s = s:gsub("[%c]", function(c)
+    return string.format("\\u%04x", string.byte(c))
+  end)
+  -- Prevent </script> breakout: the HTML parser closes <script> at the first
+  -- </script> sequence regardless of the type attribute (type only controls
+  -- execution, not parsing). Escaping < to \u003c prevents the sequence from
+  -- appearing in the JSON payload, keeping the script tag intact.
+  s = s:gsub("<", "\\u003c")
   return s
 end
 
@@ -170,7 +181,8 @@ local function parse_inner_blocks(blocks)
     elseif block.t == "Div" then
       if block.classes:includes("hints") then
         hints = render_markdown(block.content)
-      elseif block.classes:includes("gotchas") then
+      end
+      if block.classes:includes("gotchas") then
         gotchas = render_markdown(block.content)
       end
     elseif not found_code and (block.t == "Para" or block.t == "Plain") then

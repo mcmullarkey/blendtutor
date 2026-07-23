@@ -129,6 +129,30 @@ def assert_minimal_python(data: dict[str, Any], errors: list[str]) -> None:
         )
 
 
+def assert_xss_gotchas_exercise(data: dict[str, Any], errors: list[str]) -> None:
+    """Assert conditions for the XSS + gotchas exercise (index 3).
+
+    Tests three review fixes:
+    - </script> in code_template (XSS escape — if not escaped, HTML parser
+      closes <script> early, truncating JSON and causing json.loads to fail)
+    - gotchas is not null (Div with both .hints and .gotchas classes —
+      elseif chain previously dropped gotchas)
+    - hints is not null (same div, .hints class still parsed)
+    """
+    ct = data["code_template"]
+    if ct is None or "</script>" not in ct:
+        errors.append(f"XSS exercise: code_template missing '</script>' — got: {ct!r}")
+
+    if data["gotchas"] is None:
+        errors.append(
+            "XSS exercise: gotchas should not be null "
+            "(Div with both .hints and .gotchas classes)"
+        )
+
+    if data["hints"] is None:
+        errors.append("XSS exercise: hints should not be null")
+
+
 def assert_empty_exercise(data: dict[str, Any], errors: list[str]) -> None:
     """Assert conditions for the empty exercise (index 2).
 
@@ -218,6 +242,8 @@ def main() -> int:
         assert_minimal_python(widgets[1], errors)
     if len(widgets) >= 3:
         assert_empty_exercise(widgets[2], errors)
+    if len(widgets) >= 4:
+        assert_xss_gotchas_exercise(widgets[3], errors)
 
     # IDs distinct
     ids = [w["id"] for w in widgets]

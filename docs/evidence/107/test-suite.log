@@ -1,7 +1,7 @@
 Using render tool: pandoc
 == Assertions 1-6: HTML render + JSON contract ==
   PASS: render exits 0
-All assertions passed (3 widgets verified)
+All assertions passed (4 widgets verified)
   PASS: >=3 bt-exercise widgets with all 9 keys
   PASS: full exercise values correct (prompt <code>, code_template <-, checks len 2, solution 'a + b', hints <-, gotchas null, packages [])
   PASS: minimal Python: packages parsed, all 9 keys present

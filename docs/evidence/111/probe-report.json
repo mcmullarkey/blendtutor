@@ -1,0 +1,61 @@
+{
+  "issue": 111,
+  "branch": "111-pyodide-shared-boot-adapter",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/blendtutor",
+  "timestamp": "2026-07-23T12:55:32-06:00",
+  "probes": [
+    {
+      "name": "CDN injection — exactly one pinned pyodide.js script tag",
+      "status": "PASS",
+      "details": "window.__btProbeResults[0].passed === true"
+    },
+    {
+      "name": "Single boot — loadPyodide called once (idempotent)",
+      "status": "PASS",
+      "details": "window.__btProbeResults[1].passed === true"
+    },
+    {
+      "name": "Lazy trigger — boot state machine works (null → booted)",
+      "status": "PASS",
+      "details": "window.__btProbeResults[2].passed === true"
+    },
+    {
+      "name": "Per-run fresh globals — exercise 2 can't see exercise 1's variables",
+      "status": "PASS",
+      "details": "window.__btProbeResults[3].passed === true"
+    },
+    {
+      "name": "Error surface — Python error surfaces as structured error",
+      "status": "PASS",
+      "details": "window.__btProbeResults[4].passed === true"
+    },
+    {
+      "name": "PyProxy cleanup — namespace.destroy() in finally",
+      "status": "PASS",
+      "details": "window.__btProbeResults[5].passed === true"
+    },
+    {
+      "name": "Coexistence with webR — independent, zero shared state",
+      "status": "PASS",
+      "details": "window.__btProbeResults[6].passed === true"
+    },
+    {
+      "name": "aggregate-all-passed",
+      "status": "PASS",
+      "details": "window.__btProbeResults.length === 7 && every(r => r.passed)"
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "docs/evidence/111/pyodide-fixture-initial.png",
+      "ui_state": "tests/fixtures/pyodide.html after probe injection — both exercises show pass/ok",
+      "ac_reference": "AC-6 Pyodide shared-boot adapter fixture"
+    },
+    {
+      "path": "docs/evidence/111/pyodide-fixture-capture.png",
+      "ui_state": "tests/fixtures/pyodide.html initial render via rodney-capture.sh",
+      "ac_reference": "AC-6 Pyodide shared-boot adapter fixture"
+    }
+  ],
+  "verdict": "PROBES_PASS"
+}

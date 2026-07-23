@@ -252,7 +252,7 @@ def main() -> int:
     print("== Test 3: :root blocks not scoped ==")
 
     root_rules = [
-        item for item in scoped_items
+        item[1] for item in scoped_items
         if item[0] == "rule" and item[1].selector.strip() == ":root"
     ]
     if root_rules:
@@ -273,7 +273,7 @@ def main() -> int:
     print("== Test 4: @media block preserved ==")
 
     media_rules = [
-        item for item in scoped_items
+        item[1] for item in scoped_items
         if item[0] == "atrule" and item[1].keyword == "@media"
     ]
     if media_rules:
@@ -288,7 +288,7 @@ def main() -> int:
     print("== Test 5: @keyframes preserved ==")
 
     keyframes_rules = [
-        item for item in scoped_items
+        item[1] for item in scoped_items
         if item[0] == "atrule" and item[1].keyword == "@keyframes"
     ]
     if keyframes_rules:
@@ -303,7 +303,7 @@ def main() -> int:
     print("== Test 6: body{} transformed to .bt-exercise{} ==")
 
     bt_exercise_rules = [
-        item for item in scoped_items
+        item[1] for item in scoped_items
         if item[0] == "rule" and item[1].selector.strip() == SCOPE_PREFIX
     ]
     if bt_exercise_rules:

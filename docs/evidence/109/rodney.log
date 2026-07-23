@@ -1,0 +1,48 @@
+Phase 1 Rodney probes for issue #109
+Branch: 109-multi-exercise-runtime-core
+Worktree: /Users/carbonite/Documents/coding/portfolio/blendtutor
+Timestamp: 2026-07-23T00:00:00Z
+
+Server: python3 -m http.server 8089 (served from repo root)
+
+=== Builder probe script: scripts/tests/runtime-probe.js (runtime.html) ===
+Injected via: uvx rodney js "(()=>{const s=document.createElement('script');s.src='http://localhost:8089/scripts/tests/runtime-probe.js';document.body.appendChild(s)})()"
+
+Results:
+1. registry is Array: PASS
+2. registry has get(id) method, length 3: PASS
+3. each entry has {id, editorView, element, payload}: PASS
+4. 3 distinct cm-editor instances: PASS
+5. empty-template survives: PASS
+6. per-exercise Check sends correct checks: PASS
+7. per-exercise data-status isolation: FAIL — ASSERT FAILED: exercise 1 status leaked from exercise 0
+   Note: This failure is caused by probe test ordering. Test 6 runs exercise 1 and leaves its status as "pass". Test 7 then asserts exercise 1 status is not "pass", which fails. A fresh isolation assertion (set exercise 0 to a unique value and verify exercise 1 is different) passes — see Direct deterministic checks below.
+8. per-exercise getSubmission distinct: PASS
+9. per-exercise run isolation: PASS
+10. mock not leaked (window.__bt undefined): PASS
+11. no global #submission: PASS
+12. concurrent run safety: PASS
+13. adapter injection seam: PASS
+
+=== Builder probe script: scripts/tests/runtime-edge-probe.js (runtime-edge.html) ===
+Injected via: uvx rodney js "(()=>{const s=document.createElement('script');s.src='http://localhost:8089/scripts/tests/runtime-edge-probe.js';document.body.appendChild(s)})()"
+
+Results:
+14. malformed JSON isolation: PASS
+15. duplicate-id defense: PASS
+16. graceful degradation (CM6 fail→textarea): PASS
+
+=== Direct deterministic checks (runtime.html) ===
+- window.__btExercises.length === 3 && typeof window.__btExercises.get === 'function': PASS
+- document.querySelectorAll('.cm-editor').length === 3: PASS
+- window.__bt === undefined: PASS
+- document.getElementById('submission') === null: PASS
+- Per-exercise data-status isolation (fresh state): PASS
+
+=== Direct deterministic checks (runtime-edge.html) ===
+- window.__btExercises.length === 3: PASS
+- duplicate-id defense (only one bt-edge-0): PASS
+- CM6-fail entry has null editorView: PASS
+- CM6-fail textarea fallback exists: PASS
+
+Verdict: PROBES_FAIL (builder runtime-probe.js test #7 fails due to test-ordering artifact; all direct AC checks and edge probe pass)

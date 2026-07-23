@@ -94,6 +94,14 @@ assert(adapterSrc.includes("purge"),
 assert(adapterSrc.includes("finally"),
   "webr-adapter.js has finally block for Shelter cleanup");
 
+// Environment isolation via local() — Shelter provides object-lifecycle
+// tracking but NOT environment isolation. Variables created with `<-` in
+// captureR persist in the global R env across Shelter boundaries. The
+// adapter MUST wrap code in local({ ... }) to evaluate in a fresh R env.
+// Reference: crates/core/assets/webr/lesson-runner.js line 37.
+assert(adapterSrc.includes("local({"),
+  "webr-adapter.js wraps code in local({ ... }) for environment isolation (Shelter alone is insufficient)");
+
 // CDN URL
 assert(adapterSrc.includes("webr.r-wasm.org"),
   "webr-adapter.js uses webr.r-wasm.org CDN");
@@ -385,6 +393,29 @@ async function runBehavioralTests() {
     const result = await adapter.run("1 + 1");
     assert(result.ok === true,
       "BEHAVIORAL: `await new webR.Shelter()` produces a working Shelter, captureR callable");
+  }
+
+  // --- Test 6: Code wrapped in local({ ... }) for environment isolation ---
+  // Before fix: captureR received raw code → variables leaked across runs
+  // After fix:  captureR receives `local({\n${code}\n})` → fresh R env per call
+  // This test would FAIL if the local() wrapper is removed — the mock records
+  // the exact code string passed to captureR.
+  {
+    globalThis.__webrMockCaptureRCalls = [];
+    globalThis.__webrMockConfig = {
+      captureRResult: { output: [{ type: "stdout", data: "[1] 5" }] },
+    };
+    const adapter = createWebRAdapter({ cdnUrl: mockUrl });
+    await adapter.run("x <- 5; print(x)");
+    assert(globalThis.__webrMockCaptureRCalls.length === 1,
+      "BEHAVIORAL: captureR called exactly once");
+    const capturedCode = globalThis.__webrMockCaptureRCalls[0];
+    assert(capturedCode.startsWith("local({"),
+      `BEHAVIORAL: code passed to captureR must be wrapped in local({ ... }), got: ${capturedCode}`);
+    assert(capturedCode.includes("x <- 5; print(x)"),
+      "BEHAVIORAL: original code preserved inside local() wrapper");
+    assert(capturedCode.trim().endsWith("})"),
+      `BEHAVIORAL: code passed to captureR must end with }}), got: ${capturedCode}`);
   }
 
   // Clean up mock config

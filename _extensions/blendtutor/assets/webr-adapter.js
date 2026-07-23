@@ -235,11 +235,24 @@ export function createWebRAdapter(options = {}) {
         // crates/core/assets/webr/lesson-runner.js (line 32).
         shelter = await new webR.Shelter();
 
+        // Wrap code in local({ ... }) for environment isolation.
+        //
+        // webR Shelter provides object-lifecycle tracking (purge frees R
+        // objects), but does NOT provide environment isolation — variables
+        // created with `<-` in captureR are assigned to the global R
+        // environment and persist across Shelter boundaries. Without local(),
+        // Exercise 1's `x <- 5` leaks into Exercise 2's `exists("x")` → TRUE.
+        //
+        // local() evaluates code in a fresh R environment, so variables
+        // created inside do not persist. This matches the reference
+        // implementation in crates/core/assets/webr/lesson-runner.js (line 37).
+        const isolatedCode = `local({\n${code}\n})`;
+
         // Capture output from R code evaluation.
         // captureR wraps the code in capture.output() and returns
         // { result: RObject, output: Array<{type, data}> }.
         let outputText = "";
-        const captured = await shelter.captureR(code);
+        const captured = await shelter.captureR(isolatedCode);
         // output is an array of { type: 'stdout'|'stderr'|'message'|'warning', data: string }
         if (captured.output && captured.output.length > 0) {
           outputText = captured.output.map((o) => o.data).join("\n");

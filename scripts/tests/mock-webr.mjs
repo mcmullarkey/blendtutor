@@ -13,6 +13,10 @@
 //   evalRResult:           string — if set, evalR returns a mock RObject whose
 //                          toString() returns this value.
 //
+// Side-effect: each captureR call records the code argument in
+// globalThis.__webrMockCaptureRCalls (Array<string>) so tests can verify
+// the adapter wraps code in local({ ... }).
+//
 // evalR is included so tests can verify the old evalR fallback (removed in
 // commit 34ffe21) would have returned ok:true instead of ok:false. If someone
 // re-adds the inner catch with evalR fallback, behavioral tests fail because
@@ -31,6 +35,11 @@ class Shelter {
     const config = globalThis.__webrMockConfig || {};
     return Promise.resolve({
       async captureR(code) {
+        // Record the code argument so tests can verify local() wrapping.
+        if (!globalThis.__webrMockCaptureRCalls) {
+          globalThis.__webrMockCaptureRCalls = [];
+        }
+        globalThis.__webrMockCaptureRCalls.push(code);
         if (config.captureRThrows) {
           throw new Error(config.captureRThrows);
         }

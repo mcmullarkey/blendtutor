@@ -15,15 +15,15 @@
 # structurally dead extension, CI green but filter never loads.
 # Caught by assertion 1 which grep-checks the exact key.
 #
-# Negative case (PR #119 regression): .qmd rendered without a _quarto.yml at the
-# project root → Quarto treats the file as standalone → skips _extensions/
-# discovery → filter never loads → content survives raw but NO bt-exercise widget
-# emitted. Caught by assertion 7 which grep-checks for the bt-exercise class div
-# that only the loaded filter can produce. Content-survival assertions (5-6) pass
-# trivially without the filter, so the bt-exercise check is the load-proving guard.
-# Fix: _quarto.yml at repo root with `extensions: [blendtutor]` activates the
-# extension at the project level so all .qmd files within the project load the
-# filter automatically (assertion 2b).
+# Negative case (PR #119 regression): .qmd rendered without explicit filter path
+# in YAML → Quarto never loads the blendtutor filter → content survives raw but
+# NO bt-exercise widget emitted. Caught by assertion 7 which grep-checks for the
+# bt-exercise class div that only the loaded filter can produce. Content-survival
+# assertions (5-6) pass trivially without the filter, so the bt-exercise check is
+# the load-proving guard.
+# Fix: each .qmd YAML declares filters: [_extensions/blendtutor/blendtutor.lua]
+# (explicit file path) so Quarto loads the Lua filter directly, bypassing
+# extension discovery entirely (assertion 2b pins this structurally).
 #
 # Usage: bash scripts/tests/test_quarto_render.sh
 set -euo pipefail
@@ -89,26 +89,28 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Assertion 2b — _quarto.yml activates blendtutor extension at project root
+# Assertion 2b — .qmd YAML declares explicit filter path (pins the fix)
 # ---------------------------------------------------------------------------
 
-echo "== Assertion 2b: _quarto.yml activates blendtutor extension =="
+echo "== Assertion 2b: .qmd YAML declares explicit filter path =="
 
-QUARTO_YML="_quarto.yml"
+# The filter is loaded via explicit file path in each .qmd YAML header:
+#   filters: [_extensions/blendtutor/blendtutor.lua]
+# This bypasses Quarto extension discovery entirely, working in both
+# standalone and project modes. Previous approaches (filters: [blendtutor]
+# by name, _quarto.yml extensions: [blendtutor]) failed in CI because Quarto
+# never scanned _extensions/ for standalone .qmd documents.
+# This structural guard catches the regression without needing quarto installed.
+QMD_FIXTURE="quarto-fixture/minimal.qmd"
 
-if [ ! -f "$QUARTO_YML" ]; then
-  ko "_quarto.yml exists at project root — file not found: $QUARTO_YML"
-  ko "blendtutor listed in extensions — file missing"
+if [ ! -f "$QMD_FIXTURE" ]; then
+  ko "minimal.qmd exists — file not found: $QMD_FIXTURE"
+  ko "filter path declared in .qmd YAML — fixture missing"
 else
-  ok "_quarto.yml exists at project root"
-
-  # The extensions key must list blendtutor so Quarto activates the extension
-  # at the project level. Without this, Quarto treats .qmd files as standalone
-  # documents and never scans _extensions/ — the filter never loads (PR #119).
-  if grep -qE 'extensions:' "$QUARTO_YML" && grep -qF 'blendtutor' "$QUARTO_YML"; then
-    ok "blendtutor listed in extensions"
+  if grep -qF 'filters: [_extensions/blendtutor/blendtutor.lua]' "$QMD_FIXTURE"; then
+    ok "filter path declared in .qmd YAML"
   else
-    ko "blendtutor listed in extensions — extensions key or blendtutor entry missing in $QUARTO_YML"
+    ko "filter path declared in .qmd YAML — filters: [_extensions/blendtutor/blendtutor.lua] not found in $QMD_FIXTURE"
   fi
 fi
 
@@ -183,9 +185,9 @@ else
       # Assertion 7 — filter actually loaded: the bt-exercise widget div is only
       # emitted by the loaded blendtutor filter. Content-survival checks above
       # pass trivially when the filter never runs (raw div content survives),
-      # so this is the load-proving guard. Without _quarto.yml at the project
-      # root activating the blendtutor extension, Quarto skips _extensions/
-      # discovery and no bt-exercise widget is produced.
+      # so this is the load-proving guard. Without the explicit filter path in
+      # the .qmd YAML, Quarto never loads the blendtutor filter and no
+      # bt-exercise widget is produced.
       if echo "$HTML_CONTENT" | grep -qF 'bt-exercise'; then
         ok "filter loaded (bt-exercise widget present in HTML)"
       else

@@ -1,5 +1,6 @@
 ---
 title: Missing language test
+filters: [_extensions/blendtutor/blendtutor.lua]
 ---
 
 ::: {.blendtutor}

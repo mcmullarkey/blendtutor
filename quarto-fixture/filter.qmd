@@ -1,5 +1,6 @@
 ---
 title: Filter test fixture
+filters: [_extensions/blendtutor/blendtutor.lua]
 ---
 
 ## Filter test

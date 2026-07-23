@@ -5,13 +5,12 @@
 -- NOT:   No runtime JS injection, no asset loading, no code execution.
 --        This filter owns the div→widget AST transform only (§4.1).
 --
--- This filter is activated via _quarto.yml at the project root, which declares
--- `extensions: [blendtutor]`. Quarto discovers the extension in _extensions/
--- and applies its contributed filters (declared in _extension.yml) to all
--- documents rendered within the project. Individual .qmd files do NOT need to
--- declare `filters: [blendtutor]` in their frontmatter — the project-level
--- activation is sufficient. Without _quarto.yml, Quarto treats .qmd files as
--- standalone documents and never scans _extensions/, so the filter never loads.
+-- This filter is loaded via explicit path in .qmd YAML:
+--   filters: [_extensions/blendtutor/blendtutor.lua]
+-- Quarto resolves the path relative to the project root and loads the Lua
+-- filter directly, bypassing extension discovery entirely. This works in both
+-- standalone and project modes. For distribution via `quarto add`, the
+-- _extension.yml contributes.filters mechanism is used instead.
 --
 -- SiteLesson JSON contract (9 keys, ADR-0008):
 --   id, title, prompt, code_template, checks, packages, solution, hints, gotchas

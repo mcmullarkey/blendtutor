@@ -1,0 +1,19 @@
+::: {.blendtutor language="python"}
+Write a function called 'add' that takes two numbers (a and b)
+and returns their sum.
+
+```python
+def add(a, b):
+    ...
+```
+
+```{.python .checks}
+assert add(2, 3) == 5
+assert add(-1, 1) == 0
+```
+
+```{.python .solution}
+def add(a, b):
+    return a + b
+```
+:::

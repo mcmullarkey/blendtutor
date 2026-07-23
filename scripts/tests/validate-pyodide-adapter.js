@@ -303,18 +303,23 @@ assert(
 );
 
 // ---------------------------------------------------------------------------
-// 18. Lua filter — valid Quarto include_text location ("head", not "html")
+// 18. Lua filter — valid Quarto include_text location ("in-header")
 // ---------------------------------------------------------------------------
-// CI crashes with "Illegal value for dependency location. html is not a
-// valid location." when quarto.doc.include_text("html", ...) is used.
-// Valid locations are: "head", "before-body", "after-body".
+// CI crashes with "Illegal value for dependency location. <loc> is not a
+// valid location." when quarto.doc.include_text() is called with an invalid
+// location. Both "html" and "head" are INVALID — CI rejected both.
+// Valid locations are: "in-header", "before-body", "after-body".
 assert(
-  /quarto\.doc\.include_text\(\s*["']head["']/.test(luaSrc),
-  "Lua filter uses quarto.doc.include_text(\"head\", ...) — valid Quarto include location",
+  /quarto\.doc\.include_text\(\s*["']in-header["']/.test(luaSrc),
+  "Lua filter uses quarto.doc.include_text(\"in-header\", ...) — valid Quarto include location",
 );
 assert(
   !/quarto\.doc\.include_text\(\s*["']html["']/.test(luaSrc),
   "Lua filter must NOT use quarto.doc.include_text(\"html\", ...) — invalid Quarto API (causes CI crash)",
+);
+assert(
+  !/quarto\.doc\.include_text\(\s*["']head["']/.test(luaSrc),
+  "Lua filter must NOT use quarto.doc.include_text(\"head\", ...) — also invalid (CI: \"head is not a valid location\")",
 );
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,10 @@
+---
+title: COI empty fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## COI empty — must NOT activate
+
+::: {coi=""}
+This page has an empty coi attribute.
+:::

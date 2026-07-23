@@ -1,0 +1,10 @@
+---
+title: COI false fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## COI false — must NOT activate
+
+::: {coi="false"}
+This page does NOT opt into cross-origin isolation.
+:::

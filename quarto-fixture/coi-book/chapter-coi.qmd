@@ -1,0 +1,10 @@
+---
+title: COI chapter
+filters: [../../_extensions/blendtutor/blendtutor.lua]
+---
+
+# COI Chapter
+
+::: {coi="true"}
+This chapter opts into cross-origin isolation.
+:::

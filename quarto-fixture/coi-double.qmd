@@ -1,0 +1,14 @@
+---
+title: COI double fixture — dedup test
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## COI dedup — two coi="true" divs, one script tag
+
+::: {coi="true"}
+First div opting into COI.
+:::
+
+::: {coi="true"}
+Second div also opting into COI — must NOT produce a second script tag.
+:::

@@ -1,0 +1,29 @@
+Using render tool: pandoc
+== Structural guard: .qmd YAML declares explicit filter path ==
+  PASS: filter path declared in filter.qmd YAML
+== Assertions 1-6: HTML render + JSON contract ==
+  PASS: render exits 0
+All assertions passed (4 widgets verified)
+  PASS: >=3 bt-exercise widgets with all 9 keys
+  PASS: full exercise values correct (prompt <code>, code_template <-, checks len 2, solution 'a + b', hints <-, gotchas null, packages [])
+  PASS: minimal Python: packages parsed, all 9 keys present
+  PASS: empty exercise: all 9 keys present (null/[] for absent)
+  PASS: IDs distinct, titles non-empty
+  PASS: llm_evaluation_prompt ABSENT
+== Assertion 7: non-HTML format skips widget emission ==
+  PASS: non-HTML render exits 0
+  PASS: no bt-exercise in non-HTML output
+  PASS: warning emitted for non-HTML format
+== Assertion 8: invalid language warning + skip ==
+  PASS: invalid-lang render exits 0
+  PASS: no bt-exercise for invalid language
+  PASS: warning for invalid language
+== Assertion 9: missing language warning + skip ==
+  PASS: missing-lang render exits 0
+  PASS: no bt-exercise for missing language
+  PASS: warning for missing language
+
+=========================================
+  Results: 17 passed, 0 failed
+=========================================
+All tests passed.

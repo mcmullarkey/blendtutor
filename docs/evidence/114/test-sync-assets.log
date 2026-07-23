@@ -1,0 +1,40 @@
+== Assertion 1: codemirror.js exists in vendored assets ==
+  PASS: codemirror.js exists at _extensions/blendtutor/assets/codemirror.js
+== Assertion 2: codemirror.js byte-identical to source ==
+  PASS: codemirror.js byte-identical (cmp exit 0)
+== Assertion 3: codemirror.js >= 690000 bytes ==
+  PASS: codemirror.js is 693348 bytes (>= 690000)
+== Assertion 4: styles.css exists in vendored assets ==
+  PASS: styles.css exists at _extensions/blendtutor/assets/styles.css
+== Assertion 5: sync script exists + executable ==
+  PASS: sync script exists at scripts/sync-quarto-assets.sh
+  PASS: sync script is executable
+== Assertion 6: --check exits 0 (probe) ==
+  ok: codemirror.js matches source
+  ok: styles.css matches source
+  ok: coi-serviceworker.js matches source
+All assets in sync.
+  PASS: --check exits 0 (assets in sync)
+== Assertion 7: idempotency (sync produces no git diff) ==
+  synced: codemirror.js → codemirror.js (copy)
+  synced: styles.css → styles.css (scope)
+  synced: coi-serviceworker.js → coi-serviceworker.js (copy)
+  PASS: idempotency: sync produces no git diff
+== Assertion 8: no symlinks in assets dir ==
+  PASS: no symlinks in assets dir
+== Assertion 9: drift detection (--check exits 1) ==
+  ok: styles.css matches source
+  ok: coi-serviceworker.js matches source
+  PASS: drift detection: --check exits 1 when vendored modified
+== Assertion 10: missing source detection (--check exits 2) ==
+  PASS: missing source: --check exits 2
+== Assertion 11: symlink detection (--check exits 3) ==
+  PASS: symlink detection: --check exits 3
+  synced: codemirror.js → codemirror.js (copy)
+  synced: styles.css → styles.css (scope)
+  synced: coi-serviceworker.js → coi-serviceworker.js (copy)
+
+=========================================
+  Results: 12 passed, 0 failed
+=========================================
+All tests passed.

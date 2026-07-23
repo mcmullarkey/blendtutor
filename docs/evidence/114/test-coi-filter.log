@@ -1,0 +1,33 @@
+Using render tool: pandoc
+WARNING: using pandoc (local dev fallback); CI uses quarto.
+  Pandoc ignores _quarto.yml project files; quarto respects them.
+  If a fixture directory contains _quarto.yml, results may differ.
+== Clause 1: coi="true" activates ==
+  PASS: coi-true.qmd render exits 0
+  PASS: coi="true" activates — script tag present
+== Clause 2: false/yes/empty rejected ==
+  PASS: coi="false" rejected — no script tag
+  PASS: coi="yes" rejected — no script tag
+  PASS: coi="" rejected — no script tag
+== Clause 3: dedup (one script tag for multiple coi="true" divs) ==
+  PASS: dedup — exactly one script tag (1 found)
+== Clause 4: byte-parity (vendored == source) ==
+  PASS: byte-parity — vendored coi-serviceworker.js byte-identical to source
+== Clause 5: per-page isolation ==
+  PASS: structural guard — no _quarto.yml in coi-book/ (standalone render)
+  PASS: per-page isolation — coi chapter has script tag
+  PASS: per-page isolation — no-coi chapter has no script tag
+  PASS: per-page isolation — index has no script tag
+== Clause 6: no R exercises still registers ==
+  PASS: no R exercises still registers — coi script tag present
+== Clause 7: coi-yaml (document-level YAML activates) ==
+  PASS: coi-yaml — script tag present (YAML coi: true activates)
+== Negative: script src does NOT 404 ==
+  PASS: script src resolves — coi-serviceworker.js exists at _extensions/blendtutor/assets/coi-serviceworker.js
+== Negative: filter does NOT hardcode script tag ==
+  PASS: no hardcode — no script tag when coi attribute absent
+
+=========================================
+  Results: 15 passed, 0 failed
+=========================================
+All tests passed.

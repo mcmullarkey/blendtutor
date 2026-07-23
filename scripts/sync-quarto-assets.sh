@@ -30,6 +30,7 @@ DEST_DIR="$REPO_ROOT/_extensions/blendtutor/assets"
 ASSET_FILES=(
   "codemirror.js:codemirror.js:copy"
   "styles.css:styles.css:scope"
+  "coi-serviceworker.js:coi-serviceworker.js:copy"
 )
 
 # ---------------------------------------------------------------------------

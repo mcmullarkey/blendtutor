@@ -73,6 +73,13 @@ jobs:
       - name: Pyodide adapter test
         run: bash scripts/tests/test_pyodide_adapter.sh
 
+      # Issue #114 — Opt-in cross-origin isolation via coi="true" filter
+      # attribute. Validates 7-clause predicate: coi="true" activates,
+      # false/yes/empty rejected, dedup, byte-parity, per-page isolation,
+      # no R exercises still registers, coi-yaml activates.
+      - name: COI filter test
+        run: bash scripts/tests/test_coi_filter.sh
+
   asset-parity:
     name: asset parity
     runs-on: ubuntu-latest

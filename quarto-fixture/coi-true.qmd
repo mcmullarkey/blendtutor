@@ -1,0 +1,10 @@
+---
+title: COI true fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## COI activation test
+
+::: {coi="true"}
+This page opts into cross-origin isolation.
+:::

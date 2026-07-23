@@ -1,0 +1,8 @@
+---
+title: No COI chapter
+filters: [../../_extensions/blendtutor/blendtutor.lua]
+---
+
+# No COI Chapter
+
+This chapter does NOT opt into COI. No script tag should be present.

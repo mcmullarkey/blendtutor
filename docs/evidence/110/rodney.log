@@ -1,28 +1,21 @@
-AC-5 webR Adapter Probe Results — Issue #110 (webR shared-boot adapter)
+Rodney probe run for issue #110
 Branch: 110-webr-shared-boot-adapter
+Worktree: /Users/carbonite/Documents/coding/portfolio/blendtutor-110
+Timestamp: 2026-07-23T19:30:52Z
 Fixture: http://localhost:8889/tests/fixtures/webr-runtime.html
 Probe: scripts/tests/webr-probe.js
-Timestamp: 2026-07-23T12:42:00Z
 
-Rodney commands:
-  uvx rodney start --local
-  uvx rodney open http://localhost:8889/tests/fixtures/webr-runtime.html
-  uvx rodney js "document.head.appendChild(Object.assign(document.createElement('script'),{src:'/scripts/tests/webr-probe.js',type:'module'}))"
-  sleep 20 && uvx rodney js "typeof window.__btProbeResults === 'undefined' ? 'not yet' : JSON.stringify(window.__btProbeResults)"
+Server: python3 -m http.server 8889
+Browser: uvx rodney
 
 Results:
-  PASS: 1. crossOriginIsolated === false (degraded channel)
-  PASS: 2. Before first Run: no webr.wasm fetch (lazy boot)
-  PASS: 3. First Run: boot progress shown
-  PASS: 4. Exercise 1 output contains [1] 5
-  PASS: 5. Second Run: NO boot progress (shared instance)
-  FAIL: 6. Exercise 2 output contains [1] FALSE (Shelter isolation)
-        ASSERT FAILED: Exercise 2 output should contain 'FALSE' (x does not leak across Shelter), got: [1] TRUE
-  PASS: 7. Concurrent run guard: second concurrent Run rejected
-  PASS: 8. Boot state machine: getBootState() returns 'ready' after boot
+1. crossOriginIsolated === false (degraded channel): PASS
+2. Before first Run: no webr.wasm fetch (lazy boot): PASS
+3. First Run: boot progress shown: PASS
+4. Exercise 1 output contains [1] 5: PASS
+5. Second Run: NO boot progress (shared instance): PASS
+6. Exercise 2 output contains [1] FALSE (Shelter isolation): PASS
+7. Concurrent run guard: second concurrent Run rejected: PASS
+8. Boot state machine: getBootState() returns 'ready' after boot: PASS
 
-Verdict: PROBES_FAIL
-
-Additional DOM state after probe completion:
-  Exercise 2 output: "Another exercise already running. Please wait for it to finish."
-  Exercise 2 status: fail
+Verdict: PROBES_PASS (8/8)

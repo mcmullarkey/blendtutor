@@ -67,6 +67,12 @@ jobs:
       - name: Quarto filter test
         run: bash scripts/tests/test_quarto_filter.sh
 
+      # Issue #111 — Pyodide shared-boot adapter with lazy boot and per-run
+      # fresh globals. Validates adapter protocol, CDN injection, 3-state boot,
+      # per-run globals, error surface, PyProxy cleanup, and coexistence.
+      - name: Pyodide adapter test
+        run: bash scripts/tests/test_pyodide_adapter.sh
+
   asset-parity:
     name: asset parity
     runs-on: ubuntu-latest

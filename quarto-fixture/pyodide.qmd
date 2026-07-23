@@ -1,0 +1,34 @@
+---
+title: Pyodide adapter test fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## Pyodide adapter test
+
+### Exercise 1: Set variable
+
+::: {.blendtutor language="python"}
+Set `x` to 42.
+
+```python
+x = 42
+```
+
+```{.python .checks}
+assert x == 42
+```
+:::
+
+### Exercise 2: Fresh globals (x must not exist)
+
+::: {.blendtutor language="python"}
+The variable `x` from exercise 1 must not exist here.
+
+```python
+# x should not be defined in this fresh namespace
+```
+
+```{.python .checks}
+assert "x" not in globals(), "shared globals leaked: x is visible"
+```
+:::

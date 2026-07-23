@@ -6,6 +6,7 @@
 
 pub mod build;
 pub mod eval;
+pub mod export_quarto;
 pub mod init;
 pub mod list;
 pub mod new;

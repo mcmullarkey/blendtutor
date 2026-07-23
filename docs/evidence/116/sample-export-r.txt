@@ -1,0 +1,26 @@
+::: {.blendtutor language="r"}
+Write a function called 'add_two' that takes two numeric arguments
+(x and y) and returns their sum.
+
+```r
+add_two <- function(x, y) {
+
+}
+```
+
+```{.r .checks}
+stopifnot(add_two(2, 3) == 5)
+stopifnot(add_two(-1, 1) == 0)
+```
+
+```{.r .solution}
+add_two <- function(x, y) {
+  x + y
+}
+```
+
+::: {.hints}
+- Remember: R uses '<-' for assignment, not '='.
+- A function returns its last expression automatically — no explicit 'return' needed.
+:::
+:::

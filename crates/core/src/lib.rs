@@ -20,6 +20,7 @@ pub mod eval;
 pub mod grade;
 pub mod lesson;
 pub mod llm;
+pub mod quarto_export;
 pub mod run;
 pub mod runner;
 pub mod scaffold;

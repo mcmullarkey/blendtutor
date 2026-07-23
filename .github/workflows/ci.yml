@@ -61,6 +61,12 @@ jobs:
       - name: Quarto extension render test
         run: bash scripts/tests/test_quarto_render.sh
 
+      # Issue #107 — Lua filter parses .blendtutor divs into widget HTML with
+      # embedded 9-key SiteLesson JSON. Runs the filter test harness which
+      # renders fixtures to HTML/latex and asserts the JSON contract.
+      - name: Quarto filter test
+        run: bash scripts/tests/test_quarto_filter.sh
+
   asset-parity:
     name: asset parity
     runs-on: ubuntu-latest

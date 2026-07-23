@@ -1,0 +1,7 @@
+---
+title: Invalid language test
+---
+
+::: {.blendtutor language="ruby"}
+This exercise uses an unsupported language and should be skipped.
+:::

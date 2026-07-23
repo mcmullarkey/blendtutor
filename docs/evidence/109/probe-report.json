@@ -6,8 +6,8 @@
   "probes": [
     {
       "name": "runtime-probe.js (builder script on runtime.html)",
-      "status": "FAIL",
-      "details": "13 assertions; 12 PASS, 1 FAIL. Failing assertion: '7. per-exercise data-status isolation' — exercise 1 status already 'pass' from prior test 6, so the isolation check fails. The underlying code isolates correctly; a fresh direct isolation assertion passes."
+      "status": "PASS",
+      "details": "13 assertions; 13 PASS, 0 FAIL. Assertion 7 (per-exercise data-status isolation) previously failed due to test-ordering artifact — assertion 6 left exercise 1 status as 'pass' from a successful runSubmission(). Fixed: assertion 7 now resets exercise 1 to 'idle' before the isolation check, so it tests real cross-exercise leakage rather than stale state."
     },
     {
       "name": "runtime-edge-probe.js (builder script on runtime-edge.html)",
@@ -47,5 +47,5 @@
       "ac_reference": "AC-4 graceful degradation (CM6 fail -> textarea)"
     }
   ],
-  "verdict": "PROBES_FAIL"
+  "verdict": "PROBES_PASS"
 }

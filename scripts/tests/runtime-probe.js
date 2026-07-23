@@ -123,9 +123,14 @@ async function runProbe() {
 
   // 7. per-exercise data-status isolation
   await asyncTest("7. per-exercise data-status isolation", async () => {
+    // Reset exercise 1 to a known baseline (idle). Prior assertion 6 calls
+    // reg[1].runSubmission(), which leaves exercise 1's status as "pass" on a
+    // successful mock run. Without this reset the isolation check would
+    // trivially fail on stale state rather than on a real leak.
+    reg[1].setStatus("idle", "idle");
     // Set exercise 0 status to "pass"
     reg[0].setStatus("pass", "pass");
-    // Exercise 1 status should remain unchanged
+    // Exercise 1 status should remain unchanged (idle, not pass)
     assert(reg[0].element.querySelector(".bt-status").dataset.status === "pass", "exercise 0 status not set");
     assert(reg[1].element.querySelector(".bt-status").dataset.status !== "pass", "exercise 1 status leaked from exercise 0");
   });

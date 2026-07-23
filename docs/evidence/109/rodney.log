@@ -3,6 +3,12 @@ Branch: 109-multi-exercise-runtime-core
 Worktree: /Users/carbonite/Documents/coding/portfolio/blendtutor
 Timestamp: 2026-07-23T00:00:00Z
 
+NOTE (2026-07-23): Assertion 7 FAIL below was a test-ordering artifact —
+assertion 6 left exercise 1 status as "pass". Fixed in runtime-probe.js:
+assertion 7 now resets exercise 1 to "idle" before the isolation check.
+Post-fix all 13 assertions pass. See test-suite.log + probe-report.json
+for the current (post-fix) verdict: PROBES_PASS.
+
 Server: python3 -m http.server 8089 (served from repo root)
 
 === Builder probe script: scripts/tests/runtime-probe.js (runtime.html) ===

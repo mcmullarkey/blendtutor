@@ -1,5 +1,6 @@
 ---
 title: Minimal blendtutor fixture
+filters: [blendtutor]
 ---
 
 ## Hello from Quarto

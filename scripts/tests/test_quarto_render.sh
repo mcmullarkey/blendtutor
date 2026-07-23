@@ -1,18 +1,26 @@
 #!/usr/bin/env bash
 # Executable spec for issue #106 — Quarto extension skeleton.
 #
-# Verifies the 7-point compound predicate from AC-1:
+# Verifies the 8-point compound predicate from AC-1:
 #   1. _extension.yml contains contributes.filters: [blendtutor.lua]
 #   2. blendtutor.lua is a valid Pandoc filter (function Pandoc(doc) return doc end)
 #   3. quarto render quarto-fixture/minimal.qmd exits 0
 #   4. HTML output contains standard markdown content ("Hello from Quarto")
 #   5. HTML output contains blendtutor fenced-div content ("add(a, b)")
 #   6. HTML output contains blendtutor fenced-div content ("stopifnot(add(1, 2) == 3)")
-#   7. CI uses quarto-dev/quarto-actions/setup@v2 with NO continue-on-error
+#   7. HTML output contains bt-exercise widget (filter actually loaded + transformed)
+#   8. CI uses quarto-dev/quarto-actions/setup@v2 with NO continue-on-error
 #
 # Negative case: _extension.yml present but omits contributes.filters →
 # structurally dead extension, CI green but filter never loads.
 # Caught by assertion 1 which grep-checks the exact key.
+#
+# Negative case (PR #119 regression): .qmd rendered without `filters: [blendtutor]`
+# in a standalone (no _quarto.yml) context → Quarto skips _extensions/ discovery
+# → filter never loads → content survives raw but NO bt-exercise widget emitted.
+# Caught by assertion 7 which grep-checks for the bt-exercise class div that only
+# the loaded filter can produce. Content-survival assertions (5-6) pass trivially
+# without the filter, so the bt-exercise check is the load-proving guard.
 #
 # Usage: bash scripts/tests/test_quarto_render.sh
 set -euo pipefail
@@ -81,7 +89,7 @@ fi
 # Assertions 3-6 — quarto render exits 0 and content survives
 # ---------------------------------------------------------------------------
 
-echo "== Assertions 3-6: quarto render + content survival =="
+echo "== Assertions 3-7: quarto render + content survival + filter load =="
 
 FIXTURE="quarto-fixture/minimal.qmd"
 
@@ -99,6 +107,7 @@ else
     ko "standard content survived — quarto not installed"
     ko "blendtutor content (add(a, b)) survived — quarto not installed"
     ko "blendtutor content (stopifnot) survived — quarto not installed"
+    ko "filter loaded (bt-exercise present) — quarto not installed"
   else
     # Clean any previous render output.
     rm -f quarto-fixture/minimal.html
@@ -118,6 +127,7 @@ else
       ko "standard content survived — HTML output not found: $HTML_FILE"
       ko "blendtutor content (add(a, b)) survived — HTML output not found"
       ko "blendtutor content (stopifnot) survived — HTML output not found"
+      ko "filter loaded (bt-exercise present) — HTML output not found"
     else
       HTML_CONTENT=$(cat "$HTML_FILE")
 
@@ -142,15 +152,27 @@ else
       else
         ko "blendtutor content survived (stopifnot(add(1, 2) == 3)) — not found in HTML"
       fi
+
+      # Assertion 7 — filter actually loaded: the bt-exercise widget div is only
+      # emitted by the loaded blendtutor filter. Content-survival checks above
+      # pass trivially when the filter never runs (raw div content survives),
+      # so this is the load-proving guard. Without `filters: [blendtutor]` in a
+      # standalone .qmd (no _quarto.yml), Quarto skips _extensions/ discovery and
+      # no bt-exercise widget is produced.
+      if echo "$HTML_CONTENT" | grep -qF 'bt-exercise'; then
+        ok "filter loaded (bt-exercise widget present in HTML)"
+      else
+        ko "filter loaded (bt-exercise widget present in HTML) — not found; filter never ran"
+      fi
     fi
   fi
 fi
 
 # ---------------------------------------------------------------------------
-# Assertion 7 — CI uses quarto-dev/quarto-actions/setup@v2, no continue-on-error
+# Assertion 8 — CI uses quarto-dev/quarto-actions/setup@v2, no continue-on-error
 # ---------------------------------------------------------------------------
 
-echo "== Assertion 7: CI setup@v2 + no continue-on-error =="
+echo "== Assertion 8: CI setup@v2 + no continue-on-error =="
 
 CI_FILE=".github/workflows/ci.yml"
 

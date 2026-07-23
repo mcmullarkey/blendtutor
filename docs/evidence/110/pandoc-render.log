@@ -1,0 +1,22 @@
+<h2 id="webr-shared-boot-adapter-test">webR Shared-Boot Adapter
+Test</h2>
+<h3 id="exercise-1-variable-assignment">Exercise 1: Variable
+Assignment</h3>
+<div class="bt-exercise">
+<script type="application/json">{"id":"bt-exercise-0","title":"Exercise 1","prompt":"\u003cp>Assign x to 5 and print it.\u003c/p>","code_template":"x \u003c- 5\nprint(x)","checks":[],"packages":[],"solution":null,"hints":null,"gotchas":null}</script>
+</div>
+<h3 id="exercise-2-shelter-isolation">Exercise 2: Shelter Isolation</h3>
+<div class="bt-exercise">
+<script type="application/json">{"id":"bt-exercise-1","title":"Exercise 2","prompt":"\u003cp>Check if x exists (should be FALSE �\u0080\u0094 per-run Shelter isolation).\u003c/p>","code_template":"print(exists(\"x\"))","checks":[],"packages":[],"solution":null,"hints":null,"gotchas":null}</script>
+</div>
+<script type="module">
+  import { scanExercises, buildRegistry, start } from "../_extensions/blendtutor/assets/exercise-runtime.js";
+  import { createWebRAdapter } from "../_extensions/blendtutor/assets/webr-adapter.js";
+
+  const adapter = createWebRAdapter({
+    onBootProgress: (msg) => console.log("[webr-boot]", msg),
+  });
+  const registry = buildRegistry(scanExercises());
+  window.__btWebRAdapter = adapter;
+  start(registry, adapter);
+</script>

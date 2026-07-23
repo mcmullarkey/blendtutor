@@ -1,0 +1,61 @@
+=== AC-8 Exercise UX polish — test_quarto_ux.py ===
+
+  PASS: exercise-runtime.js exists
+  PASS: ux.qmd exists
+-- ux.qmd structure --
+  PASS: ux.qmd has 3 exercises (>=3 for UX polish test)
+  PASS: ux.qmd has a .solution code block (solution reveal test)
+  PASS: ux.qmd has a hints div (hints toggle test)
+  PASS: ux.qmd has .checks code block (check button test)
+  PASS: ux.qmd imports exercise-runtime.js
+
+-- Clause 1: hints visible/absent --
+  PASS: hints <details> toggle present in exercise-runtime.js
+  PASS: hints rendering is conditional on payload.hints
+
+-- Clause 2: solution button click inserts text --
+  PASS: solution rendering references payload.solution
+  PASS: solution button creation present in exercise-runtime.js
+  PASS: solution button calls setEditorContent
+
+-- Clause 3: check button absent when no checks --
+  PASS: check button creation is conditional on checks length
+  PASS: check button referenced in exercise-runtime.js
+
+-- Clause 4: Run disables ex-0 only (per-exercise) --
+  PASS: per-exercise Run button reference found
+  PASS: button disable/enable mechanism present
+  PASS: no singleton getElementById('run') — per-exercise Run button
+
+-- Clause 5: cursor=not-allowed --
+  PASS: cursor: not-allowed present in styles.css
+  PASS: disabled button selector present in styles.css
+
+-- Clause 6: data-status closed set --
+  PASS: data-status closed set referenced (4/4 values found)
+  PASS: data-status attribute mechanism present
+  PASS: data-status="idle" selector present in styles.css
+  PASS: data-status="running" selector present in styles.css
+  PASS: data-status="pass" selector present in styles.css
+  PASS: data-status="fail" selector present in styles.css
+
+-- Clause 7: buttons re-enabled on pass --
+  PASS: button re-enable mechanism present (disabled = false or finally)
+
+-- CSS: hints + solution styling --
+  PASS: hints styling present in styles.css
+  PASS: solution button styling present in styles.css
+
+-- Behavioral checks (Node.js) --
+  PASS: scanExercises exported
+  PASS: buildRegistry exported
+  PASS: start exported
+  PASS: parsePayload exported
+  PASS: Node.js behavioral tests passed (exports verified)
+
+=== Results: 29 passed, 0 failed ===
+        SLOW [> 60.000s] (───────) blendtutor-core site::tests::encrypt_site_files_password_protects_all_content_files
+        SLOW [>120.000s] (───────) blendtutor-core site::tests::encrypt_site_files_password_protects_all_content_files
+        PASS [ 146.789s] (296/296) blendtutor-core site::tests::encrypt_site_files_password_protects_all_content_files
+────────────
+     Summary [ 199.667s] 296 tests run: 296 passed (7 slow), 0 skipped

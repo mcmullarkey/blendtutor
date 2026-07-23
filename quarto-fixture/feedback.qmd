@@ -1,0 +1,51 @@
+---
+title: Per-exercise BYOK LLM feedback test fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## Per-Exercise BYOK LLM Feedback Test
+
+### Exercise 1: Variable Assignment
+
+::: {.blendtutor language="r"}
+Assign x to 5 and print it.
+
+```r
+x <- 5
+print(x)
+```
+:::
+
+### Exercise 2: Arithmetic
+
+::: {.blendtutor language="r"}
+Write a function that adds two numbers.
+
+```r
+add <- function(a, b) {
+  ___
+}
+```
+
+```{.checks}
+stopifnot(add(1, 2) == 3)
+```
+:::
+
+<script type="module">
+  import { scanExercises, buildRegistry, start } from "../_extensions/blendtutor/assets/exercise-runtime.js";
+  import { mountAllFeedback } from "../_extensions/blendtutor/assets/exercise-feedback.js";
+  import { createWebRAdapter } from "../_extensions/blendtutor/assets/webr-adapter.js";
+
+  const adapter = createWebRAdapter({
+    onBootProgress: (msg) => console.log("[webr-boot]", msg),
+  });
+  const registry = buildRegistry(scanExercises());
+  window.__btWebRAdapter = adapter;
+  start(registry, adapter).then(() => {
+    // Mount per-exercise feedback AFTER the runtime boots — each exercise
+    // gets its own feedback button + container. The key is shared via
+    // sessionStorage: entered once on exercise 1, reused on exercise 2.
+    mountAllFeedback(registry);
+  });
+</script>

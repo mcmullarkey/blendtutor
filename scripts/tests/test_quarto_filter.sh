@@ -54,7 +54,7 @@ echo "Using render tool: $RENDER_TOOL"
 echo "== Structural guard: .qmd YAML declares explicit filter path =="
 
 # The filter is loaded via explicit file path in each .qmd YAML header:
-#   filters: [_extensions/blendtutor/blendtutor.lua]
+#   filters: [../_extensions/blendtutor/blendtutor.lua]
 # This bypasses Quarto extension discovery entirely. Previous approaches
 # (filters: [blendtutor] by name, _quarto.yml extensions: [blendtutor]) failed
 # in CI because Quarto never scanned _extensions/ for standalone .qmd documents.
@@ -64,10 +64,10 @@ FILTER_QMD="$FIXTURE_DIR/filter.qmd"
 if [ ! -f "$FILTER_QMD" ]; then
   ko "filter.qmd exists — file not found: $FILTER_QMD"
 else
-  if grep -qF 'filters: [_extensions/blendtutor/blendtutor.lua]' "$FILTER_QMD"; then
+  if grep -qF 'filters: [../_extensions/blendtutor/blendtutor.lua]' "$FILTER_QMD"; then
     ok "filter path declared in filter.qmd YAML"
   else
-    ko "filter path declared in filter.qmd YAML — filters: [_extensions/blendtutor/blendtutor.lua] not found"
+    ko "filter path declared in filter.qmd YAML — filters: [../_extensions/blendtutor/blendtutor.lua] not found"
   fi
 fi
 

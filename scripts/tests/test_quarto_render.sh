@@ -21,7 +21,7 @@
 # bt-exercise class div that only the loaded filter can produce. Content-survival
 # assertions (5-6) pass trivially without the filter, so the bt-exercise check is
 # the load-proving guard.
-# Fix: each .qmd YAML declares filters: [_extensions/blendtutor/blendtutor.lua]
+# Fix: each .qmd YAML declares filters: [../_extensions/blendtutor/blendtutor.lua]
 # (explicit file path) so Quarto loads the Lua filter directly, bypassing
 # extension discovery entirely (assertion 2b pins this structurally).
 #
@@ -95,7 +95,7 @@ fi
 echo "== Assertion 2b: .qmd YAML declares explicit filter path =="
 
 # The filter is loaded via explicit file path in each .qmd YAML header:
-#   filters: [_extensions/blendtutor/blendtutor.lua]
+#   filters: [../_extensions/blendtutor/blendtutor.lua]
 # This bypasses Quarto extension discovery entirely, working in both
 # standalone and project modes. Previous approaches (filters: [blendtutor]
 # by name, _quarto.yml extensions: [blendtutor]) failed in CI because Quarto
@@ -107,10 +107,10 @@ if [ ! -f "$QMD_FIXTURE" ]; then
   ko "minimal.qmd exists — file not found: $QMD_FIXTURE"
   ko "filter path declared in .qmd YAML — fixture missing"
 else
-  if grep -qF 'filters: [_extensions/blendtutor/blendtutor.lua]' "$QMD_FIXTURE"; then
+  if grep -qF 'filters: [../_extensions/blendtutor/blendtutor.lua]' "$QMD_FIXTURE"; then
     ok "filter path declared in .qmd YAML"
   else
-    ko "filter path declared in .qmd YAML — filters: [_extensions/blendtutor/blendtutor.lua] not found in $QMD_FIXTURE"
+    ko "filter path declared in .qmd YAML — filters: [../_extensions/blendtutor/blendtutor.lua] not found in $QMD_FIXTURE"
   fi
 fi
 

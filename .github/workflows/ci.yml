@@ -73,6 +73,14 @@ jobs:
       - name: Pyodide adapter test
         run: bash scripts/tests/test_pyodide_adapter.sh
 
+      # Issue #112 — Per-exercise BYOK LLM feedback with shared key and
+      # per-exercise scoping. Validates pure layer (buildPrompt, neutralize,
+      # providerBaseUrl), shared sessionStorage key contract, per-exercise
+      # scoping, ?provider= override, concurrent guard, and llm_evaluation_prompt
+      # absence. Runs Node.js behavioral tests + source-pattern checks.
+      - name: Exercise feedback test
+        run: python3 scripts/tests/test_quarto_feedback.py
+
       # Issue #114 — Opt-in cross-origin isolation via coi="true" filter
       # attribute. Validates 7-clause predicate: coi="true" activates,
       # false/yes/empty rejected, dedup, byte-parity, per-page isolation,

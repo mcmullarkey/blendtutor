@@ -32,6 +32,9 @@ screenshots/
 /quarto-fixture/coi-book/*.html
 /quarto-fixture/_site/
 /quarto-fixture/*_files/
+# Runtime symlink created by rodney probes so relative asset paths resolve
+# from the fixture subdirectory (quarto-fixture/_extensions -> ../_extensions)
+/quarto-fixture/_extensions
 
 /.quarto/
 **/*.quarto_ipynb

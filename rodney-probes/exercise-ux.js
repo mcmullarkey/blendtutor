@@ -155,6 +155,33 @@ function generateBlankPage() {
   );
 }
 
+function ensureAssetSymlink() {
+  // Create a symlink quarto-fixture/_extensions -> ../_extensions so that
+  // relative paths injected by blendtutor.lua (e.g. _extensions/blendtutor/
+  // assets/styles.css) resolve correctly when the fixture HTML is served
+  // from quarto-fixture/. Without this, the browser resolves the relative
+  // path to quarto-fixture/_extensions/... which 404s, and CSS never loads
+  // — causing getComputedStyle() checks (clause-5 cursor:not-allowed) to
+  // fail because the stylesheet was never applied.
+  const linkPath = path.join(WORKTREE, "quarto-fixture", "_extensions");
+  const target = "../_extensions";
+  try {
+    if (fs.existsSync(linkPath)) {
+      const stats = fs.lstatSync(linkPath);
+      if (stats.isSymbolicLink()) {
+        return; // symlink already exists
+      }
+      // Not a symlink — could be a real directory; don't touch it.
+      console.warn(`[setup] ${linkPath} exists but is not a symlink — skipping`);
+      return;
+    }
+    fs.symlinkSync(target, linkPath);
+    console.log(`[setup] created symlink ${linkPath} -> ${target}`);
+  } catch (err) {
+    console.warn(`[setup] could not create symlink: ${err.message}`);
+  }
+}
+
 function navigateToFixture() {
   rodney(["open", BLANK_URL]);
   rodneyJs(`window.location.href = '${FIXTURE_URL}'`);
@@ -369,6 +396,7 @@ function writeReport() {
 function main() {
   try {
     ensureRenderedFixture();
+    ensureAssetSymlink();
     generateBlankPage();
     startServer();
     runProbes();

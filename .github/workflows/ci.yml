@@ -113,3 +113,35 @@ jobs:
 
       - name: Asset sync integration test
         run: bash scripts/tests/test_sync_assets.sh
+
+  quarto-distribution:
+    name: quarto distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      # Issue #115 — Verify `quarto add mcmullarkey/blendtutor` installs the
+      # extension from the GitHub repo into a fresh temp directory. This proves
+      # the extension is distributable via Quarto's native add mechanism, not
+      # just copy-able from _extensions/.
+      - name: quarto add in temp dir
+        run: |
+          TMPDIR=$(mktemp -d)
+          cd "$TMPDIR"
+          quarto add mcmullarkey/blendtutor --no-prompt
+          test -f _extensions/blendtutor/_extension.yml
+          test -f _extensions/blendtutor/blendtutor.lua
+
+      # Issue #115 — Author docs, demo book, and distribution verification.
+      # Validates the 14-clause predicate: README content (install command,
+      # syntax both languages, BYOK, min Quarto, demo link), demo book (render
+      # exits 0, ≥2 exercises per language, non-empty content, mixed-language,
+      # no llm_evaluation_prompt, COI config), and CI (quarto add in temp dir,
+      # setup@v2, no continue-on-error).
+      - name: Quarto distribution test
+        run: bash scripts/tests/test_quarto_distribution.sh
+
+      - name: Render demo book
+        run: quarto render demo-book --to html

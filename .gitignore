@@ -36,5 +36,12 @@ screenshots/
 # from the fixture subdirectory (quarto-fixture/_extensions -> ../_extensions)
 /quarto-fixture/_extensions
 
+# Demo book render output (demo-book/_output/ per _quarto.yml output-dir)
+/demo-book/_output/
+/demo-book/*.html
+/demo-book/_site/
+/demo-book/*_files/
+/demo-book/.quarto/
+
 /.quarto/
 **/*.quarto_ipynb

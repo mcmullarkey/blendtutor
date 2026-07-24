@@ -1,0 +1,26 @@
+---
+title: Introduction
+---
+
+# Welcome to blendtutor
+
+This demo book shows how to author interactive coding exercises with the
+[blendtutor](https://github.com/mcmullarkey/blendtutor) Quarto extension.
+
+Each chapter contains exercises in R or Python. Learners write code in an
+in-browser editor, run it against checks, and get instant feedback.
+
+## Prerequisites
+
+- [Quarto](https://quarto.org) >= 1.4
+- The blendtutor extension installed via `quarto add mcmullarkey/blendtutor`
+
+## BYOK (Bring Your Own Key)
+
+AI-powered feedback requires an API key. Set one in your environment:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+The browser runtime uses the learner's key — no server-side key needed.

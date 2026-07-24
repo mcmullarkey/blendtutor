@@ -150,6 +150,105 @@ Each site includes an
 ([Python](https://mcmullarkey.github.io/blendtutor/examples/python/eval-results.html))
 showing the grading-prompt accuracy recorded by `blendtutor eval`.
 
+## Quarto Extension
+
+blendtutor also ships as a [Quarto](https://quarto.org) extension for authoring
+interactive coding exercises directly in `.qmd` documents. Learners get an
+in-browser code editor, instant check feedback, solution reveal, and AI-powered
+hints — all rendered as static HTML.
+
+### Requirements
+
+- **Quarto >= 1.4** (earlier versions lack the Lua filter APIs the extension uses)
+
+### Installation
+
+```bash
+quarto add mcmullarkey/blendtutor
+```
+
+This installs the extension from the
+[`mcmullarkey/blendtutor`](https://github.com/mcmullarkey/blendtutor) GitHub
+repository into your project's `_extensions/blendtutor/` directory.
+
+### Authoring syntax
+
+Exercises use Quarto fenced divs with the `.blendtutor` class. Each exercise
+specifies a `language` attribute (`"r"` or `"python"`) and contains a code
+template, optional checks, an optional solution, and optional hints.
+
+**R exercise:**
+
+```
+::: {.blendtutor language="r"}
+Write a function `add(a, b)` that returns the sum.
+
+```r
+add <- function(a, b) { ___ }
+```
+
+```{.r .checks}
+stopifnot(add(1, 2) == 3)
+```
+:::
+```
+
+**Python exercise:**
+
+```
+::: {.blendtutor language="python"}
+Write a function `square(n)` that returns `n * n`.
+
+```python
+def square(n):
+    ___
+```
+
+```{.python .checks}
+assert square(3) == 9
+```
+:::
+```
+
+### BYOK (Bring Your Own Key)
+
+AI-powered feedback uses the learner's own API key — no server-side key needed.
+Set one in the browser when prompted:
+
+- `ANTHROPIC_API_KEY` — [Anthropic](https://www.anthropic.com) (browser BYOK is
+  Anthropic-only).
+
+The key is stored in the browser's `sessionStorage` and never sent to a server
+other than the LLM provider.
+
+### Cross-origin isolation (COI)
+
+webR requires `SharedArrayBuffer`, which needs cross-origin isolation
+(COOP/COEP headers). To opt in, add `coi: true` to a page's YAML header or
+`coi="true"` to any div:
+
+```yaml
+---
+coi: true
+---
+```
+
+The filter injects a vendored `coi-serviceworker.js` shim that re-serves the
+page with the required headers. Pyodide-only pages do not need COI.
+
+### Demo book
+
+A complete demo book with R and Python exercises lives in
+[`demo-book/`](demo-book/). To render it:
+
+```bash
+cd demo-book
+quarto render
+```
+
+This produces a multi-page HTML book in `demo-book/_output/` with interactive
+exercises, checks, solutions, and COI configuration.
+
 ## License
 
 MIT License — see the `LICENSE` file for details.

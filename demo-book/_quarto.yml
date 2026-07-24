@@ -1,0 +1,15 @@
+project:
+  type: book
+  output-dir: _output
+
+book:
+  title: "blendtutor Demo Book"
+  author: "blendtutor"
+  description: "A demo Quarto book with R and Python blendtutor exercises."
+  chapters:
+    - index.qmd
+    - r-exercises.qmd
+    - python-exercises.qmd
+
+filters:
+  - ../_extensions/blendtutor/blendtutor.lua

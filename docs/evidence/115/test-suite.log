@@ -33,6 +33,7 @@
 == Clause 12: quarto add in temp dir ==
   PASS: quarto add mcmullarkey/blendtutor present in CI
   PASS: temp dir creation in CI
+  PASS: test -f paths use _extensions/mcmullarkey/blendtutor/ (actual install path)
 == Clause 13: setup@v2 ==
   PASS: quarto-dev/quarto-actions/setup@v2 present in CI
 == Clause 14: no continue-on-error ==
@@ -49,6 +50,6 @@
   PASS: README mentions BYOK
 
 =========================================
-  Results: 22 passed, 0 failed
+  Results: 23 passed, 0 failed
 =========================================
 All tests passed.

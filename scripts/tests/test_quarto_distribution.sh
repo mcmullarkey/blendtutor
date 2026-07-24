@@ -303,6 +303,16 @@ else
   else
     ko "temp dir creation in CI — no mktemp/mkdir tmp found"
   fi
+
+  # Check that test -f paths match Quarto's actual install path.
+  # `quarto add org/repo` installs to _extensions/<org>/<repo>/, NOT
+  # _extensions/<extension-name>/. The CI must assert files at the org/repo
+  # path or the test will pass locally but fail in CI.
+  if grep -qF 'test -f _extensions/mcmullarkey/blendtutor/' "$CI_FILE"; then
+    ok "test -f paths use _extensions/mcmullarkey/blendtutor/ (actual install path)"
+  else
+    ko "test -f paths — CI must check _extensions/mcmullarkey/blendtutor/ (quarto add installs to _extensions/<org>/<repo>/)"
+  fi
 fi
 
 # Clause 13: setup@v2

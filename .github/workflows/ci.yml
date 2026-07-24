@@ -126,13 +126,17 @@ jobs:
       # extension from the GitHub repo into a fresh temp directory. This proves
       # the extension is distributable via Quarto's native add mechanism, not
       # just copy-able from _extensions/.
+      #
+      # Quarto installs GitHub-sourced extensions to
+      # _extensions/<org>/<repo>/ (i.e. _extensions/mcmullarkey/blendtutor/),
+      # preserving the org/repo path — NOT _extensions/blendtutor/.
       - name: quarto add in temp dir
         run: |
           TMPDIR=$(mktemp -d)
           cd "$TMPDIR"
           quarto add mcmullarkey/blendtutor --no-prompt
-          test -f _extensions/blendtutor/_extension.yml
-          test -f _extensions/blendtutor/blendtutor.lua
+          test -f _extensions/mcmullarkey/blendtutor/_extension.yml
+          test -f _extensions/mcmullarkey/blendtutor/blendtutor.lua
 
       # Issue #115 — Author docs, demo book, and distribution verification.
       # Validates the 14-clause predicate: README content (install command,

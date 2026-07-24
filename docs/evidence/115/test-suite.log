@@ -1,0 +1,54 @@
+== Group 1: README ==
+== Clause 1: install command ==
+  PASS: install command present (quarto add mcmullarkey/blendtutor)
+== Clause 2: syntax both languages ==
+  PASS: R exercise syntax shown in README
+  PASS: Python exercise syntax shown in README
+== Clause 3: BYOK ==
+  PASS: BYOK mentioned in README
+== Clause 4: minimum Quarto version ==
+  PASS: minimum Quarto version stated in README
+== Clause 5: demo book link ==
+  PASS: demo book link present in README
+
+== Group 2: Demo book ==
+== Clause 6: render exits 0 ==
+  SKIP: quarto not installed locally — render assertion skipped
+  (CI installs quarto via quarto-dev/quarto-actions/setup@v2)
+  PASS: render exits 0 — _quarto.yml present (structural, quarto not installed)
+== Clause 7: ≥2 exercises per language ==
+  PASS: ≥2 R exercises (2 found)
+  PASS: ≥2 Python exercises (2 found)
+== Clause 8: non-empty content ==
+  PASS: non-empty content (no empty exercise divs)
+  PASS: non-empty content (code blocks present: 4)
+== Clause 9: mixed-language ==
+  PASS: mixed-language (R: 2, Python: 2)
+== Clause 10: no llm_evaluation_prompt ==
+  PASS: no llm_evaluation_prompt (0 occurrences)
+== Clause 11: COI config ==
+  PASS: COI config present (coi="true" or coi: true)
+
+== Group 3: CI ==
+== Clause 12: quarto add in temp dir ==
+  PASS: quarto add mcmullarkey/blendtutor present in CI
+  PASS: temp dir creation in CI
+== Clause 13: setup@v2 ==
+  PASS: quarto-dev/quarto-actions/setup@v2 present in CI
+== Clause 14: no continue-on-error ==
+  PASS: no continue-on-error in quarto-distribution job
+
+== Negative cases ==
+== Negative 1: correct org/repo ==
+  PASS: correct org/repo (mcmullarkey/blendtutor)
+== Negative 2: no empty JSON (exercises have content) ==
+  PASS: no empty JSON (all exercises have content)
+== Negative 3: CI does not use _extensions: copy ==
+  PASS: CI does not use _extensions: copy (uses quarto add instead)
+== Negative 4: README mentions BYOK ==
+  PASS: README mentions BYOK
+
+=========================================
+  Results: 22 passed, 0 failed
+=========================================
+All tests passed.

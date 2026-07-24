@@ -13,9 +13,7 @@
 
 == Group 2: Demo book ==
 == Clause 6: render exits 0 ==
-  SKIP: quarto not installed locally — render assertion skipped
-  (CI installs quarto via quarto-dev/quarto-actions/setup@v2)
-  PASS: render exits 0 — _quarto.yml present (structural, quarto not installed)
+  PASS: quarto render demo-book exits 0
 == Clause 7: ≥2 exercises per language ==
   PASS: ≥2 R exercises (2 found)
   PASS: ≥2 Python exercises (2 found)

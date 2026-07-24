@@ -153,6 +153,15 @@ else
       ko "render exits 0 — _quarto.yml missing in demo-book/"
     fi
   else
+    # Quarto resolves extension assets relative to the project directory
+    # (demo-book/), not the filter path (../_extensions/blendtutor/). The
+    # demo-book _quarto.yml references the filter via a relative path, but
+    # Quarto still looks for assets in demo-book/_extensions/blendtutor/.
+    # Copy the extension so the render can find styles.css and other assets.
+    if [ -d "_extensions/blendtutor" ] && [ ! -d "$DEMO_BOOK_DIR/_extensions/blendtutor" ]; then
+      mkdir -p "$DEMO_BOOK_DIR/_extensions"
+      cp -r _extensions/blendtutor "$DEMO_BOOK_DIR/_extensions/"
+    fi
     # Render the demo book
     RENDER_OUTPUT=$(quarto render "$DEMO_BOOK_DIR" --to html 2>&1) && RENDER_RC=0 || RENDER_RC=$?
     if [ "$RENDER_RC" -eq 0 ]; then

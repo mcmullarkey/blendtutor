@@ -300,6 +300,7 @@ function wireExercise(entry, runtime) {
     checkBtn.textContent = "Check";
     checkBtn.className = "bt-check-btn";
     controls.appendChild(checkBtn);
+    entry.checkBtn = checkBtn;
     checkBtn.addEventListener("click", () => {
       entry.runSubmission();
     });
@@ -312,6 +313,7 @@ function wireExercise(entry, runtime) {
     solutionBtn.textContent = "Show solution";
     solutionBtn.className = "bt-solution-btn";
     controls.appendChild(solutionBtn);
+    entry.solutionBtn = solutionBtn;
     solutionBtn.addEventListener("click", () => {
       entry.setEditorContent(entry.payload.solution);
     });
@@ -361,7 +363,9 @@ function wireExercise(entry, runtime) {
   // Per-exercise runSubmission — evaluates via the injected runtime adapter.
   // Concurrent run safety: rejects if already running (§5.3).
   // Disables THIS exercise's Run button only (clause 4: per-exercise, not
-  // singleton). Re-enables in finally (clause 7: buttons re-enabled on pass).
+  // singleton). Also disables Check/Solution buttons when present, so a
+  // mid-run click cannot overwrite the editor or trigger a stale run.
+  // Re-enables all in finally (clause 7: buttons re-enabled on pass).
   entry._running = false;
   entry.runSubmission = async function () {
     if (entry._running) {
@@ -370,6 +374,8 @@ function wireExercise(entry, runtime) {
     }
     entry._running = true;
     runBtn.disabled = true;
+    if (entry.checkBtn) entry.checkBtn.disabled = true;
+    if (entry.solutionBtn) entry.solutionBtn.disabled = true;
     try {
       const code = entry.getSubmission();
       entry.setStatus("running", "running…");
@@ -384,6 +390,8 @@ function wireExercise(entry, runtime) {
     } finally {
       entry._running = false;
       runBtn.disabled = false;
+      if (entry.checkBtn) entry.checkBtn.disabled = false;
+      if (entry.solutionBtn) entry.solutionBtn.disabled = false;
     }
   };
 

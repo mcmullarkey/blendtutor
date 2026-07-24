@@ -234,6 +234,54 @@ def check_buttons_reenabled(src: str) -> None:
         ko("button re-enable mechanism missing")
 
 
+def check_check_solution_disabled_during_run(src: str) -> None:
+    """Regression: Check/Solution buttons disabled during runSubmission.
+
+    During a run, the Check and Solution buttons must be disabled so a
+    mid-run click cannot overwrite the editor (Solution) or trigger a
+    stale/confusing run (Check). The runtime stores checkBtn/solutionBtn
+    refs on the entry and toggles their disabled state alongside the Run
+    button in the try/finally of runSubmission.
+
+    Before the fix, only runBtn was disabled — Check/Solution stayed
+    clickable mid-run.
+    """
+    code = _strip_comments(src)
+    # Must store checkBtn/solutionBtn refs on entry (so runSubmission can reach them)
+    has_check_ref = "entry.checkBtn" in code
+    has_solution_ref = "entry.solutionBtn" in code
+    if has_check_ref:
+        ok("entry.checkBtn ref stored for runSubmission access")
+    else:
+        ko("entry.checkBtn ref not stored — runSubmission cannot disable Check button")
+    if has_solution_ref:
+        ok("entry.solutionBtn ref stored for runSubmission access")
+    else:
+        ko("entry.solutionBtn ref not stored — runSubmission cannot disable Solution button")
+
+    # Must disable checkBtn/solutionBtn in the try block (before runtime.run)
+    if "entry.checkBtn" in code and "entry.checkBtn.disabled = true" in code:
+        ok("Check button disabled during runSubmission")
+    else:
+        ko("Check button NOT disabled during runSubmission — mid-run click overwrites editor")
+
+    if "entry.solutionBtn" in code and "entry.solutionBtn.disabled = true" in code:
+        ok("Solution button disabled during runSubmission")
+    else:
+        ko("Solution button NOT disabled during runSubmission — mid-run click overwrites editor")
+
+    # Must re-enable checkBtn/solutionBtn in the finally block
+    if "entry.checkBtn" in code and "entry.checkBtn.disabled = false" in code:
+        ok("Check button re-enabled after runSubmission")
+    else:
+        ko("Check button NOT re-enabled after runSubmission")
+
+    if "entry.solutionBtn" in code and "entry.solutionBtn.disabled = false" in code:
+        ok("Solution button re-enabled after runSubmission")
+    else:
+        ko("Solution button NOT re-enabled after runSubmission")
+
+
 def check_data_status_closed_set(src: str) -> None:
     """Clause 6: data-status is a closed set (idle, running, pass, fail).
 
@@ -575,6 +623,9 @@ def main() -> int:
 
     print("\n-- Clause 7: buttons re-enabled on pass --")
     check_buttons_reenabled(src)
+
+    print("\n-- Regression: Check/Solution disabled during run --")
+    check_check_solution_disabled_during_run(src)
 
     print("\n-- CSS: hints + solution styling --")
     check_css_hints_solution(css)

@@ -278,4 +278,53 @@ mod tests {
             "file B must decrypt with its own salt + correct password"
         );
     }
+
+    #[test]
+    fn from_base64_accepts_payload_with_exactly_salt_plus_nonce_length() {
+        // A payload with exactly SALT_LEN + NONCE_LEN bytes (28) has a valid
+        // salt and nonce but zero-length ciphertext. from_base64 must accept it
+        // (the length check is `<`, not `<=` or `==`) — the empty ciphertext is
+        // structurally valid; decryption would fail, but parsing succeeds.
+        //
+        // Kills the mutant that replaces `<` with `==`: the mutant rejects
+        // 28-byte payloads (== SALT_LEN + NONCE_LEN), while the original accepts
+        // them (>= SALT_LEN + NONCE_LEN).
+        let mut bytes = vec![0u8; SALT_LEN + NONCE_LEN];
+        bytes.iter_mut().enumerate().for_each(|(i, b)| *b = i as u8);
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        let payload = EncryptedPayload::from_base64(&encoded)
+            .expect("a payload with exactly SALT_LEN + NONCE_LEN bytes is accepted");
+        assert_eq!(payload.salt.len(), SALT_LEN);
+        assert_eq!(payload.nonce.len(), NONCE_LEN);
+        assert!(
+            payload.ciphertext.is_empty(),
+            "ciphertext is empty (zero-length payload)"
+        );
+    }
+
+    #[test]
+    fn crypto_error_display_contains_expected_text() {
+        // Each CryptoError variant's Display output must contain its expected
+        // message text. Kills the mutant that replaces the fmt body with
+        // Ok(Default::default()) (empty string).
+        let decryption_failed = CryptoError::DecryptionFailed.to_string();
+        assert!(
+            decryption_failed.contains("decryption failed"),
+            "DecryptionFailed Display must mention 'decryption failed', got: {decryption_failed}"
+        );
+        assert!(
+            !decryption_failed.is_empty(),
+            "DecryptionFailed Display must not be empty"
+        );
+
+        let invalid_payload = CryptoError::InvalidPayload.to_string();
+        assert!(
+            invalid_payload.contains("invalid encrypted payload"),
+            "InvalidPayload Display must mention 'invalid encrypted payload', got: {invalid_payload}"
+        );
+        assert!(
+            !invalid_payload.is_empty(),
+            "InvalidPayload Display must not be empty"
+        );
+    }
 }

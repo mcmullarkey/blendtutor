@@ -3273,4 +3273,110 @@ exercise:
         let end = rest.find('"')?;
         Some(rest[..end].to_string())
     }
+
+    /// Extract an EncryptedPayload from a decrypt shell's data-* attributes.
+    /// Reconstructs the salt, nonce, and ciphertext from the separate base64
+    /// attributes the decrypt shell emits.
+    fn extract_encrypted_payload(html: &str) -> crypto::EncryptedPayload {
+        let ciphertext = base64::engine::general_purpose::STANDARD
+            .decode(
+                extract_data_attr(html, "data-encrypted-payload")
+                    .expect("decrypt shell must have data-encrypted-payload"),
+            )
+            .expect("ciphertext is valid base64");
+        let salt_bytes = base64::engine::general_purpose::STANDARD
+            .decode(
+                extract_data_attr(html, "data-salt").expect("decrypt shell must have data-salt"),
+            )
+            .expect("salt is valid base64");
+        let nonce_bytes = base64::engine::general_purpose::STANDARD
+            .decode(extract_data_attr(html, "data-iv").expect("decrypt shell must have data-iv"))
+            .expect("iv is valid base64");
+        let mut salt = [0u8; 16];
+        salt.copy_from_slice(&salt_bytes);
+        let mut nonce = [0u8; 12];
+        nonce.copy_from_slice(&nonce_bytes);
+        crypto::EncryptedPayload {
+            ciphertext,
+            salt,
+            nonce,
+        }
+    }
+
+    #[test]
+    fn is_content_file_classifies_index_and_eval_results_as_content() {
+        // index.html and eval-results.html are content files that get encrypted.
+        // Kills the mutant that replaces || with && in the first two conditions:
+        // `path == "index.html" && path == "eval-results.html"` is always false
+        // (a path can't equal both), so both would be misclassified as non-content.
+        assert!(
+            is_content_file("index.html"),
+            "index.html must be classified as a content file"
+        );
+        assert!(
+            is_content_file("eval-results.html"),
+            "eval-results.html must be classified as a content file"
+        );
+    }
+
+    #[test]
+    fn is_content_file_rejects_non_content_files_matching_one_condition() {
+        // A file that starts with "lessons/" but doesn't end in ".json" is NOT
+        // a content file. Kills the mutant that replaces && with || in the
+        // last condition: `starts_with("lessons/") || ends_with(".json")`
+        // would classify "lessons/readme.txt" as content (matching starts_with
+        // alone) and "config.json" as content (matching ends_with alone).
+        assert!(
+            !is_content_file("lessons/readme.txt"),
+            "lessons/readme.txt must NOT be a content file (not a .json)"
+        );
+        assert!(
+            !is_content_file("config.json"),
+            "config.json must NOT be a content file (not under lessons/)"
+        );
+    }
+
+    #[test]
+    fn encrypt_site_files_embeds_key_only_in_index_html() {
+        // When an embed_key is provided, index.html's plaintext is JSON-wrapped
+        // ({"html":"...","embeddedKey":{...}}) so the decrypt shell can extract
+        // the key. eval-results.html does NOT receive the JSON wrapping — it
+        // stays as plain encrypted HTML.
+        //
+        // Kills the mutant that replaces == with != in
+        // `if path_str == "index.html"`: the mutant swaps the behavior,
+        // JSON-wrapping eval-results.html instead of index.html.
+        let planned = plan(&r_course(), BuildTarget::Webr).expect("plans");
+        let mut rng = rand_core::OsRng;
+        let embed_key = EmbeddedKey {
+            provider: "fireworks".to_string(),
+            key: "fw_testkey123".to_string(),
+        };
+        let encrypted = encrypt_site_files(&planned, TEST_PASSWORD, Some(&embed_key), &mut rng);
+
+        // index.html: decrypt and verify the plaintext contains embeddedKey JSON.
+        let index_html = &file(&encrypted, "index.html").contents;
+        let index_payload = extract_encrypted_payload(index_html);
+        let index_plaintext = crypto::decrypt(&index_payload, TEST_PASSWORD)
+            .expect("index.html decrypts with the correct password");
+        assert!(
+            index_plaintext.contains("embeddedKey"),
+            "index.html plaintext must contain embeddedKey JSON wrapping, got: {index_plaintext}"
+        );
+        assert!(
+            index_plaintext.contains("fw_testkey123"),
+            "index.html plaintext must contain the embedded API key, got: {index_plaintext}"
+        );
+
+        // eval-results.html: decrypt and verify the plaintext does NOT contain
+        // embeddedKey JSON — it stays as plain HTML.
+        let eval_html = &file(&encrypted, "eval-results.html").contents;
+        let eval_payload = extract_encrypted_payload(eval_html);
+        let eval_plaintext = crypto::decrypt(&eval_payload, TEST_PASSWORD)
+            .expect("eval-results.html decrypts with the correct password");
+        assert!(
+            !eval_plaintext.contains("embeddedKey"),
+            "eval-results.html plaintext must NOT contain embeddedKey JSON wrapping, got: {eval_plaintext}"
+        );
+    }
 }

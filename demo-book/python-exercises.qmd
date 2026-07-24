@@ -1,0 +1,52 @@
+---
+title: Python Exercises
+---
+
+# Python Exercises
+
+This chapter demonstrates Python exercises using Pyodide (Python in the
+browser). No COI is needed for Pyodide-only pages — it boots on the main
+thread.
+
+## Exercise 1: Square function
+
+Write a function `square(n)` that returns the square of a number.
+
+::: {.blendtutor language="python"}
+Write a function `square(n)` that returns `n * n`.
+
+```python
+def square(n):
+    ___
+```
+
+```{.python .checks}
+assert square(3) == 9
+```
+
+```{.python .solution}
+return n * n
+```
+:::
+
+## Exercise 2: Even check
+
+Write a function `is_even(n)` that returns `True` if `n` is even.
+
+::: {.blendtutor language="python"}
+Write a function `is_even(n)` that returns `True` if `n` is even.
+
+```python
+def is_even(n):
+    ___
+```
+
+```{.python .checks}
+assert is_even(4) == True
+assert is_even(7) == False
+```
+
+```{.python .solution}
+return n % 2 == 0
+```
+:::

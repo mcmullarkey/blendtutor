@@ -1,0 +1,55 @@
+---
+title: R Exercises
+coi: true
+---
+
+# R Exercises
+
+This chapter demonstrates R exercises with cross-origin isolation enabled
+(`coi: true` in the YAML header). webR requires `SharedArrayBuffer`, which
+needs COOP/COEP headers. The blendtutor filter injects the
+`coi-serviceworker.js` shim when COI is activated.
+
+## Exercise 1: Add function
+
+Write a function `add(a, b)` that returns the sum of two numbers.
+
+::: {.blendtutor language="r"}
+Write a function `add(a, b)` that returns the sum.
+
+```r
+add <- function(a, b) { ___ }
+```
+
+```{.r .checks}
+stopifnot(add(1, 2) == 3)
+```
+
+```{.r .solution}
+a + b
+```
+
+::: {.hints}
+Use the `<-` operator to assign the function body.
+:::
+:::
+
+## Exercise 2: Greeting function
+
+Write a function `greet(name)` that returns a greeting string.
+
+::: {.blendtutor language="r"}
+Write a function `greet(name)` that returns `"hello, <name>"`.
+
+```r
+greet <- function(name) { ___ }
+```
+
+```{.r .checks}
+stopifnot(greet("world") == "hello, world")
+```
+
+```{.r .solution}
+paste("hello,", name)
+```
+:::

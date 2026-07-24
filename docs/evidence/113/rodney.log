@@ -1,0 +1,26 @@
+# Rodney probes for issue #113
+verdict: PROBES_PASS
+timestamp: 2026-07-24T00:28:04.960Z
+
+- PASS: clause-1: hints visible/absent
+  assertion passed
+- PASS: clause-3: check button absent when no checks
+  assertion passed
+- PASS: negative: solution button for empty exercise
+  assertion passed
+- PASS: clause-2: solution button inserts solution text
+  assertion passed
+- PASS: clause-4: Run disables ex-0 only
+  assertion passed
+- PASS: clause-5: cursor not-allowed on disabled buttons
+  assertion passed
+- PASS: clause-6: data-status closed set
+  assertion passed
+- PASS: clause-7: buttons re-enabled on pass
+  assertion passed
+
+## Screenshots
+- docs/evidence/113/01-initial-state.png — Initial render: three exercises with hints on ex0, no hints on ex2, Run/Check/Solution buttons (AC-8 clause 1 (hints visible/absent), clause 3 (check button conditional), negative (solution button for empty exercise))
+- docs/evidence/113/02-solution-inserted.png — Exercise 0 after clicking Show solution: editor contains 'a + b' (AC-8 clause 2 (solution button click inserts text))
+- docs/evidence/113/03-run-disabled-isolation.png — During exercise 0 run: ex0 Run button disabled, ex1 and ex2 Run buttons still enabled (AC-8 clause 4 (Run disables ex-0 only), clause 5 (cursor on disabled buttons), clause 7 (buttons re-enabled on pass))
+- docs/evidence/113/04-status-pass.png — After exercise 0 run completes: status shows pass, all Run buttons re-enabled (AC-8 clause 6 (data-status closed set), clause 7 (buttons re-enabled on pass))

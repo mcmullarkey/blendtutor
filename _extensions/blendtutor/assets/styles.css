@@ -451,6 +451,161 @@
   color: var(--bt-color-text-primary);
 }
 
+/* === exercise UX polish (AC-8) === */
+
+/* Per-exercise UX elements: hints <details> toggle, solution/check/run buttons,
+ * data-status badge, and disabled-button cursor. These are the class-based
+ * equivalents of the singleton #lesson-* selectors above, used by
+ * exercise-runtime.js's per-exercise wireExercise().
+ *
+ * What it does:
+ *  - .bt-hints: expandable <details> panel for hints (clause 1).
+ *  - .bt-run-btn / .bt-check-btn / .bt-solution-btn: control buttons.
+ *  - button[disabled]: cursor not-allowed (clause 5).
+ *  - .bt-status[data-status]: closed-set status badge (clause 6).
+ *
+ * What it does NOT do:
+ *  - No JS changes — pure CSS only.
+ *  - No hex color literals — all colors via var(--bt-*) tokens.
+ *  - Dark mode is handled by the dark-mode @media block :root overrides.
+ */
+
+.bt-exercise .bt-hints {
+  margin-bottom: var(--bt-space-md);
+  padding: var(--bt-space-sm) var(--bt-space-md);
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  background: var(--bt-color-surface-code);
+}
+
+.bt-exercise .bt-hints summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--bt-color-text-secondary);
+}
+
+.bt-exercise .bt-hints p {
+  margin: var(--bt-space-sm) 0 0;
+  color: var(--bt-color-text-secondary);
+  line-height: var(--bt-line-height);
+}
+
+.bt-exercise .bt-hints ul {
+  margin: var(--bt-space-sm) 0 0;
+  padding-left: var(--bt-space-lg);
+  color: var(--bt-color-text-secondary);
+  line-height: var(--bt-line-height);
+}
+
+.bt-exercise .bt-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--bt-space-md);
+  margin-top: var(--bt-space-sm);
+  margin-bottom: var(--bt-space-sm);
+}
+
+.bt-exercise .bt-run-btn {
+  background: var(--bt-color-brand);
+  color: var(--bt-color-surface);
+  border: none;
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  font-family: var(--bt-font-family-ui);
+  font-size: var(--bt-font-size-base);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.bt-exercise .bt-run-btn:hover {
+  background: var(--bt-color-brand-hover);
+}
+
+.bt-exercise .bt-check-btn {
+  background: transparent;
+  border: 1px solid var(--bt-color-border);
+  color: var(--bt-color-text-primary);
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  font-family: var(--bt-font-family-ui);
+  font-size: var(--bt-font-size-base);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.bt-exercise .bt-check-btn:hover {
+  background: color-mix(in srgb, var(--bt-color-border) 20%, transparent);
+}
+
+.bt-exercise .bt-solution-btn {
+  background: transparent;
+  border: 1px solid var(--bt-color-border);
+  color: var(--bt-color-text-secondary);
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  font-family: var(--bt-font-family-ui);
+  font-size: var(--bt-font-size-base);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.bt-exercise .bt-solution-btn:hover {
+  background: color-mix(in srgb, var(--bt-color-border) 20%, transparent);
+}
+
+/* Disabled buttons — cursor not-allowed (clause 5). Applies to any button
+ * inside .bt-exercise that carries the [disabled] attribute. */
+
+.bt-exercise button[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.bt-exercise .bt-status {
+  display: inline-block;
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  border-radius: var(--bt-radius-pill);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  box-shadow: var(--bt-shadow-sm);
+  line-height: 1.75;
+}
+
+.bt-exercise .bt-status[data-status="idle"] {
+  background: var(--bt-color-status-idle);
+  color: var(--bt-color-text-secondary);
+}
+
+.bt-exercise .bt-status[data-status="running"] {
+  background: var(--bt-color-status-running);
+  color: var(--bt-color-surface);
+}
+
+.bt-exercise .bt-status[data-status="pass"] {
+  background: var(--bt-color-status-pass);
+  color: var(--bt-color-surface);
+}
+
+.bt-exercise .bt-status[data-status="fail"] {
+  background: var(--bt-color-status-fail);
+  color: var(--bt-color-surface);
+}
+
+.bt-exercise .bt-output {
+  background: var(--bt-color-surface-code);
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  padding: var(--bt-space-sm);
+  box-shadow: var(--bt-shadow-sm);
+  white-space: pre-wrap;
+  min-height: 4rem;
+  font-family: var(--bt-font-family-code);
+  font-size: var(--bt-font-size-base);
+  line-height: var(--bt-line-height);
+  color: var(--bt-color-text-primary);
+}
+
 /* === feedback / BYOK === */
 
 /* BYOK feedback panel — styled via data-byok / data-correct attribute selectors.

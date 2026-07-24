@@ -2,7 +2,9 @@
 -- WHAT:  Pandoc filter that parses ::: {.blendtutor} divs into widget HTML
 --        with embedded 9-key SiteLesson JSON (ADR-0008 contract).
 -- WHERE: _extensions/blendtutor/blendtutor.lua (loaded via _extension.yml contributes.filters)
--- NOT:   No runtime JS injection, no asset loading, no code execution.
+-- NOT:   No code execution. The filter emits AST only; runtime JS (pyodide,
+--        coi-serviceworker) and CSS (styles.css) are injected as <head>
+--        tags via quarto.doc.include_text, loaded by the browser.
 --        This filter owns the div→widget AST transform only (§4.1).
 --
 -- This filter is loaded via explicit path in .qmd YAML:
@@ -29,6 +31,11 @@ local hasDoneSetup = false
 -- Read in Pandoc() (which runs AFTER Div()) to conditionally inject CDN.
 local has_python = false
 
+-- has_blendtutor flag — set in Div() when a valid blendtutor exercise is found.
+-- Read in Pandoc() to conditionally inject styles.css (needed for all exercises).
+-- Reset in Pandoc() so each document gets a fresh check.
+local has_blendtutor = false
+
 -- Pinned CDN URL for pyodide.js (classic script, not ES module).
 -- loadPyodide is a global function, not an ES module export (§3.4).
 local PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"
@@ -45,6 +52,10 @@ local hasCoiDone = false
 -- Path to vendored coi-serviceworker.js (synced via sync-quarto-assets.sh, mode=copy).
 -- The service worker re-serves pages with COOP/COEP headers for SharedArrayBuffer.
 local COI_SCRIPT_PATH = "_extensions/blendtutor/assets/coi-serviceworker.js"
+
+-- Path to vendored styles.css (synced via sync-quarto-assets.sh, mode=scope).
+-- Provides .bt-exercise styling: button states, cursor not-allowed, data-status.
+local STYLES_CSS_PATH = "_extensions/blendtutor/assets/styles.css"
 
 -- ---------------------------------------------------------------------------
 -- JSON encoding helpers (Lua has no built-in JSON encoder)
@@ -317,6 +328,10 @@ function Div(div)
     has_python = true
   end
 
+  -- Track blendtutor exercises for styles.css injection (AC-8).
+  -- Pandoc() runs AFTER Div() and reads this flag.
+  has_blendtutor = true
+
   -- Parse packages from div attribute (comma-separated)
   local packages = parse_packages(div.attributes["packages"])
 
@@ -379,11 +394,26 @@ function Pandoc(doc)
     end
   end
 
+  -- Inject styles.css if any blendtutor exercises are present (AC-8).
+  -- has_blendtutor is set in Div() which runs before Pandoc().
+  -- styles.css provides button states, cursor not-allowed, data-status styling.
+  if has_blendtutor and is_html_format() then
+    local css_link = '<link rel="stylesheet" href="' .. STYLES_CSS_PATH .. '">'
+    -- Try Quarto API first (injects in <head>), fall back to RawBlock.
+    if quarto and quarto.doc and quarto.doc.include_text then
+      quarto.doc.include_text("in-header", css_link)
+    else
+      -- Pandoc fallback: prepend to document body.
+      table.insert(doc.blocks, 1, pandoc.RawBlock("html", css_link))
+    end
+  end
+
   -- Reset flags for next document (per-page isolation, §3).
   has_python = false
   hasDoneSetup = false
   has_coi = false
   hasCoiDone = false
+  has_blendtutor = false
 
   return doc
 end

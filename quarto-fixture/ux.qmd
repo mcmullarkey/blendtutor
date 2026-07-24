@@ -1,0 +1,55 @@
+---
+title: Exercise UX polish test fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## Exercise UX Polish Test
+
+### Exercise 1: Full exercise (hints + solution + checks)
+
+::: {.blendtutor language="r"}
+Write a function `add(a, b)` that returns the sum.
+
+```r
+add <- function(a, b) { ___ }
+```
+
+```{.r .checks}
+stopifnot(add(1, 2) == 3)
+```
+
+```{.r .solution}
+a + b
+```
+
+::: {.hints}
+- Use the `<-` operator to assign the function body.
+- The last expression is the return value.
+:::
+:::
+
+### Exercise 2: No checks (check button absent)
+
+::: {.blendtutor language="r"}
+Print a greeting to the console.
+
+```r
+print("hello world")
+```
+:::
+
+### Exercise 3: Empty exercise (no solution, no hints, no checks)
+
+::: {.blendtutor language="r"}
+Write any R expression below.
+:::
+
+<script type="module">
+  import { scanExercises, buildRegistry, start } from "../_extensions/blendtutor/assets/exercise-runtime.js";
+  import { createMockAdapter } from "../tests/fixtures/mock-adapter.js";
+
+  const adapter = createMockAdapter();
+  const registry = buildRegistry(scanExercises());
+  window.__btTestAdapter = adapter;
+  start(registry, adapter);
+</script>

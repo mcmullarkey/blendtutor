@@ -2,7 +2,7 @@
   "issue": 113,
   "branch": "113-ux-polish",
   "worktree": "/Users/carbonite/Documents/coding/portfolio/blendtutor-113",
-  "timestamp": "2026-07-24T00:01:41.844Z",
+  "timestamp": "2026-07-24T00:28:04.960Z",
   "probes": [
     {
       "name": "clause-1: hints visible/absent",
@@ -31,8 +31,8 @@
     },
     {
       "name": "clause-5: cursor not-allowed on disabled buttons",
-      "status": "FAIL",
-      "details": "assertion returned: false"
+      "status": "PASS",
+      "details": "assertion passed"
     },
     {
       "name": "clause-6: data-status closed set",
@@ -67,5 +67,5 @@
       "ac_reference": "AC-8 clause 6 (data-status closed set), clause 7 (buttons re-enabled on pass)"
     }
   ],
-  "verdict": "PROBES_FAIL"
+  "verdict": "PROBES_PASS"
 }

@@ -1,6 +1,6 @@
 # Rodney probes for issue #113
-verdict: PROBES_FAIL
-timestamp: 2026-07-24T00:01:41.844Z
+verdict: PROBES_PASS
+timestamp: 2026-07-24T00:28:04.960Z
 
 - PASS: clause-1: hints visible/absent
   assertion passed
@@ -12,8 +12,8 @@ timestamp: 2026-07-24T00:01:41.844Z
   assertion passed
 - PASS: clause-4: Run disables ex-0 only
   assertion passed
-- FAIL: clause-5: cursor not-allowed on disabled buttons
-  assertion returned: false
+- PASS: clause-5: cursor not-allowed on disabled buttons
+  assertion passed
 - PASS: clause-6: data-status closed set
   assertion passed
 - PASS: clause-7: buttons re-enabled on pass

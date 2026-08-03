@@ -1,0 +1,7 @@
+=== Clause 1: ux.html href ===
+href="../_extensions/blendtutor/assets/styles.css"
+=== Clause 2: coi-true.html src ===
+src="../_extensions/blendtutor/assets/coi-serviceworker.js"
+=== Clause 4+5: all emitted asset URLs ===
+quarto-fixture/ux.html:href="../_extensions/blendtutor/assets/styles.css"
+quarto-fixture/coi-true.html:src="../_extensions/blendtutor/assets/coi-serviceworker.js"

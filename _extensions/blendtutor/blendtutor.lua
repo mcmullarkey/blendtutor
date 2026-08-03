@@ -49,13 +49,58 @@ local PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"
 local has_coi = false
 local hasCoiDone = false
 
--- Path to vendored coi-serviceworker.js (synced via sync-quarto-assets.sh, mode=copy).
--- The service worker re-serves pages with COOP/COEP headers for SharedArrayBuffer.
-local COI_SCRIPT_PATH = "_extensions/blendtutor/assets/coi-serviceworker.js"
+-- Asset paths are derived from the filter's own location (ADR-0018), never
+-- hardcoded. `quarto add mcmullarkey/blendtutor` installs to
+-- _extensions/mcmullarkey/blendtutor/ (org/repo path), so a hardcoded
+-- _extensions/blendtutor/ prefix 404s in installed projects.
+
+--- Resolve an asset path relative to the filter script's own location.
+-- PANDOC_SCRIPT_FILE arrives in one of two forms (verified quarto 1.10.18):
+--   * explicit YAML filter path — as written, relative to the qmd directory
+--     (e.g. "../_extensions/blendtutor/blendtutor.lua" from quarto-fixture/);
+--   * by-name _extension.yml install — an ABSOLUTE path into the project
+--     (e.g. "/abs/proj/_extensions/mcmullarkey/blendtutor/blendtutor.lua").
+-- Quarto does not rewrite in-header hrefs, so an absolute script path MUST be
+-- converted back to a project-relative URL or the browser 404s (the emitted
+-- href would be a filesystem path, not a URL).
+-- @param script_file PANDOC_SCRIPT_FILE value (absolute or relative)
+-- @param filename    asset basename, e.g. "styles.css"
+-- @return project-relative URL (forward slashes) to the asset
+local function resolve_asset_path(script_file, filename)
+  local script = script_file or "blendtutor.lua"
+  -- Directory extraction handles both / and \ separators (Windows, §5).
+  -- pandoc.path is POSIX-only and mis-parses backslash paths, so do it here.
+  local dir = script:match("^(.*)[/\\]") or "."
+  local asset = dir .. "/assets/" .. filename
+
+  -- Absolute path (by-name install): convert to project-relative. Prefer
+  -- slicing from "_extensions/" — always present for a filter install and
+  -- robust when the script path uses a different root than PWD (macOS
+  -- /private/tmp vs /tmp symlinks). Strip the PWD prefix as a last resort.
+  if asset:match("^/") or asset:match("^[A-Za-z]:[/\\]") then
+    local ext = asset:find("_extensions[/\\]")
+    if ext then
+      asset = asset:sub(ext)
+    else
+      local cwd = os.getenv("PWD") or ""
+      if cwd ~= "" and asset:find(cwd, 1, true) == 1 then
+        asset = asset:sub(#cwd + 1):gsub("^[/\\]", "")
+      end
+    end
+  end
+
+  -- Normalize Windows backslashes to forward slashes (href-safe).
+  return asset:gsub("\\", "/")
+end
+
+-- Path to vendored coi-serviceworker.js (synced via sync-quarto-assets.sh,
+-- mode=copy). The service worker re-serves pages with COOP/COEP headers for
+-- SharedArrayBuffer. Derived from the filter's own location (ADR-0018).
+local COI_SCRIPT_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "coi-serviceworker.js")
 
 -- Path to vendored styles.css (synced via sync-quarto-assets.sh, mode=scope).
 -- Provides .bt-exercise styling: button states, cursor not-allowed, data-status.
-local STYLES_CSS_PATH = "_extensions/blendtutor/assets/styles.css"
+local STYLES_CSS_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "styles.css")
 
 -- ---------------------------------------------------------------------------
 -- JSON encoding helpers (Lua has no built-in JSON encoder)

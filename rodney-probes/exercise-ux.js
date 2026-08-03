@@ -157,12 +157,17 @@ function generateBlankPage() {
 
 function ensureAssetSymlink() {
   // Create a symlink quarto-fixture/_extensions -> ../_extensions so that
-  // relative paths injected by blendtutor.lua (e.g. _extensions/blendtutor/
-  // assets/styles.css) resolve correctly when the fixture HTML is served
-  // from quarto-fixture/. Without this, the browser resolves the relative
-  // path to quarto-fixture/_extensions/... which 404s, and CSS never loads
-  // — causing getComputedStyle() checks (clause-5 cursor:not-allowed) to
-  // fail because the stylesheet was never applied.
+  // asset URLs emitted by blendtutor.lua resolve when the fixture HTML is
+  // served from quarto-fixture/. Since issue #129 the filter derives asset
+  // paths from its own location (PANDOC_SCRIPT_FILE, ADR-0018), so ux.qmd's
+  // filter reference "../_extensions/blendtutor/blendtutor.lua" produces
+  // hrefs like "../_extensions/blendtutor/assets/styles.css" that resolve
+  // up one level to the repo-root _extensions/ — the symlink is a belt-and-
+  // suspenders fallback for older rendered fixtures that still carry the
+  // pre-#129 hardcoded href, which would otherwise resolve to
+  // quarto-fixture/_extensions/... and 404 (getComputedStyle() checks for
+  // clause-5 cursor:not-allowed would fail because the stylesheet never
+  // applied).
   const linkPath = path.join(WORKTREE, "quarto-fixture", "_extensions");
   const target = "../_extensions";
   try {

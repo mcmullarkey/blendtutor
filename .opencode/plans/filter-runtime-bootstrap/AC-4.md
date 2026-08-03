@@ -79,15 +79,17 @@ status: in-progress
 ### Progress
 - [x] spec resolved (resolver) — pending implementation
 - [x] red: NEW test_quarto_asset_deployment.sh + migrate 3 existing suites — done 2026-08-03
-- [ ] green: blendtutor.lua deployment + specifier rewrite — pending
-- [ ] rodney clause 11 — pending
-- [ ] evidence docs/evidence/<issue>/ — pending
+- [x] green: blendtutor.lua deployment + specifier rewrite — done 2026-08-03
+- [x] rodney clause 11 — done 2026-08-03 (PROBES_PASS)
+- [x] evidence docs/evidence/141/ — done 2026-08-03
 
 ### Surprises & Discoveries
 - Quarto 1.10.18 add_html_dependency ERRORS on a missing resource file ("NotFound: lstat ...") rather than silently skipping — the spec's "silent skip" trap is version-dependent; file-on-disk assertions still the right discipline.
 - quarto.doc.output_file is an ABSOLUTE path at Pandoc() time (e.g. /private/tmp/bt-probe/pages/index.html) — the libs URL helper must take the basename stem (index) for document-relative specifiers (index_files/...), not the full path.
 - add_html_dependency resolves relative "assets/..." paths against the filter script's OWN directory (verified: filter at ext/filter.lua → assets resolved at ext/assets/), so by-name installs with absolute PANDOC_SCRIPT_FILE work unchanged.
 - test_quarto_install_render.sh P2 guards ANY `cp ... _extensions` outside the org/repo mcmullarkey path — new hermetic-TMP helpers must copy to _extensions/mcmullarkey/blendtutor/ or P2 flags them (false-positive on a legitimate fixture-setup copy).
+- **CRITICAL (rodney clause 11 caught):** ES module import specifiers MUST start with "/", "./", or "../" — a bare relative "mixed-lang_files/libs/..." throws "Failed to resolve module specifier" at runtime. The first AC-4 rodney run FAILED (PROBES_FAIL, __btExercises never set) because the bootstrap imported bare <stem>_files/... paths. AC-3's ../_extensions/... worked because ../ is a valid prefix. Fix: libs_url() emits "./"-prefixed document-relative URLs; clause-5 suite assertion pins the ./ prefix. <link href> tolerates bare paths; modules do not — the test must assert the ./ prefix, not just substring presence.
+- rodney harness writes evidence to docs/evidence/139/ (its hardcoded EVIDENCE_DIR) — re-running it for AC-4 overwrites AC-3's committed evidence; revert those files and copy the report into docs/evidence/141/ instead of modifying the shared harness.
 
 ### Idempotence & Recovery
 - Safe retry: re-run renders + probes (regenerated at test time).

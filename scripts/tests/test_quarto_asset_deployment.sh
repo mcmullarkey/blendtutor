@@ -112,7 +112,7 @@ echo "== Clause 1: mechanism pin (single add_html_dependency, no scripts=, no ym
 LUA_CONTENT=$(cat "$LUA_FILTER")
 YML_CONTENT=$(cat "$EXTENSION_YML")
 
-ADEP_COUNT=$(count_occurrences "$LUA_CONTENT" "quarto.doc.add_html_dependency")
+ADEP_COUNT=$(count_occurrences "$LUA_CONTENT" "quarto.doc.add_html_dependency({")
 if [ "$ADEP_COUNT" -eq 1 ]; then
   ok "exactly one quarto.doc.add_html_dependency call ($ADEP_COUNT found)"
 else
@@ -277,6 +277,15 @@ else
       ko "bootstrap imports $f from libs URL — $LIBS_PREFIX/$f not found"
     fi
   done
+  # ES module specifiers MUST start with ./ (bare relative references throw
+  # "Relative references must start with /, ./, or ../" at import time —
+  # rodney clause 11 caught this; <link href> tolerates bare paths, modules
+  # do not).
+  if has_token "$MIXED_BOOTSTRAP" 'from "./mixed-lang_files/libs/quarto-contrib/blendtutor-0.1.0/exercise-runtime.js"'; then
+    ok "runtime specifier is ES-module-safe (./ prefix)"
+  else
+    ko "runtime specifier is ES-module-safe — missing ./ prefix"
+  fi
   if has_token "$MIXED_BOOTSTRAP" "_extensions/"; then
     ko "no _extensions/ substring in bootstrap — found source-tree specifier"
   else
@@ -393,10 +402,10 @@ fi
 
 if [ -f "$TMP_NEST/pages/index.html" ]; then
   NEST_BOOTSTRAP=$(extract_bootstrap "$(cat "$TMP_NEST/pages/index.html")")
-  if has_token "$NEST_BOOTSTRAP" "index_files/$LIBS_REL/exercise-runtime.js"; then
-    ok "nested bootstrap specifier document-relative (index_files/...)"
+  if has_token "$NEST_BOOTSTRAP" "./index_files/$LIBS_REL/exercise-runtime.js"; then
+    ok "nested bootstrap specifier document-relative (./index_files/...)"
   else
-    ko "nested bootstrap specifier document-relative — index_files/... not found"
+    ko "nested bootstrap specifier document-relative — ./index_files/... not found"
   fi
   if has_token "$NEST_BOOTSTRAP" "pages/index_files"; then
     ko "nested bootstrap specifier has no pages/ prefix"

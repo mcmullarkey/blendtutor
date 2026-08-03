@@ -18,8 +18,9 @@
 #       quarto render --to html exits 0
 #   P5  Filter ran: output HTML contains bt-exercise
 #   P6  Asset resolved, not exit-0 alone: HTML references
-#       _extensions/mcmullarkey/blendtutor/assets/styles.css AND
-#       test -f "$TMP/_extensions/mcmullarkey/blendtutor/assets/styles.css"
+#       index_files/libs/quarto-contrib/blendtutor-0.1.0/styles.css (deployed
+#       via add_html_dependency under AC-4) AND
+#       test -f "$TMP/index_files/libs/quarto-contrib/blendtutor-0.1.0/styles.css"
 #   P7  No old-path leak: HTML does NOT contain _extensions/blendtutor/assets
 #       (non-org prefix)
 #   P8  COI path covered: minimal .qmd div sets coi="true"; HTML references
@@ -239,10 +240,11 @@ QMD
       ko "P5: filter ran — bt-exercise not found; filter never loaded"
     fi
 
-    # P6 — styles.css referenced at the org/repo path AND the file exists
-    # (exit-0 alone is insufficient: Quarto does not validate emitted hrefs).
-    CSS_REF='_extensions/mcmullarkey/blendtutor/assets/styles.css'
-    CSS_FILE="$TMP_DIR/_extensions/mcmullarkey/blendtutor/assets/styles.css"
+    # P6 — styles.css deployed to the libs dir AND the file exists
+    # (exit-0 alone is insufficient: Quarto does not validate emitted hrefs;
+    # add_html_dependency can silently skip a missing file — assert on disk).
+    CSS_REF='index_files/libs/quarto-contrib/blendtutor-0.1.0/styles.css'
+    CSS_FILE="$TMP_DIR/index_files/libs/quarto-contrib/blendtutor-0.1.0/styles.css"
     if grep -qF "$CSS_REF" <<< "$HTML_CONTENT"; then
       if [ -f "$CSS_FILE" ]; then
         ok "P6: styles.css resolved — HTML references $CSS_REF and file exists"

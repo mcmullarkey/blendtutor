@@ -16,9 +16,11 @@
 #      → ZERO data-bt-bootstrap="auto"; hand-written bootstrap preserved.
 #      NOT double-start-guard reliance.
 #   5. Non-HTML gate: filter.qmd → latex → zero data-bt-bootstrap="auto".
-#   6. No hardcoded asset path + depth: specifiers never literal
-#      _extensions/blendtutor/ — resolve_asset_path(); coi-book/chapter-coi.qmd
-#      shows depth-correct ../.. specifiers.
+#   6. Libs-URL specifiers + coi depth (AC-4 rewrite): bootstrap import
+#      specifiers reference <stem>_files/libs/quarto-contrib/blendtutor-0.1.0/
+#      (computed from quarto.doc.output_file), never _extensions/ source-tree
+#      paths; coi-book/chapter-coi.qmd shows the coi-serviceworker.js src STILL
+#      depth-correct ../.. _extensions/ (COI stays include_text — SW scope).
 #   7. Error sink: script contains .catch( + console.error.
 #   9. Static pins: blendtutor.lua has has_r = true in Div() (mirror has_python),
 #      hasBootstrapDone guard (mirror hasCoiDone), bt-auto-bootstrap YAML read
@@ -303,29 +305,31 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Clause 6: No hardcoded asset path + depth
+# Clause 6: Libs-URL specifiers + coi depth
 # ---------------------------------------------------------------------------
 
-echo "== Clause 6: no hardcoded asset path + depth =="
+echo "== Clause 6: libs-URL specifiers + coi depth =="
 
 if [ -f "$MIXED_HTML" ]; then
-  if has_token "$MIXED_BOOTSTRAP" '../_extensions/blendtutor/assets/exercise-runtime.js' \
-    && has_token "$MIXED_BOOTSTRAP" '../_extensions/blendtutor/assets/webr-adapter.js' \
-    && has_token "$MIXED_BOOTSTRAP" '../_extensions/blendtutor/assets/pyodide-adapter.js'; then
-    ok "specifiers via resolve_asset_path (../_extensions/blendtutor/assets/)"
+  LIBS_PREFIX='mixed-lang_files/libs/quarto-contrib/blendtutor-0.1.0'
+  if has_token "$MIXED_BOOTSTRAP" "$LIBS_PREFIX/exercise-runtime.js" \
+    && has_token "$MIXED_BOOTSTRAP" "$LIBS_PREFIX/webr-adapter.js" \
+    && has_token "$MIXED_BOOTSTRAP" "$LIBS_PREFIX/pyodide-adapter.js"; then
+    ok "specifiers are libs URLs (mixed-lang_files/libs/quarto-contrib/blendtutor-0.1.0/)"
   else
-    ko "specifiers via resolve_asset_path — ../_extensions/blendtutor/assets/ not found"
+    ko "specifiers are libs URLs — $LIBS_PREFIX/ not found in bootstrap"
   fi
 
-  if printf '%s' "$MIXED_BOOTSTRAP" | grep -qE 'from "_extensions/blendtutor/'; then
-    ko "no bare _extensions/blendtutor/ specifier — found literal without ../ depth"
+  if printf '%s' "$MIXED_BOOTSTRAP" | grep -qF '_extensions/'; then
+    ko "no _extensions/ substring in bootstrap — source-tree specifier remains"
   else
-    ok "no bare _extensions/blendtutor/ specifier"
+    ok "no _extensions/ substring in bootstrap specifiers"
   fi
 fi
 
-# Depth-correct ../.. at coi-book/ depth (chapter-coi.qmd — coi script path
-# exercises the same resolve_asset_path depth handling as bootstrap specifiers).
+# Depth-correct ../.. coi src at coi-book/ depth (chapter-coi.qmd — COI stays
+# include_text + resolve_asset_path under AC-4; service-worker scope = script
+# URL dir, so it must NOT move to a libs dir).
 COI_BOOK_HTML="$FIXTURE_DIR/coi-book/chapter-coi.html"
 rm -f "$COI_BOOK_HTML"
 render_to_html "$FIXTURE_DIR/coi-book/chapter-coi.qmd" "$COI_BOOK_HTML" >/dev/null 2>&1 || true

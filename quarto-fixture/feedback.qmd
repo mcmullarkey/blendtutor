@@ -42,7 +42,7 @@ stopifnot(add(1, 2) == 3)
   });
   const registry = buildRegistry(scanExercises());
   window.__btWebRAdapter = adapter;
-  start(registry, adapter).then(() => {
+  start(registry, { r: adapter }).then(() => {
     // Mount per-exercise feedback AFTER the runtime boots — each exercise
     // gets its own feedback button + container. The key is shared via
     // sessionStorage: entered once on exercise 1, reused on exercise 2.

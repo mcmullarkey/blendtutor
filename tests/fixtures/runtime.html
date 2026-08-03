@@ -65,9 +65,11 @@
     import { createMockAdapter } from "./mock-adapter.js";
 
     const mockAdapter = createMockAdapter();
+    const mockPyAdapter = createMockAdapter({ name: "mockPy", language: "python" });
     const registry = buildRegistry(scanExercises());
     window.__btTestAdapter = mockAdapter; // exposed for probe verification
-    start(registry, mockAdapter);
+    window.__btTestAdapterPy = mockPyAdapter; // python-exercise routing (AC-2 map dispatch)
+    start(registry, { r: mockAdapter, python: mockPyAdapter });
   </script>
 </body>
 </html>

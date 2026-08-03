@@ -75,6 +75,35 @@ validateHtmlFixture(
   "runtime-edge.html",
 );
 
+// AC-2 mixed-runtime fixture: 4 exercises but only 3 data-language attrs
+// (the 4th is intentionally attribute-less — the skip/never-default case).
+const mixedHtml = readFileSync(
+  join(repoRoot, "tests", "fixtures", "mixed-runtime.html"),
+  "utf-8",
+);
+const mixedExercises = (mixedHtml.match(/class="bt-exercise"/g) || []).length;
+assert(
+  mixedExercises === 4,
+  `mixed-runtime.html: expected 4 bt-exercise divs, got ${mixedExercises}`,
+);
+const mixedDataLang = (mixedHtml.match(/data-language="/g) || []).length;
+assert(
+  mixedDataLang === 3,
+  `mixed-runtime.html: expected 3 data-language attrs (1 attribute-less), got ${mixedDataLang}`,
+);
+assert(
+  mixedHtml.includes("start(registry, { r: mockR, python: mockPy })"),
+  "mixed-runtime.html calls start() with the adapter map (twice — race probe)",
+);
+assert(
+  (mixedHtml.match(/start\(registry, \{ r: mockR, python: mockPy \}\)/g) || []).length === 2,
+  "mixed-runtime.html must call start() twice unawaited (double-start race probe)",
+);
+
+// AC-2 rodney probe exists and covers the mixed fixture
+const mixedProbePath = join(repoRoot, "rodney-probes", "mixed-runtime.js");
+assert(existsSync(mixedProbePath), "rodney-probes/mixed-runtime.js exists");
+
 // ---------------------------------------------------------------------------
 // 3. Module exports validation (grep the source for export statements)
 // ---------------------------------------------------------------------------
@@ -93,8 +122,43 @@ assert(!runtimeSrc.match(/^let editorView\s*=/m), "exercise-runtime.js must NOT 
 assert(runtimeSrc.includes("window.__btExercises"), "exercise-runtime.js must set window.__btExercises");
 assert(runtimeSrc.includes("registry.get ="), "exercise-runtime.js must define registry.get(id)");
 
-// Verify adapter injection seam
-assert(runtimeSrc.includes("start(registry, runtime)"), "exercise-runtime.js must have start(registry, runtime) signature");
+// Verify adapter injection seam (AC-2: start(registry, adapters) map signature)
+assert(runtimeSrc.includes("start(registry, adapters)"), "exercise-runtime.js must have start(registry, adapters) signature");
+
+// Verify AC-2 clause-6 source greps:
+//   - the `|| runtime.language || "r"` fallback is gone (never default)
+//   - the double-start guard flag is set SYNCHRONOUSLY at entry, before the
+//     mount loop, window.__btExercises, and the boot await
+//   - no static import of webr-adapter/pyodide-adapter (adapter-agnostic)
+assert(
+  !runtimeSrc.includes('runtime.language || "r"'),
+  "exercise-runtime.js must NOT default language via || runtime.language || \"r\"",
+);
+const guardIdx = runtimeSrc.indexOf("started = true");
+assert(guardIdx !== -1, "exercise-runtime.js must have a module-level double-start guard flag");
+const mountLoopIdx = runtimeSrc.indexOf("for (const entry of registry)");
+const exercisesIdx = runtimeSrc.indexOf("window.__btExercises =");
+const bootIdx = runtimeSrc.indexOf("await Promise.all");
+assert(
+  guardIdx < mountLoopIdx,
+  "guard assignment must precede the mount loop (synchronous at entry)",
+);
+assert(
+  guardIdx < exercisesIdx,
+  "guard assignment must precede window.__btExercises assignment",
+);
+assert(
+  guardIdx < bootIdx,
+  "guard assignment must precede the boot await (Promise.all)",
+);
+assert(
+  !/import\s+[\s\S]*?webr-adapter\.js/.test(runtimeSrc),
+  "exercise-runtime.js must NOT statically import webr-adapter",
+);
+assert(
+  !/import\s+[\s\S]*?pyodide-adapter\.js/.test(runtimeSrc),
+  "exercise-runtime.js must NOT statically import pyodide-adapter",
+);
 
 // Verify per-exercise degradation
 assert(runtimeSrc.includes("data-cm-fail"), "exercise-runtime.js must check data-cm-fail for graceful degradation");
@@ -122,7 +186,9 @@ assert(edgeAssertions >= 3, `runtime-edge-probe.js should have >=3 assertions, f
 // ---------------------------------------------------------------------------
 const mockSrc = readFileSync(mockAdapterPath, "utf-8");
 assert(mockSrc.includes("createMockAdapter"), "mock-adapter.js exports createMockAdapter");
-assert(mockSrc.includes("name: \"mock\""), "mock-adapter.js has name: 'mock'");
+assert(mockSrc.includes('name = "mock"'), "mock-adapter.js createMockAdapter has name default 'mock'");
+assert(mockSrc.includes('language = "r"'), "mock-adapter.js createMockAdapter has language default 'r'");
+assert(mockSrc.includes("bootCount"), "mock-adapter.js tracks bootCount (double-start guard probe)");
 assert(mockSrc.includes("async boot()"), "mock-adapter.js has async boot()");
 assert(mockSrc.includes("async run("), "mock-adapter.js has async run()");
 assert(mockSrc.includes("calls"), "mock-adapter.js records calls");

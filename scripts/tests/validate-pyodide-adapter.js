@@ -263,8 +263,8 @@ assert(
   "fixture imports pyodideAdapter from pyodide-adapter.js",
 );
 assert(
-  fixtureSrc.includes("start(registry, pyodideAdapter)"),
-  "fixture calls start(registry, pyodideAdapter)",
+  fixtureSrc.includes("start(registry, { python: pyodideAdapter })"),
+  "fixture calls start(registry, { python: pyodideAdapter })",
 );
 
 // ---------------------------------------------------------------------------

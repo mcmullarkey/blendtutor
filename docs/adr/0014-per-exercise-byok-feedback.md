@@ -52,7 +52,7 @@ shell is rewritten: `currentSubmissionForExercise(entry)` reads from
 `entry.getSubmission()` (the AC-4 registry), `handleSubmitForExercise(entry)`
 renders into `entry.feedbackContainer` (per-exercise), and
 `mountAllFeedback(registry)` is the single entry point the page calls after
-`start(registry, adapter)`.
+`start(registry, { r: adapter })`.
 
 - **No module-level effectful code (§2.1).** The old `applyEmbeddedKey()` bare
   call and submit-button wiring moved into `mountAllFeedback`. Pure functions
@@ -75,9 +75,9 @@ renders into `entry.feedbackContainer` (per-exercise), and
   cost. A future refactor could extract the pure layer into a shared module
   imported by both, but that is out of scope for AC-7 (the extension assets are
   vendored, not shared at runtime — ADR-0010).
-- `mountAllFeedback` must be called AFTER `start(registry, adapter)` resolves,
-  because it reads `entry.element` (populated by mountEditor) and
+- `mountAllFeedback` must be called AFTER `start(registry, { r: adapter })`
+  resolves, because it reads `entry.element` (populated by mountEditor) and
   `entry.getSubmission` (wired by wireExercise). Calling it before boot would
   mount feedback UI on exercises whose editors aren't ready.
 - The `feedback.qmd` fixture demonstrates the wiring: `start(registry,
-  adapter).then(() => mountAllFeedback(registry))`.
+  { r: adapter }).then(() => mountAllFeedback(registry))`.

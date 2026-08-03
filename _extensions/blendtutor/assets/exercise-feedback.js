@@ -667,7 +667,7 @@ export function mountFeedback(entry) {
 }
 
 // Mount feedback UI for every exercise in the registry. Called by the page
-// AFTER start(registry, adapter) boots the runtime — each exercise already has
+// AFTER start(registry, adapters) boots the runtime — each exercise already has
 // its editor + Run button wired by exercise-runtime.js. This adds the feedback
 // button + container per-exercise, using the shared sessionStorage key.
 export function mountAllFeedback(registry) {

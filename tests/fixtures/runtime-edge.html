@@ -84,9 +84,10 @@
     import { createMockAdapter } from "./mock-adapter.js";
 
     const mockAdapter = createMockAdapter();
+    const mockPyAdapter = createMockAdapter({ name: "mockPy", language: "python" });
     const registry = buildRegistry(scanExercises());
     window.__btTestAdapter = mockAdapter;
-    start(registry, mockAdapter);
+    start(registry, { r: mockAdapter, python: mockPyAdapter });
   </script>
 </body>
 </html>

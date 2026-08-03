@@ -1,0 +1,39 @@
+# AC-6 coexistence evidence — issue #144
+## Rendered HTML static greps (clauses 1-4, static grep authoritative)
+
+Render: quarto render quarto-fixture/{ux,webr,feedback}.qmd --to html
+
+### ux.html
+- zero data-bt-bootstrap="auto" markers: 0
+- module script blocks: 1
+- scanExercises import lines: 1
+- exercises (bt-exercise class): 3
+- hand-written runtime specifiers:
+    from "../_extensions/blendtutor/assets/exercise-runtime.js"
+- libs-dir specifiers in hand-written module script: 0 (grep for _files/libs in module script)
+
+### webr.html
+- zero data-bt-bootstrap="auto" markers: 0
+- module script blocks: 1
+- scanExercises import lines: 1
+- exercises (bt-exercise class): 2
+- hand-written runtime specifiers:
+    from "../_extensions/blendtutor/assets/exercise-runtime.js"
+    from "../_extensions/blendtutor/assets/webr-adapter.js"
+- libs-dir specifiers in hand-written module script: 0 (grep for _files/libs in module script)
+
+### feedback.html
+- zero data-bt-bootstrap="auto" markers: 0
+- module script blocks: 1
+- scanExercises import lines: 1
+- exercises (bt-exercise class): 2
+- hand-written runtime specifiers:
+    from "../_extensions/blendtutor/assets/exercise-runtime.js"
+    from "../_extensions/blendtutor/assets/exercise-feedback.js"
+    from "../_extensions/blendtutor/assets/webr-adapter.js"
+- libs-dir specifiers in hand-written module script: 0 (grep for _files/libs in module script)
+
+## YAML static pins (clause 7)
+- ux.qmd: 1 occurrence(s)
+- webr.qmd: 1 occurrence(s)
+- feedback.qmd: 1 occurrence(s)

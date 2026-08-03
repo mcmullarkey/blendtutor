@@ -1,0 +1,58 @@
+# Test suite log — issue #144 (AC-6 fixture coexistence verification)
+date: 2026-08-03T18:34:50Z
+
+## scripts/tests/test_quarto_bootstrap.sh (MODIFIED — clause 4 loop → ux/webr/feedback)
+
+Using render tool: quarto
+== Clause 1: bootstrap emitted once (mixed-lang.qmd) ==
+  PASS: mixed-lang.qmd render exits 0
+  PASS: exactly one bootstrap script (1 found)
+  PASS: type="module" mandatory — present
+  PASS: bootstrap body contains start(
+  PASS: bootstrap body contains scanExercises
+  PASS: bootstrap body contains buildRegistry
+  PASS: bootstrap body contains createWebRAdapter
+  PASS: bootstrap body contains pyodideAdapter
+== Clause 2: per-language conditional imports ==
+  PASS: r-only: createWebRAdapter imported (has_r)
+  PASS: r-only: pyodideAdapter absent
+  PASS: pyodide: pyodideAdapter imported (has_python)
+  PASS: pyodide: createWebRAdapter absent
+== Clause 3: start() wiring + no-exercises gate ==
+  PASS: calls start(buildRegistry(scanExercises()), <map>)
+  PASS: adapter map has key r (factory called)
+  PASS: adapter map has key python (singleton used directly)
+  PASS: no exercises → no bootstrap (0 found)
+== Clause 4: opt-out suppresses entirely (ux/webr/feedback) ==
+  PASS: ux.qmd declares YAML bt-auto-bootstrap: false
+  PASS: webr.qmd declares YAML bt-auto-bootstrap: false
+  PASS: feedback.qmd declares YAML bt-auto-bootstrap: false
+  PASS: ux opt-out — zero auto bootstrap (0 found)
+  PASS: ux exactly-one scanExercises module script (1 found)
+  PASS: ux hand-written specifiers preserved (../_extensions/, no libs-dir)
+  PASS: ux hand-written bootstrap preserved (__btTestAdapter)
+  PASS: webr opt-out — zero auto bootstrap (0 found)
+  PASS: webr exactly-one scanExercises module script (1 found)
+  PASS: webr hand-written specifiers preserved (../_extensions/, no libs-dir)
+  PASS: webr hand-written bootstrap preserved (__btWebRAdapter)
+  PASS: feedback opt-out — zero auto bootstrap (0 found)
+  PASS: feedback exactly-one scanExercises module script (1 found)
+  PASS: feedback hand-written specifiers preserved (../_extensions/, no libs-dir)
+  PASS: feedback hand-written bootstrap preserved (mountAllFeedback)
+== Clause 5: non-HTML gate (filter.qmd → latex) ==
+  PASS: non-HTML gate — zero bootstrap in latex (0 found)
+== Clause 6: libs-URL specifiers + coi depth ==
+  PASS: specifiers are libs URLs (mixed-lang_files/libs/quarto-contrib/blendtutor-0.1.0/)
+  PASS: no _extensions/ substring in bootstrap specifiers
+  PASS: depth-correct ../.. specifier at coi-book depth
+== Clause 7: error sink ==
+  PASS: .catch( + console.error present
+== Clause 9: static pins (blendtutor.lua) ==
+  PASS: has_r = true in Div() (mirror has_python)
+  PASS: hasBootstrapDone guard (mirror hasCoiDone)
+  PASS: bt-auto-bootstrap YAML read in Pandoc() (mirror coi read)
+
+=========================================
+  Results: 39 passed, 0 failed
+=========================================
+All tests passed.

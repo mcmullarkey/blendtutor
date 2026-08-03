@@ -1,0 +1,24 @@
+# Rodney probes for issue #144
+verdict: PROBES_PASS
+timestamp: 2026-08-03T18:30:45.598Z
+
+- PASS: clause-8 mixed: __btExercises.length === 2 (1 R + 1 python mounted)
+  assertion passed
+- PASS: clause-8 mixed: .cm-editor count === 2 (both exercises have editors)
+  assertion passed
+- PASS: clause-8 mixed: mounted entries reference real elements
+  assertion passed
+- PASS: clause-8 r-only: __btExercises.length === 2 (2 R exercises mounted)
+  assertion passed
+- PASS: clause-5 ux: __btExercises.length === 3 (3 hand-written exercises mounted)
+  assertion passed
+- PASS: clause-6 ux: zero double-start warns (no filter-injected duplicate start)
+  assertion passed
+- PASS: clause-5 webr: __btExercises.length === 2 (2 hand-written exercises mounted)
+  assertion passed
+- PASS: clause-6 webr: zero double-start warns (no filter-injected duplicate start)
+  assertion passed
+- PASS: clause-5 feedback: __btExercises.length === 2 (2 hand-written exercises mounted)
+  assertion passed
+- PASS: clause-6 feedback: zero double-start warns (no filter-injected duplicate start)
+  assertion passed

@@ -2,7 +2,7 @@
 ac: 6
 depends_on: [3, 4]
 risk: medium
-status: in-progress
+status: complete
 ---
 
 # AC-6: Verify fixture hand-written bootstraps coexist with filter opt-out — no double-start, no clobber
@@ -72,9 +72,15 @@ status: in-progress
 - [x] spec resolved (resolver) — pending implementation
 - [x] red: extend test_quarto_bootstrap.sh clause 4 to all 3 fixtures — 2026-08-03
 - [x] green: verify zero-marker + exactly-one + specifiers + tokens on rendered pages — 2026-08-03 (39/0 pass; negative control: removing ux opt-out → FAIL zero-marker + FAIL exactly-one, reverted)
-- [ ] rodney clauses 5-6 (real-page + warn spy) — pending
-- [ ] evidence docs/evidence/144/ — pending
-- [ ] regression suites green (exercise-ux.js, test_quarto_ux.py, test_quarto_feedback.py, validate-webr-adapter.js, test_quarto_asset_deployment.sh) — pending final run
+- [x] rodney clauses 5-6 (real-page + warn spy) — 2026-08-03 (PROBES_PASS; negative control: fake double-start warn injection → clause-6 FAIL on all 3 pages, reverted)
+- [x] evidence docs/evidence/144/ — 2026-08-03 (probe-report.json, rodney.log, rendered-html-greps.txt, test-suite.log; docs/evidence/139 untouched)
+- [x] regression suites green (exercise-ux.js PROBES_PASS, test_quarto_ux.py 46/0, test_quarto_feedback.py 32/0, validate-webr-adapter.js 83/0, test_quarto_asset_deployment.sh 40/0) — 2026-08-03
+
+### Surprises & Discoveries
+- Serve-time spy injection was the ONLY way to install a console.warn spy before page boot: rodney 0.4.0 (uv cache verified) has no addInitScript or console-capture subcommand, and a real rendered page's deferred module script executes before any post-navigation rodney js can run. Injecting a passive observer <script> into <head> at serve time (real bootstrap byte-identical) is an observer, not the forbidden generateProbeHtml substitution.
+- First negative control attempt silently failed: perl -0pi pattern `apply(console, arguments);\n</script>` did not match because the actual file has `};\n</script>` between the two tokens — the fake warn was never injected and the probe still passed. Caught by grepping occurrence count (2 = doc comment + assert, not 3). Lesson: verify the injection actually landed before trusting a negative control.
+- probe-report.json metadata (issue/branch) was hardcoded to 139/139-filter-auto-bootstrap; parameterizing via EVIDENCE_DIR basename + git rev-parse fixes both AC-3 (139) and AC-6 (144) runs without a bespoke env var.
+- quarto-fixture/coi-book/*_files/ render noise is NOT gitignored (only top-level quarto-fixture/*_files/ is) — must rm -rf before each commit; CI does not see it (fresh checkout) but local runs leave it untracked.
 
 ### Idempotence & Recovery
 - Safe retry: re-run renders + probes (regenerated at test time).

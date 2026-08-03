@@ -1,0 +1,59 @@
+{
+  "issue": 144,
+  "branch": "144-fixture-coexistence",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/worktree-issue-144",
+  "timestamp": "2026-08-03T18:30:45.598Z",
+  "probes": [
+    {
+      "name": "clause-8 mixed: __btExercises.length === 2 (1 R + 1 python mounted)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 mixed: .cm-editor count === 2 (both exercises have editors)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 mixed: mounted entries reference real elements",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 r-only: __btExercises.length === 2 (2 R exercises mounted)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-5 ux: __btExercises.length === 3 (3 hand-written exercises mounted)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-6 ux: zero double-start warns (no filter-injected duplicate start)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-5 webr: __btExercises.length === 2 (2 hand-written exercises mounted)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-6 webr: zero double-start warns (no filter-injected duplicate start)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-5 feedback: __btExercises.length === 2 (2 hand-written exercises mounted)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-6 feedback: zero double-start warns (no filter-injected duplicate start)",
+      "status": "PASS",
+      "details": "assertion passed"
+    }
+  ],
+  "verdict": "PROBES_PASS"
+}

@@ -1,0 +1,20 @@
+[1mpandoc [22m
+  to: html
+  output-file: ux.html
+  standalone: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  extensions:
+    - blendtutor
+  title: Exercise UX polish test fixture
+  
+Output created: ux.html
+

@@ -1,0 +1,2 @@
+=== Clause 6: source grep zero (empty = pass) ===
+GREP-ZERO: PASS — no literal '_extensions/blendtutor/' in blendtutor.lua

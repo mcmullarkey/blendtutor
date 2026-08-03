@@ -1,6 +1,7 @@
 ---
 title: Exercise UX polish test fixture
 filters: [../_extensions/blendtutor/blendtutor.lua]
+bt-auto-bootstrap: false
 ---
 
 ## Exercise UX Polish Test

@@ -1,0 +1,29 @@
+{
+  "issue": 139,
+  "branch": "139-filter-auto-bootstrap",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/worktree-issue-139",
+  "timestamp": "2026-08-03T07:27:38.430Z",
+  "probes": [
+    {
+      "name": "clause-8 mixed: __btExercises.length === 2 (1 R + 1 python mounted)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 mixed: .cm-editor count === 2 (both exercises have editors)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 mixed: mounted entries reference real elements",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 r-only: __btExercises.length === 2 (2 R exercises mounted)",
+      "status": "PASS",
+      "details": "assertion passed"
+    }
+  ],
+  "verdict": "PROBES_PASS"
+}

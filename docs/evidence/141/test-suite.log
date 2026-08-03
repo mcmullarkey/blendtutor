@@ -1,0 +1,35 @@
+# AC-4 test suite log (issue #141)
+date: 2026-08-03T17:43:04Z
+
+### bash scripts/tests/test_quarto_asset_deployment.sh
+  Results: 40 passed, 0 failed
+
+### bash scripts/tests/test_quarto_bootstrap.sh
+  Results: 29 passed, 0 failed
+
+### bash scripts/tests/test_quarto_install_render.sh
+  Results: 13 passed, 0 failed, 0 skipped
+
+### uv run python scripts/tests/test_quarto_ux.py
+=== Results: 46 passed, 0 failed ===
+
+### bash scripts/tests/test_quarto_filter.sh
+  Results: 22 passed, 0 failed
+
+### bash scripts/tests/test_coi_filter.sh
+  Results: 15 passed, 0 failed
+
+### uv run python scripts/tests/test_quarto_feedback.py
+=== Results: 32 passed, 0 failed ===
+
+### bash scripts/tests/test_quarto_render.sh
+  Results: 12 passed, 0 failed
+
+### bash scripts/tests/test_pyodide_adapter.sh
+  Results: 11 passed, 0 failed
+
+### bash scripts/sync-quarto-assets.sh && git diff --exit-code
+asset parity OK (no drift in assets/)
+
+### python3 scripts/tests/verify_asset_scoping.py
+  Results: 12 passed, 0 failed

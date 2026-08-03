@@ -25,6 +25,7 @@ Usage: python3 scripts/tests/test_quarto_ux.py
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -347,34 +348,55 @@ def check_css_hints_solution(css: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Rendered HTML checks (styles.css <link> injection)
+# Rendered HTML checks (asset path injection, issue #129)
 # ---------------------------------------------------------------------------
+
+
+def _find_quarto() -> str | None:
+    """Locate a quarto binary (PATH, or the /private/tmp dev fallback)."""
+    quarto_bin = shutil_which("quarto")
+    if not quarto_bin:
+        candidate = "/private/tmp/quarto/bin/quarto"
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            quarto_bin = candidate
+    return quarto_bin
+
+
+def _render_qmd(quarto_bin: str, qmd_path: Path, cwd: Path) -> subprocess.CompletedProcess[str]:
+    """Render a .qmd to HTML with quarto, returning the completed process."""
+    return subprocess.run(
+        [quarto_bin, "render", str(qmd_path), "--to", "html"],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+        timeout=60,
+        check=False,
+    )
+
+
+# Emitted asset URLs must be project-relative (spec clause 4): match ^\.\.?/,
+# no leading /, no //, no file:, no drive letter, no backslash. This rejects
+# an absolute PANDOC_SCRIPT_FILE leaking into the href (browser 404s).
+PROJECT_RELATIVE_URL_RE = re.compile(r"^\.\.?/[^/\\][^\\]*$")
+
+# Asset basenames the filter injects into <head>.
+ASSET_BASENAMES = ("styles.css", "coi-serviceworker.js")
 
 
 def check_styles_css_loaded() -> None:
     """Verify styles.css is loaded in rendered Quarto HTML.
 
     Renders ux.qmd to HTML and checks that a <link> tag for styles.css
-    is present in the <head>. This test would fail if the Lua filter
-    does not inject styles.css — the bug fixed in this commit.
+    is present in the <head>, with a project-relative href derived from
+    the filter's own location (issue #129). This test would fail if the
+    Lua filter does not inject styles.css — the bug fixed in this commit.
     """
-    quarto_bin = shutil_which("quarto")
-    if not quarto_bin:
-        candidate = "/private/tmp/quarto/bin/quarto"
-        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-            quarto_bin = candidate
+    quarto_bin = _find_quarto()
     if not quarto_bin:
         ko("styles.css loaded in rendered HTML — quarto not installed")
         return
 
-    result = subprocess.run(
-        [quarto_bin, "render", str(QMD_PATH), "--to", "html"],
-        capture_output=True,
-        text=True,
-        cwd=str(REPO_ROOT),
-        timeout=60,
-        check=False,
-    )
+    result = _render_qmd(quarto_bin, QMD_PATH, REPO_ROOT)
     if result.returncode != 0:
         ko(
             f"styles.css loaded in rendered HTML — render failed (exit {result.returncode})"
@@ -389,10 +411,198 @@ def check_styles_css_loaded() -> None:
         return
 
     html = html_path.read_text()
-    if 'href="_extensions/blendtutor/assets/styles.css"' in html:
-        ok("styles.css <link> present in rendered HTML")
+    # ux.qmd lives in quarto-fixture/ and references the filter via the
+    # ../_extensions/ path; the emitted href must mirror that shape (clause 1).
+    if 'href="../_extensions/blendtutor/assets/styles.css"' in html:
+        ok("styles.css <link> present in rendered HTML (project-relative href)")
     else:
         ko("styles.css <link> present in rendered HTML — not found in rendered output")
+
+
+def check_coi_script_path() -> None:
+    """Verify coi-serviceworker.js is injected with a project-relative src.
+
+    Renders coi-true.qmd and asserts the exact ../_extensions/... src
+    (spec clause 2). The coi-true fixture renders to quarto-fixture/ so the
+    script href resolves up one level, mirroring the filter's own location.
+    """
+    quarto_bin = _find_quarto()
+    if not quarto_bin:
+        ko("coi script src project-relative — quarto not installed")
+        return
+
+    result = _render_qmd(quarto_bin, REPO_ROOT / "quarto-fixture" / "coi-true.qmd", REPO_ROOT)
+    if result.returncode != 0:
+        ko(f"coi script src project-relative — render failed (exit {result.returncode})")
+        return
+
+    html_path = REPO_ROOT / "quarto-fixture" / "coi-true.html"
+    if not html_path.exists():
+        ko("coi script src project-relative — output file not found")
+        return
+
+    html = html_path.read_text()
+    if 'src="../_extensions/blendtutor/assets/coi-serviceworker.js"' in html:
+        ok("coi script src present in rendered HTML (project-relative src)")
+    else:
+        ko("coi script src present in rendered HTML — not found in rendered output")
+
+
+def check_asset_urls_behavioral() -> None:
+    """Verify every emitted asset URL is project-relative AND resolvable.
+
+    Spec clauses 4-5: render ux.qmd + coi-true.qmd, extract all href/src
+    referencing blendtutor assets, assert each URL (a) matches the
+    project-relative shape and (b) resolves to an existing file relative to
+    the rendered HTML's directory. Behavioral — not constant-equality.
+    """
+    quarto_bin = _find_quarto()
+    if not quarto_bin:
+        ko("asset URLs project-relative — quarto not installed")
+        return
+
+    rendered: list[tuple[Path, Path]] = [
+        (REPO_ROOT / "quarto-fixture" / "ux.qmd", REPO_ROOT / "quarto-fixture" / "ux.html"),
+        (REPO_ROOT / "quarto-fixture" / "coi-true.qmd", REPO_ROOT / "quarto-fixture" / "coi-true.html"),
+    ]
+
+    url_pat = re.compile(r'(?:href|src)="([^"]*(?:styles\.css|coi-serviceworker\.js)[^"]*)"')
+    seen_urls: set[str] = set()
+    for qmd, html_path in rendered:
+        result = _render_qmd(quarto_bin, qmd, REPO_ROOT)
+        if result.returncode != 0:
+            ko(f"asset URLs project-relative — render {qmd.name} failed (exit {result.returncode})")
+            continue
+        if not html_path.exists():
+            ko(f"asset URLs project-relative — {html_path.name} not found")
+            continue
+        for match in url_pat.finditer(html_path.read_text()):
+            seen_urls.add(match.group(1))
+
+    if not seen_urls:
+        ko("asset URLs project-relative — no blendtutor asset URLs found")
+        return
+
+    for url in sorted(seen_urls):
+        if PROJECT_RELATIVE_URL_RE.match(url):
+            ok(f"asset URL project-relative: {url}")
+        else:
+            ko(f"asset URL project-relative: {url} — must match ^../ or ^./ with no /, //, file:, drive letter, backslash")
+
+        # Clause 5: resolve from the rendered HTML's directory → file on disk.
+        resolved = (REPO_ROOT / "quarto-fixture" / url).resolve()
+        if resolved.is_file():
+            ok(f"asset URL resolves to file on disk: {url}")
+        else:
+            ko(f"asset URL resolves to file on disk: {url} -> {resolved} (browser 404)")
+
+
+def _install_layout(qmd_filter_ref: str, use_extension_yml: bool) -> Path | None:
+    """Create a temp-dir installed layout and render a minimal exercise.
+
+    Copies the real filter + assets into <tmp>/_extensions/mcmullarkey/
+    blendtutor/ (the `quarto add mcmullarkey/blendtutor` install path) and
+    renders a qmd that references it either by explicit path or by name via
+    _extension.yml contributes.filters. Returns the temp dir (with test.html)
+    or None on setup/render failure.
+    """
+    quarto_bin = _find_quarto()
+    if not quarto_bin:
+        ko("installed-layout asset path — quarto not installed")
+        return None
+
+    tmp = Path(tempfile.mkdtemp(prefix="bt-install-"))
+    ext_dir = tmp / "_extensions" / "mcmullarkey" / "blendtutor"
+    (ext_dir / "assets").mkdir(parents=True, exist_ok=True)
+
+    shutil_copy = __import__("shutil").copy2
+    shutil_copy(str(REPO_ROOT / "_extensions" / "blendtutor" / "blendtutor.lua"), str(ext_dir / "blendtutor.lua"))
+    shutil_copy(str(REPO_ROOT / "_extensions" / "blendtutor" / "assets" / "styles.css"), str(ext_dir / "assets" / "styles.css"))
+    if use_extension_yml:
+        shutil_copy(str(REPO_ROOT / "_extensions" / "blendtutor" / "_extension.yml"), str(ext_dir / "_extension.yml"))
+
+    qmd = tmp / "test.qmd"
+    qmd.write_text(
+        "---\n"
+        f"filters: [{qmd_filter_ref}]\n"
+        "---\n\n"
+        '::: {.blendtutor language="r"}\n'
+        "Write code.\n\n"
+        "```r\n"
+        "x <- 1\n"
+        "```\n"
+        ":::\n"
+    )
+
+    result = _render_qmd(quarto_bin, qmd, tmp)
+    if result.returncode != 0:
+        ko(f"installed-layout render failed (exit {result.returncode})")
+        if result.stderr:
+            print(f"  stderr: {result.stderr}", file=sys.stderr)
+        return None
+    return tmp
+
+
+def check_installed_layout_asset_path() -> None:
+    """Installed-layout probe (spec clause 3): filter at org/repo path.
+
+    Copies the filter to <tmp>/_extensions/mcmullarkey/blendtutor/ and
+    renders a qmd referencing it by explicit path. The emitted href must use
+    the actual install location, NOT the hardcoded _extensions/blendtutor/.
+    """
+    tmp = _install_layout("_extensions/mcmullarkey/blendtutor/blendtutor.lua", use_extension_yml=False)
+    if tmp is None:
+        return
+    html = (tmp / "test.html").read_text()
+    if 'href="_extensions/mcmullarkey/blendtutor/assets/styles.css"' in html:
+        ok("installed layout — href uses org/repo install path")
+    else:
+        ko("installed layout — href missing org/repo install path")
+    if 'href="_extensions/blendtutor/assets/styles.css"' in html:
+        ko("installed layout — href still hardcoded _extensions/blendtutor/")
+    else:
+        ok("installed layout — no hardcoded _extensions/blendtutor/ href")
+
+
+def check_by_name_install_absolute_path() -> None:
+    """By-name install probe (clause 4 negative guard).
+
+    Quarto passes an ABSOLUTE PANDOC_SCRIPT_FILE for by-name installs
+    (filters: [blendtutor] via _extension.yml contributes.filters). The
+    emitted href must be converted back to project-relative — an absolute
+    /abs/.../styles.css href lstat-passes but browser-404s.
+    """
+    tmp = _install_layout("blendtutor", use_extension_yml=True)
+    if tmp is None:
+        return
+    html = (tmp / "test.html").read_text()
+    url_pat = re.compile(r'href="([^"]*styles\.css[^"]*)"')
+    match = url_pat.search(html)
+    if not match:
+        ko("by-name install — no styles.css href found in rendered HTML")
+        return
+    url = match.group(1)
+    if url == "_extensions/mcmullarkey/blendtutor/assets/styles.css":
+        ok("by-name install — absolute PANDOC_SCRIPT_FILE converted to project-relative href")
+    else:
+        ko(f"by-name install — expected project-relative href, got: {url}")
+    if PROJECT_RELATIVE_URL_RE.match(url):
+        ok(f"by-name install — href passes project-relative guard: {url}")
+    else:
+        ko(f"by-name install — href fails project-relative guard (absolute leak): {url}")
+
+
+def check_source_grep_zero() -> None:
+    """Source grep zero (spec clause 6): no literal "_extensions/blendtutor/".
+
+    The Lua filter must derive asset paths from PANDOC_SCRIPT_FILE; a
+    retained hardcoded constant (even as fallback) is rejected.
+    """
+    lua_src = (REPO_ROOT / "_extensions" / "blendtutor" / "blendtutor.lua").read_text()
+    if '"_extensions/blendtutor/' in lua_src:
+        ko("source grep zero — literal \"_extensions/blendtutor/\" found in blendtutor.lua")
+    else:
+        ok("source grep zero — no literal \"_extensions/blendtutor/\" in blendtutor.lua")
 
 
 # ---------------------------------------------------------------------------
@@ -632,6 +842,21 @@ def main() -> int:
 
     print("\n-- Rendered HTML: styles.css <link> injection --")
     check_styles_css_loaded()
+
+    print("\n-- Rendered HTML: coi script src project-relative (issue #129) --")
+    check_coi_script_path()
+
+    print("\n-- Asset URLs project-relative + resolvable (issue #129 clauses 4-5) --")
+    check_asset_urls_behavioral()
+
+    print("\n-- Installed layout: org/repo install path (issue #129 clause 3) --")
+    check_installed_layout_asset_path()
+
+    print("\n-- By-name install: absolute script path -> project-relative (issue #129) --")
+    check_by_name_install_absolute_path()
+
+    print("\n-- Source grep zero: no hardcoded _extensions/blendtutor/ (issue #129 clause 6) --")
+    check_source_grep_zero()
 
     print("\n-- Behavioral checks (Node.js) --")
     check_node_behavioral()

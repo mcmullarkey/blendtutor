@@ -110,6 +110,29 @@ extract_bootstrap() {
   ' <<< "$content"
 }
 
+# Extract the body of the page-owned hand-written bootstrap (the FIRST
+# <script type="module"> that has no filter marker). The hand-written script
+# is the one with the import of scanExercises; the filter-injected one always
+# carries data-bt-bootstrap="auto" and is excluded by the marker prefix.
+extract_hand_script() {
+  local content="$1"
+  awk '
+    /<script type="module"[^>]*>/ && !index($0, "data-bt-bootstrap=\"auto\"") {
+      flag = 1
+      sub(/^.*<script type="module"[^>]*>/, "")
+      print
+      next
+    }
+    flag && /<\/script>/ {
+      sub(/<\/script>.*$/, "")
+      print
+      flag = 0
+      next
+    }
+    flag { print }
+  ' <<< "$content"
+}
+
 # ---------------------------------------------------------------------------
 # Clause 1: Bootstrap emitted once (mixed)
 # ---------------------------------------------------------------------------
@@ -247,12 +270,23 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Clause 4: Opt-out suppresses entirely (webr.qmd + fixture YAML pins)
+# Clause 4: Opt-out suppresses entirely (ux/webr/feedback + fixture YAML pins)
+#
+# AC-6 (issue #144): generalizes the former webr-only render block to ALL
+# THREE hand-written-bootstrap fixtures — closes the webr-only render gap
+# (ux/feedback were YAML-side verified only). Per fixture:
+#   - zero filter-injected data-bt-bootstrap="auto" markers (clause 1)
+#   - exactly one scanExercises module script — the hand-written bootstrap
+#     (clause 2)
+#   - hand-written specifiers preserved as ../_extensions/... source-tree
+#     paths, NOT libs-dir URLs (clause 3) — static grep is authoritative
+#     (ensureAssetSymlink masks specifier rewrites at runtime)
+#   - per-fixture adapter token preserved (clause 4)
 # ---------------------------------------------------------------------------
 
-echo "== Clause 4: opt-out suppresses entirely (webr.qmd) =="
+echo "== Clause 4: opt-out suppresses entirely (ux/webr/feedback) =="
 
-for opt_fixture in webr.qmd feedback.qmd ux.qmd; do
+for opt_fixture in ux.qmd webr.qmd feedback.qmd; do
   if grep -qF 'bt-auto-bootstrap: false' "$FIXTURE_DIR/$opt_fixture"; then
     ok "$opt_fixture declares YAML bt-auto-bootstrap: false"
   else
@@ -260,28 +294,60 @@ for opt_fixture in webr.qmd feedback.qmd ux.qmd; do
   fi
 done
 
-WEBR_HTML="$FIXTURE_DIR/webr.html"
-rm -f "$WEBR_HTML"
-render_to_html "$FIXTURE_DIR/webr.qmd" "$WEBR_HTML" >/dev/null 2>&1 || true
+# fixture stem → expected hand-written bootstrap token (the adapter seam each
+# fixture owns: mock adapter, webr adapter, feedback mount).
+for opt_entry in "ux:__btTestAdapter" "webr:__btWebRAdapter" "feedback:mountAllFeedback"; do
+  opt_stem="${opt_entry%%:*}"
+  opt_token="${opt_entry##*:}"
 
-if [ ! -f "$WEBR_HTML" ]; then
-  ko "opt-out — HTML missing"
-  ko "hand-written bootstrap preserved — HTML missing"
-else
-  WEBR_CONTENT=$(cat "$WEBR_HTML")
-  WEBR_COUNT=$(count_bootstrap "$WEBR_CONTENT")
-  if [ "$WEBR_COUNT" -eq 0 ]; then
-    ok "opt-out — zero auto bootstrap ($WEBR_COUNT found)"
-  else
-    ko "opt-out — expected 0 auto bootstrap, found $WEBR_COUNT"
+  OPT_HTML="$FIXTURE_DIR/$opt_stem.html"
+  rm -f "$OPT_HTML"
+  render_to_html "$FIXTURE_DIR/$opt_stem.qmd" "$OPT_HTML" >/dev/null 2>&1 || true
+
+  if [ ! -f "$OPT_HTML" ]; then
+    ko "$opt_stem opt-out — HTML missing"
+    ko "$opt_stem hand-written bootstrap preserved — HTML missing"
+    ko "$opt_stem exactly-one scanExercises script — HTML missing"
+    ko "$opt_stem specifiers preserved — HTML missing"
+    continue
   fi
 
-  if has_token "$WEBR_CONTENT" "__btWebRAdapter"; then
-    ok "hand-written bootstrap preserved"
+  OPT_CONTENT=$(cat "$OPT_HTML")
+
+  # Clause 1: zero filter-injected auto-bootstrap.
+  OPT_COUNT=$(count_bootstrap "$OPT_CONTENT")
+  if [ "$OPT_COUNT" -eq 0 ]; then
+    ok "$opt_stem opt-out — zero auto bootstrap ($OPT_COUNT found)"
   else
-    ko "hand-written bootstrap preserved — hand script not found"
+    ko "$opt_stem opt-out — expected 0 auto bootstrap, found $OPT_COUNT"
   fi
-fi
+
+  # Clause 2: exactly one scanExercises module script (hand-written).
+  OPT_SCAN_COUNT=$(printf '%s' "$OPT_CONTENT" | grep -c 'import { scanExercises' || true)
+  if [ "$OPT_SCAN_COUNT" -eq 1 ]; then
+    ok "$opt_stem exactly-one scanExercises module script ($OPT_SCAN_COUNT found)"
+  else
+    ko "$opt_stem exactly-one scanExercises module script — expected 1, found $OPT_SCAN_COUNT"
+  fi
+
+  # Clause 3: hand-written specifiers preserved — ../_extensions/, NOT
+  # libs-dir URLs (static grep authoritative; ensureAssetSymlink masks at
+  # runtime).
+  OPT_SCRIPT=$(extract_hand_script "$OPT_CONTENT")
+  if has_token "$OPT_SCRIPT" 'from "../_extensions/blendtutor/assets/' \
+    && ! has_token "$OPT_SCRIPT" '_files/libs/'; then
+    ok "$opt_stem hand-written specifiers preserved (../_extensions/, no libs-dir)"
+  else
+    ko "$opt_stem hand-written specifiers preserved — libs rewrite leaked or source specifier missing"
+  fi
+
+  # Clause 4: per-fixture adapter token preserved in the hand-written script.
+  if has_token "$OPT_SCRIPT" "$opt_token"; then
+    ok "$opt_stem hand-written bootstrap preserved ($opt_token)"
+  else
+    ko "$opt_stem hand-written bootstrap preserved — $opt_token not found"
+  fi
+done
 
 # ---------------------------------------------------------------------------
 # Clause 5: Non-HTML gate — latex output has no bootstrap

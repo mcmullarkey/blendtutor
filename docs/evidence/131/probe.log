@@ -1,0 +1,107 @@
+# Issue #131 Evidence — README install-path correction (AC-3)
+
+Verification: `code` (grep-based content assertion on README.md + ADR file). No rodney, no screenshots — not UI-touching.
+
+Commit: `5f5e218` (docs) + `b90280c` (test red) + review-fix (test green tightened). Test suite: `bash scripts/tests/test_quarto_distribution.sh` → **28 passed, 0 failed**.
+
+## Review-fix (cycle 1): tighten clause 6e ADR grep (discrimination)
+
+Finding: clause 6e `grep -qF 'mcmullarkey/blendtutor' "$ADR"` was non-discriminatory — 4 pre-existing occurrences in ADR body (lines 35/41/48/53) matched even with the annotation block deleted, violating AC-3 spec clause 5's negative contract ("skipping ADR annotation" sneaky-pass not caught).
+
+Fix: require BOTH annotation-unique strings — `CI actually` (ADR :57) AND `_extensions/mcmullarkey/blendtutor/` (ADR :58). Note: `CI actually asserts` was initially tried but spans a line break (":57 ends 'CI actually', :58 starts 'asserts'"), so single-line grep failed on the real annotation.
+
+Discrimination proof (run whole suite, grep clause-6e lines):
+
+```bash
+# 1. Annotation present → PASS
+$ bash scripts/tests/test_quarto_distribution.sh 2>&1 | grep -E 'ADR-0017 annotated'
+  PASS: ADR-0017 annotated with org/repo install path (CI actually + _extensions/mcmullarkey/blendtutor/)
+
+# 2. Annotation block deleted (sed '57,59d') → FAIL (negative contract holds)
+$ sed -i '' '57,59d' docs/adr/0017-quarto-extension-distribution.md && \
+  bash scripts/tests/test_quarto_distribution.sh 2>&1 | grep -E 'ADR-0017 annotated'
+  FAIL: ADR-0017 annotated with org/repo install path — annotation missing ('CI actually' + '_extensions/mcmullarkey/blendtutor/' not both found)
+
+# 3. Restored → PASS again
+$ cp /tmp/adr-backup.md docs/adr/0017-quarto-extension-distribution.md && \
+  bash scripts/tests/test_quarto_distribution.sh 2>&1 | grep -E 'ADR-0017 annotated'
+  PASS: ADR-0017 annotated with org/repo install path (CI actually + _extensions/mcmullarkey/blendtutor/)
+```
+
+Both unique strings verified present exactly once each, both inside the annotation (ADR :57-58); ADR body's 4 `mcmullarkey/blendtutor` occurrences lack both.
+
+## Spec probe result
+
+```bash
+$ grep -qF 'quarto add mcmullarkey/blendtutor' README.md \
+  && grep -qF '_extensions/mcmullarkey/blendtutor/' README.md \
+  && ! grep -qF "your project's \`_extensions/blendtutor/\`" README.md \
+  && grep -qiE 'install-path-independent|independent of.{0,40}install|regardless install|relative to.*filter|PANDOC_SCRIPT_FILE' README.md \
+  && grep -qF 'CI actually' docs/adr/0017-quarto-extension-distribution.md \
+  && grep -qF '_extensions/mcmullarkey/blendtutor/' docs/adr/0017-quarto-extension-distribution.md \
+  && echo PROBE-PASS
+PROBE-PASS
+```
+
+## Clause-by-clause evidence (after fix)
+
+### 1. Install command survives
+```bash
+$ grep -nF 'quarto add mcmullarkey/blendtutor' README.md
+167:quarto add mcmullarkey/blendtutor
+```
+PASS — command at :167 unchanged.
+
+### 2. Correct path stated (org/repo path)
+```bash
+$ grep -nF '_extensions/mcmullarkey/blendtutor/' README.md
+172:repository into your project's `_extensions/mcmullarkey/blendtutor/` directory.
+```
+PASS — before: `_extensions/blendtutor/` (wrong); after: `_extensions/mcmullarkey/blendtutor/`.
+
+### 3. Old wrong claim gone
+```bash
+$ grep -nF "your project's \`_extensions/blendtutor/\`" README.md
+(no match — exit 1)
+```
+PASS — narrow unique phrase absent.
+
+### 4. Install-path independence stated
+```bash
+$ grep -niE 'install-path-independent|independent of.{0,40}install|regardless install|relative to.*filter|PANDOC_SCRIPT_FILE' README.md
+174:Asset resolution is install-path-independent — the extension locates its
+175:assets relative to the filter script, so it works regardless of where `quarto
+176:add` installs it.
+```
+PASS — matches `install-path-independent` and `relative to.*filter`.
+
+### 5. ADR-0017 annotated with org/repo path
+```bash
+$ grep -nF 'CI actually' docs/adr/0017-quarto-extension-distribution.md && grep -nF '_extensions/mcmullarkey/blendtutor/' docs/adr/0017-quarto-extension-distribution.md
+57:  > **Note (2026-08-02):** The path in the bullet above is stale — CI actually
+58:  > asserts the org/repo install path `_extensions/mcmullarkey/blendtutor/`
+```
+PASS — annotation at :57-58. Both strings unique to the annotation (4 pre-existing `mcmullarkey/blendtutor` body occurrences at :35/41/48/53 match neither).
+
+## Negative control (before fix)
+
+Current README before fix contained the wrong phrase and no independence mention; probe exited non-zero.
+
+```bash
+# Pre-fix README.md:170-172 (git show HEAD^)
+This installs the extension from the
+[`mcmullarkey/blendtutor`](https://github.com/mcmullarkey/blendtutor) GitHub
+repository into your project's `_extensions/blendtutor/` directory.
+```
+
+RED run confirmed: `FAIL: install path stated — '_extensions/mcmullarkey/blendtutor/' not found`, `FAIL: old wrong install path claim removed`, `FAIL: install-path independence stated`.
+
+## Test suite (full)
+
+```bash
+$ bash scripts/tests/test_quarto_distribution.sh 2>&1 | tail -6
+=========================================
+  Results: 28 passed, 0 failed
+=========================================
+All tests passed.
+```

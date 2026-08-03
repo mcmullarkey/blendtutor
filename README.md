@@ -169,7 +169,11 @@ quarto add mcmullarkey/blendtutor
 
 This installs the extension from the
 [`mcmullarkey/blendtutor`](https://github.com/mcmullarkey/blendtutor) GitHub
-repository into your project's `_extensions/blendtutor/` directory.
+repository into your project's `_extensions/mcmullarkey/blendtutor/` directory.
+
+Asset resolution is install-path-independent — the extension locates its
+assets relative to the filter script, so it works regardless of where `quarto
+add` installs it.
 
 ### Authoring syntax
 

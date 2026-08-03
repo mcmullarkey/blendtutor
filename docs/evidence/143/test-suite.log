@@ -1,0 +1,35 @@
+=== test_quarto_distribution.sh ===
+  Results: 55 passed, 0 failed
+=========================================
+All tests passed.
+=== test_quarto_asset_deployment.sh ===
+  Results: 52 passed, 0 failed
+=========================================
+All tests passed.
+=== test_quarto_bootstrap.sh ===
+  Results: 29 passed, 0 failed
+=========================================
+All tests passed.
+=== test_quarto_filter.sh ===
+  Results: 22 passed, 0 failed
+=========================================
+All tests passed.
+=== test_coi_filter.sh ===
+  Results: 15 passed, 0 failed
+=========================================
+All tests passed.
+=== test_quarto_install_render.sh ===
+  Results: 13 passed, 0 failed, 0 skipped
+=========================================
+All tests passed.
+=== test_quarto_ux.py ===
+
+=== Results: 46 passed, 0 failed ===
+=== test_quarto_feedback.py ===
+
+=== Results: 32 passed, 0 failed ===
+=== sync-quarto-assets.sh --check ===
+All assets in sync.
+=== verify_asset_scoping.py ===
+=========================================
+All tests passed.

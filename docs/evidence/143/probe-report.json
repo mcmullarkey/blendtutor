@@ -1,0 +1,49 @@
+{
+  "issue": 143,
+  "branch": "143-demo-book-by-name",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/worktree-issue-143",
+  "timestamp": "2026-08-03T19:05:45.673Z",
+  "probes": [
+    {
+      "name": "clause-8 r page: __btExercises.length === 2 (2 R exercises mounted)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 r page: .cm-editor count === 2 (both exercises have editors)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 r page: every entry data-language === 'r'",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 r page: mounted entries reference real elements",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 python page: __btExercises.length === 2 (2 python exercises mounted)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 python page: .cm-editor count === 2 (both exercises have editors)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 python page: every entry data-language === 'python'",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-8 python page: mounted entries reference real elements",
+      "status": "PASS",
+      "details": "assertion passed"
+    }
+  ],
+  "verdict": "PROBES_PASS"
+}

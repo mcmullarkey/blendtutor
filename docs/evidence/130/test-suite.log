@@ -1,0 +1,319 @@
+=== quarto-render job regression suite (mirrors ci.yml quarto-render job) ===
+
+---- scripts/tests/test_quarto_render.sh ----
+== Assertion 1: contributes.filters present in _extension.yml ==
+  PASS: contributes.filters key present
+  PASS: blendtutor.lua listed in contributes.filters
+== Assertion 2: blendtutor.lua is valid Pandoc filter ==
+  PASS: blendtutor.lua defines Pandoc function
+  PASS: blendtutor.lua returns doc unmodified
+== Assertion 2b: .qmd YAML declares explicit filter path ==
+  PASS: filter path declared in .qmd YAML
+== Assertions 3-7: quarto render + content survival + filter load ==
+  PASS: quarto render exits 0
+  PASS: standard content survived (Hello from Quarto)
+  PASS: blendtutor content survived (add(a, b))
+  PASS: blendtutor content survived (stopifnot(add(1, 2) == 3))
+  PASS: filter loaded (bt-exercise widget present in HTML)
+== Assertion 8: CI setup@v2 + no continue-on-error ==
+  PASS: CI uses quarto-dev/quarto-actions/setup@v2
+  PASS: no continue-on-error in quarto-render job
+
+=========================================
+  Results: 12 passed, 0 failed
+=========================================
+All tests passed.
+
+---- scripts/tests/test_quarto_filter.sh ----
+Using render tool: quarto
+== Structural guard: .qmd YAML declares explicit filter path ==
+  PASS: filter path declared in filter.qmd YAML
+== Assertions 1-6: HTML render + JSON contract ==
+  PASS: render exits 0
+All assertions passed (4 widgets verified)
+  PASS: >=3 bt-exercise widgets with all 9 keys
+  PASS: full exercise values correct (prompt <code>, code_template <-, checks len 2, solution 'a + b', hints <-, gotchas null, packages [])
+  PASS: minimal Python: packages parsed, all 9 keys present
+  PASS: empty exercise: all 9 keys present (null/[] for absent)
+  PASS: IDs distinct, titles non-empty
+  PASS: llm_evaluation_prompt ABSENT
+== Assertion 7: non-HTML format skips widget emission ==
+  PASS: non-HTML render exits 0
+  PASS: no bt-exercise in non-HTML output
+  PASS: warning emitted for non-HTML format
+== Assertion 8: invalid language warning + skip ==
+  PASS: invalid-lang render exits 0
+  PASS: no bt-exercise for invalid language
+  PASS: warning for invalid language
+== Assertion 9: missing language warning + skip ==
+  PASS: missing-lang render exits 0
+  PASS: no bt-exercise for missing language
+  PASS: warning for missing language
+
+=========================================
+  Results: 17 passed, 0 failed
+=========================================
+All tests passed.
+
+---- scripts/tests/test_pyodide_adapter.sh ----
+== Part 1: Node.js validation ==
+
+=== AC-6 Pyodide Adapter Validation Results ===
+Passed: 60
+Failed: 0
+All validations passed.
+  PASS: Node.js validation passed
+== Part 2: Quarto render pyodide.qmd ==
+Using render tool: quarto
+  PASS: pyodide.qmd render exits 0
+  PASS: >=2 bt-exercise widgets in pyodide.qmd (2 found)
+  PASS: CDN script tag injected for Python exercises
+  PASS: exactly one pyodide.js CDN script tag
+  PASS: mixed-lang.qmd render exits 0
+  PASS: >=2 bt-exercise widgets in mixed-lang.qmd (2 found)
+  PASS: CDN script tag injected for mixed-lang (Python present)
+== Part 3: Negative case — no CDN for R-only ==
+  PASS: r-only.qmd render exits 0
+  PASS: >=2 bt-exercise widgets in r-only.qmd (2 found)
+  PASS: CDN NOT injected for R-only — pyodide.js CDN URL absent from HTML
+
+=========================================
+  Results: 11 passed, 0 failed
+=========================================
+All tests passed.
+
+---- scripts/tests/test_quarto_feedback.py ----
+scripts/tests/test_quarto_feedback.py: line 26: Executable spec for issue #112 — Per-exercise BYOK LLM feedback.
+
+Verifies the 9-clause predicate from AC-7:
+  1. key entered once — shared sessionStorage key slot (provider-scoped, not
+     exercise-scoped); entered once, reused across exercises.
+  2. per-exercise scoping — each exercise has its own feedback container; no
+     singleton getElementById(feedback).
+  3. key reused — readKey reads from the shared slot; second exercise skips
+     the key prompt.
+  4. provider switch — PROVIDERS map + storeProvider/readProvider; the provider
+     chooser renders a <select data-byok=provider>.
+  5. ?provider= override — providerBaseUrl honors a localhost-only override and
+     rejects non-local / credentialed overrides.
+  6. llm_evaluation_prompt ABSENT — never in the JS source or the qmd fixture.
+  7. fetch spy (STUDENT_CODE fences) — buildPrompt emits STUDENT_CODE fences;
+     the backend calls fetch with the prompt body.
+  8. concurrent — per-exercise concurrent feedback guard prevents overlapping
+     requests.
+  9. UI visibility — feedback button + container mounted per-exercise.
+
+Negative: silently skips fetch (no fetch call). Cross-exercise bleed (key
+re-prompted per exercise). llm_evaluation_prompt leaks into the browser.
+
+Usage: python3 scripts/tests/test_quarto_feedback.py
+: File name too long
+scripts/tests/test_quarto_feedback.py: line 28: from: command not found
+scripts/tests/test_quarto_feedback.py: line 30: import: command not found
+scripts/tests/test_quarto_feedback.py: line 31: import: command not found
+scripts/tests/test_quarto_feedback.py: line 32: import: command not found
+scripts/tests/test_quarto_feedback.py: line 33: import: command not found
+scripts/tests/test_quarto_feedback.py: line 34: from: command not found
+scripts/tests/test_quarto_feedback.py: line 36: syntax error near unexpected token `('
+scripts/tests/test_quarto_feedback.py: line 36: `REPO_ROOT = Path(__file__).resolve().parent.parent.parent'
+=== AC-7 Per-exercise BYOK LLM feedback — test_quarto_feedback.py ===
+
+  PASS: exercise-feedback.js exists
+  PASS: feedback.qmd exists
+-- Clause 6: llm_evaluation_prompt ABSENT --
+  PASS: llm_evaluation_prompt ABSENT from exercise-feedback.js
+  PASS: llm_evaluation_prompt ABSENT from feedback.qmd
+
+-- Source-pattern checks --
+  PASS: pure function exported: neutralize
+  PASS: pure function exported: buildPrompt
+  PASS: pure function exported: parseModels
+  PASS: pure function exported: modelRoster
+  PASS: pure function exported: feedbackRequest
+  PASS: pure function exported: toVerdict
+  PASS: pure function exported: fireworksRequest
+  PASS: pure function exported: fireworksToVerdict
+  PASS: pure function exported: providerBaseUrl
+  PASS: STUDENT_CODE fences present in source
+  PASS: PROVIDERS map has fireworks + anthropic
+  PASS: provider-scoped key slots present (fireworks_api_key, anthropic_api_key)
+  PASS: key slot is provider-scoped (not exercise-scoped)
+  PASS: storeKey + readKey present (shared key handling)
+  PASS: no singleton getElementById('feedback') — per-exercise scoping
+  PASS: no window.__bt singleton access (uses __btExercises registry)
+  PASS: ?provider= override parsed via URLSearchParams
+  PASS: localhost-only gate present (non-local override rejected)
+  PASS: per-exercise concurrent feedback guard present
+  PASS: mountFeedback/mountAllFeedback present (per-exercise mount)
+  PASS: feedback UI elements carry data-byok/data-feedback markers
+  PASS: fetch() called in backends (feedback is not silently skipped)
+  PASS: no module-level applyEmbeddedKey() call (pure layer importable)
+
+-- Behavioral checks (Node.js) --
+  PASS: buildPrompt emits STUDENT_CODE_BEGIN fence
+  PASS: buildPrompt emits STUDENT_CODE_END fence
+  PASS: buildPrompt includes task
+  PASS: buildPrompt includes student code
+  PASS: buildPrompt includes captured output
+  PASS: buildPrompt includes checks
+  PASS: neutralize strips forged STUDENT_CODE_BEGIN
+  PASS: neutralize replaces with marker
+  PASS: key reused from shared sessionStorage slot (entered once)
+  PASS: provider switched to anthropic
+  PASS: provider switched back to fireworks
+  PASS: localhost override honored
+  PASS: non-local override rejected (key exfil prevented)
+  PASS: non-local override falls back to provider base URL
+  PASS: credentialed override rejected
+  PASS: parseModels extracts model ids
+  PASS: modelRoster falls back when list empty
+  PASS: feedbackRequest embeds prompt in messages
+  PASS: feedbackRequest forces feedback tool
+  PASS: toVerdict maps Anthropic tool call to Verdict
+  PASS: fireworksToVerdict maps OpenAI tool call to Verdict
+  PASS: Node.js behavioral tests passed (all pure-function assertions)
+
+-- feedback.qmd structure --
+  PASS: feedback.qmd has 2 exercises (>=2 for key-reuse test)
+  PASS: feedback.qmd imports exercise-feedback.js
+  PASS: feedback.qmd imports exercise-runtime.js (AC-4 dependency)
+  PASS: feedback.qmd calls mountFeedback/mountAllFeedback
+
+=== Results: 32 passed, 0 failed ===
+
+---- scripts/tests/test_coi_filter.sh ----
+Using render tool: quarto
+== Clause 1: coi="true" activates ==
+  PASS: coi-true.qmd render exits 0
+  PASS: coi="true" activates — script tag present
+== Clause 2: false/yes/empty rejected ==
+  PASS: coi="false" rejected — no script tag
+  PASS: coi="yes" rejected — no script tag
+  PASS: coi="" rejected — no script tag
+== Clause 3: dedup (one script tag for multiple coi="true" divs) ==
+  PASS: dedup — exactly one script tag (1 found)
+== Clause 4: byte-parity (vendored == source) ==
+  PASS: byte-parity — vendored coi-serviceworker.js byte-identical to source
+== Clause 5: per-page isolation ==
+  PASS: structural guard — no _quarto.yml in coi-book/ (standalone render)
+  PASS: per-page isolation — coi chapter has script tag
+  PASS: per-page isolation — no-coi chapter has no script tag
+  PASS: per-page isolation — index has no script tag
+== Clause 6: no R exercises still registers ==
+  PASS: no R exercises still registers — coi script tag present
+== Clause 7: coi-yaml (document-level YAML activates) ==
+  PASS: coi-yaml — script tag present (YAML coi: true activates)
+== Negative: script src does NOT 404 ==
+  PASS: script src resolves — coi-serviceworker.js exists at _extensions/blendtutor/assets/coi-serviceworker.js
+== Negative: filter does NOT hardcode script tag ==
+  PASS: no hardcode — no script tag when coi attribute absent
+
+=========================================
+  Results: 15 passed, 0 failed
+=========================================
+All tests passed.
+
+---- scripts/tests/test_quarto_ux.py ----
+scripts/tests/test_quarto_ux.py: line 23: Executable spec for issue #113 — Exercise UX polish.
+
+Verifies the 7-clause predicate from AC-8:
+  1. hints visible/absent — exercises with hints render a <details> toggle;
+     exercises without hints do not.
+  2. solution button click inserts text — a Show: No such file or directory
+scripts/tests/test_quarto_ux.py: line 25: from: command not found
+scripts/tests/test_quarto_ux.py: line 27: import: command not found
+scripts/tests/test_quarto_ux.py: line 28: import: command not found
+scripts/tests/test_quarto_ux.py: line 29: import: command not found
+scripts/tests/test_quarto_ux.py: line 30: import: command not found
+scripts/tests/test_quarto_ux.py: line 31: import: command not found
+scripts/tests/test_quarto_ux.py: line 32: from: command not found
+scripts/tests/test_quarto_ux.py: line 34: syntax error near unexpected token `('
+scripts/tests/test_quarto_ux.py: line 34: `REPO_ROOT = Path(__file__).resolve().parent.parent.parent'
+=== AC-8 Exercise UX polish — test_quarto_ux.py ===
+
+  PASS: exercise-runtime.js exists
+  PASS: ux.qmd exists
+-- ux.qmd structure --
+  PASS: ux.qmd has 3 exercises (>=3 for UX polish test)
+  PASS: ux.qmd has a .solution code block (solution reveal test)
+  PASS: ux.qmd has a hints div (hints toggle test)
+  PASS: ux.qmd has .checks code block (check button test)
+  PASS: ux.qmd imports exercise-runtime.js
+
+-- Clause 1: hints visible/absent --
+  PASS: hints <details> toggle present in exercise-runtime.js
+  PASS: hints rendering is conditional on payload.hints
+
+-- Clause 2: solution button click inserts text --
+  PASS: solution rendering references payload.solution
+  PASS: solution button creation present in exercise-runtime.js
+  PASS: solution button calls setEditorContent
+
+-- Clause 3: check button absent when no checks --
+  PASS: check button creation is conditional on checks length
+  PASS: check button referenced in exercise-runtime.js
+
+-- Clause 4: Run disables ex-0 only (per-exercise) --
+  PASS: per-exercise Run button reference found
+  PASS: button disable/enable mechanism present
+  PASS: no singleton getElementById('run') — per-exercise Run button
+
+-- Clause 5: cursor=not-allowed --
+  PASS: cursor: not-allowed present in styles.css
+  PASS: disabled button selector present in styles.css
+
+-- Clause 6: data-status closed set --
+  PASS: data-status closed set referenced (4/4 values found)
+  PASS: data-status attribute mechanism present
+  PASS: data-status="idle" selector present in styles.css
+  PASS: data-status="running" selector present in styles.css
+  PASS: data-status="pass" selector present in styles.css
+  PASS: data-status="fail" selector present in styles.css
+
+-- Clause 7: buttons re-enabled on pass --
+  PASS: button re-enable mechanism present (disabled = false or finally)
+
+-- Regression: Check/Solution disabled during run --
+  PASS: entry.checkBtn ref stored for runSubmission access
+  PASS: entry.solutionBtn ref stored for runSubmission access
+  PASS: Check button disabled during runSubmission
+  PASS: Solution button disabled during runSubmission
+  PASS: Check button re-enabled after runSubmission
+  PASS: Solution button re-enabled after runSubmission
+
+-- CSS: hints + solution styling --
+  PASS: hints styling present in styles.css
+  PASS: solution button styling present in styles.css
+
+-- Rendered HTML: styles.css <link> injection --
+  PASS: styles.css <link> present in rendered HTML (project-relative href)
+
+-- Rendered HTML: coi script src project-relative (issue #129) --
+  PASS: coi script src present in rendered HTML (project-relative src)
+
+-- Asset URLs project-relative + resolvable (issue #129 clauses 4-5) --
+  PASS: asset URL project-relative: ../_extensions/blendtutor/assets/coi-serviceworker.js
+  PASS: asset URL resolves to file on disk: ../_extensions/blendtutor/assets/coi-serviceworker.js
+  PASS: asset URL project-relative: ../_extensions/blendtutor/assets/styles.css
+  PASS: asset URL resolves to file on disk: ../_extensions/blendtutor/assets/styles.css
+
+-- Installed layout: org/repo install path (issue #129 clause 3) --
+  PASS: installed layout — href uses org/repo install path
+  PASS: installed layout — no hardcoded _extensions/blendtutor/ href
+
+-- By-name install: absolute script path -> project-relative (issue #129) --
+  PASS: by-name install — absolute PANDOC_SCRIPT_FILE converted to project-relative href
+  PASS: by-name install — href passes project-relative guard: _extensions/mcmullarkey/blendtutor/assets/styles.css
+
+-- Source grep zero: no hardcoded _extensions/blendtutor/ (issue #129 clause 6) --
+  PASS: source grep zero — no literal "_extensions/blendtutor/" in blendtutor.lua
+
+-- Behavioral checks (Node.js) --
+  PASS: scanExercises exported
+  PASS: buildRegistry exported
+  PASS: start exported
+  PASS: parsePayload exported
+  PASS: Node.js behavioral tests passed (exports verified)
+
+=== Results: 46 passed, 0 failed ===
+

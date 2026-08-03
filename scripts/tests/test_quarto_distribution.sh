@@ -160,10 +160,12 @@ ADR="docs/adr/0017-quarto-extension-distribution.md"
 if [ ! -f "$ADR" ]; then
   ko "ADR-0017 annotation — ADR file not found: $ADR"
 else
-  if grep -qF 'mcmullarkey/blendtutor' "$ADR"; then
-    ok "ADR-0017 annotated with org/repo install path (mcmullarkey/blendtutor)"
+  # Require both annotation-unique strings — 'mcmullarkey/blendtutor' alone is
+  # non-discriminatory (4 pre-existing occurrences in ADR body, lines 35/41/48/53).
+  if grep -qF 'CI actually' "$ADR" && grep -qF '_extensions/mcmullarkey/blendtutor/' "$ADR"; then
+    ok "ADR-0017 annotated with org/repo install path (CI actually + _extensions/mcmullarkey/blendtutor/)"
   else
-    ko "ADR-0017 annotated with org/repo install path — 'mcmullarkey/blendtutor' not found"
+    ko "ADR-0017 annotated with org/repo install path — annotation missing ('CI actually' + '_extensions/mcmullarkey/blendtutor/' not both found)"
   fi
 fi
 

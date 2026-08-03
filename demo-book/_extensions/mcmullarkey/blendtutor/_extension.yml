@@ -1,0 +1,6 @@
+title: blendtutor
+author: blendtutor
+version: 0.1.0
+contributes:
+  filters:
+    - blendtutor.lua

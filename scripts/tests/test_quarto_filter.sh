@@ -130,7 +130,7 @@ else
   # Run Python JSON assertions (covers assertions 1-6)
   python3 scripts/tests/verify_filter_output.py "$HTML_FILE" 2>&1 && PY_RC=0 || PY_RC=$?
   if [ "$PY_RC" -eq 0 ]; then
-    ok ">=3 bt-exercise widgets with all 9 keys"
+    ok ">=4 bt-exercise widgets with all 9 keys"
     ok "full exercise values correct (prompt <code>, code_template <-, checks len 2, solution 'a + b', hints <-, gotchas null, packages [])"
     ok "minimal Python: packages parsed, all 9 keys present"
     ok "empty exercise: all 9 keys present (null/[] for absent)"

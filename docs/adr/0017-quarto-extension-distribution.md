@@ -54,6 +54,10 @@ Option 3 — same-repo distribution via `quarto add` with CI verification.
   asserts `_extensions/blendtutor/_extension.yml` and `blendtutor.lua` exist.
   No `continue-on-error` — a failed install fails the job.
 
+  > **Note (2026-08-02):** The path in the bullet above is stale — CI actually
+  > asserts the org/repo install path `_extensions/mcmullarkey/blendtutor/`
+  > (Quarto's `quarto add <org>/<repo>` convention), not `_extensions/blendtutor/`.
+
 - **Demo book**: `demo-book/` in the same repo, with `_quarto.yml`
   (`project: type: book`), R and Python exercise chapters, COI config, and no
   `llm_evaluation_prompt` (per ADR-0006 — prompt structure is fixed, authors

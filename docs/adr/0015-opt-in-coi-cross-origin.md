@@ -53,8 +53,11 @@ Option 3 — opt-in via both div attribute and YAML metadata.
 - **Per-page isolation** (§3): `has_coi` and `hasCoiDone` are reset in `Pandoc()`
   so each document in a multi-page render (Quarto book) gets a fresh check.
 
-- **Script tag path**: `_extensions/blendtutor/assets/coi-serviceworker.js` —
-  vendored via `sync-quarto-assets.sh` (mode=copy, byte-identical to source).
+- **Script tag path**: derived from the filter's own location via
+  `PANDOC_SCRIPT_FILE` (ADR-0018) — `_extensions/blendtutor/assets/
+  coi-serviceworker.js` in-repo, `_extensions/mcmullarkey/blendtutor/assets/
+  coi-serviceworker.js` when installed via `quarto add` — vendored via
+  `sync-quarto-assets.sh` (mode=copy, byte-identical to source).
 
 ## Consequences
 

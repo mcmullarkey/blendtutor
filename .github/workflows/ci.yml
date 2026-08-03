@@ -139,13 +139,21 @@ jobs:
           test -f _extensions/mcmullarkey/blendtutor/blendtutor.lua
 
       # Issue #115 — Author docs, demo book, and distribution verification.
-      # Validates the 14-clause predicate: README content (install command,
-      # syntax both languages, BYOK, min Quarto, demo link), demo book (render
-      # exits 0, ≥2 exercises per language, non-empty content, mixed-language,
-      # no llm_evaluation_prompt, COI config), and CI (quarto add in temp dir,
+      # Validates the 15-clause predicate: README content (install command,
+      # syntax both languages, BYOK, min Quarto, demo link, install path),
+      # demo book (render exits 0 + asset href targets file-checked, ≥2
+      # exercises per language, non-empty content, mixed-language, no
+      # llm_evaluation_prompt, COI config), and CI (quarto add in temp dir,
       # setup@v2, no continue-on-error).
       - name: Quarto distribution test
         run: bash scripts/tests/test_quarto_distribution.sh
+
+      # Issue #130 — Hermetic working-tree install-path render test. Simulates
+      # the org/repo install layout (_extensions/mcmullarkey/blendtutor/) from
+      # the PR's OWN working tree (not GitHub main) and asserts the filter
+      # loads, assets resolve, and the old non-org path never leaks.
+      - name: Quarto install render test
+        run: bash scripts/tests/test_quarto_install_render.sh
 
       - name: Render demo book
         run: quarto render demo-book --to html

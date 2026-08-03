@@ -161,7 +161,7 @@ if [ -f "$HTML_FILE" ]; then
     ko "data-language=python emitted — not found in $HTML_FILE"
   fi
 
-  DATA_LANG_COUNT=$(grep -o 'data-language="[rp]"' <<< "$HTML_CONTENT" | wc -l | tr -d ' ' || true)
+  DATA_LANG_COUNT=$(grep -o 'data-language="[^"]*"' <<< "$HTML_CONTENT" | wc -l | tr -d ' ' || true)
   if [ "$DATA_LANG_COUNT" -ge 4 ]; then
     ok ">=4 data-language attrs emitted (found $DATA_LANG_COUNT)"
   else

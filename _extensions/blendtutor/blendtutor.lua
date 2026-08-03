@@ -318,9 +318,10 @@ end
 
 --- Emit the widget HTML as a Pandoc RawBlock.
 -- @param payload The JSON string
+-- @param lang The validated exercise language ("r" or "python")
 -- @return A pandoc.RawBlock("html", ...) element
-local function emit_widget(payload)
-  local html = '<div class="bt-exercise">\n'
+local function emit_widget(payload, lang)
+  local html = '<div class="bt-exercise" data-language="' .. lang .. '">\n'
     .. '<script type="application/json">' .. payload .. "</script>\n"
     .. "</div>"
   return pandoc.RawBlock("html", html)
@@ -388,7 +389,9 @@ function Div(div)
   exercise_count = exercise_count + 1
 
   local payload = build_payload(index, parsed, packages)
-  return emit_widget(payload)
+  -- lang validated to {r, python} above (:364-368) — attribute is the
+  -- sole language carrier (payload has no language key, AC-1 §3).
+  return emit_widget(payload, lang)
 end
 
 --- Reset counters and inject CDN script tag at document level.

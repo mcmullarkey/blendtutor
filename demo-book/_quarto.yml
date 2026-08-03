@@ -12,4 +12,4 @@ book:
     - python-exercises.qmd
 
 filters:
-  - ../_extensions/blendtutor/blendtutor.lua
+  - mcmullarkey/blendtutor

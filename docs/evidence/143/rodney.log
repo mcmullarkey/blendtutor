@@ -1,0 +1,20 @@
+# Rodney probes for issue #143
+verdict: PROBES_PASS
+timestamp: 2026-08-03T19:05:45.673Z
+
+- PASS: clause-8 r page: __btExercises.length === 2 (2 R exercises mounted)
+  assertion passed
+- PASS: clause-8 r page: .cm-editor count === 2 (both exercises have editors)
+  assertion passed
+- PASS: clause-8 r page: every entry data-language === 'r'
+  assertion passed
+- PASS: clause-8 r page: mounted entries reference real elements
+  assertion passed
+- PASS: clause-8 python page: __btExercises.length === 2 (2 python exercises mounted)
+  assertion passed
+- PASS: clause-8 python page: .cm-editor count === 2 (both exercises have editors)
+  assertion passed
+- PASS: clause-8 python page: every entry data-language === 'python'
+  assertion passed
+- PASS: clause-8 python page: mounted entries reference real elements
+  assertion passed

@@ -5,7 +5,8 @@
 # Verifies the P1–P10 predicate from the AC-2 executable spec:
 #
 #   P1  Hack removed: no masking copy of the extension dir into demo-book
-#       anywhere in test_quarto_distribution.sh
+#       anywhere in test_quarto_distribution.sh (org/repo by-name install
+#       references allowed per issue #143)
 #   P2  No masking copy anywhere in the render path (scripts/tests +
 #       .github/workflows/ci.yml) — the ONLY permitted copy is the working-tree
 #       install simulation into the org/repo path
@@ -73,10 +74,24 @@ QADD_PAT="quarto add mcmullarkey/""blendtutor"
 if [ ! -f "$DIST_SCRIPT" ]; then
   ko "hack removed — distribution test script not found: $DIST_SCRIPT"
 else
-  if grep -qE "$CP_PAT|$DB_PAT" "$DIST_SCRIPT"; then
-    ko "hack removed — masking copy still present in $DIST_SCRIPT"
-  else
+  # Issue #143 (AC-5): the by-name install reference
+  # demo-book/_extensions/mcmullarkey/blendtutor/ is now the LEGITIMATE
+  # committed fixture — allow lines carrying the full org/repo path (same
+  # allowance as P2), flag only bare/non-org matches.
+  P1_MATCHES=$(grep -nE "$CP_PAT|$DB_PAT" "$DIST_SCRIPT" || true)
+  if [ -z "$P1_MATCHES" ]; then
     ok "hack removed — no masking copy in $DIST_SCRIPT"
+  else
+    P1_BAD=0
+    while IFS= read -r line; do
+      if ! grep -qF '_extensions/mcmullarkey/blendtutor/' <<< "$line"; then
+        ko "hack removed — masking copy still present in $DIST_SCRIPT: $line"
+        P1_BAD=1
+      fi
+    done <<< "$P1_MATCHES"
+    if [ "$P1_BAD" -eq 0 ]; then
+      ok "hack removed — no masking copy in $DIST_SCRIPT (only org/repo by-name install refs)"
+    fi
   fi
 fi
 

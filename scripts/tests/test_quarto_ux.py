@@ -374,13 +374,27 @@ def _render_qmd(quarto_bin: str, qmd_path: Path, cwd: Path) -> subprocess.Comple
     )
 
 
-# Emitted asset URLs must be project-relative (spec clause 4): match ^\.\.?/,
-# no leading /, no //, no file:, no drive letter, no backslash. This rejects
-# an absolute PANDOC_SCRIPT_FILE leaking into the href (browser 404s).
-PROJECT_RELATIVE_URL_RE = re.compile(r"^\.\.?/[^/\\][^\\]*$")
-
-# Asset basenames the filter injects into <head>.
-ASSET_BASENAMES = ("styles.css", "coi-serviceworker.js")
+# Emitted asset URLs must be project-relative (spec clause 4): no leading /,
+# no //, no file:, no drive letter, no backslash. Accepts ./ and ../ prefixes
+# AND bare relative paths — the installed layout legitimately emits
+# "_extensions/mcmullarkey/..." (clause 3), which has no dot-prefix. The guard
+# rejects an absolute PANDOC_SCRIPT_FILE leak ("/abs/proj/..."), which
+# lstat-passes but browser-404s.
+def is_project_relative_url(url: str) -> bool:
+    """True if url is a browser-usable project-relative URL."""
+    if not url:
+        return False
+    if url.startswith(("/", "\\")):
+        return False
+    if "//" in url:
+        return False
+    if "\\" in url:
+        return False
+    if url.startswith("file:"):
+        return False
+    if re.match(r"^[A-Za-z]:", url):
+        return False
+    return True
 
 
 def check_styles_css_loaded() -> None:
@@ -484,10 +498,10 @@ def check_asset_urls_behavioral() -> None:
         return
 
     for url in sorted(seen_urls):
-        if PROJECT_RELATIVE_URL_RE.match(url):
+        if is_project_relative_url(url):
             ok(f"asset URL project-relative: {url}")
         else:
-            ko(f"asset URL project-relative: {url} — must match ^../ or ^./ with no /, //, file:, drive letter, backslash")
+            ko(f"asset URL project-relative: {url} — must be project-relative (no leading /, no //, no file:, no drive letter, no backslash)")
 
         # Clause 5: resolve from the rendered HTML's directory → file on disk.
         resolved = (REPO_ROOT / "quarto-fixture" / url).resolve()
@@ -586,7 +600,7 @@ def check_by_name_install_absolute_path() -> None:
         ok("by-name install — absolute PANDOC_SCRIPT_FILE converted to project-relative href")
     else:
         ko(f"by-name install — expected project-relative href, got: {url}")
-    if PROJECT_RELATIVE_URL_RE.match(url):
+    if is_project_relative_url(url):
         ok(f"by-name install — href passes project-relative guard: {url}")
     else:
         ko(f"by-name install — href fails project-relative guard (absolute leak): {url}")

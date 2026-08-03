@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Verify filter output: assert 9-key SiteLesson JSON contract.
+"""Verify filter output: assert 9-key SiteLesson JSON contract + data-language.
 
-Reads an HTML file, extracts all bt-exercise widget JSON payloads,
-and asserts the contract from AC-2's executable spec.
+Reads an HTML file, extracts all bt-exercise widget JSON payloads and their
+data-language attributes, and asserts:
+  - the 9-key SiteLesson contract from AC-2's executable spec
+  - every bt-exercise div carries exactly one data-language="r|python"
+    (all-or-none: attribute count must equal widget count)
+  - per-index language pairing matches quarto-fixture/filter.qmd order
+    [r, python, r, r] (AC-1) — catches hardcoded-"r" fakes.
 
 Usage: python3 verify_filter_output.py <html-file>
 """
@@ -32,22 +37,50 @@ REQUIRED_KEYS: set[str] = {
 # and must never be shipped to the browser (ADR-0008).
 FORBIDDEN_KEYS: set[str] = {"llm_evaluation_prompt"}
 
+# The only languages the filter may emit (validate_language in blendtutor.lua).
+ALLOWED_LANGUAGES: set[str] = {"r", "python"}
+
+# Per-index expected language, matching quarto-fixture/filter.qmd exercise
+# order (4-exercise order is load-bearing — do not reorder):
+#   0: Full R exercise        -> "r"
+#   1: Minimal Python exercise -> "python"
+#   2: Empty exercise         -> "r"
+#   3: XSS + gotchas exercise -> "r"
+EXPECTED_LANGUAGES: list[str] = ["r", "python", "r", "r"]
+
 
 def extract_widgets(html: str) -> list[dict[str, Any]]:
     """Extract all bt-exercise widget JSON payloads from HTML.
 
     The filter emits:
-        <div class="bt-exercise">
+        <div class="bt-exercise" data-language="r|python">
         <script type="application/json">{...}</script>
         </div>
+
+    The div opener is matched attr-tolerantly (`[^>]*`), so the JSON is
+    found regardless of which attributes the filter emits on the div.
 
     Returns a list of parsed JSON dicts, one per widget.
     """
     pattern = (
-        r'<div class="bt-exercise">\s*<script type="application/json">(.*?)</script>'
+        r'<div class="bt-exercise"[^>]*>\s*<script type="application/json">(.*?)</script>'
     )
     matches = re.findall(pattern, html, re.DOTALL)
     return [json.loads(m) for m in matches]
+
+
+def extract_widget_languages(html: str) -> list[str | None]:
+    """Extract the data-language attribute from each bt-exercise div opener.
+
+    Returns one entry per widget div in document order. A div carrying zero
+    (or more than one) data-language attributes yields None — the all-or-none
+    contract requires exactly one per div.
+    """
+    langs: list[str | None] = []
+    for div in re.findall(r'<div class="bt-exercise"[^>]*>', html):
+        attrs = re.findall(r'\bdata-language="([^"]*)"', div)
+        langs.append(attrs[0] if len(attrs) == 1 else None)
+    return langs
 
 
 def assert_full_exercise(data: dict[str, Any], errors: list[str]) -> None:
@@ -211,9 +244,9 @@ def main() -> int:
         print(f"  FAIL: JSON decode error in widget payload: {e}", file=sys.stderr)
         return 1
 
-    # Assertion: >=3 exercises
-    if len(widgets) < 3:
-        errors.append(f"Expected >=3 bt-exercise widgets, found {len(widgets)}")
+    # Assertion: >=4 exercises (filter.qmd has 4 — order load-bearing)
+    if len(widgets) < 4:
+        errors.append(f"Expected >=4 bt-exercise widgets, found {len(widgets)}")
 
     # For each widget: 9 keys present, no forbidden keys, title non-empty
     for i, data in enumerate(widgets):
@@ -255,6 +288,24 @@ def main() -> int:
         if "llm_evaluation_prompt" in data:
             errors.append(
                 f"Exercise {i}: llm_evaluation_prompt present (FORBIDDEN by ADR-0008)"
+            )
+
+    # data-language: all-or-none + per-index pairing (AC-1 clauses 2-3)
+    langs = extract_widget_languages(html)
+    if len(langs) != len(widgets):
+        errors.append(
+            f"data-language attrs ({len(langs)}) must equal widget count "
+            f"({len(widgets)}) — every div must carry exactly one (all-or-none)"
+        )
+    for i, lang in enumerate(langs):
+        if lang not in ALLOWED_LANGUAGES:
+            errors.append(
+                f"Exercise {i}: data-language must be 'r' or 'python', got: {lang!r}"
+            )
+        elif i < len(EXPECTED_LANGUAGES) and lang != EXPECTED_LANGUAGES[i]:
+            errors.append(
+                f"Exercise {i}: data-language should be '{EXPECTED_LANGUAGES[i]}' "
+                f"(filter.qmd order), got: {lang!r}"
             )
 
     if errors:

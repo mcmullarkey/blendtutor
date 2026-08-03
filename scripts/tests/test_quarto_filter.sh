@@ -13,9 +13,14 @@
 #   8. Invalid language: warning + skip (no bt-exercise)
 #   9. Missing language: warning + skip (no bt-exercise)
 #
-# Negative: filter emits llm_evaluation_prompt, hardcodes JSON,
-#           omits packages/gotchas, non-HTML emits widget,
-#           silent default for invalid language.
+#   Negative: filter emits llm_evaluation_prompt, hardcodes JSON,
+#             omits packages/gotchas, non-HTML emits widget,
+#             silent default for invalid language.
+#   AC-1 (issue #135) additions:
+#   10. EVERY bt-exercise div carries data-language="r|python";
+#       count === widget count (all-or-none), pairing [r, python, r, r]
+#   11. Static pin: exercise-runtime.js reads entry.element.dataset.language
+#   12. Static pin: verify_filter_output.py has no exact <div class="bt-exercise"> matcher
 #
 # Usage: bash scripts/tests/test_quarto_filter.sh
 set -euo pipefail
@@ -125,7 +130,7 @@ else
   # Run Python JSON assertions (covers assertions 1-6)
   python3 scripts/tests/verify_filter_output.py "$HTML_FILE" 2>&1 && PY_RC=0 || PY_RC=$?
   if [ "$PY_RC" -eq 0 ]; then
-    ok ">=3 bt-exercise widgets with all 9 keys"
+    ok ">=4 bt-exercise widgets with all 9 keys"
     ok "full exercise values correct (prompt <code>, code_template <-, checks len 2, solution 'a + b', hints <-, gotchas null, packages [])"
     ok "minimal Python: packages parsed, all 9 keys present"
     ok "empty exercise: all 9 keys present (null/[] for absent)"
@@ -137,10 +142,61 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Assertion 7: Non-HTML format — no bt-exercise + warning
+# Assertions 10-11: data-language emission (AC-1 clause 2-3 shell-level check)
 # ---------------------------------------------------------------------------
 
-echo "== Assertion 7: non-HTML format skips widget emission =="
+echo "== Assertions 10-11: data-language emission =="
+
+if [ -f "$HTML_FILE" ]; then
+  HTML_CONTENT=$(cat "$HTML_FILE")
+  if grep -q 'data-language="r"' <<< "$HTML_CONTENT"; then
+    ok "data-language=r emitted"
+  else
+    ko "data-language=r emitted — not found in $HTML_FILE"
+  fi
+
+  if grep -q 'data-language="python"' <<< "$HTML_CONTENT"; then
+    ok "data-language=python emitted"
+  else
+    ko "data-language=python emitted — not found in $HTML_FILE"
+  fi
+
+  DATA_LANG_COUNT=$(grep -o 'data-language="[^"]*"' <<< "$HTML_CONTENT" | wc -l | tr -d ' ' || true)
+  if [ "$DATA_LANG_COUNT" -ge 4 ]; then
+    ok ">=4 data-language attrs emitted (found $DATA_LANG_COUNT)"
+  else
+    ko ">=4 data-language attrs emitted — found $DATA_LANG_COUNT"
+  fi
+else
+  ko "data-language=r emitted — HTML missing"
+  ko "data-language=python emitted — HTML missing"
+  ko ">=4 data-language attrs emitted — HTML missing"
+fi
+
+# ---------------------------------------------------------------------------
+# Assertions 12-13: static pins (AC-1 clauses 4-5)
+# ---------------------------------------------------------------------------
+
+echo "== Assertions 12-13: static pins (runtime read + verifier shape) =="
+
+RUNTIME_JS="_extensions/blendtutor/assets/exercise-runtime.js"
+if grep -qF 'entry.element.dataset.language ||' "$RUNTIME_JS"; then
+  ok "runtime reads entry.element.dataset.language ||"
+else
+  ko "runtime reads entry.element.dataset.language || — pattern not found in $RUNTIME_JS"
+fi
+
+if grep -qF '<div class="bt-exercise">' scripts/tests/verify_filter_output.py; then
+  ko "verifier dropped exact matcher — '<div class=\"bt-exercise\">' still present in verify_filter_output.py"
+else
+  ok "verifier dropped exact matcher — no <div class=\"bt-exercise\"> in verify_filter_output.py"
+fi
+
+# ---------------------------------------------------------------------------
+# Assertion 14: Non-HTML format — no bt-exercise + warning
+# ---------------------------------------------------------------------------
+
+echo "== Assertion 14: non-HTML format skips widget emission =="
 
 LATEX_FILE="$FIXTURE_DIR/filter.tex"
 rm -f "$LATEX_FILE"
@@ -178,7 +234,7 @@ fi
 # Assertion 8: Invalid language — warning + skip
 # ---------------------------------------------------------------------------
 
-echo "== Assertion 8: invalid language warning + skip =="
+echo "== Assertion 15: invalid language warning + skip =="
 
 INVALID_HTML="$FIXTURE_DIR/filter-invalid-lang.html"
 rm -f "$INVALID_HTML"
@@ -215,7 +271,7 @@ fi
 # Assertion 9: Missing language — warning + skip
 # ---------------------------------------------------------------------------
 
-echo "== Assertion 9: missing language warning + skip =="
+echo "== Assertion 16: missing language warning + skip =="
 
 MISSING_HTML="$FIXTURE_DIR/filter-missing-lang.html"
 rm -f "$MISSING_HTML"

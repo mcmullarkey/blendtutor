@@ -1,0 +1,118 @@
+===================================================================
+Issue #135 AC-1: data-language attribute emission — E2E probes
+Date: 2026-08-03T06:19:53Z
+Tool: quarto 1.10.18
+===================================================================
+
+>>> quarto render quarto-fixture/filter.qmd --to html
+[1mpandoc [22m
+  to: html
+  output-file: filter.html
+  standalone: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  extensions:
+    - blendtutor
+  title: Filter test fixture
+  
+Output created: filter.html
+
+render rc=0
+
+===================================================================
+CLAUSE 1: attr-tolerant regex extracts >=4 widgets; 9-key contract
+===================================================================
+attr-tolerant regex: 4 widgets extracted
+9-key JSON payload contract intact for all widgets
+CLAUSE 1: PASS
+
+===================================================================
+CLAUSE 2: EVERY div exactly one data-language r|python; count===widgets
+===================================================================
+widget count=4  data-language attr count=4
+every div carries exactly one data-language in {r,python}: ['r', 'python', 'r', 'r']
+CLAUSE 2: PASS
+
+===================================================================
+CLAUSE 3: per-index pairing matches filter.qmd order [r, python, r, r]
+===================================================================
+per-index langs: ['r', 'python', 'r', 'r']
+expected      : ['r', 'python', 'r', 'r']
+idx 1 (filter.qmd:36 Minimal Python exercise) IS python — hardcoded-r fake would fail here
+CLAUSE 3: PASS
+
+===================================================================
+CLAUSE 4: static pin — runtime reads entry.element.dataset.language
+===================================================================
+419:    const language = entry.element.dataset.language || runtime.language || "r";
+CLAUSE 4: PASS
+
+===================================================================
+CLAUSE 5: static pin — verifier has no exact <div class="bt-exercise"> matcher
+===================================================================
+exact matcher absent from scripts/tests/verify_filter_output.py (attr-tolerant regex only)
+CLAUSE 5: PASS
+
+===================================================================
+CLAUSE 6: refusal arms — invalid + missing lang: zero bt-exercise + WARNING
+===================================================================
+--- filter-invalid-lang.qmd (language="ruby") ---
+[1mpandoc [22m
+  to: html
+  output-file: filter-invalid-lang.html
+  standalone: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  extensions:
+    - blendtutor
+  title: Invalid language test
+  
+[blendtutor] WARNING: unsupported language "ruby"; supported: r, python. Skipping.
+Output created: filter-invalid-lang.html
+
+bt-exercise count in invalid-lang output: 0
+CLAUSE 6 invalid: PASS (zero bt-exercise)
+--- filter-missing-lang.qmd (no language attr) ---
+[1mpandoc [22m
+  to: html
+  output-file: filter-missing-lang.html
+  standalone: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  extensions:
+    - blendtutor
+  title: Missing language test
+  
+[blendtutor] WARNING: blendtutor div missing language attribute; skipping.
+Output created: filter-missing-lang.html
+
+bt-exercise count in missing-lang output: 0
+CLAUSE 6 missing: PASS (zero bt-exercise)
+
+===================================================================
+E2E RESULT: all 6 clauses PASS
+===================================================================

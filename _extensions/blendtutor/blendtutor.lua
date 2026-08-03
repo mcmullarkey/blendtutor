@@ -4,10 +4,13 @@
 --        injects the auto-bootstrap module script that boots the exercise
 --        runtime with per-language adapters (AC-3).
 -- WHERE: _extensions/blendtutor/blendtutor.lua (loaded via _extension.yml contributes.filters)
--- NOT:   No code execution. The filter emits AST only; runtime JS (pyodide,
---        coi-serviceworker, exercise-runtime + adapters) and CSS (styles.css)
---        are injected as <head> tags via quarto.doc.include_text, loaded by
---        the browser. This filter owns the div→widget AST transform only (§4.1).
+-- NOT:   No code execution. The filter emits AST only; runtime JS
+--        (exercise-runtime + adapters + codemirror) and CSS (styles.css)
+--        deploy to the render output libs dir via
+--        quarto.doc.add_html_dependency (AC-4), loaded by the browser from
+--        <stem>_files/libs/quarto-contrib/blendtutor-<version>/; pyodide CDN
+--        and coi-serviceworker.js stay include_text (external URL / SW scope).
+--        This filter owns the div→widget AST transform only (§4.1).
 --
 -- This filter is loaded via explicit path in .qmd YAML:
 --   filters: [_extensions/blendtutor/blendtutor.lua]
@@ -116,20 +119,71 @@ end
 
 -- Path to vendored coi-serviceworker.js (synced via sync-quarto-assets.sh,
 -- mode=copy). The service worker re-serves pages with COOP/COEP headers for
--- SharedArrayBuffer. Derived from the filter's own location (ADR-0018).
+-- SharedArrayBuffer. Derived from the filter's own location (ADR-0018) and
+-- injected via include_text — the service-worker scope is the script URL's
+-- directory, so it must stay in the source tree and NEVER deploy to a libs
+-- dir (AC-4 clause 7 boundary).
 local COI_SCRIPT_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "coi-serviceworker.js")
 
--- Path to vendored styles.css (synced via sync-quarto-assets.sh, mode=scope).
--- Provides .bt-exercise styling: button states, cursor not-allowed, data-status.
-local STYLES_CSS_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "styles.css")
+-- ---------------------------------------------------------------------------
+-- Asset deployment (AC-4, issue #141)
+-- ---------------------------------------------------------------------------
 
--- Paths to runtime + adapter modules (synced via sync-quarto-assets.sh).
--- Imported by the filter-injected auto-bootstrap module script (AC-3).
--- resolve_asset_path preserves ../ depth so inline import() specifiers
--- resolve against the document base URL (ADR-0018).
-local EXERCISE_RUNTIME_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "exercise-runtime.js")
-local WEBR_ADAPTER_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "webr-adapter.js")
-local PYODIDE_ADAPTER_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "pyodide-adapter.js")
+-- Single source of truth for the extension version (AC-4 clause 10). Used in
+-- BOTH the add_html_dependency declaration AND the emitted libs URL string;
+-- must equal _extension.yml:3 version.
+local BT_DEP_VERSION = "0.1.0"
+
+--- Compute the document-relative libs URL for a deployed asset (AC-4).
+-- Quarto deploys add_html_dependency resources + stylesheets to
+-- <stem>_files/libs/quarto-contrib/<name>-<version>/ where <stem> is the
+-- output file's basename minus extension (verified quarto.js:128068-76). The
+-- rendered HTML's <link>/import specifiers are document-relative: the
+-- document lives beside its own <stem>_files/ dir, so the URL uses only the
+-- basename stem — never the output path's directory prefix (a nested pages/
+-- render yields index_files/..., not pages/index_files/...).
+-- The result MUST start with "./": ES module import specifiers reject bare
+-- relative references ("Failed to resolve module specifier ... Relative
+-- references must start with /, ./, or ../") — <link href> accepts them, ES
+-- modules do not. quarto.doc.output_file is an absolute path at Pandoc() time
+-- (probe-verified quarto 1.10.18) — strip to the basename before the stem.
+-- @param filename asset basename, e.g. "exercise-runtime.js"
+-- @return document-relative ES-module-safe libs URL,
+--   e.g. "./index_files/libs/quarto-contrib/blendtutor-0.1.0/exercise-runtime.js"
+local function libs_url(filename)
+  local output_file = quarto and quarto.doc and quarto.doc.output_file or ""
+  local basename = output_file:match("^.*[/\\]([^/\\]+)$") or output_file
+  local stem = basename:gsub("%.html$", "")
+  return "./" .. stem .. "_files/libs/quarto-contrib/blendtutor-" .. BT_DEP_VERSION .. "/" .. filename
+end
+
+--- Register the Quarto HTML dependency that deploys blendtutor assets.
+-- Quarto copies `resources` verbatim into the libs dir and rewrites
+-- `stylesheets` into <link> tags; `scripts` would emit classic <script src>
+-- tags (ES module SyntaxError) — deliberately absent. Resources mirror the
+-- AC-3 conditional imports: exercise-runtime.js + codemirror.js always
+-- (exercise-runtime.js:29-42 statically imports ./codemirror.js, so both must
+-- ship in the SAME libs dir), webr-adapter.js iff has_r, pyodide-adapter.js
+-- iff has_python. Effectful copy is owned by Quarto core — the filter only
+-- declares (§2).
+local function build_html_dependency()
+  local resources = {
+    "assets/exercise-runtime.js",
+    "assets/codemirror.js",
+  }
+  if has_r then
+    resources[#resources + 1] = "assets/webr-adapter.js"
+  end
+  if has_python then
+    resources[#resources + 1] = "assets/pyodide-adapter.js"
+  end
+  quarto.doc.add_html_dependency({
+    name = "blendtutor",
+    version = BT_DEP_VERSION,
+    stylesheets = { "assets/styles.css" },
+    resources = resources,
+  })
+end
 
 -- ---------------------------------------------------------------------------
 -- JSON encoding helpers (Lua has no built-in JSON encoder)
@@ -435,23 +489,28 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Build the filter-injected auto-bootstrap module script.
--- Imports the exercise runtime + per-language adapters via resolve_asset_path
--- specifiers (ADR-0018), then calls start(buildRegistry(scanExercises()), map)
--- with the adapter map keyed only for languages present on the page. The webR
--- adapter is a FACTORY (call it: createWebRAdapter()); the pyodide adapter is
--- a SINGLETON (use pyodideAdapter directly) — the emitted map handles both
--- shapes. Ends with a single .catch() error sink (§5).
+-- Imports the exercise runtime + per-language adapters from the deployed libs
+-- URLs (AC-4 — add_html_dependency copies them to
+-- <stem>_files/libs/quarto-contrib/blendtutor-<version>/), then calls
+-- start(buildRegistry(scanExercises()), map) with the adapter map keyed only
+-- for languages present on the page. The webR adapter is a FACTORY (call it:
+-- createWebRAdapter()); the pyodide adapter is a SINGLETON (use pyodideAdapter
+-- directly) — the emitted map handles both shapes. Ends with a single .catch()
+-- error sink (§5).
 -- @return The full <script type="module" data-bt-bootstrap="auto">…</script> string
 local function build_bootstrap_script()
+  local runtime_url = libs_url("exercise-runtime.js")
+  local webr_url = libs_url("webr-adapter.js")
+  local pyodide_url = libs_url("pyodide-adapter.js")
   local parts = {
     '<script type="module" data-bt-bootstrap="auto">',
-    '  import { scanExercises, buildRegistry, start } from "' .. EXERCISE_RUNTIME_PATH .. '";',
+    '  import { scanExercises, buildRegistry, start } from "' .. runtime_url .. '";',
   }
   if has_r then
-    parts[#parts + 1] = '  import { createWebRAdapter } from "' .. WEBR_ADAPTER_PATH .. '";'
+    parts[#parts + 1] = '  import { createWebRAdapter } from "' .. webr_url .. '";'
   end
   if has_python then
-    parts[#parts + 1] = '  import { pyodideAdapter } from "' .. PYODIDE_ADAPTER_PATH .. '";'
+    parts[#parts + 1] = '  import { pyodideAdapter } from "' .. pyodide_url .. '";'
   end
 
   parts[#parts + 1] = ''
@@ -528,17 +587,17 @@ function Pandoc(doc)
     end
   end
 
-  -- Inject styles.css if any blendtutor exercises are present (AC-8).
+  -- Deploy styles.css + runtime JS modules to the libs dir (AC-4).
   -- has_blendtutor is set in Div() which runs before Pandoc().
-  -- styles.css provides button states, cursor not-allowed, data-status styling.
+  -- Quarto copies resources + rewrites the stylesheet <link>; add_html_dependency
+  -- requires quarto (no RawBlock fallback — deployment is a Quarto-core
+  -- mechanism, not a filter concern).
   if has_blendtutor and is_html_format() then
-    local css_link = '<link rel="stylesheet" href="' .. STYLES_CSS_PATH .. '">'
-    -- Try Quarto API first (injects in <head>), fall back to RawBlock.
-    if quarto and quarto.doc and quarto.doc.include_text then
-      quarto.doc.include_text("in-header", css_link)
+    if quarto and quarto.doc and quarto.doc.add_html_dependency then
+      build_html_dependency()
     else
-      -- Pandoc fallback: prepend to document body.
-      table.insert(doc.blocks, 1, pandoc.RawBlock("html", css_link))
+      io.stderr:write("[blendtutor] WARNING: quarto.doc.add_html_dependency unavailable; "
+        .. "assets not deployed to libs dir (quarto required)\n")
     end
   end
 

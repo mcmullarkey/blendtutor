@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -425,10 +426,11 @@ def check_styles_css_loaded() -> None:
         return
 
     html = html_path.read_text()
-    # ux.qmd lives in quarto-fixture/ and references the filter via the
-    # ../_extensions/ path; the emitted href must mirror that shape (clause 1).
-    if 'href="../_extensions/blendtutor/assets/styles.css"' in html:
-        ok("styles.css <link> present in rendered HTML (project-relative href)")
+    # AC-4: styles.css deploys via add_html_dependency to the libs dir. ux.qmd
+    # lives in quarto-fixture/ so the emitted href is the document-relative
+    # ux_files/libs/... shape (never _extensions/.../assets/styles.css).
+    if 'href="ux_files/libs/quarto-contrib/blendtutor-0.1.0/styles.css"' in html:
+        ok("styles.css <link> present in rendered HTML (libs-dir href)")
     else:
         ko("styles.css <link> present in rendered HTML — not found in rendered output")
 
@@ -529,11 +531,17 @@ def _install_layout(qmd_filter_ref: str, use_extension_yml: bool) -> Path | None
     ext_dir = tmp / "_extensions" / "mcmullarkey" / "blendtutor"
     (ext_dir / "assets").mkdir(parents=True, exist_ok=True)
 
-    shutil_copy = __import__("shutil").copy2
-    shutil_copy(str(REPO_ROOT / "_extensions" / "blendtutor" / "blendtutor.lua"), str(ext_dir / "blendtutor.lua"))
-    shutil_copy(str(REPO_ROOT / "_extensions" / "blendtutor" / "assets" / "styles.css"), str(ext_dir / "assets" / "styles.css"))
+    shutil.copy2(str(REPO_ROOT / "_extensions" / "blendtutor" / "blendtutor.lua"), str(ext_dir / "blendtutor.lua"))
+    # AC-4: assets deploy via add_html_dependency, which copies the whole
+    # resources list into <stem>_files/libs/... — copy the full assets dir so
+    # the deployed libs are complete (missing files would 404 at runtime).
+    shutil.copytree(
+        str(REPO_ROOT / "_extensions" / "blendtutor" / "assets"),
+        str(ext_dir / "assets"),
+        dirs_exist_ok=True,
+    )
     if use_extension_yml:
-        shutil_copy(str(REPO_ROOT / "_extensions" / "blendtutor" / "_extension.yml"), str(ext_dir / "_extension.yml"))
+        shutil.copy2(str(REPO_ROOT / "_extensions" / "blendtutor" / "_extension.yml"), str(ext_dir / "_extension.yml"))
 
     qmd = tmp / "test.qmd"
     qmd.write_text(
@@ -568,10 +576,10 @@ def check_installed_layout_asset_path() -> None:
     if tmp is None:
         return
     html = (tmp / "test.html").read_text()
-    if 'href="_extensions/mcmullarkey/blendtutor/assets/styles.css"' in html:
-        ok("installed layout — href uses org/repo install path")
+    if 'href="test_files/libs/quarto-contrib/blendtutor-0.1.0/styles.css"' in html:
+        ok("installed layout — href uses libs-dir deployment (test_files/libs/...)")
     else:
-        ko("installed layout — href missing org/repo install path")
+        ko("installed layout — href missing libs-dir deployment")
     if 'href="_extensions/blendtutor/assets/styles.css"' in html:
         ko("installed layout — href still hardcoded _extensions/blendtutor/")
     else:
@@ -596,10 +604,10 @@ def check_by_name_install_absolute_path() -> None:
         ko("by-name install — no styles.css href found in rendered HTML")
         return
     url = match.group(1)
-    if url == "_extensions/mcmullarkey/blendtutor/assets/styles.css":
-        ok("by-name install — absolute PANDOC_SCRIPT_FILE converted to project-relative href")
+    if url == "test_files/libs/quarto-contrib/blendtutor-0.1.0/styles.css":
+        ok("by-name install — absolute PANDOC_SCRIPT_FILE handled; libs-dir href deployed")
     else:
-        ko(f"by-name install — expected project-relative href, got: {url}")
+        ko(f"by-name install — expected libs-dir href, got: {url}")
     if is_project_relative_url(url):
         ok(f"by-name install — href passes project-relative guard: {url}")
     else:

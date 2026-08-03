@@ -96,6 +96,17 @@ jobs:
       - name: Exercise UX polish test
         run: python3 scripts/tests/test_quarto_ux.py
 
+      # Issue #140 — Filter auto-bootstrap (no exercism toolchain needed).
+      # Validates the filter renders without exercism prerequisites and
+      # produces the expected exercise skeleton.
+      - name: Quarto bootstrap test
+        run: bash scripts/tests/test_quarto_bootstrap.sh
+
+      # Issue #141 — Asset deployment via quarto add / install layout.
+      # Validates assets resolve from the deployed extension layout.
+      - name: Quarto asset deployment test
+        run: bash scripts/tests/test_quarto_asset_deployment.sh
+
   asset-parity:
     name: asset parity
     runs-on: ubuntu-latest

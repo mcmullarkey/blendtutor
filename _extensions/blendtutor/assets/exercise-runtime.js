@@ -5,6 +5,8 @@
 //        Run button disable/enable, data-status state machine.
 // WHERE: _extensions/blendtutor/assets/exercise-runtime.js
 // NOT:   NOT execution (delegated to adapter), NOT feedback (AC-7), NOT filter (AC-2).
+//        NOT adapter loading (AC-3 bootstrap owns that), NOT language defaulting —
+//        missing data-language exercises are skipped, never defaulted.
 //
 // FORK of lesson-runner-core.js — kills 3 singletons:
 //   1. Module-level `editorView` (line 147) → per-exercise editorView in registry entry.
@@ -43,10 +45,13 @@ import {
 // CM6 extensions (reused from lesson-runner-core.js — identical configuration)
 // ---------------------------------------------------------------------------
 
-// Language extension lookup: closed set keyed by the runtime adapter's
-// `language` field or the div's `data-language` attribute. An unknown
-// language yields no extension (the editor still works, just without syntax
-// highlighting). This is NOT a string match on `runtime.name` (§1.5).
+// Language extension lookup: closed set keyed by the div's `data-language`
+// attribute. An unknown language yields no extension (the editor still works,
+// just without syntax highlighting). This is NOT a string match on
+// `runtime.name` (§1.5). data-language is dual-consumed: it selects the
+// LANG_EXT highlighting here AND the dispatch adapter in start() — a language
+// present in the adapter map but absent from LANG_EXT mounts an editor without
+// highlighting but still executes.
 const LANG_EXT = { r: r(), python: python() };
 
 // Custom HighlightStyle with deterministic `.tok-*` class names. CM6's
@@ -402,30 +407,88 @@ function wireExercise(entry, runtime) {
 }
 
 // ---------------------------------------------------------------------------
-// Main entry point — adapter injection seam (§3.2, §5.1)
+// Main entry point — adapter-map injection seam (§3.2, §5.1)
 // ---------------------------------------------------------------------------
 
+// Double-start guard: set SYNCHRONOUSLY at the top of start(), before the
+// mount loop, window.__btExercises, and any await. Two fire-and-forget
+// start() calls in the same tick therefore see the flag already set — the
+// second call warns and returns without re-mounting or re-booting. A guard
+// set after the first await would let the second call race through (negative
+// case (b) in AC-2).
+let started = false;
+
 /**
- * Boot the multi-exercise runtime. Mounts editors, wires buttons, boots the
- * runtime adapter, and exposes the registry as window.__btExercises.
+ * Boot the multi-exercise runtime. Accepts an adapter MAP keyed by language
+ * string ONLY (single-adapter signature removed). Dispatches each exercise
+ * to the adapter registered for its data-language attribute; exercises with
+ * no data-language or no registered adapter are skipped with a warning —
+ * never defaulted. Boots every usable adapter exactly once via Promise.all.
  *
  * @param {Array} registry — Registry from buildRegistry(scanExercises()).
- * @param {Object} runtime — Runtime adapter { name, language, boot(), run() }.
- * @returns {Promise<Array>} — Resolves to the registry after runtime.boot().
+ * @param {Object} adapters — Map { [language]: { name, language, boot(), run() } }.
+ * @returns {Promise<Array>} — Resolves to the mounted (filtered) registry.
  */
-export async function start(registry, runtime) {
-  // Mount editors and wire exercises
-  for (const entry of registry) {
-    const language = entry.element.dataset.language || runtime.language || "r";
-    mountEditor(entry, language);
-    wireExercise(entry, runtime);
+export async function start(registry, adapters) {
+  // Synchronous guard at entry — BEFORE mount loop, window.__btExercises,
+  // and any await.
+  if (started) {
+    console.warn("[blendtutor] start() called twice — runtime already started, ignoring.");
+    return window.__btExercises || registry;
+  }
+  started = true;
+
+  // Validate the adapter map once (§1.2, §3.4): reject non-function
+  // boot()/run() and map-key ≠ adapter.language entries with console.error
+  // and skip them entirely (no dispatch, no boot).
+  const usable = new Map();
+  for (const [language, adapter] of Object.entries(adapters)) {
+    if (typeof adapter.boot !== "function" || typeof adapter.run !== "function") {
+      console.error(
+        `[blendtutor] Adapter for language "${language}" is missing boot()/run() functions, skipping.`,
+      );
+      continue;
+    }
+    if (adapter.language !== language) {
+      console.error(
+        `[blendtutor] Adapter language mismatch: map key "${language}" but adapter.language is "${adapter.language}", skipping.`,
+      );
+      continue;
+    }
+    usable.set(language, adapter);
   }
 
-  // Expose registry globally (replaces window.__bt singleton)
-  window.__btExercises = registry;
+  // Mount editors and wire exercises — dispatch per data-language. Skipped
+  // exercises stay out of window.__btExercises (never defaulted, never
+  // exposed as mounted).
+  const mounted = [];
+  for (const entry of registry) {
+    const language = entry.element.dataset.language;
+    if (!language) {
+      console.warn(
+        `[blendtutor] Exercise "${entry.id}" has no data-language attribute, skipping (never defaulted).`,
+      );
+      continue;
+    }
+    const adapter = usable.get(language);
+    if (!adapter) {
+      console.warn(
+        `[blendtutor] No adapter registered for language "${language}", skipping exercise "${entry.id}".`,
+      );
+      continue;
+    }
+    mountEditor(entry, language);
+    wireExercise(entry, adapter);
+    mounted.push(entry);
+  }
 
-  // Boot the runtime adapter
-  await runtime.boot();
+  // Expose the mounted registry globally (replaces window.__bt singleton).
+  const exposed = mounted.slice();
+  exposed.get = registry.get;
+  window.__btExercises = exposed;
 
-  return registry;
+  // Boot every usable adapter exactly once, concurrently (§5).
+  await Promise.all([...new Set(usable.values())].map((adapter) => adapter.boot()));
+
+  return exposed;
 }

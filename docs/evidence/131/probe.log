@@ -1,0 +1,83 @@
+# Issue #131 Evidence — README install-path correction (AC-3)
+
+Verification: `code` (grep-based content assertion on README.md + ADR file). No rodney, no screenshots — not UI-touching.
+
+Commit: `5f5e218` (docs) + `b90280c` (test red). Test suite: `bash scripts/tests/test_quarto_distribution.sh` → **28 passed, 0 failed**.
+
+## Spec probe result
+
+```bash
+$ grep -qF 'quarto add mcmullarkey/blendtutor' README.md \
+  && grep -qF '_extensions/mcmullarkey/blendtutor/' README.md \
+  && ! grep -qF "your project's \`_extensions/blendtutor/\`" README.md \
+  && grep -qiE 'install-path-independent|independent of.{0,40}install|regardless install|relative to.*filter|PANDOC_SCRIPT_FILE' README.md \
+  && grep -qF 'mcmullarkey/blendtutor' docs/adr/0017-quarto-extension-distribution.md \
+  && echo PROBE-PASS
+PROBE-PASS
+```
+
+## Clause-by-clause evidence (after fix)
+
+### 1. Install command survives
+```bash
+$ grep -nF 'quarto add mcmullarkey/blendtutor' README.md
+167:quarto add mcmullarkey/blendtutor
+```
+PASS — command at :167 unchanged.
+
+### 2. Correct path stated (org/repo path)
+```bash
+$ grep -nF '_extensions/mcmullarkey/blendtutor/' README.md
+172:repository into your project's `_extensions/mcmullarkey/blendtutor/` directory.
+```
+PASS — before: `_extensions/blendtutor/` (wrong); after: `_extensions/mcmullarkey/blendtutor/`.
+
+### 3. Old wrong claim gone
+```bash
+$ grep -nF "your project's \`_extensions/blendtutor/\`" README.md
+(no match — exit 1)
+```
+PASS — narrow unique phrase absent.
+
+### 4. Install-path independence stated
+```bash
+$ grep -niE 'install-path-independent|independent of.{0,40}install|regardless install|relative to.*filter|PANDOC_SCRIPT_FILE' README.md
+174:Asset resolution is install-path-independent — the extension locates its
+175:assets relative to the filter script, so it works regardless of where `quarto
+176:add` installs it.
+```
+PASS — matches `install-path-independent` and `relative to.*filter`.
+
+### 5. ADR-0017 annotated with org/repo path
+```bash
+$ grep -nF 'mcmullarkey/blendtutor' docs/adr/0017-quarto-extension-distribution.md
+35:   run `quarto add mcmullarkey/blendtutor-quarto`. Clean separation (§3), but
+41:   `quarto add mcmullarkey/blendtutor`. CI verifies the install in a temp
+48:- **Install command**: `quarto add mcmullarkey/blendtutor` — Quarto's native
+53:  via `mktemp -d`, runs `quarto add mcmullarkey/blendtutor --no-prompt`, and
+58:  > asserts the org/repo install path `_extensions/mcmullarkey/blendtutor/`
+```
+PASS — annotation at ~:54 (line 56-59) notes CI actually asserts `_extensions/mcmullarkey/blendtutor/`.
+
+## Negative control (before fix)
+
+Current README before fix contained the wrong phrase and no independence mention; probe exited non-zero.
+
+```bash
+# Pre-fix README.md:170-172 (git show HEAD^)
+This installs the extension from the
+[`mcmullarkey/blendtutor`](https://github.com/mcmullarkey/blendtutor) GitHub
+repository into your project's `_extensions/blendtutor/` directory.
+```
+
+RED run confirmed: `FAIL: install path stated — '_extensions/mcmullarkey/blendtutor/' not found`, `FAIL: old wrong install path claim removed`, `FAIL: install-path independence stated`.
+
+## Test suite (full)
+
+```bash
+$ bash scripts/tests/test_quarto_distribution.sh 2>&1 | tail -6
+=========================================
+  Results: 28 passed, 0 failed
+=========================================
+All tests passed.
+```

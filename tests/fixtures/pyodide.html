@@ -47,7 +47,7 @@
     import { pyodideAdapter } from "../../_extensions/blendtutor/assets/pyodide-adapter.js";
     window.__btPyodideAdapter = pyodideAdapter;
     const registry = buildRegistry(scanExercises());
-    start(registry, pyodideAdapter);
+    start(registry, { python: pyodideAdapter });
   </script>
 </body>
 </html>

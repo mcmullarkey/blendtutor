@@ -59,7 +59,7 @@
     });
     const registry = buildRegistry(scanExercises());
     window.__btWebRAdapter = adapter; // exposed for probe verification
-    start(registry, adapter);
+    start(registry, { r: adapter });
   </script>
 </body>
 </html>

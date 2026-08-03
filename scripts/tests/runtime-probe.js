@@ -20,7 +20,7 @@
 //   10. mock not leaked (window.__bt undefined)
 //   11. no global #submission
 //   12. concurrent run safety
-//   13. adapter injection seam (start(registry, runtime) signature)
+//   13. adapter injection seam (start(registry, adapters) map signature)
 
 async function waitFor(condFn, timeoutMs = 5000) {
   const start = Date.now();
@@ -103,20 +103,26 @@ async function runProbe() {
   });
 
   // 6. per-exercise Check sends correct checks
+  //    AC-2 (issue #136): dispatch is per-language via the adapter map, so
+  //    exercise 0 (R) routes to window.__btTestAdapter and exercise 1
+  //    (python) routes to window.__btTestAdapterPy.
   await asyncTest("6. per-exercise Check sends correct checks", async () => {
     const adapter = window.__btTestAdapter;
+    const adapterPy = window.__btTestAdapterPy;
     const callsBefore = adapter.calls.length;
     // Run exercise 0 (R with 2 checks)
     await reg[0].runSubmission();
     const callsAfter0 = adapter.calls.length;
-    assert(callsAfter0 === callsBefore + 1, "exercise 0 run did not call adapter");
+    assert(callsAfter0 === callsBefore + 1, "exercise 0 run did not call R adapter");
     const lastCall0 = adapter.calls[adapter.calls.length - 1];
     assert(lastCall0.checks.length === 2, `exercise 0 should send 2 checks, got ${lastCall0.checks.length}`);
     assert(lastCall0.checks[0] === "stopifnot(add(1, 2) == 3)", "exercise 0 check[0] mismatch");
 
-    // Run exercise 1 (Python with 1 check)
+    // Run exercise 1 (Python with 1 check) — routed to the python mock
+    const pyCallsBefore = adapterPy.calls.length;
     await reg[1].runSubmission();
-    const lastCall1 = adapter.calls[adapter.calls.length - 1];
+    assert(adapterPy.calls.length === pyCallsBefore + 1, "exercise 1 run did not call python adapter");
+    const lastCall1 = adapterPy.calls[adapterPy.calls.length - 1];
     assert(lastCall1.checks.length === 1, `exercise 1 should send 1 check, got ${lastCall1.checks.length}`);
     assert(lastCall1.packages.includes("numpy"), "exercise 1 should send numpy package");
   });
@@ -146,19 +152,22 @@ async function runProbe() {
     assert(sub1.includes("print"), `exercise 1 submission should contain 'print', got: ${sub1}`);
   });
 
-  // 9. per-exercise run isolation
+  // 9. per-exercise run isolation (AC-2: dispatch is per-language, so each
+  //    exercise's run lands on ITS language's adapter)
   await asyncTest("9. per-exercise run isolation", async () => {
     const adapter = window.__btTestAdapter;
+    const adapterPy = window.__btTestAdapterPy;
     const callsBefore = adapter.calls.length;
-    // Run exercise 0
+    const pyCallsBefore = adapterPy.calls.length;
+    // Run exercise 0 (R)
     await reg[0].runSubmission();
-    // Run exercise 1
+    // Run exercise 1 (python)
     await reg[1].runSubmission();
-    const callsAfter = adapter.calls.length;
-    assert(callsAfter === callsBefore + 2, "running 2 exercises should produce 2 adapter calls");
-    // Verify each call used the correct exercise's code
+    assert(adapter.calls.length === callsBefore + 1, "exercise 0 should produce 1 R-adapter call");
+    assert(adapterPy.calls.length === pyCallsBefore + 1, "exercise 1 should produce 1 python-adapter call");
+    // Verify each call used the correct exercise's code on the right adapter
     const call0 = adapter.calls[callsBefore];
-    const call1 = adapter.calls[callsBefore + 1];
+    const call1 = adapterPy.calls[pyCallsBefore];
     assert(call0.code.includes("add"), "exercise 0 run used wrong code");
     assert(call1.code.includes("print"), "exercise 1 run used wrong code");
   });
@@ -187,13 +196,16 @@ async function runProbe() {
     assert(callsAfter === callsBefore + 1, `concurrent run should produce 1 call, got ${callsAfter - callsBefore}`);
   });
 
-  // 13. adapter injection seam (start(registry, runtime) signature)
+  // 13. adapter injection seam (start(registry, adapters) map signature)
   test("13. adapter injection seam", () => {
-    // Verify the mock adapter was injected and is accessible
+    // Verify the mock adapters were injected and are accessible
     assert(window.__btTestAdapter !== undefined, "mock adapter not accessible");
     assert(window.__btTestAdapter.name === "mock", "mock adapter name mismatch");
-    // Verify registry entries use the injected adapter (calls were recorded)
-    assert(window.__btTestAdapter.calls.length > 0, "adapter was never called — injection seam broken");
+    assert(window.__btTestAdapterPy !== undefined, "python mock adapter not accessible");
+    assert(window.__btTestAdapterPy.name === "mockPy", "python mock adapter name mismatch");
+    // Verify registry entries use the injected adapters (calls were recorded)
+    assert(window.__btTestAdapter.calls.length > 0, "R adapter was never called — injection seam broken");
+    assert(window.__btTestAdapterPy.calls.length > 0, "python adapter was never called — injection seam broken");
   });
 
   return results;

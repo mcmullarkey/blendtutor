@@ -7,7 +7,7 @@
 // Rodney executes this script in a browser context after loading
 // tests/fixtures/pyodide.html which imports pyodide-adapter.js, creates
 // the adapter, sets window.__btPyodideAdapter = adapter, and calls
-// exercise-runtime.js start(registry, adapter). The script waits for
+// exercise-runtime.js start(registry, { python: adapter }). The script waits for
 // Pyodide to boot, then runs assertions.
 //
 // FIX (vacuous-pass vulnerability): The probe MUST assert

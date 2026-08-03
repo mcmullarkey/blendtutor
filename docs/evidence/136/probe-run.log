@@ -1,0 +1,18 @@
+[PASS] clause-1: R Run routes to mockR only: assertion passed
+[PASS] clause-1: python Run routes to mockPy only: assertion passed
+[PASS] clause-1: two R exercises route to SAME mockR instance: assertion passed
+[PASS] clause-2: exactly one double-start console.warn: assertion passed
+[PASS] clause-2: each adapter booted exactly once (bootCount === 1): assertion passed
+[PASS] clause-2: no re-mount (.cm-editor count stays 3): assertion passed
+[PASS] clause-2: start() resolves without throw: assertion passed
+[PASS] clause-3: attribute-less exercise skipped with warn: assertion passed
+[PASS] clause-3: attribute-less exercise absent from window.__btExercises: assertion passed
+[PASS] clause-5: every adapter booted exactly once (Promise.all): assertion passed
+[PASS] clause-4: unknown language skipped with warn, others mount, start() resolves: assertion passed
+[PASS] clause-4: map key != adapter.language -> console.error + skip that adapter: assertion passed
+[PASS] clause-4: non-function boot/run -> console.error + skip: assertion passed
+[PASS] clause-4: valid adapters still boot exactly once: assertion passed
+
+=== PROBES_PASS ===
+report: /Users/carbonite/Documents/coding/portfolio/worktree-issue-136/docs/evidence/136/probe-report.json
+log:    /Users/carbonite/Documents/coding/portfolio/worktree-issue-136/docs/evidence/136/rodney.log

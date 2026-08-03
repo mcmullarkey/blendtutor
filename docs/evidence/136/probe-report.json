@@ -1,0 +1,79 @@
+{
+  "issue": 136,
+  "branch": "136-adapter-map-dispatch",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/worktree-issue-136",
+  "timestamp": "2026-08-03T06:36:59.459Z",
+  "probes": [
+    {
+      "name": "clause-1: R Run routes to mockR only",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-1: python Run routes to mockPy only",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-1: two R exercises route to SAME mockR instance",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-2: exactly one double-start console.warn",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-2: each adapter booted exactly once (bootCount === 1)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-2: no re-mount (.cm-editor count stays 3)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-2: start() resolves without throw",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-3: attribute-less exercise skipped with warn",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-3: attribute-less exercise absent from window.__btExercises",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-5: every adapter booted exactly once (Promise.all)",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-4: unknown language skipped with warn, others mount, start() resolves",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-4: map key != adapter.language -> console.error + skip that adapter",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-4: non-function boot/run -> console.error + skip",
+      "status": "PASS",
+      "details": "assertion passed"
+    },
+    {
+      "name": "clause-4: valid adapters still boot exactly once",
+      "status": "PASS",
+      "details": "assertion passed"
+    }
+  ],
+  "verdict": "PROBES_PASS"
+}

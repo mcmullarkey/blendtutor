@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AC-2 Adapter-Map Dispatch Test Fixture</title>
+  <link rel="stylesheet" href="../../_extensions/blendtutor/assets/styles.css">
+</head>
+<body>
+  <!--
+    AC-2 adapter-map dispatch fixture: 3 attributed exercises (R, python, R) +
+    1 attribute-less exercise. The inline module calls start() twice
+    fire-and-forget (race probe for the synchronous double-start guard),
+    spies console.warn/error BEFORE start, and exposes both mocks on window.
+  -->
+
+  <h1>AC-2 Adapter-Map Dispatch Test</h1>
+
+  <!-- Exercise 0: R exercise -->
+  <div class="bt-exercise" data-language="r">
+    <script type="application/json">{
+      "id": "bt-exercise-0",
+      "title": "R Exercise 1",
+      "prompt": "Write an R expression.",
+      "code_template": "x <- 1",
+      "checks": [],
+      "packages": [],
+      "solution": null,
+      "hints": null,
+      "gotchas": null
+    }</script>
+  </div>
+
+  <!-- Exercise 1: Python exercise -->
+  <div class="bt-exercise" data-language="python">
+    <script type="application/json">{
+      "id": "bt-exercise-1",
+      "title": "Python Exercise",
+      "prompt": "Write a Python expression.",
+      "code_template": "print('hello')",
+      "checks": [],
+      "packages": [],
+      "solution": null,
+      "hints": null,
+      "gotchas": null
+    }</script>
+  </div>
+
+  <!-- Exercise 2: Second R exercise (must route to the SAME mockR instance) -->
+  <div class="bt-exercise" data-language="r">
+    <script type="application/json">{
+      "id": "bt-exercise-2",
+      "title": "R Exercise 2",
+      "prompt": "Write another R expression.",
+      "code_template": "y <- 2",
+      "checks": [],
+      "packages": [],
+      "solution": null,
+      "hints": null,
+      "gotchas": null
+    }</script>
+  </div>
+
+  <!-- Exercise 3: attribute-less (must be SKIPPED with warn — never defaulted) -->
+  <div class="bt-exercise">
+    <script type="application/json">{
+      "id": "bt-exercise-3",
+      "title": "Attribute-less Exercise",
+      "prompt": "Has no data-language attribute.",
+      "code_template": "z <- 3",
+      "checks": [],
+      "packages": [],
+      "solution": null,
+      "hints": null,
+      "gotchas": null
+    }</script>
+  </div>
+
+  <script type="module">
+    import { scanExercises, buildRegistry, start } from "../../_extensions/blendtutor/assets/exercise-runtime.js";
+    import { createMockAdapter } from "./mock-adapter.js";
+
+    // Spy console.warn/error BEFORE start() so the probe can count warnings.
+    window.__btWarns = [];
+    window.__btErrors = [];
+    const origWarn = console.warn.bind(console);
+    const origError = console.error.bind(console);
+    console.warn = (...args) => {
+      window.__btWarns.push(args.map(String).join(" "));
+      origWarn(...args);
+    };
+    console.error = (...args) => {
+      window.__btErrors.push(args.map(String).join(" "));
+      origError(...args);
+    };
+
+    const mockR = createMockAdapter({ name: "mockR", language: "r" });
+    const mockPy = createMockAdapter({ name: "mockPy", language: "python" });
+    window.__btMocks = { r: mockR, python: mockPy };
+
+    const registry = buildRegistry(scanExercises());
+    window.__btStartResolved = false;
+
+    // Two fire-and-forget start() calls — race probe for the synchronous guard.
+    // A guard set after the first await would let both calls proceed and
+    // double-boot the adapters (bootCount === 2).
+    start(registry, { r: mockR, python: mockPy }).then(() => {
+      window.__btStartResolved = true;
+    });
+    start(registry, { r: mockR, python: mockPy }).then(() => {
+      window.__btStartResolved = true;
+    });
+  </script>
+</body>
+</html>

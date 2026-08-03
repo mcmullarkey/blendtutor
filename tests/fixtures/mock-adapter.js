@@ -15,21 +15,29 @@
 //
 // Call recording: every run() call pushes {code, checks, packages} to .calls.
 // The rodney probe reads adapter.calls to verify per-exercise isolation.
+//
+// AC-2 (issue #136): createMockAdapter accepts {name, language} overrides and
+// tracks bootCount (each boot() increments it) so the probe can assert the
+// double-start guard boots every adapter exactly once.
 
 /**
  * Create a mock runtime adapter for testing.
- * @returns {Object} A mock adapter with call recording.
+ * @param {Object} [options] — Optional { name, language } overrides.
+ * @param {string} [options.name="mock"] — Adapter name.
+ * @param {string} [options.language="r"] — Adapter language (editor + dispatch key).
+ * @returns {Object} A mock adapter with call recording + bootCount.
  */
-export function createMockAdapter() {
+export function createMockAdapter({ name = "mock", language = "r" } = {}) {
   const calls = [];
 
-  return {
-    name: "mock",
-    language: "r",
+  const adapter = {
+    name,
+    language,
     calls,
+    bootCount: 0,
 
     async boot() {
-      // No-op — mock needs no initialization.
+      adapter.bootCount += 1;
     },
 
     async run(code, checks, packages) {
@@ -40,4 +48,6 @@ export function createMockAdapter() {
       return { output, ok };
     },
   };
+
+  return adapter;
 }

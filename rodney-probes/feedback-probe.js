@@ -202,7 +202,7 @@ function generateProbeHtml() {
   };
   const registry = buildRegistry(scanExercises());
   window.__btWebRAdapter = mockAdapter;
-  start(registry, mockAdapter).then(() => mountAllFeedback(registry));
+  start(registry, { r: mockAdapter }).then(() => mountAllFeedback(registry));
 </script>`;
   const out = src.replace(/<script type="module">[\s\S]*?<\/script>/, mockScript);
   fs.writeFileSync(

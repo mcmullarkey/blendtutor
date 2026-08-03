@@ -1,0 +1,190 @@
+
+=== AC-4 Validation Results ===
+Passed: 49
+Failed: 0
+All validations passed.
+
+=== AC-6 Pyodide Adapter Validation Results ===
+Passed: 60
+Failed: 0
+All validations passed.
+
+=== AC-5 webR Adapter Validation Results ===
+Passed: 83
+Failed: 0
+All validations passed.
+=== AC-8 Exercise UX polish — test_quarto_ux.py ===
+
+  PASS: exercise-runtime.js exists
+  PASS: ux.qmd exists
+-- ux.qmd structure --
+  PASS: ux.qmd has 3 exercises (>=3 for UX polish test)
+  PASS: ux.qmd has a .solution code block (solution reveal test)
+  PASS: ux.qmd has a hints div (hints toggle test)
+  PASS: ux.qmd has .checks code block (check button test)
+  PASS: ux.qmd imports exercise-runtime.js
+
+-- Clause 1: hints visible/absent --
+  PASS: hints <details> toggle present in exercise-runtime.js
+  PASS: hints rendering is conditional on payload.hints
+
+-- Clause 2: solution button click inserts text --
+  PASS: solution rendering references payload.solution
+  PASS: solution button creation present in exercise-runtime.js
+  PASS: solution button calls setEditorContent
+
+-- Clause 3: check button absent when no checks --
+  PASS: check button creation is conditional on checks length
+  PASS: check button referenced in exercise-runtime.js
+
+-- Clause 4: Run disables ex-0 only (per-exercise) --
+  PASS: per-exercise Run button reference found
+  PASS: button disable/enable mechanism present
+  PASS: no singleton getElementById('run') — per-exercise Run button
+
+-- Clause 5: cursor=not-allowed --
+  PASS: cursor: not-allowed present in styles.css
+  PASS: disabled button selector present in styles.css
+
+-- Clause 6: data-status closed set --
+  PASS: data-status closed set referenced (4/4 values found)
+  PASS: data-status attribute mechanism present
+  PASS: data-status="idle" selector present in styles.css
+  PASS: data-status="running" selector present in styles.css
+  PASS: data-status="pass" selector present in styles.css
+  PASS: data-status="fail" selector present in styles.css
+
+-- Clause 7: buttons re-enabled on pass --
+  PASS: button re-enable mechanism present (disabled = false or finally)
+
+-- Regression: Check/Solution disabled during run --
+  PASS: entry.checkBtn ref stored for runSubmission access
+  PASS: entry.solutionBtn ref stored for runSubmission access
+  PASS: Check button disabled during runSubmission
+  PASS: Solution button disabled during runSubmission
+  PASS: Check button re-enabled after runSubmission
+  PASS: Solution button re-enabled after runSubmission
+
+-- CSS: hints + solution styling --
+  PASS: hints styling present in styles.css
+  PASS: solution button styling present in styles.css
+
+-- Rendered HTML: styles.css <link> injection --
+  PASS: styles.css <link> present in rendered HTML (project-relative href)
+
+-- Rendered HTML: coi script src project-relative (issue #129) --
+  PASS: coi script src present in rendered HTML (project-relative src)
+
+-- Asset URLs project-relative + resolvable (issue #129 clauses 4-5) --
+  PASS: asset URL project-relative: ../_extensions/blendtutor/assets/coi-serviceworker.js
+  PASS: asset URL resolves to file on disk: ../_extensions/blendtutor/assets/coi-serviceworker.js
+  PASS: asset URL project-relative: ../_extensions/blendtutor/assets/styles.css
+  PASS: asset URL resolves to file on disk: ../_extensions/blendtutor/assets/styles.css
+
+-- Installed layout: org/repo install path (issue #129 clause 3) --
+  PASS: installed layout — href uses org/repo install path
+  PASS: installed layout — no hardcoded _extensions/blendtutor/ href
+
+-- By-name install: absolute script path -> project-relative (issue #129) --
+  PASS: by-name install — absolute PANDOC_SCRIPT_FILE converted to project-relative href
+  PASS: by-name install — href passes project-relative guard: _extensions/mcmullarkey/blendtutor/assets/styles.css
+
+-- Source grep zero: no hardcoded _extensions/blendtutor/ (issue #129 clause 6) --
+  PASS: source grep zero — no literal "_extensions/blendtutor/" in blendtutor.lua
+
+-- Behavioral checks (Node.js) --
+  PASS: scanExercises exported
+  PASS: buildRegistry exported
+  PASS: start exported
+  PASS: parsePayload exported
+  PASS: Node.js behavioral tests passed (exports verified)
+
+=== Results: 46 passed, 0 failed ===
+=== AC-7 Per-exercise BYOK LLM feedback — test_quarto_feedback.py ===
+
+  PASS: exercise-feedback.js exists
+  PASS: feedback.qmd exists
+-- Clause 6: llm_evaluation_prompt ABSENT --
+  PASS: llm_evaluation_prompt ABSENT from exercise-feedback.js
+  PASS: llm_evaluation_prompt ABSENT from feedback.qmd
+
+-- Source-pattern checks --
+  PASS: pure function exported: neutralize
+  PASS: pure function exported: buildPrompt
+  PASS: pure function exported: parseModels
+  PASS: pure function exported: modelRoster
+  PASS: pure function exported: feedbackRequest
+  PASS: pure function exported: toVerdict
+  PASS: pure function exported: fireworksRequest
+  PASS: pure function exported: fireworksToVerdict
+  PASS: pure function exported: providerBaseUrl
+  PASS: STUDENT_CODE fences present in source
+  PASS: PROVIDERS map has fireworks + anthropic
+  PASS: provider-scoped key slots present (fireworks_api_key, anthropic_api_key)
+  PASS: key slot is provider-scoped (not exercise-scoped)
+  PASS: storeKey + readKey present (shared key handling)
+  PASS: no singleton getElementById('feedback') — per-exercise scoping
+  PASS: no window.__bt singleton access (uses __btExercises registry)
+  PASS: ?provider= override parsed via URLSearchParams
+  PASS: localhost-only gate present (non-local override rejected)
+  PASS: per-exercise concurrent feedback guard present
+  PASS: mountFeedback/mountAllFeedback present (per-exercise mount)
+  PASS: feedback UI elements carry data-byok/data-feedback markers
+  PASS: fetch() called in backends (feedback is not silently skipped)
+  PASS: no module-level applyEmbeddedKey() call (pure layer importable)
+
+-- Behavioral checks (Node.js) --
+  PASS: buildPrompt emits STUDENT_CODE_BEGIN fence
+  PASS: buildPrompt emits STUDENT_CODE_END fence
+  PASS: buildPrompt includes task
+  PASS: buildPrompt includes student code
+  PASS: buildPrompt includes captured output
+  PASS: buildPrompt includes checks
+  PASS: neutralize strips forged STUDENT_CODE_BEGIN
+  PASS: neutralize replaces with marker
+  PASS: key reused from shared sessionStorage slot (entered once)
+  PASS: provider switched to anthropic
+  PASS: provider switched back to fireworks
+  PASS: localhost override honored
+  PASS: non-local override rejected (key exfil prevented)
+  PASS: non-local override falls back to provider base URL
+  PASS: credentialed override rejected
+  PASS: parseModels extracts model ids
+  PASS: modelRoster falls back when list empty
+  PASS: feedbackRequest embeds prompt in messages
+  PASS: feedbackRequest forces feedback tool
+  PASS: toVerdict maps Anthropic tool call to Verdict
+  PASS: fireworksToVerdict maps OpenAI tool call to Verdict
+  PASS: Node.js behavioral tests passed (all pure-function assertions)
+
+-- feedback.qmd structure --
+  PASS: feedback.qmd has 2 exercises (>=2 for key-reuse test)
+  PASS: feedback.qmd imports exercise-feedback.js
+  PASS: feedback.qmd imports exercise-runtime.js (AC-4 dependency)
+  PASS: feedback.qmd calls mountFeedback/mountAllFeedback
+
+=== Results: 32 passed, 0 failed ===
+
+=== Regression summary (this session, issue #136 branch) ===
+# validate-runtime.js: 49 passed, 0 failed
+# validate-pyodide-adapter.js: 60 passed, 0 failed
+# validate-webr-adapter.js: 83 passed, 0 failed
+# test_quarto_ux.py: 46 passed, 0 failed
+# test_quarto_feedback.py: 32 passed, 0 failed
+# test_pyodide_adapter.sh: 11 passed, 0 failed
+# test_quarto_render.sh: 12 passed, 0 failed
+# test_quarto_filter.sh: 17 passed, 0 failed
+# test_coi_filter.sh: 15 passed, 0 failed
+# test_sync_assets.sh: 12 passed, 0 failed
+# test_quarto_distribution.sh: 31 passed, 0 failed
+# test_quarto_install_render.sh: 13 passed, 0 failed
+# rodney exercise-ux.js (AC-1 output simulated on rendered ux.html): 7 clauses PASS
+# rodney feedback-probe.js (AC-1 output simulated on rendered feedback.html): 13 clauses PASS
+# rodney mixed-runtime.js (this issue): 14 assertions PASS, verdict PROBES_PASS
+
+NOTE (merge coupling): existing rodney probes exercise-ux.js + feedback-probe.js
+fail on this branch WITHOUT the AC-1 filter change (blendtutor.lua does not yet
+emit data-language; pre-AC-1 HTML has no data-language -> skipped, never
+defaulted). Verified they pass when the AC-1 output shape is simulated
+(data-language="r" on rendered exercise divs). Director manages the AC-1+AC-2
+same-batch merge (issue #135 + #136).

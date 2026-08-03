@@ -1,27 +1,32 @@
 #!/usr/bin/env bash
 # Executable spec for issue #115 — Author docs, demo book, quarto add install verification.
 #
-# Verifies the 14-clause predicate from AC-10 in 3 groups:
+# Verifies the 15-clause predicate from AC-10 in 3 groups:
 #
-#   Group 1 — README (5 clauses):
+#   Group 1 — README (6 clauses):
 #     1. Install command present (quarto add mcmullarkey/blendtutor)
 #     2. Syntax shown for both languages (R and Python)
 #     3. BYOK (bring your own key) mentioned
 #     4. Minimum Quarto version stated
 #     5. Demo book link present
+#     6. Install path contract (org/repo path, per AC-3)
 #
 #   Group 2 — Demo book (6 clauses):
-#     6. quarto render demo-book exits 0
-#     7. ≥2 exercises per language (R and Python)
-#     8. Non-empty content (no empty exercise divs / empty JSON)
-#     9. Mixed-language (both R and Python present)
-#    10. No llm_evaluation_prompt field
-#    11. COI config present (coi="true" or coi: true)
+#     7. quarto render demo-book exits 0 + asset href targets file-checked
+#     8. ≥2 exercises per language (R and Python)
+#     9. Non-empty content (no empty exercise divs / empty JSON)
+#    10. Mixed-language (both R and Python present)
+#    11. No llm_evaluation_prompt field
+#    12. COI config present (coi="true" or coi: true)
 #
 #   Group 3 — CI (3 clauses):
-#    12. quarto add in temp dir
-#    13. setup@v2
-#    14. No continue-on-error
+#    13. quarto add in temp dir
+#    14. setup@v2
+#    15. No continue-on-error
+#
+# P9 (issue #130): the demo-book render path must be side-effect free — the
+# suite never creates an extension dir under demo-book (the old clause-6 copy
+# hack's residue is asserted absent at the end of Group 2).
 #
 # Negative cases:
 #   - Wrong org/repo (must be mcmullarkey/blendtutor)
@@ -184,8 +189,8 @@ if [ -d "$DEMO_BOOK_DIR" ]; then
   done < <(find "$DEMO_BOOK_DIR" -name '*.qmd' -print0)
 fi
 
-# Clause 6: quarto render demo-book exits 0
-echo "== Clause 6: render exits 0 =="
+# Clause 7: quarto render demo-book exits 0 + asset href targets file-checked
+echo "== Clause 7: render exits 0 =="
 if [ ! -d "$DEMO_BOOK_DIR" ]; then
   ko "render exits 0 — demo-book directory not found"
 elif [ ${#DEMO_QMD_FILES[@]} -eq 0 ]; then
@@ -201,16 +206,11 @@ else
       ko "render exits 0 — _quarto.yml missing in demo-book/"
     fi
   else
-    # Quarto resolves extension assets relative to the project directory
-    # (demo-book/), not the filter path (../_extensions/blendtutor/). The
-    # demo-book _quarto.yml references the filter via a relative path, but
-    # Quarto still looks for assets in demo-book/_extensions/blendtutor/.
-    # Copy the extension so the render can find styles.css and other assets.
-    if [ -d "_extensions/blendtutor" ] && [ ! -d "$DEMO_BOOK_DIR/_extensions/blendtutor" ]; then
-      mkdir -p "$DEMO_BOOK_DIR/_extensions"
-      cp -r _extensions/blendtutor "$DEMO_BOOK_DIR/_extensions/"
-    fi
-    # Render the demo book
+    # Render the demo book. No extension copy here (the old clause-6 copy
+    # hack masked the install-path bug by copying the extension dir into
+    # demo-book): post-AC-1 the filter derives asset paths from
+    # PANDOC_SCRIPT_FILE, so the emitted hrefs resolve relative to the
+    # project dir (demo-book/) into the repo checkout.
     RENDER_OUTPUT=$(quarto render "$DEMO_BOOK_DIR" --to html 2>&1) && RENDER_RC=0 || RENDER_RC=$?
     if [ "$RENDER_RC" -eq 0 ]; then
       ok "quarto render demo-book exits 0"
@@ -218,11 +218,37 @@ else
       ko "quarto render demo-book exits 0 — exit code $RENDER_RC"
       echo "  render output: $RENDER_OUTPUT" >&2
     fi
+
+    # Asset href file check (P9): Quarto does NOT validate emitted hrefs at
+    # render — exit 0 alone is insufficient. Extract every blendtutor asset
+    # href/src from the rendered HTML and file-check its target resolved
+    # relative to the project directory (demo-book/), where the filter's
+    # ../_extensions/... prefix is anchored.
+    RENDER_HTML_DIR="$DEMO_BOOK_DIR/_output"
+    HREF_FOUND=0
+    HREF_MISSING=0
+    if [ -d "$RENDER_HTML_DIR" ]; then
+      while IFS= read -r href; do
+        [ -z "$href" ] && continue
+        HREF_FOUND=1
+        if ( cd "$DEMO_BOOK_DIR" && test -f "$href" ); then
+          ok "asset href target exists: $href"
+        else
+          ko "asset href target missing: $href"
+          HREF_MISSING=1
+        fi
+      done < <(grep -hoE '(href|src)="[^"]*blendtutor/[^"]*"' "$RENDER_HTML_DIR"/*.html 2>/dev/null | sed -E 's/^[^"]*"([^"]*)"/\1/' | sort -u)
+      if [ "$HREF_FOUND" -eq 0 ]; then
+        ko "asset href file check — no blendtutor asset hrefs found in rendered HTML"
+      fi
+    else
+      ko "asset href file check — rendered HTML dir not found: $RENDER_HTML_DIR"
+    fi
   fi
 fi
 
-# Clause 7: ≥2 exercises per language
-echo "== Clause 7: ≥2 exercises per language =="
+# Clause 8: ≥2 exercises per language
+echo "== Clause 8: ≥2 exercises per language =="
 
 # Count R exercises (language="r") across all demo-book .qmd files
 R_COUNT=0
@@ -246,8 +272,8 @@ else
   ko "≥2 Python exercises — found $PYTHON_COUNT (need ≥2)"
 fi
 
-# Clause 8: Non-empty content (no empty exercise divs)
-echo "== Clause 8: non-empty content =="
+# Clause 9: Non-empty content (no empty exercise divs)
+echo "== Clause 9: non-empty content =="
 EMPTY_DIVS=0
 for f in ${DEMO_QMD_FILES[@]+"${DEMO_QMD_FILES[@]}"}; do
   # Check for empty blendtutor divs: ::: {.blendtutor ...} immediately followed by :::
@@ -283,16 +309,16 @@ else
   ko "non-empty content — only $CODE_BLOCKS code blocks (need ≥4 for 2+ exercises per language)"
 fi
 
-# Clause 9: Mixed-language (both R and Python present)
-echo "== Clause 9: mixed-language =="
+# Clause 10: Mixed-language (both R and Python present)
+echo "== Clause 10: mixed-language =="
 if [ "$R_COUNT" -ge 1 ] && [ "$PYTHON_COUNT" -ge 1 ]; then
   ok "mixed-language (R: $R_COUNT, Python: $PYTHON_COUNT)"
 else
   ko "mixed-language — R: $R_COUNT, Python: $PYTHON_COUNT (need both ≥1)"
 fi
 
-# Clause 10: No llm_evaluation_prompt
-echo "== Clause 10: no llm_evaluation_prompt =="
+# Clause 11: No llm_evaluation_prompt
+echo "== Clause 11: no llm_evaluation_prompt =="
 LLM_PROMPT_COUNT=0
 for f in ${DEMO_QMD_FILES[@]+"${DEMO_QMD_FILES[@]}"}; do
   count=$(grep -c 'llm_evaluation_prompt' "$f" 2>/dev/null) || count=0
@@ -311,8 +337,8 @@ else
   ko "no llm_evaluation_prompt — $LLM_PROMPT_COUNT occurrence(s) found"
 fi
 
-# Clause 11: COI config present
-echo "== Clause 11: COI config =="
+# Clause 12: COI config present
+echo "== Clause 12: COI config =="
 COI_FOUND=0
 for f in ${DEMO_QMD_FILES[@]+"${DEMO_QMD_FILES[@]}"}; do
   # Check for coi="true" (div attribute) or coi: true (YAML metadata)
@@ -336,14 +362,32 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# P9 — Demo-book side-effect free (issue #130)
+# ---------------------------------------------------------------------------
+
+echo ""
+echo "== P9: demo-book side-effect free =="
+
+# The old clause-6 copy hack created an extension dir under demo-book as a
+# render side effect (masking the install-path bug). The path is assembled
+# from fragments so the structural no-masking-copy scan (P2) does not
+# false-positive on this guard's own source line.
+DB_EXT_DIR="$DEMO_BOOK_DIR/_""extensions"
+if [ -d "$DB_EXT_DIR" ]; then
+  ko "demo-book side-effect free — extension dir exists in demo-book (copy hack residue)"
+else
+  ok "demo-book side-effect free — no extension-dir residue in demo-book"
+fi
+
+# ---------------------------------------------------------------------------
 # Group 3 — CI (3 clauses)
 # ---------------------------------------------------------------------------
 
 echo ""
 echo "== Group 3: CI =="
 
-# Clause 12: quarto add in temp dir
-echo "== Clause 12: quarto add in temp dir =="
+# Clause 13: quarto add in temp dir
+echo "== Clause 13: quarto add in temp dir =="
 if [ ! -f "$CI_FILE" ]; then
   ko "quarto add in temp dir — CI file not found: $CI_FILE"
 else
@@ -372,8 +416,8 @@ else
   fi
 fi
 
-# Clause 13: setup@v2
-echo "== Clause 13: setup@v2 =="
+# Clause 14: setup@v2
+echo "== Clause 14: setup@v2 =="
 if [ ! -f "$CI_FILE" ]; then
   ko "setup@v2 — CI file not found"
 else
@@ -384,8 +428,8 @@ else
   fi
 fi
 
-# Clause 14: No continue-on-error in distribution job
-echo "== Clause 14: no continue-on-error =="
+# Clause 15: No continue-on-error in distribution job
+echo "== Clause 15: no continue-on-error =="
 if [ ! -f "$CI_FILE" ]; then
   ko "no continue-on-error — CI file not found"
 else

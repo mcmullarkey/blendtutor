@@ -163,17 +163,62 @@ hints — all rendered as static HTML.
 
 ### Installation
 
+Install the extension (currently version 0.1.0) from the
+[`mcmullarkey/blendtutor`](https://github.com/mcmullarkey/blendtutor) GitHub
+repository into your project's `_extensions/mcmullarkey/blendtutor/` directory:
+
 ```bash
 quarto add mcmullarkey/blendtutor
 ```
 
-This installs the extension from the
-[`mcmullarkey/blendtutor`](https://github.com/mcmullarkey/blendtutor) GitHub
-repository into your project's `_extensions/mcmullarkey/blendtutor/` directory.
+Asset resolution is install-path-independent: the extension's assets are
+deployed alongside the rendered HTML, so the extension works regardless of
+where `quarto add` installs it.
 
-Asset resolution is install-path-independent — the extension locates its
-assets relative to the filter script, so it works regardless of where `quarto
-add` installs it.
+#### Quick start (zero hand-written bootstrap)
+
+Author an exercise with the `.blendtutor` div, enable the filter by name, and
+render — the extension bootstraps the editor, checks, and solution UI
+automatically. No hand-written bootstrap is needed:
+
+```yaml
+---
+title: "My exercises"
+filters: [mcmullarkey/blendtutor]
+---
+```
+
+```markdown
+::: {.blendtutor language="r"}
+Write a function `add(a, b)` that returns the sum.
+
+```r
+add <- function(a, b) { ___ }
+```
+
+```{.r .checks}
+stopifnot(add(1, 2) == 3)
+```
+:::
+```
+
+Render the document and open the output in a browser — the exercises are
+interactive immediately.
+
+#### Auto-bootstrap opt-out
+
+The filter auto-bootstraps by default. To disable it and wire up the runtime
+yourself, set `bt-auto-bootstrap: false` in the YAML header:
+
+```yaml
+---
+title: "My exercises"
+bt-auto-bootstrap: false
+---
+```
+
+With the opt-out set, the filter leaves bootstrapping to you — for example to
+mount per-exercise feedback (see below).
 
 ### Authoring syntax
 
@@ -225,6 +270,21 @@ Set one in the browser when prompted:
 The key is stored in the browser's `sessionStorage` and never sent to a server
 other than the LLM provider.
 
+#### Feedback opt-in (manual)
+
+Per-exercise AI feedback is not auto-mounted. To enable it, import
+`exercise-feedback.js` and call `mountAllFeedback` after the runtime has
+started — each exercise then gets its own feedback button and container:
+
+```js
+import { mountAllFeedback } from "./_extensions/mcmullarkey/blendtutor/assets/exercise-feedback.js";
+
+// After the runtime has started (registry = your exercise registry):
+mountAllFeedback(registry);
+```
+
+The API key is entered once and shared across exercises via `sessionStorage`.
+
 ### Cross-origin isolation (COI)
 
 webR requires `SharedArrayBuffer`, which needs cross-origin isolation
@@ -240,6 +300,11 @@ coi: true
 The filter injects a vendored `coi-serviceworker.js` shim that re-serves the
 page with the required headers. Pyodide-only pages do not need COI.
 
+> **Book-mode limitation:** COI does not function in Quarto `type: book`
+> projects. The shim re-serves the page's own scope, which cannot cover the
+> book's `_output/` directory where rendered pages are written. For
+> COI-enabled exercises, use a standalone document rather than a book.
+
 ### Demo book
 
 A complete demo book with R and Python exercises lives in
@@ -251,7 +316,10 @@ quarto render
 ```
 
 This produces a multi-page HTML book in `demo-book/_output/` with interactive
-exercises, checks, solutions, and COI configuration.
+exercises, checks, and solutions. The demo book's exercise pages set
+`coi: true`, but because it is a Quarto `type: book` project, COI does not
+take effect in the book render (see the COI book-mode limitation above) — use
+a standalone document for COI-enabled exercises.
 
 ## License
 

@@ -1,0 +1,15 @@
+=== Issue #147 AC-7 — OLD content ABSENT (expect exit 1 per grep) ===
+-- 'locates its assets relative to the filter script' --
+ABSENT ✓
+-- 'relative to.*filter' --
+ABSENT ✓
+-- 'PANDOC_SCRIPT_FILE' --
+ABSENT ✓
+-- 'COI configuration' --
+ABSENT ✓
+-- 'import .*exercise-runtime.js' --
+ABSENT ✓
+-- short-form 'quarto add blendtutor' --
+ABSENT ✓
+-- quick-start fence bootstrap tokens (script/module/scanExercises/start(/buildRegistry) --
+ABSENT ✓

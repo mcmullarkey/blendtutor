@@ -1,0 +1,18 @@
+=== Issue #147 AC-7 README quick-start — NEW content PRESENT ===
+171:quarto add mcmullarkey/blendtutor
+187:filters: [mcmullarkey/blendtutor]
+182:automatically. No hand-written bootstrap is needed:
+211:yourself, set `bt-auto-bootstrap: false` in the YAML header:
+216:bt-auto-bootstrap: false
+276:`exercise-feedback.js` and call `mountAllFeedback` after the runtime has
+280:import { mountAllFeedback } from "./_extensions/mcmullarkey/blendtutor/assets/exercise-feedback.js";
+276:`exercise-feedback.js` and call `mountAllFeedback` after the runtime has
+280:import { mountAllFeedback } from "./_extensions/mcmullarkey/blendtutor/assets/exercise-feedback.js";
+283:mountAllFeedback(registry);
+43:- `ANTHROPIC_API_KEY` — [Anthropic](https://www.anthropic.com) (used by built
+267:- `ANTHROPIC_API_KEY` — [Anthropic](https://www.anthropic.com) (browser BYOK is
+303:> **Book-mode limitation:** COI does not function in Quarto `type: book`
+320:`coi: true`, but because it is a Quarto `type: book` project, COI does not
+305:> book's `_output/` directory where rendered pages are written. For
+318:This produces a multi-page HTML book in `demo-book/_output/` with interactive
+166:Install the extension (currently version 0.1.0) from the

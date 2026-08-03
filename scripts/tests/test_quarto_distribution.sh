@@ -3,15 +3,22 @@
 #
 # Verifies the 15-clause predicate from AC-10 in 3 groups (extended by issue
 # #143 AC-5: by-name install clauses 1-3, book-aware site_libs libs clauses
-# 5-7, org/repo-aware P9):
+# 5-7, org/repo-aware P9; extended by issue #147 AC-7: README quick-start /
+# opt-out / feedback opt-in / COI caveat clauses 7-12):
 #
-#   Group 1 — README (6 clauses):
+#   Group 1 — README (12 clauses):
 #     1. Install command present (quarto add mcmullarkey/blendtutor)
 #     2. Syntax shown for both languages (R and Python)
 #     3. BYOK (bring your own key) mentioned
 #     4. Minimum Quarto version stated
 #     5. Demo book link present
 #     6. Install path contract (org/repo path, per AC-3)
+#     7. Zero-bootstrap quick-start (by-name filter + no hand-written bootstrap prose)
+#     8. Quick-start example integrity (no script/module/bootstrap tokens)
+#     9. Auto-bootstrap opt-out documented (bt-auto-bootstrap: false)
+#    10. Feedback opt-in (exercise-feedback.js + mountAllFeedback, manual, BYOK)
+#    11. COI book-mode caveat + demo book COI honesty
+#    12. No stale mechanism/bootstrap instructions + command/version consistency
 #
 #   Group 2 — Demo book (6 clauses):
 #     7. quarto render demo-book exits 0 + asset href targets file-checked
@@ -154,8 +161,10 @@ else
     ko "old wrong install path claim removed — found 'your project's \`_extensions/blendtutor/\`'"
   fi
 
-  # 6d: Install-path independence stated
-  if grep -qiE 'install-path-independent|independent of.{0,40}install|regardless install|relative to.*filter|PANDOC_SCRIPT_FILE' "$README"; then
+  # 6d: Install-path independence stated (outcome-level only — assets deploy
+  # alongside the rendered HTML; NOT the stale 'relative to the filter
+  # script' mechanism, which issue #147 removed in lockstep with the README).
+  if grep -qiE 'install-path-independent|independent of.{0,40}install|regardless install' "$README"; then
     ok "install-path independence stated in README"
   else
     ko "install-path independence stated in README — no independence mention found"
@@ -174,6 +183,130 @@ else
   else
     ko "ADR-0017 annotated with org/repo install path — annotation missing ('CI actually' + '_extensions/mcmullarkey/blendtutor/' not both found)"
   fi
+fi
+
+# Clause 7: zero-bootstrap quick-start (quarto add → by-name filter → render,
+# no hand-written bootstrap). Issue #147 — the verified quick-start flow.
+echo "== Clause 7: zero-bootstrap quick-start =="
+QUICK_START=""
+if [ -f "$README" ]; then
+  QUICK_START=$(awk '/^#### Quick start/{flag=1;next} /^#### Auto-bootstrap opt-out/{flag=0;next} flag' "$README")
+fi
+if [ -z "$QUICK_START" ]; then
+  ko "quick-start — no '#### Quick start' subsection found in README"
+else
+  if grep -qF 'filters: [mcmullarkey/blendtutor]' <<< "$QUICK_START"; then
+    ok "quick-start uses by-name filter (filters: [mcmullarkey/blendtutor])"
+  else
+    ko "quick-start by-name filter — 'filters: [mcmullarkey/blendtutor]' not found in quick-start"
+  fi
+  if grep -qiE 'no hand-written bootstrap|hand-written bootstrap' <<< "$QUICK_START"; then
+    ok "quick-start prose states zero hand-written bootstrap"
+  else
+    ko "quick-start prose — no 'hand-written bootstrap' statement found"
+  fi
+  if grep -qF '.blendtutor' <<< "$QUICK_START"; then
+    ok "quick-start shows .blendtutor exercise div"
+  else
+    ko "quick-start .blendtutor exercise div not shown"
+  fi
+fi
+
+# Clause 8: quick-start example integrity — the quick-start fence must NOT
+# ship a bootstrap (zero script/module/scanExercises/start(/buildRegistry
+# tokens) while the prose claims zero-bootstrap (double-start trap).
+echo "== Clause 8: quick-start example integrity =="
+if [ -n "$QUICK_START" ] && ! grep -qE 'script|module|scanExercises|start\(|buildRegistry' <<< "$QUICK_START"; then
+  ok "quick-start example has no script/module/scanExercises/start(/buildRegistry tokens"
+else
+  ko "quick-start example contains bootstrap tokens (script|module|scanExercises|start(|buildRegistry)"
+fi
+
+# Clause 9: auto-bootstrap opt-out documented (literal + prose).
+echo "== Clause 9: auto-bootstrap opt-out =="
+if [ -f "$README" ] && grep -qF 'bt-auto-bootstrap: false' "$README"; then
+  ok "opt-out literal present (bt-auto-bootstrap: false)"
+else
+  ko "opt-out literal — 'bt-auto-bootstrap: false' not found"
+fi
+if [ -f "$README" ] && grep -qiE 'opt-out' "$README"; then
+  ok "opt-out prose present"
+else
+  ko "opt-out prose — no 'opt-out' mention found"
+fi
+
+# Clause 10: feedback opt-in (exercise-feedback.js + mountAllFeedback,
+# manual — NOT auto-mounted — BYOK ANTHROPIC_API_KEY).
+echo "== Clause 10: feedback opt-in =="
+if [ -f "$README" ] && grep -qF 'exercise-feedback.js' "$README"; then
+  ok "feedback opt-in names exercise-feedback.js"
+else
+  ko "feedback opt-in — 'exercise-feedback.js' not found"
+fi
+if [ -f "$README" ] && grep -qF 'mountAllFeedback' "$README"; then
+  ok "feedback opt-in calls mountAllFeedback"
+else
+  ko "feedback opt-in — 'mountAllFeedback' not found"
+fi
+if [ -f "$README" ] && grep -qiE 'not auto-mounted|manual' "$README"; then
+  ok "feedback opt-in marked manual (not auto-mounted)"
+else
+  ko "feedback opt-in — no 'not auto-mounted'/'manual' statement found"
+fi
+if [ -f "$README" ] && grep -qF 'ANTHROPIC_API_KEY' "$README"; then
+  ok "feedback opt-in BYOK key present (ANTHROPIC_API_KEY)"
+else
+  ko "feedback opt-in — 'ANTHROPIC_API_KEY' not found"
+fi
+
+# Clause 11: COI book-mode caveat + demo book COI honesty. The service-worker
+# shim's scope cannot cover a book's _output/ — caveat must appear in BOTH the
+# COI section AND the Demo book section (no unqualified 'COI configuration').
+echo "== Clause 11: COI book-mode caveat =="
+if [ -f "$README" ] && grep -qF 'type: book' "$README"; then
+  ok "COI caveat names Quarto type: book"
+else
+  ko "COI caveat — 'type: book' not found"
+fi
+if [ -f "$README" ] && grep -qiE 'does not function|does not take effect|cannot cover' "$README"; then
+  ok "COI caveat states book-mode does not function"
+else
+  ko "COI caveat — no book-mode limitation statement found"
+fi
+if [ -f "$README" ] && grep -qF '_output/' "$README"; then
+  ok "COI caveat explains _output/ scope"
+else
+  ko "COI caveat — '_output/' not mentioned"
+fi
+if [ -f "$README" ] && ! grep -qF 'COI configuration' "$README"; then
+  ok "demo book no longer overclaims 'COI configuration'"
+else
+  ko "demo book overclaim — 'COI configuration' still present"
+fi
+
+# Clause 12: no stale mechanism/bootstrap instructions + command/version
+# consistency (matches ci.yml:148 full org/repo command, _extension.yml:3
+# version 0.1.0, no short-form install).
+echo "== Clause 12: no stale mechanism, command/version consistency =="
+if [ -f "$README" ] && ! grep -qiE 'relative to.*filter|PANDOC_SCRIPT_FILE|locates its assets' "$README"; then
+  ok "stale mechanism claim removed (relative to filter script / PANDOC_SCRIPT_FILE)"
+else
+  ko "stale mechanism claim still present (relative to.*filter|PANDOC_SCRIPT_FILE|locates its assets)"
+fi
+if [ -f "$README" ] && ! grep -qE 'import .*exercise-runtime\.js' "$README"; then
+  ok "no stale runtime bootstrap import (import .*exercise-runtime.js)"
+else
+  ko "stale runtime bootstrap import found (import .*exercise-runtime.js)"
+fi
+if [ -f "$README" ] && ! grep -qE 'quarto add[[:space:]]+blendtutor([^/]|$)' "$README"; then
+  ok "no short-form install command (full org/repo required, matches ci.yml:148)"
+else
+  ko "short-form install command found ('quarto add blendtutor')"
+fi
+if [ -f "$README" ] && grep -qF '0.1.0' "$README"; then
+  ok "version stated matches _extension.yml (0.1.0)"
+else
+  ko "version consistency — '0.1.0' not stated in README"
 fi
 
 # ---------------------------------------------------------------------------

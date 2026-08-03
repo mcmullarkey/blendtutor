@@ -1,0 +1,12 @@
+=== Issue #147 AC-7 regression suite (full) ===
+test_quarto_filter.sh                    PASS
+test_coi_filter.sh                       PASS
+test_quarto_bootstrap.sh                 PASS
+test_quarto_asset_deployment.sh          PASS
+test_quarto_install_render.sh            PASS
+test_quarto_render.sh                    PASS
+test_sync_assets.sh                      PASS
+test_quarto_ux.py                        PASS
+test_quarto_feedback.py                  PASS
+verify_asset_scoping.py                  PASS
+sync-quarto-assets.sh (drift)            PASS (no drift)

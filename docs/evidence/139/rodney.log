@@ -1,0 +1,12 @@
+# Rodney probes for issue #139
+verdict: PROBES_PASS
+timestamp: 2026-08-03T07:27:38.430Z
+
+- PASS: clause-8 mixed: __btExercises.length === 2 (1 R + 1 python mounted)
+  assertion passed
+- PASS: clause-8 mixed: .cm-editor count === 2 (both exercises have editors)
+  assertion passed
+- PASS: clause-8 mixed: mounted entries reference real elements
+  assertion passed
+- PASS: clause-8 r-only: __btExercises.length === 2 (2 R exercises mounted)
+  assertion passed

@@ -1,0 +1,29 @@
+# Render log — issue #139 (AC-3 filter auto-bootstrap)
+date: 2026-08-03T07:28:58Z
+
+### quarto render quarto-fixture/mixed-lang.qmd --to html
+
+
+### quarto render quarto-fixture/r-only.qmd --to html
+
+
+### quarto render quarto-fixture/pyodide.qmd --to html
+
+
+### quarto render quarto-fixture/webr.qmd --to html
+
+
+### quarto render quarto-fixture/feedback.qmd --to html
+
+
+### quarto render quarto-fixture/ux.qmd --to html
+
+
+### quarto render quarto-fixture/filter.qmd --to latex
+
+
+### quarto render quarto-fixture/coi-book/chapter-coi.qmd --to html
+
+
+### quarto render quarto-fixture/coi-book/chapter-no-coi.qmd --to html
+

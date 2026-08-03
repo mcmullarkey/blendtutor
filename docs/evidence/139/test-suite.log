@@ -1,0 +1,74 @@
+# Test suite log — issue #139 (AC-3 filter auto-bootstrap)
+date: 2026-08-03T07:29:35Z
+
+## scripts/tests/test_quarto_bootstrap.sh (NEW — clauses 1-7+9)
+Using render tool: quarto
+== Clause 1: bootstrap emitted once (mixed-lang.qmd) ==
+  PASS: mixed-lang.qmd render exits 0
+  PASS: exactly one bootstrap script (1 found)
+  PASS: type="module" mandatory — present
+  PASS: bootstrap body contains start(
+  PASS: bootstrap body contains scanExercises
+  PASS: bootstrap body contains buildRegistry
+  PASS: bootstrap body contains createWebRAdapter
+  PASS: bootstrap body contains pyodideAdapter
+== Clause 2: per-language conditional imports ==
+  PASS: r-only: createWebRAdapter imported (has_r)
+  PASS: r-only: pyodideAdapter absent
+  PASS: pyodide: pyodideAdapter imported (has_python)
+  PASS: pyodide: createWebRAdapter absent
+== Clause 3: start() wiring + no-exercises gate ==
+  PASS: calls start(buildRegistry(scanExercises()), <map>)
+  PASS: adapter map has key r (factory called)
+  PASS: adapter map has key python (singleton used directly)
+  PASS: no exercises → no bootstrap (0 found)
+== Clause 4: opt-out suppresses entirely (webr.qmd) ==
+  PASS: webr.qmd declares YAML bt-auto-bootstrap: false
+  PASS: feedback.qmd declares YAML bt-auto-bootstrap: false
+  PASS: ux.qmd declares YAML bt-auto-bootstrap: false
+  PASS: opt-out — zero auto bootstrap (0 found)
+  PASS: hand-written bootstrap preserved
+== Clause 5: non-HTML gate (filter.qmd → latex) ==
+  PASS: non-HTML gate — zero bootstrap in latex (0 found)
+== Clause 6: no hardcoded asset path + depth ==
+  PASS: specifiers via resolve_asset_path (../_extensions/blendtutor/assets/)
+  PASS: no bare _extensions/blendtutor/ specifier
+  PASS: depth-correct ../.. specifier at coi-book depth
+== Clause 7: error sink ==
+  PASS: .catch( + console.error present
+== Clause 9: static pins (blendtutor.lua) ==
+  PASS: has_r = true in Div() (mirror has_python)
+  PASS: hasBootstrapDone guard (mirror hasCoiDone)
+  PASS: bt-auto-bootstrap YAML read in Pandoc() (mirror coi read)
+
+=========================================
+  Results: 29 passed, 0 failed
+=========================================
+All tests passed.
+exit=0
+
+## scripts/tests/test_quarto_filter.sh
+=========================================
+  Results: 22 passed, 0 failed
+=========================================
+All tests passed.
+exit=0
+
+## scripts/tests/test_coi_filter.sh
+=========================================
+  Results: 15 passed, 0 failed
+=========================================
+All tests passed.
+exit=0
+
+## scripts/tests/test_quarto_ux.py
+  PASS: Node.js behavioral tests passed (exports verified)
+
+=== Results: 46 passed, 0 failed ===
+exit=0
+
+## scripts/tests/test_quarto_feedback.py
+  PASS: feedback.qmd calls mountFeedback/mountAllFeedback
+
+=== Results: 32 passed, 0 failed ===
+exit=0

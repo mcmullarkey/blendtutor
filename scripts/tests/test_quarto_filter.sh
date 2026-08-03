@@ -180,10 +180,15 @@ fi
 echo "== Assertions 12-13: static pins (runtime read + verifier shape) =="
 
 RUNTIME_JS="_extensions/blendtutor/assets/exercise-runtime.js"
-if grep -qF 'entry.element.dataset.language ||' "$RUNTIME_JS"; then
-  ok "runtime reads entry.element.dataset.language ||"
+# AC-1 clause 4 pin: the runtime must read the data-language attribute for
+# dispatch. PR #138 refactored the read to `const language =
+# entry.element.dataset.language;` + a separate `if (!language)` guard —
+# update the pin to match the shipped shape (behavior unchanged: missing
+# data-language still rejected with a warn, never defaulted).
+if grep -qF 'entry.element.dataset.language' "$RUNTIME_JS"; then
+  ok "runtime reads entry.element.dataset.language"
 else
-  ko "runtime reads entry.element.dataset.language || — pattern not found in $RUNTIME_JS"
+  ko "runtime reads entry.element.dataset.language — pattern not found in $RUNTIME_JS"
 fi
 
 if grep -qF '<div class="bt-exercise">' scripts/tests/verify_filter_output.py; then

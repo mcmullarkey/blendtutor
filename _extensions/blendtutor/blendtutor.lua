@@ -1,11 +1,13 @@
 --- blendtutor.lua ---
 -- WHAT:  Pandoc filter that parses ::: {.blendtutor} divs into widget HTML
---        with embedded 9-key SiteLesson JSON (ADR-0008 contract).
+--        with embedded 9-key SiteLesson JSON (ADR-0008 contract), and
+--        injects the auto-bootstrap module script that boots the exercise
+--        runtime with per-language adapters (AC-3).
 -- WHERE: _extensions/blendtutor/blendtutor.lua (loaded via _extension.yml contributes.filters)
 -- NOT:   No code execution. The filter emits AST only; runtime JS (pyodide,
---        coi-serviceworker) and CSS (styles.css) are injected as <head>
---        tags via quarto.doc.include_text, loaded by the browser.
---        This filter owns the div→widget AST transform only (§4.1).
+--        coi-serviceworker, exercise-runtime + adapters) and CSS (styles.css)
+--        are injected as <head> tags via quarto.doc.include_text, loaded by
+--        the browser. This filter owns the div→widget AST transform only (§4.1).
 --
 -- This filter is loaded via explicit path in .qmd YAML:
 --   filters: [_extensions/blendtutor/blendtutor.lua]
@@ -31,6 +33,12 @@ local hasDoneSetup = false
 -- Read in Pandoc() (which runs AFTER Div()) to conditionally inject CDN.
 local has_python = false
 
+-- has_r flag — set in Div() when a language="r" exercise is found (AC-3).
+-- Mirrors has_python. Read in Pandoc() to conditionally import the webR
+-- adapter into the auto-bootstrap module script (adapter map keys are a
+-- closed set {r, python}, §1).
+local has_r = false
+
 -- has_blendtutor flag — set in Div() when a valid blendtutor exercise is found.
 -- Read in Pandoc() to conditionally inject styles.css (needed for all exercises).
 -- Reset in Pandoc() so each document gets a fresh check.
@@ -48,6 +56,19 @@ local PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"
 -- Both reset in Pandoc() so each document gets a fresh check (per-page isolation).
 local has_coi = false
 local hasCoiDone = false
+
+-- Auto-bootstrap flags (AC-3, issue #139) — filter-injected module script.
+-- hasBootstrapDone: dedup guard — prevents duplicate bootstrap injection.
+--                   Mirrors hasCoiDone (one activation path per page, §5).
+-- bt_auto_bootstrap_optout: set when YAML metadata bt-auto-bootstrap: false
+--                   is present. Suppresses injection ENTIRELY (page-level
+--                   opt-out mirrors the coi YAML read); pages that hand-write
+--                   their own bootstrap (webr.qmd, feedback.qmd, ux.qmd)
+--                   opt out rather than relying on the runtime's
+--                   double-start guard.
+-- Both reset in Pandoc() so each document gets a fresh check.
+local hasBootstrapDone = false
+local bt_auto_bootstrap_optout = false
 
 -- Asset paths are derived from the filter's own location (ADR-0018), never
 -- hardcoded. `quarto add mcmullarkey/blendtutor` installs to
@@ -101,6 +122,14 @@ local COI_SCRIPT_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "coi-serviceworke
 -- Path to vendored styles.css (synced via sync-quarto-assets.sh, mode=scope).
 -- Provides .bt-exercise styling: button states, cursor not-allowed, data-status.
 local STYLES_CSS_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "styles.css")
+
+-- Paths to runtime + adapter modules (synced via sync-quarto-assets.sh).
+-- Imported by the filter-injected auto-bootstrap module script (AC-3).
+-- resolve_asset_path preserves ../ depth so inline import() specifiers
+-- resolve against the document base URL (ADR-0018).
+local EXERCISE_RUNTIME_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "exercise-runtime.js")
+local WEBR_ADAPTER_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "webr-adapter.js")
+local PYODIDE_ADAPTER_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "pyodide-adapter.js")
 
 -- ---------------------------------------------------------------------------
 -- JSON encoding helpers (Lua has no built-in JSON encoder)
@@ -374,6 +403,13 @@ function Div(div)
     has_python = true
   end
 
+  -- Track R exercises for the auto-bootstrap adapter map (AC-3).
+  -- Mirrors has_python (:373-375): the bootstrap only imports/registers an
+  -- adapter for a language present on the page (render-time invariant, §1).
+  if lang == "r" then
+    has_r = true
+  end
+
   -- Track blendtutor exercises for styles.css injection (AC-8).
   -- Pandoc() runs AFTER Div() and reads this flag.
   has_blendtutor = true
@@ -394,6 +430,44 @@ function Div(div)
   return emit_widget(payload, lang)
 end
 
+-- ---------------------------------------------------------------------------
+-- Auto-bootstrap module script builder (AC-3, issue #139)
+-- ---------------------------------------------------------------------------
+
+--- Build the filter-injected auto-bootstrap module script.
+-- Imports the exercise runtime + per-language adapters via resolve_asset_path
+-- specifiers (ADR-0018), then calls start(buildRegistry(scanExercises()), map)
+-- with the adapter map keyed only for languages present on the page. The webR
+-- adapter is a FACTORY (call it: createWebRAdapter()); the pyodide adapter is
+-- a SINGLETON (use pyodideAdapter directly) — the emitted map handles both
+-- shapes. Ends with a single .catch() error sink (§5).
+-- @return The full <script type="module" data-bt-bootstrap="auto">…</script> string
+local function build_bootstrap_script()
+  local parts = {
+    '<script type="module" data-bt-bootstrap="auto">',
+    '  import { scanExercises, buildRegistry, start } from "' .. EXERCISE_RUNTIME_PATH .. '";',
+  }
+  if has_r then
+    parts[#parts + 1] = '  import { createWebRAdapter } from "' .. WEBR_ADAPTER_PATH .. '";'
+  end
+  if has_python then
+    parts[#parts + 1] = '  import { pyodideAdapter } from "' .. PYODIDE_ADAPTER_PATH .. '";'
+  end
+
+  parts[#parts + 1] = ''
+  parts[#parts + 1] = '  start(buildRegistry(scanExercises()), {'
+  if has_r then
+    parts[#parts + 1] = '    r: createWebRAdapter(),'
+  end
+  if has_python then
+    parts[#parts + 1] = '    python: pyodideAdapter,'
+  end
+  parts[#parts + 1] = '  }).catch((err) => console.error("[blendtutor] auto-bootstrap failed", err));'
+  parts[#parts + 1] = '</script>'
+
+  return table.concat(parts, "\n")
+end
+
 --- Reset counters and inject CDN script tag at document level.
 -- Called AFTER all Div elements (pandoc calls Div first, then Pandoc).
 -- If any Python exercise was found (has_python flag), injects the pyodide.js
@@ -411,6 +485,18 @@ function Pandoc(doc)
     has_coi = true
   elseif type(yaml_coi) == "string" and yaml_coi == "true" then
     has_coi = true
+  end
+
+  -- Check YAML metadata for bt-auto-bootstrap: false (AC-3) — page-level
+  -- opt-out that suppresses auto-bootstrap injection ENTIRELY. Mirrors the
+  -- coi YAML read; also accepts string "false" for robustness. Pages that
+  -- hand-write their own bootstrap opt out here rather than relying on the
+  -- runtime's double-start guard.
+  local yaml_bootstrap = doc.meta["bt-auto-bootstrap"]
+  if yaml_bootstrap == false then
+    bt_auto_bootstrap_optout = true
+  elseif type(yaml_bootstrap) == "string" and yaml_bootstrap == "false" then
+    bt_auto_bootstrap_optout = true
   end
 
   -- Inject CDN script tag if Python exercises are present (AC-6).
@@ -456,12 +542,32 @@ function Pandoc(doc)
     end
   end
 
+  -- Inject the auto-bootstrap module script if exercises are present (AC-3).
+  -- has_blendtutor is set in Div() (any valid r/python exercise); has_r and
+  -- has_python select which adapters to import. The hasBootstrapDone guard
+  -- ensures exactly one bootstrap per page (mirror hasCoiDone, §5).
+  -- YAML bt-auto-bootstrap: false opts out entirely (no injection branch).
+  if has_blendtutor and is_html_format() and not bt_auto_bootstrap_optout and not hasBootstrapDone then
+    hasBootstrapDone = true
+    local bootstrap = build_bootstrap_script()
+    -- Try Quarto API first (injects in <head>), fall back to RawBlock.
+    if quarto and quarto.doc and quarto.doc.include_text then
+      quarto.doc.include_text("in-header", bootstrap)
+    else
+      -- Pandoc fallback: prepend to document body.
+      table.insert(doc.blocks, 1, pandoc.RawBlock("html", bootstrap))
+    end
+  end
+
   -- Reset flags for next document (per-page isolation, §3).
   has_python = false
   hasDoneSetup = false
   has_coi = false
   hasCoiDone = false
   has_blendtutor = false
+  has_r = false
+  hasBootstrapDone = false
+  bt_auto_bootstrap_optout = false
 
   return doc
 end

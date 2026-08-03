@@ -1,0 +1,24 @@
+== P1: copy hack removed from test_quarto_distribution.sh ==
+  PASS: hack removed — no masking copy in scripts/tests/test_quarto_distribution.sh
+== P2: no masking copy in render path (only org/repo install simulation) ==
+  PASS: no masking copy in render path (only the working-tree install simulation)
+== P3: install-render test sources from working tree ==
+  PASS: working-tree source — extension copied from repo checkout, no quarto add
+== P10: CI wiring (quarto-distribution job) ==
+  PASS: CI wiring — quarto-distribution job runs install render test
+  PASS: CI wiring — quarto add step retained (distribution-only proof)
+  PASS: CI wiring — Render demo book step retained
+  PASS: CI wiring — no continue-on-error in quarto-distribution job
+  PASS: CI wiring — no '|| true' on render steps in CI
+
+== P4-P8: hermetic working-tree install-path render ==
+  PASS: P4: quarto render --to html exits 0 (org/repo install path)
+  PASS: P5: filter ran — bt-exercise widget present in HTML
+  PASS: P6: styles.css resolved — HTML references _extensions/mcmullarkey/blendtutor/assets/styles.css and file exists
+  PASS: P7: no old-path leak — no _extensions/blendtutor/assets in HTML
+  PASS: P8: coi-serviceworker.js resolved — HTML references _extensions/mcmullarkey/blendtutor/assets/coi-serviceworker.js and file exists
+
+=========================================
+  Results: 13 passed, 0 failed, 0 skipped
+=========================================
+All tests passed.

@@ -45,7 +45,7 @@ DEMO_BOOK_DIR="demo-book"
 CI_FILE=".github/workflows/ci.yml"
 
 # ---------------------------------------------------------------------------
-# Group 1 — README (5 clauses)
+# Group 1 — README (6 clauses)
 # ---------------------------------------------------------------------------
 
 echo "== Group 1: README =="
@@ -118,6 +118,52 @@ else
     ok "demo book link present in README"
   else
     ko "demo book link present in README — no demo-book reference found"
+  fi
+fi
+
+# Clause 6: Install path contract (AC-3)
+echo "== Clause 6: install path contract =="
+if [ ! -f "$README" ]; then
+  ko "install path — README not found"
+else
+  # 6a: Install command survives
+  if grep -qF 'quarto add mcmullarkey/blendtutor' "$README"; then
+    ok "install command present (quarto add mcmullarkey/blendtutor)"
+  else
+    ko "install command present — 'quarto add mcmullarkey/blendtutor' not found"
+  fi
+
+  # 6b: Correct install path stated (org/repo path, not bare repo name)
+  if grep -qF '_extensions/mcmullarkey/blendtutor/' "$README"; then
+    ok "install path stated (_extensions/mcmullarkey/blendtutor/)"
+  else
+    ko "install path stated — '_extensions/mcmullarkey/blendtutor/' not found"
+  fi
+
+  # 6c: Old wrong claim gone (bare 'your project's _extensions/blendtutor/' phrase)
+  if ! grep -qF "your project's \`_extensions/blendtutor/\`" "$README"; then
+    ok "old wrong install path claim removed"
+  else
+    ko "old wrong install path claim removed — found 'your project's \`_extensions/blendtutor/\`'"
+  fi
+
+  # 6d: Install-path independence stated
+  if grep -qiE 'install-path-independent|independent of.{0,40}install|regardless install|relative to.*filter|PANDOC_SCRIPT_FILE' "$README"; then
+    ok "install-path independence stated in README"
+  else
+    ko "install-path independence stated in README — no independence mention found"
+  fi
+fi
+
+# 6e: ADR-0017 annotated with actual CI-asserted org/repo path
+ADR="docs/adr/0017-quarto-extension-distribution.md"
+if [ ! -f "$ADR" ]; then
+  ko "ADR-0017 annotation — ADR file not found: $ADR"
+else
+  if grep -qF 'mcmullarkey/blendtutor' "$ADR"; then
+    ok "ADR-0017 annotated with org/repo install path (mcmullarkey/blendtutor)"
+  else
+    ko "ADR-0017 annotated with org/repo install path — 'mcmullarkey/blendtutor' not found"
   fi
 fi
 

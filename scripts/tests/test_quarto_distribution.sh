@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Executable spec for issue #115 — Author docs, demo book, quarto add install verification.
 #
-# Verifies the 15-clause predicate from AC-10 in 3 groups:
+# Verifies the 15-clause predicate from AC-10 in 3 groups (extended by issue
+# #143 AC-5: by-name install clauses 1-3, book-aware site_libs libs clauses
+# 5-7, org/repo-aware P9):
 #
 #   Group 1 — README (6 clauses):
 #     1. Install command present (quarto add mcmullarkey/blendtutor)
@@ -189,6 +191,64 @@ if [ -d "$DEMO_BOOK_DIR" ]; then
   done < <(find "$DEMO_BOOK_DIR" -name '*.qmd' -print0)
 fi
 
+# Issue #143 AC-5 clause 1: by-name install committed (.gitignore un-ignores
+# /_extensions/, adds /_output/; vendored org/repo install present on disk).
+echo "== AC-5 Clause 1: by-name install committed =="
+if [ ! -f "$DEMO_BOOK_DIR/.gitignore" ]; then
+  ko "by-name install committed — demo-book/.gitignore not found"
+else
+  if grep -qF '/_extensions/' "$DEMO_BOOK_DIR/.gitignore"; then
+    ko "by-name install committed — .gitignore still ignores /_extensions/ (install never committed)"
+  else
+    ok ".gitignore no longer ignores /_extensions/"
+  fi
+  if grep -qF '/_output/' "$DEMO_BOOK_DIR/.gitignore"; then
+    ok "/_output/ added to .gitignore (render artifacts excluded)"
+  else
+    ko "/_output/ added to .gitignore — missing (render noise would be committed)"
+  fi
+fi
+if [ -f "$DEMO_BOOK_DIR/_extensions/mcmullarkey/blendtutor/_extension.yml" ] \
+  && [ -f "$DEMO_BOOK_DIR/_extensions/mcmullarkey/blendtutor/blendtutor.lua" ] \
+  && [ -d "$DEMO_BOOK_DIR/_extensions/mcmullarkey/blendtutor/assets" ]; then
+  ok "vendored install present at demo-book/_extensions/mcmullarkey/blendtutor/ (extension.yml + lua + assets)"
+else
+  ko "vendored install present — demo-book/_extensions/mcmullarkey/blendtutor/ incomplete"
+fi
+
+# Issue #143 AC-5 clause 2: extension currency markers in vendored copy
+# (committed guard is marker-based only; byte parity is build-time cmp -s).
+echo "== AC-5 Clause 2: vendored extension current (markers) =="
+VENDORED_LUA="$DEMO_BOOK_DIR/_extensions/mcmullarkey/blendtutor/blendtutor.lua"
+if [ -f "$VENDORED_LUA" ]; then
+  if grep -qF 'add_html_dependency' "$VENDORED_LUA" \
+    && grep -qF 'BT_DEP_VERSION' "$VENDORED_LUA" \
+    && grep -qF 'quarto-contrib/blendtutor-' "$VENDORED_LUA"; then
+    ok "vendored lua current (add_html_dependency + BT_DEP_VERSION + libs URL markers)"
+  else
+    ko "vendored lua current — missing one or more AC-4 markers (stale vendored copy)"
+  fi
+else
+  ko "vendored lua current — blendtutor.lua missing at $VENDORED_LUA"
+fi
+
+# Issue #143 AC-5 clause 3: by-name filter reference (grep VALUE, not line).
+echo "== AC-5 Clause 3: by-name filter reference =="
+if [ ! -f "$DEMO_BOOK_DIR/_quarto.yml" ]; then
+  ko "by-name filter reference — demo-book/_quarto.yml not found"
+else
+  if grep -qF 'mcmullarkey/blendtutor' "$DEMO_BOOK_DIR/_quarto.yml"; then
+    ok "filters reference mcmullarkey/blendtutor (full org/repo form)"
+  else
+    ko "filters reference mcmullarkey/blendtutor — org/repo form not found"
+  fi
+  if grep -qF '../_extensions' "$DEMO_BOOK_DIR/_quarto.yml"; then
+    ko "no out-of-root ../_extensions filter path — still present in _quarto.yml"
+  else
+    ok "no ../_extensions filter path in _quarto.yml"
+  fi
+fi
+
 # Clause 7: quarto render demo-book exits 0 + asset href targets file-checked
 echo "== Clause 7: render exits 0 =="
 if [ ! -d "$DEMO_BOOK_DIR" ]; then
@@ -220,10 +280,13 @@ else
     fi
 
     # Asset href file check (P9): Quarto does NOT validate emitted hrefs at
-    # render — exit 0 alone is insufficient. Extract every blendtutor asset
-    # href/src from the rendered HTML and file-check its target resolved
-    # relative to the project directory (demo-book/), where the filter's
-    # ../_extensions/... prefix is anchored.
+    # render — exit 0 alone is insufficient. demo-book is a BOOK project
+    # (type: book, output-dir: _output) so Quarto consolidates ALL
+    # html-dependency resources into the SHARED _output/site_libs/
+    # (bookProjectType.libDir = "site_libs", verified quarto 1.10.18) and the
+    # filter's book-aware libs_url() emits ./site_libs/... specifiers. Extract
+    # every blendtutor asset href/src and file-check its target resolved
+    # relative to the rendered output dir (demo-book/_output/).
     RENDER_HTML_DIR="$DEMO_BOOK_DIR/_output"
     HREF_FOUND=0
     HREF_MISSING=0
@@ -231,13 +294,16 @@ else
       while IFS= read -r href; do
         [ -z "$href" ] && continue
         HREF_FOUND=1
-        if ( cd "$DEMO_BOOK_DIR" && test -f "$href" ); then
+        # Strip the leading ./ that ES-module import specifiers require
+        # (module specifiers reject bare relative references).
+        href_file="${href#./}"
+        if ( cd "$RENDER_HTML_DIR" && test -f "$href_file" ); then
           ok "asset href target exists: $href"
         else
           ko "asset href target missing: $href"
           HREF_MISSING=1
         fi
-      done < <(grep -hoE '(href|src)="[^"]*blendtutor/[^"]*"' "$RENDER_HTML_DIR"/*.html 2>/dev/null | sed -E 's/^[^"]*"([^"]*)"/\1/' | sort -u)
+      done < <(grep -hoE '(href|src)="[^"]*blendtutor-0\.1\.0/[^"]*"' "$RENDER_HTML_DIR"/*.html 2>/dev/null | sed -E 's/^[^"]*"([^"]*)"/\1/' | sort -u)
       if [ "$HREF_FOUND" -eq 0 ]; then
         ko "asset href file check — no blendtutor asset hrefs found in rendered HTML"
       fi
@@ -245,6 +311,125 @@ else
       ko "asset href file check — rendered HTML dir not found: $RENDER_HTML_DIR"
     fi
   fi
+fi
+
+# Issue #143 AC-5 clause 5 (amended): rendered book pages reference the
+# SHARED site_libs/quarto-contrib/blendtutor-<version>/ URLs (book mode),
+# never <stem>_files/; NO _extensions/ substring in filter-injected bootstrap
+# specifiers for the four assets.
+echo "== AC-5 Clause 5: book libs URLs (site_libs) + no _extensions/ in bootstrap =="
+BOOK_LIBS="site_libs/quarto-contrib/blendtutor-0.1.0"
+if [ -d "$RENDER_HTML_DIR" ]; then
+  # Extract the filter-injected bootstrap body (coi shim src legitimately
+  # contains _extensions/... outside the bootstrap, so scope the check).
+  extract_bootstrap() {
+    local content="$1"
+    awk -v marker='<script type="module" data-bt-bootstrap="auto">' '
+      index($0, marker) { flag = 1; next }
+      flag && index($0, "</script>") { flag = 0; next }
+      flag { print }
+    ' <<< "$content"
+  }
+  for page in r-exercises python-exercises; do
+    if [ ! -f "$RENDER_HTML_DIR/$page.html" ]; then
+      ko "book libs URLs — $page.html not rendered"
+      continue
+    fi
+    if grep -qF "$BOOK_LIBS/exercise-runtime.js" "$RENDER_HTML_DIR/$page.html"; then
+      ok "$page references site_libs exercise-runtime.js URL"
+    else
+      ko "$page references site_libs exercise-runtime.js URL — not found"
+    fi
+    # Adapter imports are per-language (conditional has_r/has_python): the R
+    # page imports webr-adapter.js only, the python page pyodide-adapter.js.
+    case "$page" in
+      r-exercises) PAGE_ADAPTER="webr-adapter.js"; ADAPTER_ABSENT="pyodide-adapter.js" ;;
+      python-exercises) PAGE_ADAPTER="pyodide-adapter.js"; ADAPTER_ABSENT="webr-adapter.js" ;;
+    esac
+    if grep -qF "$BOOK_LIBS/$PAGE_ADAPTER" "$RENDER_HTML_DIR/$page.html"; then
+      ok "$page references site_libs $PAGE_ADAPTER URL (conditional import)"
+    else
+      ko "$page references site_libs $PAGE_ADAPTER URL — not found"
+    fi
+    if grep -qF "$BOOK_LIBS/$ADAPTER_ABSENT" "$RENDER_HTML_DIR/$page.html"; then
+      ko "$page must NOT import $ADAPTER_ABSENT (no such-language exercises on page)"
+    else
+      ok "$page does not import $ADAPTER_ABSENT (conditional per-language import)"
+    fi
+    if grep -qF "$BOOK_LIBS/styles.css" "$RENDER_HTML_DIR/$page.html"; then
+      ok "$page references site_libs styles.css URL"
+    else
+      ko "$page references site_libs styles.css URL — not found"
+    fi
+    PAGE_BOOTSTRAP=$(extract_bootstrap "$(cat "$RENDER_HTML_DIR/$page.html")")
+    if printf '%s' "$PAGE_BOOTSTRAP" | grep -qF '_extensions/'; then
+      ko "$page bootstrap specifiers — _extensions/ substring found"
+    else
+      ok "$page bootstrap specifiers contain no _extensions/ substring"
+    fi
+  done
+else
+  ko "book libs URLs — rendered HTML dir not found: $RENDER_HTML_DIR"
+fi
+
+# Issue #143 AC-5 clause 6 (amended): files on disk under the shared
+# _output/site_libs/quarto-contrib/blendtutor-0.1.0/ — exercise-runtime.js +
+# styles.css + codemirror.js always; webr-adapter.js iff any R exercise in the
+# book; pyodide-adapter.js iff any python exercise. Base dir is
+# demo-book/_output/ (rendered-document-relative), NOT demo-book/.
+echo "== AC-5 Clause 6: files on disk at _output/site_libs/... =="
+BT_SITE_LIBS="$RENDER_HTML_DIR/$BOOK_LIBS"
+if [ -d "$BT_SITE_LIBS" ]; then
+  for f in exercise-runtime.js styles.css codemirror.js; do
+    if [ -f "$BT_SITE_LIBS/$f" ]; then
+      ok "book site_libs contains $f"
+    else
+      ko "book site_libs contains $f — missing on disk"
+    fi
+  done
+  # demo-book has both R and Python exercises across chapters → both adapters
+  # must deploy to the shared dir.
+  if [ -f "$BT_SITE_LIBS/webr-adapter.js" ]; then
+    ok "book site_libs contains webr-adapter.js (book has R exercises)"
+  else
+    ko "book site_libs contains webr-adapter.js — missing despite R exercises"
+  fi
+  if [ -f "$BT_SITE_LIBS/pyodide-adapter.js" ]; then
+    ok "book site_libs contains pyodide-adapter.js (book has python exercises)"
+  else
+    ko "book site_libs contains pyodide-adapter.js — missing despite python exercises"
+  fi
+else
+  ko "book site_libs dir exists — missing: $BT_SITE_LIBS"
+fi
+
+# Issue #143 AC-5 clause 7: COI boundary — r-exercises.html (coi: true)
+# still loads coi-serviceworker.js via include_text; the shim is NEVER
+# deployed via our add_html_dependency into the blendtutor-0.1.0 libs dir
+# (SW scope = script URL dir). NOTE: in BOOK mode Quarto rewrites in-header
+# src pointing at the by-name extension into its own
+# site_libs/quarto-contrib/quarto-project/... copy — the shim src is
+# Quarto-managed there, but our deployment boundary (nothing coi in the
+# blendtutor-<version> libs dir) still holds.
+echo "== AC-5 Clause 7: COI stays out of blendtutor libs dir (Quarto-managed src) =="
+if [ -f "$RENDER_HTML_DIR/r-exercises.html" ]; then
+  if grep -qE 'src="[^"]*coi-serviceworker\.js"' "$RENDER_HTML_DIR/r-exercises.html"; then
+    ok "r-exercises loads coi-serviceworker.js via include_text (src present)"
+  else
+    ko "r-exercises coi shim — no coi-serviceworker.js src found"
+  fi
+  if grep -qE 'src="[^"]*blendtutor-0\.1\.0/coi-serviceworker\.js"' "$RENDER_HTML_DIR/r-exercises.html"; then
+    ko "coi shim NOT in blendtutor libs URL — src points into blendtutor-0.1.0/ dir"
+  else
+    ok "coi shim src does not point into blendtutor-0.1.0 libs dir"
+  fi
+  if [ -d "$BT_SITE_LIBS" ] && [ -f "$BT_SITE_LIBS/coi-serviceworker.js" ]; then
+    ko "coi-serviceworker.js NOT in blendtutor libs dir — found (SW scope break)"
+  else
+    ok "coi-serviceworker.js not in blendtutor libs dir"
+  fi
+else
+  ko "COI boundary — r-exercises.html not rendered"
 fi
 
 # Clause 8: ≥2 exercises per language
@@ -366,17 +551,24 @@ fi
 # ---------------------------------------------------------------------------
 
 echo ""
-echo "== P9: demo-book side-effect free =="
+echo "== P9: demo-book side-effect free (org/repo-aware, issue #143) =="
 
-# The old clause-6 copy hack created an extension dir under demo-book as a
-# render side effect (masking the install-path bug). The path is assembled
-# from fragments so the structural no-masking-copy scan (P2) does not
-# false-positive on this guard's own source line.
-DB_EXT_DIR="$DEMO_BOOK_DIR/_""extensions"
-if [ -d "$DB_EXT_DIR" ]; then
-  ko "demo-book side-effect free — extension dir exists in demo-book (copy hack residue)"
+# The old clause-6 copy hack created a BARE extension dir under demo-book as a
+# render side effect (masking the install-path bug). Post-AC-5 the by-name
+# install at demo-book/_extensions/mcmullarkey/blendtutor/ is LEGITIMATE and
+# must be allowed; only the non-org residue path fails. The bare path is
+# assembled from fragments so the structural no-masking-copy scan (P2) does
+# not false-positive on this guard's own source line.
+DB_BARE_EXT="$DEMO_BOOK_DIR/_""extensions/blendtutor"
+if [ -d "$DB_BARE_EXT" ]; then
+  ko "demo-book side-effect free — bare extension dir exists (copy-hack residue, non-org path)"
 else
-  ok "demo-book side-effect free — no extension-dir residue in demo-book"
+  ok "demo-book side-effect free — no bare extension-dir residue (non-org path absent)"
+fi
+if [ -d "$DEMO_BOOK_DIR/_extensions/mcmullarkey/blendtutor" ]; then
+  ok "org/repo by-name install present (allowed by P9)"
+else
+    ko "org/repo by-name install present — demo-book/_extensions/mcmullarkey/blendtutor/ missing"
 fi
 
 # ---------------------------------------------------------------------------

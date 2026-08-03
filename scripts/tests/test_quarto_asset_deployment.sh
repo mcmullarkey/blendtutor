@@ -34,6 +34,9 @@
 #   8. Stem correctness, nested: hermetic pages/ subdir render yields libs at
 #      pages/index_files/libs/... and bootstrap specifier index_files/...
 #      (document-relative); coi-book multi-page render exits 0.
+#   8b. Book-aware libs_url (issue #143): BOOK project → ./site_libs/...
+#      specifiers + files at _output/site_libs/...; standalone + output-dir
+#      keeps <stem>_files/... (discriminator pin).
 #   9. Non-HTML gate: hermetic latex render → zero *_files/libs/ dirs created,
 #      zero bootstrap injection.
 #  10. Version pin single-sourced: BT_DEP_VERSION = "0.1.0" Lua constant equals
@@ -422,6 +425,140 @@ else
   ko "coi-book multi-page render exits 0 — exit code $BOOK_RC"
   echo "  render output: $BOOK_OUTPUT" >&2
 fi
+
+# ---------------------------------------------------------------------------
+# Clause 8b (issue #143): BOOK project → site_libs URLs; standalone +
+# output-dir → <stem>_files form UNCHANGED (discriminator pin).
+# Quarto book projects (type: book, output-dir) consolidate ALL
+# add_html_dependency resources into the SHARED _output/site_libs/ dir
+# (bookProjectType.libDir = "site_libs", verified quarto 1.10.18) — the
+# filter's libs_url() must emit ./site_libs/... specifiers there. Standalone
+# renders (type: default) keep <stem>_files/libs/... even when output-dir is
+# set — quarto.project.output_directory == directory for standalone, and the
+# deployed libs land beside the output document, never in site_libs.
+# ---------------------------------------------------------------------------
+
+echo "== Clause 8b: book project → site_libs URLs; standalone+output-dir → _files =="
+
+TMP_BOOK=$(mktemp -d)
+setup_extension "$TMP_BOOK"
+cat > "$TMP_BOOK/_quarto.yml" <<'YML'
+project:
+  type: book
+  output-dir: _output
+book:
+  title: Book fixture
+  chapters:
+    - index.qmd
+YML
+cat > "$TMP_BOOK/index.qmd" <<'QMD'
+---
+title: R chapter
+filters: [_extensions/mcmullarkey/blendtutor/blendtutor.lua]
+---
+
+::: {.blendtutor language="r"}
+Write `add(a, b)`.
+
+```r
+add <- function(a, b) { a + b }
+```
+:::
+QMD
+BOOK2_OUTPUT=$( ( cd "$TMP_BOOK" && quarto render --to html ) 2>&1 ) && BOOK2_RC=0 || BOOK2_RC=$?
+if [ "$BOOK2_RC" -eq 0 ]; then
+  ok "book fixture render exits 0"
+else
+  ko "book fixture render exits 0 — exit code $BOOK2_RC"
+  echo "  render output: $BOOK2_OUTPUT" >&2
+fi
+
+BOOK_PAGE="$TMP_BOOK/_output/index.html"
+# Book mode has NO <stem>_files/libs/ segment — libs deploy directly under
+# _output/site_libs/quarto-contrib/<name>-<version>/.
+BOOK_LIBS_REL="quarto-contrib/blendtutor-$LIB_VERSION"
+BOOK_SITE_LIBS="$TMP_BOOK/_output/site_libs/$BOOK_LIBS_REL"
+if [ -f "$BOOK_PAGE" ]; then
+  BOOK_BOOTSTRAP=$(extract_bootstrap "$(cat "$BOOK_PAGE")")
+  if has_token "$BOOK_BOOTSTRAP" "./site_libs/$BOOK_LIBS_REL/exercise-runtime.js"; then
+    ok "book bootstrap specifier uses ./site_libs/... (book-aware libs_url)"
+  else
+    ko "book bootstrap specifier uses ./site_libs/... — not found: $BOOK_BOOTSTRAP"
+  fi
+  if printf '%s' "$BOOK_BOOTSTRAP" | grep -qF "_files/libs/"; then
+    ko "book bootstrap has NO <stem>_files/ specifier — found _files/libs/ path"
+  else
+    ok "book bootstrap specifier has no <stem>_files/ path"
+  fi
+  if [ -d "$BOOK_SITE_LIBS" ]; then
+    for f in exercise-runtime.js codemirror.js styles.css webr-adapter.js; do
+      if [ -f "$BOOK_SITE_LIBS/$f" ]; then
+        ok "book site_libs contains $f"
+      else
+        ko "book site_libs contains $f — missing"
+      fi
+    done
+    if find "$TMP_BOOK/_output" -maxdepth 1 -type d -name '*_files' | grep -q .; then
+      ko "book render creates NO <stem>_files dirs under _output — found *_files dir"
+    else
+      ok "book render creates no <stem>_files dirs under _output (site_libs only)"
+    fi
+  else
+    ko "book site_libs dir exists — missing: $BOOK_SITE_LIBS"
+  fi
+else
+  ko "book page rendered — _output/index.html missing"
+fi
+rm -rf "$TMP_BOOK"
+
+TMP_OUTDIR=$(mktemp -d)
+setup_extension "$TMP_OUTDIR"
+cat > "$TMP_OUTDIR/index.qmd" <<'QMD'
+---
+project:
+  type: default
+  output-dir: build-out
+title: Standalone with output-dir fixture
+filters: [_extensions/mcmullarkey/blendtutor/blendtutor.lua]
+---
+
+::: {.blendtutor language="r"}
+Write `add(a, b)`.
+
+```r
+add <- function(a, b) { a + b }
+```
+:::
+QMD
+OUTDIR_OUTPUT=$( ( cd "$TMP_OUTDIR" && quarto render index.qmd --to html ) 2>&1 ) && OUTDIR_RC=0 || OUTDIR_RC=$?
+if [ "$OUTDIR_RC" -eq 0 ]; then
+  ok "standalone+output-dir render exits 0"
+else
+  ko "standalone+output-dir render exits 0 — exit code $OUTDIR_RC"
+  echo "  render output: $OUTDIR_OUTPUT" >&2
+fi
+
+if [ -f "$TMP_OUTDIR/index.html" ]; then
+  OUTDIR_BOOTSTRAP=$(extract_bootstrap "$(cat "$TMP_OUTDIR/index.html")")
+  if has_token "$OUTDIR_BOOTSTRAP" "./index_files/$LIBS_REL/exercise-runtime.js"; then
+    ok "standalone+output-dir keeps <stem>_files specifier (discriminator: not site_libs)"
+  else
+    ko "standalone+output-dir keeps <stem>_files specifier — got: $OUTDIR_BOOTSTRAP"
+  fi
+  if printf '%s' "$OUTDIR_BOOTSTRAP" | grep -qF "site_libs/"; then
+    ko "standalone+output-dir has NO site_libs specifier — found site_libs/ path"
+  else
+    ok "standalone+output-dir specifier has no site_libs/ path"
+  fi
+  if [ -d "$TMP_OUTDIR/index_files/$LIBS_REL" ]; then
+    ok "standalone+output-dir libs deployed at index_files/libs (unchanged)"
+  else
+    ko "standalone+output-dir libs deployed at index_files/libs — missing"
+  fi
+else
+  ko "standalone+output-dir page rendered — index.html missing"
+fi
+rm -rf "$TMP_OUTDIR"
 
 # ---------------------------------------------------------------------------
 # Clause 9: Non-HTML gate — hermetic latex render

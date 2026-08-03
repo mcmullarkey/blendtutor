@@ -1,0 +1,59 @@
+# Clause evidence — issue #139 (AC-3 filter auto-bootstrap)
+# Structural greps against freshly rendered quarto-fixture HTML + static pins.
+# Clause 8 (rodney runtime) covered by rodney.log / probe-report.json.
+## Clause 1: bootstrap emitted once (mixed-lang.html)
+count: 1
+<script type="module" data-bt-bootstrap="auto">
+-- bootstrap body --
+<script type="module" data-bt-bootstrap="auto">
+  import { scanExercises, buildRegistry, start } from "../_extensions/blendtutor/assets/exercise-runtime.js";
+  import { createWebRAdapter } from "../_extensions/blendtutor/assets/webr-adapter.js";
+  import { pyodideAdapter } from "../_extensions/blendtutor/assets/pyodide-adapter.js";
+
+  start(buildRegistry(scanExercises()), {
+    r: createWebRAdapter(),
+    python: pyodideAdapter,
+  }).catch((err) => console.error("[blendtutor] auto-bootstrap failed", err));
+</script>
+
+## Clause 2: per-language conditional imports
+-- r-only.html imports --
+  import { scanExercises, buildRegistry, start } from "../_extensions/blendtutor/assets/exercise-runtime.js";
+  import { createWebRAdapter } from "../_extensions/blendtutor/assets/webr-adapter.js";
+r-only pyodideAdapter count (expect 0): 0
+-- pyodide.html imports --
+  import { scanExercises, buildRegistry, start } from "../_extensions/blendtutor/assets/exercise-runtime.js";
+  import { pyodideAdapter } from "../_extensions/blendtutor/assets/pyodide-adapter.js";
+pyodide createWebRAdapter count (expect 0): 0
+
+## Clause 3: start() wiring
+  start(buildRegistry(scanExercises()), {
+no-exercises bootstrap count (chapter-no-coi.html, expect 0): 0
+
+## Clause 4: opt-out suppresses entirely (webr.html)
+auto bootstrap count (expect 0): 0
+hand-written bootstrap preserved: 1 occurrence(s)
+fixture YAML pins:
+  webr.qmd: 1
+  feedback.qmd: 1
+  ux.qmd: 1
+
+## Clause 5: non-HTML gate (filter.tex)
+auto bootstrap count (expect 0): 0
+
+## Clause 6: no hardcoded asset path + depth
+-- bootstrap specifiers (mixed-lang.html) --
+  import { scanExercises, buildRegistry, start } from "../_extensions/blendtutor/assets/exercise-runtime.js";
+  import { createWebRAdapter } from "../_extensions/blendtutor/assets/webr-adapter.js";
+  import { pyodideAdapter } from "../_extensions/blendtutor/assets/pyodide-adapter.js";
+bare _extensions/blendtutor specifier count (expect 0): 0
+-- depth at coi-book (chapter-coi.html) --
+src="../../_extensions/blendtutor/assets/coi-serviceworker.js"
+
+## Clause 7: error sink
+  }).catch((err) => console.error("[blendtutor] auto-bootstrap failed", err));
+
+## Clause 9: static pins (blendtutor.lua)
+has_r = true in Div(): 1
+hasBootstrapDone guard: 6
+bt-auto-bootstrap YAML read: 4

@@ -1,0 +1,136 @@
+TAP version 13
+# Subtest: timeout-budget constants match approved budgets
+ok 1 - timeout-budget constants match approved budgets
+  ---
+  duration_ms: 0.414375
+  type: 'test'
+  ...
+# Subtest: verdict closed enum contains exactly the 4 spec values
+ok 2 - verdict closed enum contains exactly the 4 spec values
+  ---
+  duration_ms: 0.32275
+  type: 'test'
+  ...
+# Subtest: computeVerdict: clean run → pass
+ok 3 - computeVerdict: clean run → pass
+  ---
+  duration_ms: 0.048334
+  type: 'test'
+  ...
+# Subtest: computeVerdict: any failed assertion → exec_failure
+ok 4 - computeVerdict: any failed assertion → exec_failure
+  ---
+  duration_ms: 0.036167
+  type: 'test'
+  ...
+# Subtest: computeVerdict: COI timeout → coi_failure (distinct from exec_failure)
+ok 5 - computeVerdict: COI timeout → coi_failure (distinct from exec_failure)
+  ---
+  duration_ms: 0.0365
+  type: 'test'
+  ...
+# Subtest: computeVerdict: coi_failure wins even with failed assertions
+ok 6 - computeVerdict: coi_failure wins even with failed assertions
+  ---
+  duration_ms: 0.037208
+  type: 'test'
+  ...
+# Subtest: computeVerdict: textarea-only CM6 fallback → cm6_fallback_noted (distinct, non-fatal)
+ok 7 - computeVerdict: textarea-only CM6 fallback → cm6_fallback_noted (distinct, non-fatal)
+  ---
+  duration_ms: 0.029958
+  type: 'test'
+  ...
+# Subtest: per-assertion status closed set is exactly {pass, fail, skip}
+ok 8 - per-assertion status closed set is exactly {pass, fail, skip}
+  ---
+  duration_ms: 0.033917
+  type: 'test'
+  ...
+# Subtest: makeRecord: pass record carries name/status/details
+ok 9 - makeRecord: pass record carries name/status/details
+  ---
+  duration_ms: 0.199083
+  type: 'test'
+  ...
+# Subtest: makeRecord: fail record allowed without details (defaults to empty)
+ok 10 - makeRecord: fail record allowed without details (defaults to empty)
+  ---
+  duration_ms: 0.269334
+  type: 'test'
+  ...
+# Subtest: makeRecord: skip record REQUIRES a reason in details
+ok 11 - makeRecord: skip record REQUIRES a reason in details
+  ---
+  duration_ms: 0.200417
+  type: 'test'
+  ...
+# Subtest: makeRecord: rejects status outside the closed set
+ok 12 - makeRecord: rejects status outside the closed set
+  ---
+  duration_ms: 0.04675
+  type: 'test'
+  ...
+# Subtest: makeRecord: rejects empty name
+ok 13 - makeRecord: rejects empty name
+  ---
+  duration_ms: 0.033708
+  type: 'test'
+  ...
+# Subtest: pageUrlFor: local mode serves /demo-standalone/index.html on base URL
+ok 14 - pageUrlFor: local mode serves /demo-standalone/index.html on base URL
+  ---
+  duration_ms: 0.061917
+  type: 'test'
+  ...
+# Subtest: pageUrlFor: live mode uses DEPLOYED_URL verbatim with trailing slash stripped
+ok 15 - pageUrlFor: live mode uses DEPLOYED_URL verbatim with trailing slash stripped
+  ---
+  duration_ms: 0.055875
+  type: 'test'
+  ...
+# Subtest: pageUrlFor: live mode keeps URL without trailing slash unchanged
+ok 16 - pageUrlFor: live mode keeps URL without trailing slash unchanged
+  ---
+  duration_ms: 0.040709
+  type: 'test'
+  ...
+# Subtest: pageUrlFor: live mode without DEPLOYED_URL throws
+ok 17 - pageUrlFor: live mode without DEPLOYED_URL throws
+  ---
+  duration_ms: 0.032584
+  type: 'test'
+  ...
+# Subtest: normalizeDeployedUrl strips any number of trailing slashes
+ok 18 - normalizeDeployedUrl strips any number of trailing slashes
+  ---
+  duration_ms: 0.021792
+  type: 'test'
+  ...
+# Subtest: normalizeMode defaults unknown/absent arg to local
+ok 19 - normalizeMode defaults unknown/absent arg to local
+  ---
+  duration_ms: 0.025333
+  type: 'test'
+  ...
+# Subtest: buildReport preserves records, snapshots, timings, and mode metadata
+ok 20 - buildReport preserves records, snapshots, timings, and mode metadata
+  ---
+  duration_ms: 0.055583
+  type: 'test'
+  ...
+# Subtest: buildReport: live mode records deployedUrl, not the literal 'local'
+ok 21 - buildReport: live mode records deployedUrl, not the literal 'local'
+  ---
+  duration_ms: 0.034875
+  type: 'test'
+  ...
+1..21
+# tests 21
+# suites 0
+# pass 21
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 104.263958

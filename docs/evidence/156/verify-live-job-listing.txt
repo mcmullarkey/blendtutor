@@ -1,0 +1,63 @@
+# docs.yml — deploy job outputs (clause 3) + verify-live job listing (clause 1-12)
+# awk-extracted via job_block pattern (per test_demo_standalone_render.sh:115 / clause 13)
+
+## deploy job block (awk extraction) — outputs: page_url present
+    name: deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    # Job-level outputs: the built site URL. deploy-pages publishes and emits
+    # the live URL via the step id; job-level outputs are the ONLY way to pass
+    # it across job boundaries (step outputs do NOT survive needs:), so the
+    # verify-live alarm job can build DEPLOYED_URL from it (AC-4).
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    # Job-level permissions replace the workflow defaults: the Pages deploy needs
+    # the OIDC token write + pages write, and nothing else (it consumes the
+    # artifact the build job uploaded; it does not check out the repo).
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  # Post-deploy alarm — runs AC-3 probe against live URL; failure is NOT a gate
+  # (deploy already published).
+
+## verify-live job block (awk extraction) — declared AFTER deploy block end
+    name: verify live demo (AC-3 probe)
+    needs: deploy
+    runs-on: ubuntu-latest
+    # Probe wall-time ~4.5min (COI 30s + webR 120s + pyodide 60s); the alarm
+    # must outlive the probe so a slow-but-healthy site is not killed mid-run.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # uvx rodney (pinned rodney==0.4.0 in pages-live.js) requires uv.
+      - uses: astral-sh/setup-uv@v5
+
+      # Defensive node pin over the ubuntu-latest default.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # AC-3 probe against the LIVE URL: DEPLOYED_URL = Pages site root
+      # (needs.deploy.outputs.page_url, trailing slash) + demo/ nest. The
+      # harness (pages-live.js) sets ROD_CHROME_BIN to scripts/rodney-chrome.sh
+      # itself, so the committed wrapper strips rodney 0.4.0's isolation-
+      # breaking Chrome flags. No continue-on-error / || true / if: always():
+      # a probe failure FAILS this job — that is the alarm.
+      - name: Verify live demo (rodney COI probe)
+        run: DEPLOYED_URL="${{ needs.deploy.outputs.page_url }}demo/" uv run node rodney-probes/pages-live.js live
+
+## Job header line numbers (clause 1: verify-live start > deploy end)
+deploy: line 121
+verify-live: line 147
+
+## DEPLOYED_URL run line (clauses 4-5, 7):
+172:        run: DEPLOYED_URL="${{ needs.deploy.outputs.page_url }}demo/" uv run node rodney-probes/pages-live.js live

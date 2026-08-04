@@ -1,0 +1,28 @@
+== Phase 1: structural pins (docs.yml verify-live job) ==
+  PASS: verify-live top-level job declared after deploy block (line 147 > deploy end 146)
+  PASS: verify-live needs deploy (job-block pin)
+  PASS: deploy job declares outputs: page_url from steps.deployment.outputs (cross-job interface)
+  PASS: DEPLOYED_URL = needs.deploy.outputs.page_url + /demo/ suffix
+  PASS: probe runs pages-live.js in live mode
+  PASS: no continue-on-error in verify-live job
+  PASS: probe run line swallows no exit codes (no || true / || exit 0 / || : / ; true / && true)
+  PASS: no if: always() on verify-live job
+  PASS: actions/checkout in verify-live job (probe file must exist on runner)
+  PASS: astral-sh/setup-uv in verify-live job (uvx rodney requires uv)
+  PASS: actions/setup-node in verify-live job (node for probe)
+  PASS: deploy does NOT need verify-live (post-deploy alarm, not a gate)
+== Phase 1: structural pins (ci.yml quarto-render job) ==
+  PASS: CI quarto-render job runs test_verify_live_wiring.sh
+== Phase 2: rodney COI wrapper (clause 14) ==
+  PASS: scripts/rodney-chrome.sh committed and executable
+  PASS: wrapper resolution order: $REAL_CHROME → macOS Chrome → /usr/bin/google-chrome → Chromium.orig (4/4)
+  PASS: wrapper strips --single-process / --disable-site-isolation-trials / whole --disable-features=* arg (argv: --no-sandbox --disable-dev-shm-usage about:blank)
+  PASS: wrapper keeps --no-sandbox --disable-dev-shm-usage + trailing about:blank (argv: --no-sandbox --disable-dev-shm-usage about:blank)
+== Phase 3: ROD_CHROME_BIN wiring + rodney pin (clauses 15-16) ==
+  PASS: ROD_CHROME_BIN wired to wrapper (harness sets it: pages-live.js → scripts/rodney-chrome.sh)
+  PASS: rodney pinned uvx --from rodney==0.4.0
+
+=========================================
+  Results: 19 passed, 0 failed
+=========================================
+All tests passed.

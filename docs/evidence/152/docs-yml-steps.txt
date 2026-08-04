@@ -1,0 +1,34 @@
+# docs.yml build job steps (issue #152)
+
+41:      - uses: actions/checkout@v5
+45:      - name: Install pinned toolchain
+46:        run: rustup show active-toolchain || rustup toolchain install
+48:      - uses: Swatinem/rust-cache@v2
+50:      - uses: taiki-e/install-action@v2
+56:      - name: Build API docs (rustdoc)
+57:        run: cargo doc --no-deps
+60:      - name: Build narrative docs (mdBook)
+61:        run: mdbook build docs/book
+65:      - name: Assemble merged site
+66:        run: |
+73:      - name: Build R example site (webR)
+74:        run: cargo run --release -p blendtutor-cli -- build examples/write-less-code-r --target webr -o docs/book/book/examples/r
+76:      - name: Build Python example site (Pyodide)
+77:        run: cargo run --release -p blendtutor-cli -- build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python
+90:      - uses: quarto-dev/quarto-actions/setup@v2
+92:      - name: Render demo-book (Quarto)
+93:        run: quarto render demo-book --to html
+95:      - name: Render demo-standalone (Quarto)
+96:        run: quarto render demo-standalone --to html
+98:      - name: Fix COI service-worker scope (demo-standalone)
+99:        run: bash scripts/fix-demo-coi-scope.sh demo-standalone
+101:      - name: Assemble demo-book into artifact (/demo-book/)
+102:        run: |
+106:      - name: Assemble demo-standalone into artifact (/demo/)
+107:        run: |
+113:      - name: Add .nojekyll at artifact root
+114:        run: touch docs/book/book/.nojekyll
+116:      - name: Upload Pages artifact
+117:        uses: actions/upload-pages-artifact@v5
+135:      - name: Deploy to GitHub Pages
+137:        uses: actions/deploy-pages@v5

@@ -1,89 +1,65 @@
 {
   "issue": 153,
   "branch": "153-live-probe",
-  "worktree": "/Users/carbonite/Documents/coding/portfolio/worktree-issue-153",
-  "timestamp": "2026-08-04T18:31:14.000Z",
   "mode": "local",
   "deployedUrl": "local",
-  "verdict": "PROBES_PASS",
-  "harnessVerdict": "pass",
+  "timestamp": "2026-08-04T18:50:17.051Z",
+  "verdict": "pass",
   "probes": [
     {
       "name": "P2 COI active (crossOriginIsolated + controller)",
-      "status": "PASS",
-      "details": "settled in 58ms; crossOriginIsolated=true, controller=true"
+      "status": "pass",
+      "details": "settled in 46ms; crossOriginIsolated=true, controller=true"
     },
     {
       "name": "P1 vacuous guard: __btExercises defined",
-      "status": "PASS",
+      "status": "pass",
       "details": "registry populated (41ms)"
     },
     {
       "name": "P1 registry: __btExercises.length === 2",
-      "status": "PASS",
+      "status": "pass",
       "details": "expression true"
     },
     {
       "name": "P1 registry: .get('bt-exercise-0') non-null",
-      "status": "PASS",
+      "status": "pass",
       "details": "expression true"
     },
     {
       "name": "P1 registry: .get('bt-exercise-1') non-null",
-      "status": "PASS",
+      "status": "pass",
       "details": "expression true"
     },
     {
       "name": "P1 mounts: 2 real CM6 editors",
-      "status": "PASS",
+      "status": "pass",
       "details": "expression true"
     },
     {
       "name": "P1 mounts: every .cm-editor has a .cm-content child",
-      "status": "PASS",
+      "status": "pass",
       "details": "expression true"
     },
     {
       "name": "P3 R exec: data-status reaches 'pass'",
-      "status": "PASS",
-      "details": "webR boot+exec settled in 2857ms (status pass)"
+      "status": "pass",
+      "details": "webR boot+exec settled in 1817ms (status pass)"
     },
     {
       "name": "P3 R exec: .bt-output contains computed '3'",
-      "status": "PASS",
+      "status": "pass",
       "details": "output=\"[1] 3\""
     },
     {
       "name": "P4a Python: correct square → pass + output 'ok'",
-      "status": "PASS",
-      "details": "status=pass, output=\"ok\", 48ms"
+      "status": "pass",
+      "details": "status=pass, output=\"ok\", 60ms"
     },
     {
       "name": "P4b Python: incorrect return 0 → fail + 'Check error'",
-      "status": "PASS",
-      "details": "status=fail, output contains 'Check error' AssertionError traceback, 45ms"
-    }
-  ],
-  "screenshots": [
-    {
-      "path": "docs/evidence/153/01-editors-mounted.png",
-      "ui_state": "demo-standalone initial load: both CM6 editors mounted with starter code (R add <- function stub, Python def square stub), IDLE status badges, Run/Check/Show solution buttons",
-      "ac_reference": "AC-3 P1 (CM6 editors mount + registry)"
-    },
-    {
-      "path": "docs/evidence/153/02-r-exec-output.png",
-      "ui_state": "R exercise after Run with print(add(1,2)): PASS badge, .bt-output shows real webR computed value '[1] 3'",
-      "ac_reference": "AC-3 P3 (real R execution via webR)"
-    },
-    {
-      "path": "docs/evidence/153/03-python-pass.png",
-      "ui_state": "Python exercise with correct square(n)=n*n: PASS badge + 'ok' output (checks executed); R exercise above still PASS '[1] 3'",
-      "ac_reference": "AC-3 P4 (Python bidirectional: pass path)"
-    },
-    {
-      "path": "docs/evidence/153/04-python-fail.png",
-      "ui_state": "Python exercise with incorrect return 0: FAIL badge + 'Check error' AssertionError traceback in .bt-output (checks provably execute)",
-      "ac_reference": "AC-3 P4 (Python bidirectional: fail path)"
+      "status": "pass",
+      "details": "status=fail, output=\"Check error: Traceback (most recent call last):\\n  File \\\"/lib/python312.zip/_pyodide/_base.py\\\", line 523, in eval_code\\n    .run(globals, locals)\\n     ^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/lib/python312.zip/_pyodide/_base.py\\\", line 357, in run\\n    coroutine = eval(self.code, globals, locals)\\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"<exec>\\\", line 1, in <module>\\nAssertionError\\n\", 48ms"
     }
   ],
   "crossOriginIsolated": "true",
@@ -92,11 +68,10 @@
   "rOutput": "[1] 3",
   "pythonStatusA": "pass",
   "pythonStatusB": "fail",
-  "pythonOutput": "ok | P4b: Check error: Traceback (most recent call last):\n  File \"/lib/python312.zip/_pyodide/_base.py\", line 523, in eval_code\n    .run(globals, locals)\n     ^^^^^^^^^^^^^^^^^^^^\n  File \"/lib/python312.zip/_pyodide/_base.py\", line 357, in run\n    coroutine = eval(self.code, globals, locals)\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<exec>\", line 1, in <module>\nAssertionError\n",
+  "pythonOutput": "ok | P4b: Check error: Traceback (most recent call last):\n  File \"/lib/python312.zip/_pyodide/_base.py\", line 523, in eval_code\n    .run(globals, locals)\n     ^^^^^^^^^^^^^^^^^^^^\n  File \"/lib/python312.zip/_pyodide/_base.py\", line 357, in run\n    coroutine = eval(self.code, globals, locals)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<exec>\", line 1, in <module>\nAssertionError\n",
   "timings": {
-    "webR": 2857,
-    "pyPass": 48,
-    "pyFail": 45
-  },
-  "env_notes": "Stock rodney 0.4.0 launches Chrome with --single-process + --disable-site-isolation-trials + --disable-features=site-per-process, which makes crossOriginIsolated permanently false (COI requires process isolation) — P2 can NEVER pass on stock rodney (verified: direct server COOP/COEP headers also yield coi:false). Probes ran with an env-level workaround: ~/.cache/rod/browser/chromium-1321438/Chromium.app/Contents/MacOS/Chromium replaced by a wrapper script (original saved as Chromium.orig) that execs Playwright Chrome for Testing 145 (chromium-1208) with those three isolation-killing flags stripped. With that, full P1-P4 pass. Also observed: SW cold-start self-reload cycle is flaky on first-ever profile (one 30s P2 timeout on cold profile; warm profile settles in 58ms). Harness report from passing run: docs/evidence/153/rodney.log."
+    "webR": 1817,
+    "pyPass": 60,
+    "pyFail": 48
+  }
 }

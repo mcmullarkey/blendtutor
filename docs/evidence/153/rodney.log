@@ -1,10 +1,10 @@
 # Rodney probes for issue #153 (local mode)
 verdict: pass
 deployedUrl: local
-timestamp: 2026-08-04T18:26:33.774Z
+timestamp: 2026-08-04T18:50:17.051Z
 
 - pass: P2 COI active (crossOriginIsolated + controller)
-  settled in 58ms; crossOriginIsolated=true, controller=true
+  settled in 46ms; crossOriginIsolated=true, controller=true
 - pass: P1 vacuous guard: __btExercises defined
   registry populated (41ms)
 - pass: P1 registry: __btExercises.length === 2
@@ -18,10 +18,10 @@ timestamp: 2026-08-04T18:26:33.774Z
 - pass: P1 mounts: every .cm-editor has a .cm-content child
   expression true
 - pass: P3 R exec: data-status reaches 'pass'
-  webR boot+exec settled in 2857ms (status pass)
+  webR boot+exec settled in 1817ms (status pass)
 - pass: P3 R exec: .bt-output contains computed '3'
   output="[1] 3"
 - pass: P4a Python: correct square → pass + output 'ok'
-  status=pass, output="ok", 48ms
+  status=pass, output="ok", 60ms
 - pass: P4b Python: incorrect return 0 → fail + 'Check error'
-  status=fail, output="Check error: Traceback (most recent call last):\n  File \"/lib/python312.zip/_pyodide/_base.py\", line 523, in eval_code\n    .run(globals, locals)\n     ^^^^^^^^^^^^^^^^^^^^\n  File \"/lib/python312.zip/_pyodide/_base.py\", line 357, in run\n    coroutine = eval(self.code, globals, locals)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<exec>\", line 1, in <module>\nAssertionError\n", 45ms
+  status=fail, output="Check error: Traceback (most recent call last):\n  File \"/lib/python312.zip/_pyodide/_base.py\", line 523, in eval_code\n    .run(globals, locals)\n     ^^^^^^^^^^^^^^^^^^^^\n  File \"/lib/python312.zip/_pyodide/_base.py\", line 357, in run\n    coroutine = eval(self.code, globals, locals)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<exec>\", line 1, in <module>\nAssertionError\n", 48ms

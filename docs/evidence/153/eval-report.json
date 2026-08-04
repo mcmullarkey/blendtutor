@@ -1,0 +1,33 @@
+{
+  "issue": 153,
+  "timestamp": "2026-08-04T18:40:00.000Z",
+  "probe_report_path": "docs/evidence/153/probe-report.json",
+  "evaluations": [
+    {
+      "ac": "AC-3 P1: both CM6 editors mount with starter code (R add stub, Python square stub), IDLE status badges, Run/Check/Show solution buttons; __btExercises registry populated",
+      "screenshot": "docs/evidence/153/01-editors-mounted.png",
+      "conforms": true,
+      "discrepancies": []
+    },
+    {
+      "ac": "AC-3 P3: real R execution via webR — editor shows print(add(1,2)), green PASS badge, .bt-output shows computed '[1] 3'",
+      "screenshot": "docs/evidence/153/02-r-exec-output.png",
+      "conforms": true,
+      "discrepancies": []
+    },
+    {
+      "ac": "AC-3 P4 pass path: correct square(n)=n*n yields PASS badge + 'ok' output; R exercise above remains PASS '[1] 3'",
+      "screenshot": "docs/evidence/153/03-python-pass.png",
+      "conforms": true,
+      "discrepancies": []
+    },
+    {
+      "ac": "AC-3 P4 fail path: incorrect return 0 yields FAIL badge + 'Check error' AssertionError traceback in .bt-output (checks provably execute)",
+      "screenshot": "docs/evidence/153/04-python-fail.png",
+      "conforms": true,
+      "discrepancies": []
+    }
+  ],
+  "verdict": "CONFORM",
+  "discrepancy_count": 0
+}

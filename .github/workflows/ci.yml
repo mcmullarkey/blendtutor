@@ -107,6 +107,16 @@ jobs:
       - name: Quarto asset deployment test
         run: bash scripts/tests/test_quarto_asset_deployment.sh
 
+      # Issue #150 — Standalone interactive demo (R + Python, coi: true) with
+      # page-covering COI service worker. Validates the 8-clause predicate:
+      # type: default config pin (no output-dir), render exit 0, exactly 2
+      # bt-exercise divs (r + python), standalone-form libs with both adapters,
+      # bootstrap module with ./index_files/libs/ specifiers (no site_libs, no
+      # _extensions), exactly-one coi script, post-processed src exactly
+      # ./coi-serviceworker.js with non-empty shim at page root, CI wiring.
+      - name: Standalone demo render test
+        run: bash scripts/tests/test_demo_standalone_render.sh
+
   asset-parity:
     name: asset parity
     runs-on: ubuntu-latest
@@ -168,13 +178,3 @@ jobs:
 
       - name: Render demo book
         run: quarto render demo-book --to html
-
-      # Issue #150 — Standalone interactive demo (R + Python, coi: true) with
-      # page-covering COI service worker. Validates the 8-clause predicate:
-      # type: default config pin (no output-dir), render exit 0, exactly 2
-      # bt-exercise divs (r + python), standalone-form libs with both adapters,
-      # bootstrap module with ./index_files/libs/ specifiers (no site_libs, no
-      # _extensions), exactly-one coi script, post-processed src exactly
-      # ./coi-serviceworker.js with non-empty shim at page root, CI wiring.
-      - name: Standalone demo render test
-        run: bash scripts/tests/test_demo_standalone_render.sh

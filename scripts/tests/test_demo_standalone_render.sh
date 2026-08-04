@@ -106,10 +106,17 @@ CI_FILE=".github/workflows/ci.yml"
 if [ ! -f "$CI_FILE" ]; then
   ko "CI file exists — not found: $CI_FILE"
 else
-  if grep -qF 'scripts/tests/test_demo_standalone_render.sh' "$CI_FILE"; then
+  # Pin the assertion to the quarto-render JOB BLOCK, not file-wide: the
+  # step must live under quarto-render (clause 7), so a file-wide grep would
+  # pass even if the step regressed to another job (e.g. quarto-distribution).
+  # awk extracts the quarto-render block, ending at the next job header
+  # (2-space-indented `name:`), and the header line itself is skipped so the
+  # range cannot self-close on `quarto-render:`.
+  if awk '/^  quarto-render:/{f=1;next} f&&/^  [a-z][a-z-]*:$/{f=0} f' "$CI_FILE" \
+       | grep -qF 'scripts/tests/test_demo_standalone_render.sh'; then
     ok "CI quarto-render job runs test_demo_standalone_render.sh"
   else
-    ko "CI quarto-render job runs test_demo_standalone_render.sh — not referenced in $CI_FILE"
+    ko "CI quarto-render job runs test_demo_standalone_render.sh — not found in quarto-render job block"
   fi
 fi
 

@@ -76,6 +76,43 @@ jobs:
       - name: Build Python example site (Pyodide)
         run: cargo run --release -p blendtutor-cli -- build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python
 
+      # AC-2 (#152) — deploy demo-book + demo-standalone into the Pages
+      # artifact at /demo-book/ + /demo/, mirroring the /api + /examples nesting.
+      # Quarto is not installed on this runner until setup@v2 runs, and the
+      # demo-book renders into demo-book/_output/ (demo-book/_quarto.yml pins
+      # output-dir: _output), so the copy must DOT-COPY (trailing /.): a bare
+      # cp -R demo-book/_output dst would add a demo-book/_output/ layer and
+      # /demo-book/ would 404. demo-standalone renders beside its source, so the
+      # copy is SELECTIVE (index.html + index_files/ + coi-serviceworker.js) to
+      # keep .qmd sources/_quarto.yml/_extensions/ out of the public artifact.
+      # The COI scope post-process runs after render, before copy, so the page
+      # serves ./coi-serviceworker.js at page root (SW scope covers the page).
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Render demo-book (Quarto)
+        run: quarto render demo-book --to html
+
+      - name: Render demo-standalone (Quarto)
+        run: quarto render demo-standalone --to html
+
+      - name: Fix COI service-worker scope (demo-standalone)
+        run: bash scripts/fix-demo-coi-scope.sh demo-standalone
+
+      - name: Assemble demo-book into artifact (/demo-book/)
+        run: |
+          mkdir -p docs/book/book/demo-book
+          cp -R demo-book/_output/. docs/book/book/demo-book/
+
+      - name: Assemble demo-standalone into artifact (/demo/)
+        run: |
+          mkdir -p docs/book/book/demo
+          cp demo-standalone/index.html docs/book/book/demo/
+          cp -R demo-standalone/index_files docs/book/book/demo/
+          cp demo-standalone/coi-serviceworker.js docs/book/book/demo/
+
+      - name: Add .nojekyll at artifact root
+        run: touch docs/book/book/.nojekyll
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:

@@ -25,3 +25,5 @@ slices: [129]
 - 2026-08-02 (#129): **`quarto render` can mutate sibling files.** Rendering
   `demo-book` added `**/*.quarto_ipynb` to `demo-book/.gitignore` — an
   unrelated side effect that must be reverted, not committed.
+- 2026-08-04 (#152): **quarto render auto-creates `<dir>/.gitignore`** (contents: `/.quarto/` + `**/*.quarto_ipynb`) in every directory it renders — not just demo-book. demo-standalone/ got one on render. It shows as untracked `?? <dir>/.gitignore` and must be rm'd before commit (root .gitignore already covers `.quarto/`).
+- 2026-08-04 (#152): **root `.gitignore` line `/quarto-fixture/*_files/` only matches depth-1.** test_coi_filter.sh renders into `quarto-fixture/coi-book/*_files/` (nested), which escapes the ignore and shows untracked. Cleanup before commit: `rm -rf quarto-fixture/coi-book/*_files/` (or generalize the ignore line).

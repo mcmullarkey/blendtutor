@@ -62,6 +62,74 @@ cargo run --release -p blendtutor-cli -- build examples/write-less-code-r \
 cargo run --release -p blendtutor-cli -- build examples/write-less-code-python \
   --target pyodide -o "$book_out/examples/python"
 
+# AC-2 (#152) — render demo-book + demo-standalone into the Pages artifact at
+# /demo-book/ + /demo/, mirroring the /api + /examples/{r,python} nesting.
+# Mirrors the docs.yml build steps (module-responsibility contract): demo-book
+# renders into demo-book/_output/ (its _quarto.yml pins output-dir: _output),
+# so the copy DOT-COPIES (trailing /.) to avoid a demo-book/_output/ layer;
+# demo-standalone renders beside its source, so the copy is SELECTIVE
+# (index.html + index_files/ + coi-serviceworker.js only — no .qmd sources,
+# _quarto.yml, or _extensions/ leak). The COI post-process runs after render,
+# before copy, so the assembled page serves ./coi-serviceworker.js at page root
+# (SW scope covers the page, else R exercises are silent-dead on Pages).
+echo "docs: rendering demos (quarto) and assembling /demo-book/ + /demo/ …"
+quarto render demo-book --to html
+quarto render demo-standalone --to html
+bash scripts/fix-demo-coi-scope.sh demo-standalone
+mkdir -p "$book_out/demo-book"
+cp -R demo-book/_output/. "$book_out/demo-book/"
+mkdir -p "$book_out/demo"
+cp demo-standalone/index.html "$book_out/demo/"
+cp -R demo-standalone/index_files "$book_out/demo/"
+cp demo-standalone/coi-serviceworker.js "$book_out/demo/"
+touch "$book_out/.nojekyll"
+
+# AC-2 — assert the assembled layout (clause 9):
+#   * demo-book/index.html exists at /demo-book/ root, NOT under an _output/
+#     layer (dot-copy flattened the render output)
+#   * demo/index.html exists with coi src EXACTLY ./coi-serviceworker.js and no
+#     _extensions/ substring in the coi script tag (post-process applied AFTER
+#     copy would keep the subdir src → SW scope = assets dir → webR dead)
+#   * demo/coi-serviceworker.js exists, non-empty, byte-identical to the
+#     vendored shim
+#   * .nojekyll at artifact ROOT
+test -f "$book_out/demo-book/index.html" \
+  || { echo "docs: demo-book/index.html missing ($book_out/demo-book/)" >&2; exit 1; }
+if [ -e "$book_out/demo-book/_output" ]; then
+  echo "docs: demo-book assembled under an _output/ layer (bare cp, not dot-copy)" >&2
+  exit 1
+fi
+test -f "$book_out/demo/index.html" \
+  || { echo "docs: demo/index.html missing ($book_out/demo/)" >&2; exit 1; }
+grep -qF 'src="./coi-serviceworker.js"' "$book_out/demo/index.html" \
+  || { echo "docs: demo/index.html coi src is not exactly ./coi-serviceworker.js (SW scope trap)" >&2; exit 1; }
+COI_TAG=$(grep -oE '<script[^>]*coi-serviceworker\.js[^>]*>' "$book_out/demo/index.html")
+if grep -qF '_extensions/' <<< "$COI_TAG"; then
+  echo "docs: demo/index.html coi script tag leaks _extensions/ (source-tree path in artifact)" >&2
+  exit 1
+fi
+test -f "$book_out/demo/coi-serviceworker.js" \
+  || { echo "docs: demo/coi-serviceworker.js missing" >&2; exit 1; }
+test -s "$book_out/demo/coi-serviceworker.js" \
+  || { echo "docs: demo/coi-serviceworker.js is empty" >&2; exit 1; }
+DEMO_SHIM_SUM=$(cksum "$book_out/demo/coi-serviceworker.js" | cut -d' ' -f1)
+DEMO_SHIM_SRC_SUM=$(cksum "_extensions/blendtutor/assets/coi-serviceworker.js" | cut -d' ' -f1)
+if [ "$DEMO_SHIM_SUM" != "$DEMO_SHIM_SRC_SUM" ]; then
+  echo "docs: demo/coi-serviceworker.js not byte-identical to vendored shim" >&2
+  exit 1
+fi
+test -f "$book_out/.nojekyll" \
+  || { echo "docs: .nojekyll missing at artifact root ($book_out/)" >&2; exit 1; }
+
+# AC-2 — clause 10: the existing artifact survives assembly (no rm -rf clobber).
+for fname in "$book_out/index.html" \
+             "$book_out/api/blendtutor_core/index.html" \
+             "$book_out/examples/r/index.html" \
+             "$book_out/examples/python/index.html"; do
+  test -f "$fname" \
+    || { echo "docs: existing artifact clobbered by demo assembly — missing $fname" >&2; exit 1; }
+done
+
 # AC-6 — assert each example site has the required files: index.html,
 # lesson-runner.js, lessons/0.json (at least one lesson built), eval-results.html.
 for target_dir in "$book_out/examples/r" "$book_out/examples/python"; do
@@ -115,6 +183,21 @@ for needle in \
     || { echo "docs: $workflow missing build command: $needle" >&2; exit 1; }
 done
 
+# AC-2 (#152) — docs.yml contains the demo deploy steps (quarto setup, both
+# renders, COI post-process, dot-copy demo-book, root .nojekyll) so the local
+# mirror cannot silently diverge from CI.
+for needle in \
+  'quarto-dev/quarto-actions/setup@v2' \
+  'quarto render demo-book' \
+  'quarto render demo-standalone' \
+  'scripts/fix-demo-coi-scope.sh demo-standalone' \
+  'demo-book/_output/.' \
+  'docs/book/book/demo' \
+  'docs/book/book/.nojekyll'; do
+  grep -q "$needle" "$workflow" \
+    || { echo "docs: $workflow missing demo deploy step: $needle" >&2; exit 1; }
+done
+
 # AC-6 — README.md links to both example sites.
 for needle in 'examples/r/' 'examples/python/'; do
   grep -q "$needle" README.md \
@@ -135,4 +218,4 @@ grep -q 'examples/r/' "$book_out/examples.html" \
 grep -q 'examples/python/' "$book_out/examples.html" \
   || { echo "docs: built mdBook examples.html missing rendered link to examples/python/" >&2; exit 1; }
 
-echo "docs: OK — merged site at $book_out (book at /, API at /api, examples at /examples/{r,python})"
+echo "docs: OK — merged site at $book_out (book at /, API at /api, examples at /examples/{r,python}, demos at /demo-book/ + /demo/)"

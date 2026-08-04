@@ -1,0 +1,67 @@
+== Phase 1: structural pins (docs.yml build job) ==
+  PASS: quarto setup in build job (quarto-dev/quarto-actions/setup@v2)
+  PASS: build job renders demo-book (quarto render demo-book --to html)
+  PASS: build job renders demo-standalone (quarto render demo-standalone --to html)
+  PASS: COI post-process present (scripts/fix-demo-coi-scope.sh demo-standalone)
+  PASS: demo-book DOT-COPY literal (cp -R demo-book/_output/. — no _output/ layer)
+  PASS: selective demo copy (index.html + index_files/ + coi-serviceworker.js → /demo/)
+  PASS: .nojekyll step at artifact root (touch docs/book/book/.nojekyll)
+  PASS: ordering: setup → renders → fix-coi → copies → .nojekyll all BEFORE upload (clauses 4, 8)
+  PASS: no '|| true' on build steps
+  PASS: no 'continue-on-error: true' on build steps
+  PASS: no render/copy steps in deploy job block
+== Phase 1: structural pins (ci.yml quarto-render job) ==
+  PASS: CI quarto-render job runs test_docs_pages_artifact.sh
+== Phase 1: structural pins (check-docs.sh mirror contract) ==
+  PASS: check-docs.sh mirrors the new build steps (8/8 commands found)
+== Phase 2: local render + assemble + assert (check-docs.sh) ==
+docs: building API reference (rustdoc, -D warnings) …
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.28s
+   Generated /Users/carbonite/Documents/coding/portfolio/worktree-issue-152/target/doc/blendtutor/index.html and 1 other file
+docs: building narrative site (mdBook) …
+ INFO Book building has started
+ INFO Running the html backend
+ INFO HTML book written to `/Users/carbonite/Documents/coding/portfolio/worktree-issue-152/docs/book/book`
+docs: assembling merged site (docs/book/book + /api) …
+docs: building example sites (webr + pyodide) …
+    Finished `release` profile [optimized] target(s) in 0.15s
+     Running `target/release/blendtutor build examples/write-less-code-r --target webr -o docs/book/book/examples/r`
+built 5 lesson(s) for webr into docs/book/book/examples/r
+    Finished `release` profile [optimized] target(s) in 0.09s
+     Running `target/release/blendtutor build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python`
+built 5 lesson(s) for pyodide into docs/book/book/examples/python
+docs: rendering demos (quarto) and assembling /demo-book/ + /demo/ …
+[1m[34m[1/3] index.qmd[39m[22m
+[1m[34m[2/3] r-exercises.qmd[39m[22m
+[1m[34m[3/3] python-exercises.qmd[39m[22m
+
+Output created: _output/index.html
+
+[1mpandoc [22m
+  to: html
+  output-file: index.html
+  standalone: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: Blendtutor Interactive Demo
+  coi: true
+  
+Output created: index.html
+
+fixed COI scope for demo-standalone: src -> ./coi-serviceworker.js, shim -> demo-standalone/coi-serviceworker.js
+docs: verifying failure propagation (missing course path) …
+docs: OK — merged site at docs/book/book (book at /, API at /api, examples at /examples/{r,python}, demos at /demo-book/ + /demo/)
+  PASS: check-docs.sh renders + assembles + asserts the artifact layout (clauses 9-10)
+
+=========================================
+  Results: 14 passed, 0 failed
+=========================================
+All tests passed.

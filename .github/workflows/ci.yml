@@ -117,6 +117,16 @@ jobs:
       - name: Standalone demo render test
         run: bash scripts/tests/test_demo_standalone_render.sh
 
+      # Issue #152 — Pages artifact assembly test. Phase 1 pins the docs.yml
+      # build-job steps (quarto setup, both demo renders, COI post-process
+      # ordering, dot-copy demo-book, selective demo copy, root .nojekyll,
+      # all-before-upload, no refusal arms) via awk job-block extraction, plus
+      # the check-docs.sh mirror contract. Phase 2 runs check-docs.sh
+      # end-to-end (render + assemble + assert) and SKIPs when quarto/mdbook/
+      # cargo are absent — this job has only quarto, so Phase 1 is enforced here.
+      - name: Pages artifact assembly test
+        run: bash scripts/tests/test_docs_pages_artifact.sh
+
   asset-parity:
     name: asset parity
     runs-on: ubuntu-latest

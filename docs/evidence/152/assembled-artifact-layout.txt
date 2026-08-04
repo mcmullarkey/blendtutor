@@ -1,0 +1,57 @@
+# Assembled Pages artifact layout (local check-docs.sh run, issue #152)
+
+## docs/book/book/ root
+404.html
+api
+api-reference.html
+architecture.html
+ayu-highlight-3fdfc3ac.css
+book-c22b7243.js
+clipboard-1626706a.min.js
+creating-lessons.html
+css
+demo
+demo-book
+elasticlunr-ef4e11c1.min.js
+examples
+examples.html
+favicon-8114d1fc.png
+favicon-de23e50b.svg
+fonts
+highlight-493f70e1.css
+highlight-abc7f01d.js
+index.html
+introduction.html
+mark-09e88c2c.min.js
+print.html
+searcher-09f2665d.js
+searchindex-1f289877.js
+toc-7137a1ba.js
+toc.html
+tomorrow-night-4c0ae647.css
+
+## demo-book/ (flattened _output — no _output/ layer)
+index.html
+python-exercises.html
+r-exercises.html
+search.json
+site_libs
+
+## demo/ (selective copy)
+coi-serviceworker.js
+index_files
+index.html
+
+## coi src in assembled demo/index.html
+src="./coi-serviceworker.js"
+
+## shim cksum (assembled vs vendored)
+150961642 5407
+150961642 5407
+
+## survivors
+OK  docs/book/book/index.html
+OK  docs/book/book/api/blendtutor_core/index.html
+OK  docs/book/book/examples/r/index.html
+OK  docs/book/book/examples/python/index.html
+OK  docs/book/book/.nojekyll

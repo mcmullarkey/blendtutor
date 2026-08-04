@@ -379,13 +379,16 @@ function probeP1Mounts() {
   const taCount = rodneyJs(
     "document.querySelectorAll('.bt-exercise textarea').length",
   );
-  if (cmCount !== "2" && taCount === "2") {
+  if (cmCount === "0" && taCount === "2") {
     // Distinct finding, NOT a hard fail (spec AC-3 line 12 + design intent):
     // execution remains valid via the textarea fallback (exercise-runtime.js
     // mountEditor graceful degradation). Recorded as pass-with-fallback-note
     // so it does NOT count toward failedCount — the cm6Fallback flag alone
-    // drives the non-fatal cm6_fallback_noted verdict. A real mount failure
-    // (no CM6 AND no textarea) falls through to the hard-fail assert below.
+    // drives the non-fatal cm6_fallback_noted verdict. Predicate is EXACTLY
+    // zero CM6 editors (spec literal): a partial mount (e.g. 1 .cm-editor +
+    // 2 textarea) must NOT be misclassified non-fatal — it falls through to
+    // the hard-fail assert below, as does a real mount failure (no CM6 AND
+    // no textarea).
     cm6Fallback = true;
     record(
       "P1 mounts: textarea fallback (CM6 unavailable)",
@@ -413,6 +416,7 @@ function probeP2Coi() {
     "crossOriginIsolated === true && navigator.serviceWorker && navigator.serviceWorker.controller !== null",
     core.COI_TIMEOUT_S,
   );
+  timings.coi = elapsed;
   if (elapsed === -1) {
     coiFailed = true;
     record(

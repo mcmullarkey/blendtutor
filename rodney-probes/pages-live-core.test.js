@@ -209,7 +209,7 @@ test("buildReport preserves records, snapshots, timings, and mode metadata", () 
     pythonStatusA: "pass",
     pythonStatusB: "fail",
     pythonOutput: "ok | P4b: Check error",
-    timings: { webR: 42000, pyPass: 8000, pyFail: 9000 },
+    timings: { coi: 1500, webR: 42000, pyPass: 8000, pyFail: 9000 },
   });
 
   assert.equal(report.issue, 153);
@@ -222,6 +222,7 @@ test("buildReport preserves records, snapshots, timings, and mode metadata", () 
   assert.equal(report.swController, "true");
   assert.equal(report.rOutput, "3");
   assert.equal(report.pythonStatusB, "fail");
+  assert.equal(report.timings.coi, 1500);
   assert.equal(report.timings.webR, 42000);
 });
 

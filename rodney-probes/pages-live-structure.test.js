@@ -14,6 +14,13 @@
  *      record would pollute failedCount and make the non-fatal
  *      cm6_fallback_noted verdict unreachable under exec_failure-first
  *      priority.
+ *   3. (Review-cycle-2 cleanup) The cm6 fallback PREDICATE is the spec
+ *      literal `cmCount === "0" && taCount === "2"` — a partial mount
+ *      (e.g. 1 .cm-editor + 2 textarea) must fall through to the hard-fail
+ *      assert, NOT be misclassified non-fatal.
+ *   4. (Review-cycle-2 cleanup) P2 records `timings.coi` immediately after
+ *      the elapsed capture (before the timeout check), so coi_failure
+ *      timeouts still surface the -1 timing in the report.
  */
 
 const { test } = require("node:test");
@@ -37,6 +44,8 @@ const ANCHORS = {
   p3Exec: "probeP3RExec();",
   p4Exec: "probeP4PyExec();",
   cm6FallbackRecord: '"P1 mounts: textarea fallback (CM6 unavailable)"',
+  cm6FallbackPredicate: 'cmCount === "0" && taCount === "2"',
+  timingsCoi: "timings.coi = elapsed;",
 };
 
 test("main() probe orchestration contains all expected anchors", () => {

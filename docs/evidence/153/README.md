@@ -9,10 +9,10 @@ not run rodney/browser).
 
 | File | Lines | Role |
 |------|-------|------|
-| `rodney-probes/pages-live.js` | 700 | Effectful harness: renders demo-standalone/ if missing, serves worktree root :8088, drives uvx rodney (execFileSync — direct uvx rodney bash is permission-blocked), asserts P1-P5, writes report |
+| `rodney-probes/pages-live.js` | 704 | Effectful harness: renders demo-standalone/ if missing, serves worktree root :8088, drives uvx rodney (execFileSync — direct uvx rodney bash is permission-blocked), asserts P1-P5, writes report |
 | `rodney-probes/pages-live-core.js` | 182 | Pure core (§2): verdict closed enum, assertion-record construction, path normalization local `/demo-standalone/` vs live `/demo/`, timeout budgets (COI 30s / webR 120s / pyodide 60s), report assembly — zero side effects |
-| `rodney-probes/pages-live-core.test.js` | 249 | Pure-part unit tests (node:test, no rodney/DOM) — 23 tests, all green |
-| `rodney-probes/pages-live-structure.test.js` | 103 | Structural tests (node:test, fs read of harness source — no rodney/DOM): pins P1-unconditional-before-coiFailed orchestration + cm6_fallback "not hard fail" record status (review-cycle-2 findings) — 4 tests, all green |
+| `rodney-probes/pages-live-core.test.js` | 250 | Pure-part unit tests (node:test, no rodney/DOM) — 23 tests, all green |
+| `rodney-probes/pages-live-structure.test.js` | 112 | Structural tests (node:test, fs read of harness source — no rodney/DOM): pins P1-unconditional-before-coiFailed orchestration + cm6_fallback "not hard fail" record status + spec-literal cm6 predicate `=== "0"` + `timings.coi` capture (review-cycle-2 findings) — 4 tests, all green |
 | `scripts/rodney-chrome.sh` | 86 | Chrome wrapper (ROD_CHROME_BIN target): strips rodney/go-rod's isolation-breaking flags, execs a real Chrome (REAL_CHROME → macOS → Linux → rodney-managed Chromium.orig) — see "Chrome launch-flag fix" below |
 | `rodney-probes/rodney-chrome.test.js` | 123 | Wrapper smoke tests (node:test, fake REAL_CHROME echoes argv) — 5 tests, all green |
 
@@ -25,7 +25,7 @@ uv run node --test rodney-probes/pages-live-core.test.js
 ```
 
 Harness orchestration structure tests (review-cycle-2 pins — P1-unconditional
-hoist + cm6_fallback non-fail record):
+hoist + cm6_fallback non-fail record + spec-literal cm6 predicate + timings.coi):
 
 ```bash
 uv run node --test rodney-probes/pages-live-structure.test.js
@@ -85,17 +85,20 @@ that cache, set `REAL_CHROME` to any Chrome/Chromium binary.
 
 - **P1** CM6 mounts + registry — `probeP1Mounts()`: vacuous guard first
   (`__btExercises` defined — PR #123 pattern), `.get('bt-exercise-0'/'1')`
-  non-null, 2 `.cm-editor` each with a `.cm-content` child; textarea-only
-  degradation recorded as distinct `cm6_fallback` finding with status
-  "pass" (NOT "fail" — spec says not hard fail; a fail record would pollute
-  failedCount and make the non-fatal `cm6_fallback_noted` verdict unreachable
-  under exec_failure-first priority). P1 runs UNCONDITIONALLY — even on
-  coi_failure, so a COI report always carries mount diagnostics; only P3/P4
-  skip on the P2 timeout
+  non-null, 2 `.cm-editor` each with a `.cm-content` child; ONLY a full CM6
+  absence (0 `.cm-editor` + 2 textarea) is recorded as distinct
+  `cm6_fallback` finding with status "pass" (NOT "fail" — spec says not hard
+  fail; a fail record would pollute failedCount and make the non-fatal
+  `cm6_fallback_noted` verdict unreachable under exec_failure-first priority).
+  A partial mount (e.g. 1 `.cm-editor` + 2 textarea) falls through to the
+  hard-fail assert — never misclassified non-fatal. P1 runs UNCONDITIONALLY —
+  even on coi_failure, so a COI report always carries mount diagnostics; only
+  P3/P4 skip on the P2 timeout
 - **P2** COI gate — `probeP2Coi()`: poll ≤30s THROUGH the SW self-reload
   cycle (sessionStorage.coiReloadedBySelf) until `crossOriginIsolated ===
   true` AND `controller !== null`; timeout → `coi_failure` verdict, P3/P4
-  skipped with recorded reason
+  skipped with recorded reason. Boot timing captured as `timings.coi`
+  immediately after the poll (unconditional — timeout records -1)
 - **P3** R exec — `probeP3RExec()`: `setEditorContent` incl.
   `print(add(1,2))` → click `.bt-run-btn` → ≤120s webR → data-status="pass"
   AND `.bt-output` contains "3" (status-only insufficient — webR ignores

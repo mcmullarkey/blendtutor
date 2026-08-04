@@ -1,0 +1,75 @@
+=== Full regression suite — fix-demo-visible-exercises ===
+timestamp: 2026-08-04T00:20:34Z
+
+### $ bash scripts/tests/test_quarto_filter.sh
+  Results: 27 passed, 0 failed
+=========================================
+All tests passed.
+exit: 0
+
+### $ bash scripts/tests/test_quarto_bootstrap.sh
+  Results: 39 passed, 0 failed
+=========================================
+All tests passed.
+exit: 0
+
+### $ bash scripts/tests/test_quarto_asset_deployment.sh
+  Results: 52 passed, 0 failed
+=========================================
+All tests passed.
+exit: 0
+
+### $ bash scripts/tests/test_quarto_distribution.sh
+  Results: 78 passed, 0 failed
+=========================================
+All tests passed.
+exit: 0
+
+### $ bash scripts/tests/test_quarto_render.sh
+  Results: 12 passed, 0 failed
+=========================================
+All tests passed.
+exit: 0
+
+### $ bash scripts/tests/test_quarto_install_render.sh
+  Results: 13 passed, 0 failed, 0 skipped
+=========================================
+All tests passed.
+exit: 0
+
+### $ bash scripts/tests/test_coi_filter.sh
+  Results: 15 passed, 0 failed
+=========================================
+All tests passed.
+exit: 0
+
+### $ uv run python scripts/tests/test_quarto_ux.py
+  PASS: Node.js behavioral tests passed (exports verified)
+
+=== Results: 46 passed, 0 failed ===
+exit: 0
+
+### $ uv run python scripts/tests/test_quarto_feedback.py
+  PASS: feedback.qmd calls mountFeedback/mountAllFeedback
+
+=== Results: 32 passed, 0 failed ===
+exit: 0
+
+### $ uv run python scripts/tests/verify_asset_scoping.py
+  Results: 12 passed, 0 failed
+=========================================
+All tests passed.
+exit: 0
+
+### $ uv run node scripts/tests/validate-runtime.js
+Passed: 51
+Failed: 0
+All validations passed.
+exit: 0
+
+### $ bash scripts/sync-quarto-assets.sh --check
+  ok: styles.css matches source
+  ok: coi-serviceworker.js matches source
+All assets in sync.
+exit: 0
+

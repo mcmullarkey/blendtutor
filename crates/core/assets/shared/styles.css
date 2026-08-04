@@ -135,6 +135,63 @@ footer.site-footer {
   text-align: center;
 }
 
+/* === static fallback (progressive enhancement) === */
+
+/* Server-rendered static exercise content (title + prompt + code template +
+ * hints/gotchas) emitted by the blendtutor filter INSIDE each div.bt-exercise
+ * before the payload script (fix-demo-visible-exercises Part 1). Visible when
+ * JS never runs: file:// CORS-blocks the ES-module bootstrap, JS disabled,
+ * or a slow CDN. The runtime (exercise-runtime.js) REMOVES this block when it
+ * mounts the interactive editor, so over HTTP these rules apply only for the
+ * brief boot window — the static content degrades gracefully to readable
+ * prose otherwise. Styled with the existing --bt-* tokens (no new colors). */
+.bt-exercise-static {
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  padding: var(--bt-space-md);
+  margin-bottom: var(--bt-space-md);
+  background: var(--bt-color-surface-code);
+}
+
+.bt-exercise-static .bt-static-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--bt-color-text-primary);
+  margin: 0 0 var(--bt-space-sm);
+}
+
+.bt-exercise-static .bt-static-prompt {
+  color: var(--bt-color-text-secondary);
+  line-height: var(--bt-line-height);
+  margin-bottom: var(--bt-space-md);
+}
+
+.bt-exercise-static pre.bt-static-code {
+  font-family: var(--bt-font-family-code);
+  font-size: var(--bt-font-size-base);
+  line-height: var(--bt-line-height);
+  color: var(--bt-color-text-primary);
+  background: var(--bt-color-surface);
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-sm);
+  overflow: auto;
+  margin: 0 0 var(--bt-space-md);
+  white-space: pre;
+}
+
+.bt-exercise-static details {
+  margin-bottom: var(--bt-space-sm);
+  color: var(--bt-color-text-secondary);
+  line-height: var(--bt-line-height);
+}
+
+.bt-exercise-static summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--bt-color-text-secondary);
+}
+
 /* === workspace === */
 /* Lesson workspace region (<main class="workspace">). Component-level rules
  * for picker, editor, controls, status badge, and output console. Scoped to

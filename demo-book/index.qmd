@@ -24,3 +24,48 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 The browser runtime uses the learner's key — no server-side key needed.
+
+## Exercise 1: Double function (R)
+
+Write a function `double(x)` that returns twice its input.
+
+::: {.blendtutor language="r"}
+Write a function `double(x)` that returns `x * 2`.
+
+```r
+double <- function(x) { ___ }
+```
+
+```{.r .checks}
+stopifnot(double(4) == 8)
+```
+
+```{.r .solution}
+x * 2
+```
+
+::: {.hints}
+Use the `<-` operator to assign the function body.
+:::
+:::
+
+## Exercise 2: Triple function (Python)
+
+Write a function `triple(n)` that returns three times its input.
+
+::: {.blendtutor language="python"}
+Write a function `triple(n)` that returns `n * 3`.
+
+```python
+def triple(n):
+    ___
+```
+
+```{.python .checks}
+assert triple(3) == 9
+```
+
+```{.python .solution}
+return n * 3
+```
+:::

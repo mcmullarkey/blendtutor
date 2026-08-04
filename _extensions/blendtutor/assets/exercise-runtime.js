@@ -168,6 +168,26 @@ export function buildRegistry(entries) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Remove the server-rendered static fallback block for an exercise.
+ *
+ * The filter emits a `.bt-exercise-static` block (title, prompt, code
+ * template, hints) inside each div.bt-exercise so exercises are VISIBLE even
+ * when JS never runs (file:// CORS-blocks ES modules, JS disabled).
+ * Progressive enhancement: when the runtime boots, this block is replaced by
+ * the interactive editor UI — remove it BEFORE mounting so the static content
+ * never sits alongside the editor. Exercises that are skipped (no
+ * data-language, no adapter) KEEP their static block — the page degrades to
+ * readable content instead of nothing.
+ * @param {HTMLElement} element — The div.bt-exercise element.
+ */
+function removeStaticFallback(element) {
+  const fallback = element.querySelector(".bt-exercise-static");
+  if (fallback) {
+    fallback.remove();
+  }
+}
+
+/**
  * Mount a CodeMirror 6 editor for a single exercise. Creates a container div
  * inside the exercise element, then mounts the editor. On CM6 failure, falls
  * back to a textarea for THIS exercise only (graceful degradation, §1.5).
@@ -477,6 +497,11 @@ export async function start(registry, adapters) {
       );
       continue;
     }
+    // Replace the server-rendered static fallback with the interactive UI
+    // (progressive enhancement — fix-demo-visible-exercises Part 1). Done
+    // here, not in scanExercises: skipped exercises (no data-language / no
+    // adapter) keep their static block and degrade to readable content.
+    removeStaticFallback(entry.element);
     mountEditor(entry, language);
     wireExercise(entry, adapter);
     mounted.push(entry);

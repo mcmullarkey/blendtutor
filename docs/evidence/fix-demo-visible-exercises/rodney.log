@@ -1,0 +1,38 @@
+# Rodney probes for branch fix-demo-visible-exercises
+verdict: PROBES_PASS
+timestamp: 2026-08-04T00:19:54.317Z
+
+- PASS: clause-8 r page: __btExercises.length === 2 (2 R exercises mounted)
+  assertion passed
+- PASS: clause-8 r page: .cm-editor count === 2 (both exercises have editors)
+  assertion passed
+- PASS: clause-8 r page: every entry data-language === 'r'
+  assertion passed
+- PASS: clause-8 r page: mounted entries reference real elements
+  assertion passed
+- PASS: fix r page: static fallback removed after boot (.bt-exercise-static count 0)
+  assertion passed
+- PASS: fix r page: payload script still present after boot (static block did not clobber it)
+  assertion passed
+- PASS: clause-8 python page: __btExercises.length === 2 (2 python exercises mounted)
+  assertion passed
+- PASS: clause-8 python page: .cm-editor count === 2 (both exercises have editors)
+  assertion passed
+- PASS: clause-8 python page: every entry data-language === 'python'
+  assertion passed
+- PASS: clause-8 python page: mounted entries reference real elements
+  assertion passed
+- PASS: fix python page: static fallback removed after boot (.bt-exercise-static count 0)
+  assertion passed
+- PASS: fix index page: __btExercises.length === 2 (1 R + 1 Python mounted)
+  assertion passed
+- PASS: fix index page: .cm-editor count === 2 (both exercises have editors)
+  assertion passed
+- PASS: fix index page: static fallback removed after boot (.bt-exercise-static count 0)
+  assertion passed
+- PASS: fix file:// index: static fallback remains visible (.bt-exercise-static count 2)
+  assertion passed
+- PASS: fix file:// index: static title visible (bt-static-title count 2)
+  assertion passed
+- PASS: fix file:// index: runtime did not boot (__btExercises undefined under file://)
+  assertion passed

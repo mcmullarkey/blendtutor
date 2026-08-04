@@ -309,6 +309,26 @@ else
   ko "version consistency — '0.1.0' not stated in README"
 fi
 
+# Clause 13: demo book serve-over-HTTP instructions (fix-demo-visible-exercises
+# Part 3 — exercises require HTTP because file:// CORS-blocks ES modules; the
+# README must tell users how to serve the rendered book interactively).
+echo "== Clause 13: demo book serve-over-HTTP instructions =="
+if [ -f "$README" ] && grep -qF 'python3 -m http.server 8000' "$README"; then
+  ok "README serve-over-HTTP instruction present (python3 -m http.server 8000)"
+else
+  ko "README serve-over-HTTP instruction — 'python3 -m http.server 8000' not found"
+fi
+if [ -f "$README" ] && grep -qiE 'file://|ES modules|CORS' "$README"; then
+  ok "README explains file:// blocks ES modules"
+else
+  ko "README explains file:// blocks ES modules — no file:// / ES modules / CORS mention"
+fi
+if [ -f "$README" ] && grep -qiE 'static exercise content|not interactive' "$README"; then
+  ok "README notes file:// shows static fallback content only"
+else
+  ko "README notes file:// shows static fallback content only — no 'static exercise content'/'not interactive' mention"
+fi
+
 # ---------------------------------------------------------------------------
 # Group 2 — Demo book (6 clauses)
 # ---------------------------------------------------------------------------
@@ -677,6 +697,28 @@ if [ "$COI_FOUND" -eq 1 ]; then
   ok "COI config present (coi=\"true\" or coi: true)"
 else
   ko "COI config present — no coi=\"true\" or coi: true found in demo-book"
+fi
+
+# Clause 13: index.qmd (the book entry page) has >=1 R and >=1 Python
+# exercise (fix-demo-visible-exercises Part 2 — the landing page was prose-only
+# with zero .blendtutor divs, so it showed nothing interactive).
+echo "== Clause 13: index.qmd has R and Python exercises =="
+INDEX_QMD="$DEMO_BOOK_DIR/index.qmd"
+if [ ! -f "$INDEX_QMD" ]; then
+  ko "index.qmd exercises — index.qmd not found"
+else
+  INDEX_R=$(grep -c 'language="r"' "$INDEX_QMD" 2>/dev/null) || INDEX_R=0
+  INDEX_PY=$(grep -c 'language="python"' "$INDEX_QMD" 2>/dev/null) || INDEX_PY=0
+  if [ "$INDEX_R" -ge 1 ]; then
+    ok "index.qmd has >=1 R exercise ($INDEX_R found)"
+  else
+    ko "index.qmd has >=1 R exercise — found $INDEX_R (need >=1)"
+  fi
+  if [ "$INDEX_PY" -ge 1 ]; then
+    ok "index.qmd has >=1 Python exercise ($INDEX_PY found)"
+  else
+    ko "index.qmd has >=1 Python exercise — found $INDEX_PY (need >=1)"
+  fi
 fi
 
 # ---------------------------------------------------------------------------

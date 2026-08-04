@@ -58,12 +58,20 @@ def extract_widgets(html: str) -> list[dict[str, Any]]:
         </div>
 
     The div opener is matched attr-tolerantly (`[^>]*`), so the JSON is
-    found regardless of which attributes the filter emits on the div.
+    found regardless of which attributes the filter emits on the div. The
+    gap between the div opener and the payload script is matched lazily
+    (`[\s\S]*?`) because the filter emits a static fallback block
+    (`<div class="bt-exercise-static">…`) BEFORE the payload script
+    (fix-demo-visible-exercises — progressive enhancement: static content
+    server-rendered, JS upgrades it). The payload script is the only
+    `script[type=application/json]` in the div, so the lazy match stops at
+    the right script.
 
     Returns a list of parsed JSON dicts, one per widget.
     """
     pattern = (
-        r'<div class="bt-exercise"[^>]*>\s*<script type="application/json">(.*?)</script>'
+        r'<div class="bt-exercise"[^>]*>[\s\S]*?'
+        r'<script type="application/json">(.*?)</script>'
     )
     matches = re.findall(pattern, html, re.DOTALL)
     return [json.loads(m) for m in matches]
@@ -221,6 +229,102 @@ def assert_empty_exercise(data: dict[str, Any], errors: list[str]) -> None:
         )
 
 
+def assert_static_fallback(
+    html: str, widgets: list[dict[str, Any]], errors: list[str]
+) -> None:
+    """Assert every bt-exercise div carries a static fallback block BEFORE the
+    payload script (fix-demo-visible-exercises, Part 1).
+
+    The filter emits, inside each div.bt-exercise and BEFORE the
+    <script type="application/json"> payload:
+      <div class="bt-exercise-static">
+        <h3 class="bt-static-title">…</h3>
+        <div class="bt-static-prompt">…prompt HTML…</div>
+        <pre class="bt-static-code"><code>…HTML-escaped code_template…</code></pre>
+        <details class="bt-static-hints"><summary>Hints</summary>…</details>
+        <details class="bt-static-gotchas"><summary>Gotchas</summary>…</details>
+      </div>
+
+    So the exercise is VISIBLE even when JS never runs (file:// CORS-blocked
+    ES modules, JS disabled). The runtime removes the block when it mounts.
+    The payload script must stay untouched (the runtime reads it via
+    script[type=application/json]).
+    """
+    div_pat = re.compile(r'<div class="bt-exercise"[^>]*>')
+    script_pat = re.compile(r'<script type="application/json">')
+    static_pat = re.compile(r'<div class="bt-exercise-static">')
+    # Quarto post-processes raw h3 headings by appending classes (e.g.
+    # "anchored") — match the class prefix, not the exact class list.
+    title_pat = re.compile(r'<h3 class="bt-static-title')
+    prompt_pat = re.compile(r'<div class="bt-static-prompt">')
+    code_pat = re.compile(r'<pre class="bt-static-code"><code>')
+    hints_pat = re.compile(
+        r'<details class="bt-static-hints"><summary>Hints</summary>'
+    )
+    gotchas_pat = re.compile(
+        r'<details class="bt-static-gotchas"><summary>Gotchas</summary>'
+    )
+
+    for i, m in enumerate(div_pat.finditer(html), start=1):
+        rest = html[m.end() :]
+        sm = script_pat.search(rest)
+        if not sm:
+            errors.append(
+                f"Static fallback (exercise {i}): payload script missing"
+            )
+            continue
+        between = rest[: sm.start()]  # div content BEFORE the payload script
+        if not static_pat.search(between):
+            errors.append(
+                f"Static fallback (exercise {i}): missing .bt-exercise-static "
+                "block before payload script"
+            )
+            continue
+        if not title_pat.search(between):
+            errors.append(
+                f"Static fallback (exercise {i}): missing .bt-static-title"
+            )
+        data = widgets[i - 1] if i - 1 < len(widgets) else None
+        if data is None:
+            continue
+        if data.get("prompt"):
+            if not prompt_pat.search(between):
+                errors.append(
+                    f"Static fallback (exercise {i}): prompt present in "
+                    "payload but missing .bt-static-prompt"
+                )
+        if data.get("code_template"):
+            if not code_pat.search(between):
+                errors.append(
+                    f"Static fallback (exercise {i}): code_template present in "
+                    "payload but missing <pre class=bt-static-code><code>"
+                )
+        if data.get("hints"):
+            if not hints_pat.search(between):
+                errors.append(
+                    f"Static fallback (exercise {i}): hints present in payload "
+                    "but missing <details class=bt-static-hints>"
+                )
+        if data.get("gotchas"):
+            if not gotchas_pat.search(between):
+                errors.append(
+                    f"Static fallback (exercise {i}): gotchas present in "
+                    "payload but missing <details class=bt-static-gotchas>"
+                )
+        ct = data.get("code_template") or ""
+        if "</script>" in ct:
+            if "&lt;/script&gt;" not in between:
+                errors.append(
+                    f"Static fallback (exercise {i}): code_template </script> "
+                    "must be HTML-escaped in static block (&lt;/script&gt;)"
+                )
+            if "</script>" in between:
+                errors.append(
+                    f"Static fallback (exercise {i}): raw </script> leaks "
+                    "into the static block"
+                )
+
+
 def main() -> int:
     """Run all assertions and return exit code (0=pass, 1=fail)."""
     if len(sys.argv) < 2:
@@ -247,6 +351,10 @@ def main() -> int:
     # Assertion: >=4 exercises (filter.qmd has 4 — order load-bearing)
     if len(widgets) < 4:
         errors.append(f"Expected >=4 bt-exercise widgets, found {len(widgets)}")
+
+    # Static fallback block: every exercise div carries .bt-exercise-static
+    # BEFORE the payload script (fix-demo-visible-exercises Part 1).
+    assert_static_fallback(html, widgets, errors)
 
     # For each widget: 9 keys present, no forbidden keys, title non-empty
     for i, data in enumerate(widgets):

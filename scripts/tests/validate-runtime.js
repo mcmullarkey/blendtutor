@@ -164,6 +164,21 @@ assert(
 assert(runtimeSrc.includes("data-cm-fail"), "exercise-runtime.js must check data-cm-fail for graceful degradation");
 assert(runtimeSrc.includes("textarea"), "exercise-runtime.js must fall back to textarea");
 
+// Verify static-fallback removal (fix-demo-visible-exercises Part 1): the
+// runtime must REMOVE the server-rendered .bt-exercise-static block when it
+// mounts (progressive enhancement — static content visible under file://,
+// replaced by the interactive editor over HTTP). A remove() call near the
+// .bt-exercise-static reference pins the behavior at source level; the
+// rodney probe (demo-book-bootstrap.js) verifies the runtime behavior.
+assert(
+  runtimeSrc.includes(".bt-exercise-static"),
+  "exercise-runtime.js must reference .bt-exercise-static (remove on mount)",
+);
+assert(
+  /function removeStaticFallback[\s\S]{0,300}\.remove\(\)/.test(runtimeSrc),
+  "exercise-runtime.js removeStaticFallback must remove the static block (fallback.remove())",
+);
+
 // Verify concurrent run safety
 assert(runtimeSrc.includes("_running"), "exercise-runtime.js must have _running flag for concurrent run safety");
 

@@ -29,17 +29,30 @@
  *   STATIC_PORT - port for static demo-book server (default: 8087)
  */
 
-const { execFileSync, spawn } = require("child_process");
+const { execFileSync, spawn, execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
 const WORKTREE = path.resolve(__dirname, "..");
-const EVIDENCE_DIR = path.join(WORKTREE, "docs", "evidence", "143");
+// Evidence dir is parameterized (fix-demo-visible-exercises): default to
+// docs/evidence/<branch>, override with EVIDENCE_DIR. Hardcoded issue dirs
+// go stale across fixes — the report metadata derives from the branch + dir
+// basename instead.
+const BRANCH = execSync("git rev-parse --abbrev-ref HEAD", { cwd: WORKTREE })
+  .toString()
+  .trim();
+const EVIDENCE_DIR = path.join(
+  WORKTREE,
+  "docs",
+  "evidence",
+  process.env.EVIDENCE_DIR || BRANCH,
+);
 const STATIC_PORT = parseInt(process.env.STATIC_PORT || "8087", 10);
 
 const BASE_URL = `http://localhost:${STATIC_PORT}`;
 const BLANK_URL = `${BASE_URL}/quarto-fixture/_probe-blank.html`;
+const INDEX_URL = `${BASE_URL}/demo-book/_output/index.html`;
 const R_URL = `${BASE_URL}/demo-book/_output/r-exercises.html`;
 const PY_URL = `${BASE_URL}/demo-book/_output/python-exercises.html`;
 
@@ -196,6 +209,14 @@ function runProbes() {
     "clause-8 r page: mounted entries reference real elements",
     "return window.__btExercises.every(e => e.element && e.element.classList.contains('bt-exercise'))",
   );
+  rodneyAssert(
+    "fix r page: static fallback removed after boot (.bt-exercise-static count 0)",
+    "return document.querySelectorAll('.bt-exercise-static').length === 0",
+  );
+  rodneyAssert(
+    "fix r page: payload script still present after boot (static block did not clobber it)",
+    "return document.querySelectorAll('div.bt-exercise script[type=\"application/json\"]').length === 2",
+  );
 
   // ------------------------------------------------------------------
   // Clause 8: demo-book/_output/python-exercises.html — 2 python mounted
@@ -221,6 +242,55 @@ function runProbes() {
     "clause-8 python page: mounted entries reference real elements",
     "return window.__btExercises.every(e => e.element && e.element.classList.contains('bt-exercise'))",
   );
+  rodneyAssert(
+    "fix python page: static fallback removed after boot (.bt-exercise-static count 0)",
+    "return document.querySelectorAll('.bt-exercise-static').length === 0",
+  );
+
+  // ------------------------------------------------------------------
+  // Fix (Part 2): index.html (book entry page) mounts the 2 new exercises
+  // (1 R + 1 Python) and removes their static fallbacks on boot.
+  // ------------------------------------------------------------------
+  navigateToPage(INDEX_URL);
+  if (!waitForExpr("window.__btExercises !== undefined")) {
+    throw new Error("index.html: __btExercises not populated (auto-bootstrap did not run)");
+  }
+
+  rodneyAssert(
+    "fix index page: __btExercises.length === 2 (1 R + 1 Python mounted)",
+    "return window.__btExercises.length === 2",
+  );
+  rodneyAssert(
+    "fix index page: .cm-editor count === 2 (both exercises have editors)",
+    "return document.querySelectorAll('.cm-editor').length === 2",
+  );
+  rodneyAssert(
+    "fix index page: static fallback removed after boot (.bt-exercise-static count 0)",
+    "return document.querySelectorAll('.bt-exercise-static').length === 0",
+  );
+
+  // ------------------------------------------------------------------
+  // Fix (Part 1) defect scenario: file:// — browsers CORS-block ES-module
+  // imports under file://, so the bootstrap never runs. The server-rendered
+  // static fallback must REMAIN visible (title/prompt/code template/hints).
+  // NOTE: rodney open file:// directly — window.location.href assignment to
+  // a file:// URL is silently blocked (verified empirically; the page stays
+  // on the prior URL).
+  // ------------------------------------------------------------------
+  rodney(["open", `file://${WORKTREE}/demo-book/_output/index.html`]);
+  sleep(2);
+  rodneyAssert(
+    "fix file:// index: static fallback remains visible (.bt-exercise-static count 2)",
+    "return document.querySelectorAll('.bt-exercise-static').length === 2",
+  );
+  rodneyAssert(
+    "fix file:// index: static title visible (bt-static-title count 2)",
+    "return document.querySelectorAll('.bt-static-title').length === 2",
+  );
+  rodneyAssert(
+    "fix file:// index: runtime did not boot (__btExercises undefined under file://)",
+    "return window.__btExercises === undefined",
+  );
 }
 
 function writeReport() {
@@ -229,8 +299,8 @@ function writeReport() {
   const verdict = failed.length === 0 ? "PROBES_PASS" : "PROBES_FAIL";
 
   const report = {
-    issue: 143,
-    branch: "143-demo-book-by-name",
+    issue: path.basename(EVIDENCE_DIR),
+    branch: BRANCH,
     worktree: WORKTREE,
     timestamp: new Date().toISOString(),
     probes: probeLog,
@@ -243,7 +313,7 @@ function writeReport() {
   );
 
   const lines = [
-    `# Rodney probes for issue #143`,
+    `# Rodney probes for branch ${BRANCH}`,
     `verdict: ${verdict}`,
     `timestamp: ${report.timestamp}`,
     "",

@@ -262,6 +262,10 @@ fi
 # Clause 11: COI book-mode caveat + demo book COI honesty. The service-worker
 # shim's scope cannot cover a book's _output/ — caveat must appear in BOTH the
 # COI section AND the Demo book section (no unqualified 'COI configuration').
+# Delegate note (issue #157, AC-5): stronger, awk-scoped content pins for these
+# README demo/COI guarantees live in scripts/tests/test_demo_docs.sh (11
+# clauses, incl. exact live-URL literals + capability mapping). This grep is
+# kept, not retired, for distribution-group coverage of the README contract.
 echo "== Clause 11: COI book-mode caveat =="
 if [ -f "$README" ] && grep -qF 'type: book' "$README"; then
   ok "COI caveat names Quarto type: book"

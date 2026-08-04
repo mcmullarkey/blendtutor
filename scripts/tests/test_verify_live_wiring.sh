@@ -106,6 +106,12 @@ VERIFY_BLOCK="$(job_block "$DOCS_FILE" verify-live || true)"
 DEPLOY_LINE="$(job_line "$DOCS_FILE" deploy || true)"
 VERIFY_LINE="$(job_line "$DOCS_FILE" verify-live || true)"
 
+# Comment-only lines (e.g. the job header's "No continue-on-error / || true"
+# prose) must not trip the absence greps — the clauses pin KEYS and the RUN
+# LINE, not documentation prose. Strip comment lines for key greps; clause 7
+# greps the extracted run line directly.
+VERIFY_BLOCK_CODE="$(grep -vE '^[[:space:]]*#' <<< "$VERIFY_BLOCK" || true)"
+
 # Clause 1 — verify-live is a top-level job key declared AFTER the deploy
 # block ends (block start line > deploy block end line).
 NEXT_AFTER_DEPLOY="$(awk -v dl="${DEPLOY_LINE:-0}" 'NR>dl && /^  [a-z][a-z-]*:$/{print NR; exit}' "$DOCS_FILE" || true)"
@@ -154,30 +160,32 @@ else
   ko "probe runs pages-live.js in live mode — missing"
 fi
 
-# Clause 6 — no continue-on-error anywhere in the verify-live job block
+# Clause 6 — no continue-on-error key anywhere in the verify-live job block
 # (a true value would silence the alarm).
-if grep -qF 'continue-on-error' <<< "$VERIFY_BLOCK"; then
+if grep -qF 'continue-on-error' <<< "$VERIFY_BLOCK_CODE"; then
   ko "no continue-on-error in verify-live job (silent-alarm trap)"
 else
   ok "no continue-on-error in verify-live job"
 fi
 
-# Clause 7 — probe run line swallows no exit codes.
+# Clause 7 — the probe RUN LINE swallows no exit codes (spec pins the run
+# line, not prose).
+RUN_LINE="$(grep -F 'pages-live.js live' <<< "$VERIFY_BLOCK" | head -1 || true)"
 SWALLOW=""
 for pat in '|| true' '|| exit 0' '|| :' '; true' '&& true'; do
-  if grep -qF "$pat" <<< "$VERIFY_BLOCK"; then
+  if grep -qF "$pat" <<< "$RUN_LINE"; then
     SWALLOW="$SWALLOW '$pat'"
   fi
 done
 if [ -z "$SWALLOW" ]; then
   ok "probe run line swallows no exit codes (no || true / || exit 0 / || : / ; true / && true)"
 else
-  ko "probe run line swallows no exit codes — found:$SWALLOW"
+  ko "probe run line swallows no exit codes — found:$SWALLOW (run line: $RUN_LINE)"
 fi
 
-# Clause 8 — no if: always() (runs only when deploy succeeds; always() would
-# false-alarm on failed/skipped deploys).
-if grep -qF 'if: always()' <<< "$VERIFY_BLOCK"; then
+# Clause 8 — no if: always() declared on the verify-live job (runs only when
+# deploy succeeds; always() would false-alarm on failed/skipped deploys).
+if grep -qF 'if: always()' <<< "$VERIFY_BLOCK_CODE"; then
   ko "no if: always() on verify-live job (runs only when deploy succeeds)"
 else
   ok "no if: always() on verify-live job"

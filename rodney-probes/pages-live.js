@@ -53,6 +53,16 @@
  *   STATIC_PORT  - local static server port (default: 8088)
  *   EVIDENCE_DIR - evidence output dir relative to repo root (default:
  *                  docs/evidence/153)
+ *   ROD_CHROME_BIN - Chrome binary/wrapper for rodney. If unset, this harness
+ *                  sets it to scripts/rodney-chrome.sh (committed wrapper that
+ *                  strips rodney's hardcoded --single-process /
+ *                  --disable-site-isolation-trials / --disable-features=...
+ *                  flags, which would otherwise permanently break P2
+ *                  crossOriginIsolated). The wrapper resolves a real Chrome
+ *                  via $REAL_CHROME env → macOS → Linux → rodney-managed
+ *                  Chromium.orig; see scripts/rodney-chrome.sh.
+ *   REAL_CHROME   - (optional) explicit Chrome/Chromium binary path for the
+ *                  wrapper, e.g. REAL_CHROME=/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome
  */
 
 const { execFileSync, spawn } = require("child_process");
@@ -66,6 +76,26 @@ const os = require("os");
 const core = require("./pages-live-core.js");
 
 const WORKTREE = path.resolve(__dirname, "..");
+
+// rodney offers no Chrome-flag override; the only escape hatches are
+// ROD_CHROME_BIN (binary swap) or the connect API. rodney 0.4.0 hardcodes
+// --single-process and go-rod adds --disable-site-isolation-trials +
+// --disable-features=site-per-process — all of which permanently break
+// crossOriginIsolated (P2). Route rodney's Chrome through the committed
+// scripts/rodney-chrome.sh wrapper UNLESS the caller already overrode it,
+// so this harness is self-sufficient on any machine (see script header for
+// the full research rationale).
+const RODNEY_CHROME_WRAPPER = path.join(WORKTREE, "scripts", "rodney-chrome.sh");
+if (!process.env.ROD_CHROME_BIN) {
+  if (!fs.existsSync(RODNEY_CHROME_WRAPPER)) {
+    console.error(
+      `FATAL: committed rodney Chrome wrapper missing at ${RODNEY_CHROME_WRAPPER} — cannot assert P2 crossOriginIsolated (rodney's default Chrome flags break it). Install the wrapper or set ROD_CHROME_BIN explicitly.`,
+    );
+    process.exit(2);
+  }
+  process.env.ROD_CHROME_BIN = RODNEY_CHROME_WRAPPER;
+}
+
 const BRANCH = execFileSync(
   "git",
   ["-C", WORKTREE, "rev-parse", "--abbrev-ref", "HEAD"],
@@ -179,7 +209,11 @@ function stopServers() {
 }
 
 function rodney(args, timeoutMs = 60000) {
-  const out = execFileSync("uvx", ["rodney", ...args], {
+  // Pin rodney to 0.4.0 (--from) so go-rod's default Chrome flags can't
+  // drift under us — the wrapper's flag-stripping targets exactly this
+  // version's hardcoded flags. Established uvx invocation pattern
+  // (demo-book-bootstrap.js:124), with the version pin added.
+  const out = execFileSync("uvx", ["--from", "rodney==0.4.0", "rodney", ...args], {
     cwd: WORKTREE,
     encoding: "utf8",
     timeout: timeoutMs,

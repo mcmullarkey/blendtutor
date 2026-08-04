@@ -2,135 +2,165 @@ TAP version 13
 # Subtest: timeout-budget constants match approved budgets
 ok 1 - timeout-budget constants match approved budgets
   ---
-  duration_ms: 0.414375
+  duration_ms: 0.3875
   type: 'test'
   ...
 # Subtest: verdict closed enum contains exactly the 4 spec values
 ok 2 - verdict closed enum contains exactly the 4 spec values
   ---
-  duration_ms: 0.32275
+  duration_ms: 0.327042
   type: 'test'
   ...
 # Subtest: computeVerdict: clean run → pass
 ok 3 - computeVerdict: clean run → pass
   ---
-  duration_ms: 0.048334
+  duration_ms: 0.048291
   type: 'test'
   ...
 # Subtest: computeVerdict: any failed assertion → exec_failure
 ok 4 - computeVerdict: any failed assertion → exec_failure
   ---
-  duration_ms: 0.036167
+  duration_ms: 0.037459
   type: 'test'
   ...
 # Subtest: computeVerdict: COI timeout → coi_failure (distinct from exec_failure)
 ok 5 - computeVerdict: COI timeout → coi_failure (distinct from exec_failure)
   ---
-  duration_ms: 0.0365
+  duration_ms: 0.037042
   type: 'test'
   ...
 # Subtest: computeVerdict: coi_failure wins even with failed assertions
 ok 6 - computeVerdict: coi_failure wins even with failed assertions
   ---
-  duration_ms: 0.037208
+  duration_ms: 0.031
   type: 'test'
   ...
 # Subtest: computeVerdict: textarea-only CM6 fallback → cm6_fallback_noted (distinct, non-fatal)
 ok 7 - computeVerdict: textarea-only CM6 fallback → cm6_fallback_noted (distinct, non-fatal)
   ---
-  duration_ms: 0.029958
+  duration_ms: 0.028708
   type: 'test'
   ...
 # Subtest: per-assertion status closed set is exactly {pass, fail, skip}
 ok 8 - per-assertion status closed set is exactly {pass, fail, skip}
   ---
-  duration_ms: 0.033917
+  duration_ms: 0.03425
   type: 'test'
   ...
 # Subtest: makeRecord: pass record carries name/status/details
 ok 9 - makeRecord: pass record carries name/status/details
   ---
-  duration_ms: 0.199083
+  duration_ms: 0.200542
   type: 'test'
   ...
 # Subtest: makeRecord: fail record allowed without details (defaults to empty)
 ok 10 - makeRecord: fail record allowed without details (defaults to empty)
   ---
-  duration_ms: 0.269334
+  duration_ms: 0.235875
   type: 'test'
   ...
 # Subtest: makeRecord: skip record REQUIRES a reason in details
 ok 11 - makeRecord: skip record REQUIRES a reason in details
   ---
-  duration_ms: 0.200417
+  duration_ms: 0.200042
   type: 'test'
   ...
 # Subtest: makeRecord: rejects status outside the closed set
 ok 12 - makeRecord: rejects status outside the closed set
   ---
-  duration_ms: 0.04675
+  duration_ms: 0.04525
   type: 'test'
   ...
 # Subtest: makeRecord: rejects empty name
 ok 13 - makeRecord: rejects empty name
   ---
-  duration_ms: 0.033708
+  duration_ms: 0.033416
   type: 'test'
   ...
 # Subtest: pageUrlFor: local mode serves /demo-standalone/index.html on base URL
 ok 14 - pageUrlFor: local mode serves /demo-standalone/index.html on base URL
   ---
-  duration_ms: 0.061917
+  duration_ms: 0.0605
   type: 'test'
   ...
 # Subtest: pageUrlFor: live mode uses DEPLOYED_URL verbatim with trailing slash stripped
 ok 15 - pageUrlFor: live mode uses DEPLOYED_URL verbatim with trailing slash stripped
   ---
-  duration_ms: 0.055875
+  duration_ms: 0.053375
   type: 'test'
   ...
 # Subtest: pageUrlFor: live mode keeps URL without trailing slash unchanged
 ok 16 - pageUrlFor: live mode keeps URL without trailing slash unchanged
   ---
-  duration_ms: 0.040709
+  duration_ms: 0.0385
   type: 'test'
   ...
 # Subtest: pageUrlFor: live mode without DEPLOYED_URL throws
 ok 17 - pageUrlFor: live mode without DEPLOYED_URL throws
   ---
-  duration_ms: 0.032584
+  duration_ms: 0.031
   type: 'test'
   ...
 # Subtest: normalizeDeployedUrl strips any number of trailing slashes
 ok 18 - normalizeDeployedUrl strips any number of trailing slashes
   ---
-  duration_ms: 0.021792
+  duration_ms: 0.02125
   type: 'test'
   ...
 # Subtest: normalizeMode defaults unknown/absent arg to local
 ok 19 - normalizeMode defaults unknown/absent arg to local
   ---
-  duration_ms: 0.025333
+  duration_ms: 0.025083
   type: 'test'
   ...
 # Subtest: buildReport preserves records, snapshots, timings, and mode metadata
 ok 20 - buildReport preserves records, snapshots, timings, and mode metadata
   ---
-  duration_ms: 0.055583
+  duration_ms: 0.053042
   type: 'test'
   ...
 # Subtest: buildReport: live mode records deployedUrl, not the literal 'local'
 ok 21 - buildReport: live mode records deployedUrl, not the literal 'local'
   ---
-  duration_ms: 0.034875
+  duration_ms: 0.034542
   type: 'test'
   ...
-1..21
-# tests 21
+# Subtest: wrapper exists and is executable (rodney execs ROD_CHROME_BIN directly)
+ok 22 - wrapper exists and is executable (rodney execs ROD_CHROME_BIN directly)
+  ---
+  duration_ms: 0.360167
+  type: 'test'
+  ...
+# Subtest: wrapper strips --single-process, --disable-site-isolation-trials, and the whole --disable-features=... argument, keeping everything else
+ok 23 - wrapper strips --single-process, --disable-site-isolation-trials, and the whole --disable-features=... argument, keeping everything else
+  ---
+  duration_ms: 124.455875
+  type: 'test'
+  ...
+# Subtest: wrapper strips --disable-features=... regardless of its value
+ok 24 - wrapper strips --disable-features=... regardless of its value
+  ---
+  duration_ms: 90.952792
+  type: 'test'
+  ...
+# Subtest: wrapper keeps ordinary flags in order and does not invent new ones
+ok 25 - wrapper keeps ordinary flags in order and does not invent new ones
+  ---
+  duration_ms: 98.056042
+  type: 'test'
+  ...
+# Subtest: wrapper errors with a clear message when no real Chrome can be resolved
+ok 26 - wrapper errors with a clear message when no real Chrome can be resolved
+  ---
+  duration_ms: 4.393083
+  type: 'test'
+  ...
+1..26
+# tests 26
 # suites 0
-# pass 21
+# pass 26
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 104.263958
+# duration_ms 451.291333

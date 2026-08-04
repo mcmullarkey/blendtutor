@@ -65,6 +65,7 @@ status: complete
 - resolver — disagreement=minor; no load-bearing conflict
 - builder — pure core extracted to pages-live-core.js (§2): verdict enum, record construction, path normalization, timeout budgets, report assembly unit-tested with uv run node --test (no rodney needed). Harness requires the core.
 - builder — live-mode blank-page fix: navigateToPage() bootstraps from the LOCAL blank page (established rodney pattern — open panics on heavy loads) in BOTH modes, so the static server starts in live mode too; prior draft omitted startServer() in live mode, which would break live navigation.
+- builder — Chrome launch-flag fix (post-rebase on #154 merge): rodney 0.4.0 hardcodes `--single-process` (main.go:356) + go-rod `--disable-site-isolation-trials`/`--disable-features=site-per-process` → permanently break P2 crossOriginIsolated. Committed scripts/rodney-chrome.sh wrapper (strips flags, execs real Chrome via REAL_CHROME → macOS → Linux → Chromium.orig fallback) + pages-live.js sets ROD_CHROME_BIN to it; rodney pinned to ==0.4.0 via uvx --from in all 6 probe harnesses (shared rodney() helper — sibling rule). Vision-probe's earlier pass relied on an OUT-OF-REPO wrapper; the committed harness is now self-sufficient.
 
 ### Progress
 - [x] spec resolved (resolver) — pending implementation
@@ -72,6 +73,7 @@ status: complete
 - [x] green: local mode PROBES_PASS — harness + core implemented; pure-part tests 21/21 green; rodney run is vision-probe phase (builder does not run rodney)
 - [ ] live mode post-deploy (AC-4) — pending
 - [x] evidence docs/evidence/153/ — DONE (README, test-suite.log; probe-report.json + rodney.log produced by vision-probe run)
+- [x] Chrome launch-flag fix — DONE (scripts/rodney-chrome.sh wrapper + ROD_CHROME_BIN in pages-live.js + rodney==0.4.0 pin in all 6 probes + wrapper smoke tests; 26/26 node tests green; vision-probe re-verifies PROBES_PASS with committed wrapper)
 
 ### Surprises & Discoveries
 - Previous builder session left uncommitted WIP: complete 656-line pages-live.js, stale coi_failure probe-report.json/rodney.log (from an unauthorized rodney run at 06:41), demo-standalone/.gitignore. Reused the harness + .gitignore, discarded stale evidence (vision-probe regenerates fresh), and retrofitted BDD (pure-core tests first).
@@ -79,6 +81,9 @@ status: complete
 - demo-standalone/index.html + coi-serviceworker.js + index_files/ are already gitignored by ROOT .gitignore (lines 50-52); the untracked demo-standalone/.gitignore adds `/.quarto/` + `**/*.quarto_ipynb` (quarto render internals). Committed.
 - Live-mode bug found in prior WIP: navigateToPage() opens the localhost blank page in both modes but main() only started the static server in local mode → live navigation would fail. Fixed by starting the server in both modes (blank page must resolve even when asserting the deployed URL).
 - No pyproject.toml in repo — repo-level Python gates (pytest/ty/ruff) don't apply; JS gate is `uv run node --test`.
+- rodney's Chrome flags are a silent COI killer: --single-process + --disable-site-isolation-trials/--disable-features=site-per-process make crossOriginIsolated permanently false; the only escapes are ROD_CHROME_BIN binary swap or connect API. No flag override exists — the wrapper is the only repo-committable fix.
+- This machine has no /Applications/Google Chrome.app (macOS path absent) — the wrapper falls back to ~/.cache/rod/browser/chromium-1321438/.../Chromium.orig; on machines without the rodney cache, REAL_CHROME env is the override. Verified empirically: --help with no REAL_CHROME exec'd Chromium.orig (resolved, no error), fake-REAL_CHROME smoke test shows 3 flags stripped, order preserved.
+- 6 probe files duplicate the rodney() execFileSync helper; pinning rodney==0.4.0 in only pages-live.js would leave the drift risk in 5 siblings (v1/v2 divergence pattern) — pinned all 6.
 
 ### Idempotence & Recovery
 - Safe retry: re-run probe (renders demo-standalone if HTML missing).

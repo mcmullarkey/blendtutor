@@ -160,7 +160,7 @@ function stopServers() {
 }
 
 function rodney(args) {
-  const out = execFileSync("uvx", ["rodney", ...args], {
+  const out = execFileSync("uvx", ["--from", "rodney==0.4.0", "rodney", ...args], {
     cwd: WORKTREE,
     encoding: "utf8",
     timeout: 60000,

@@ -1,0 +1,8 @@
+=== Issue #150 — shim at page root (demo-standalone/coi-serviceworker.js) ===
+-rw-r--r--@ 1 carbonite  staff  5407 Aug  3 22:15 demo-standalone/coi-serviceworker.js
+
+cksum page-root shim: 150961642
+cksum vendored shim: 150961642
+
+=== register-default-scope call (no scope option) ===
+103:            n.serviceWorker.register(window.document.currentScript.src).then(

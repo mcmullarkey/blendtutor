@@ -1,0 +1,65 @@
+---
+title: "Blendtutor Interactive Demo"
+coi: true
+---
+
+# Blendtutor Interactive Demo
+
+This page demonstrates blendtutor exercises for both languages on one page,
+rendered as a self-contained standalone Quarto project (`type: default`, no
+output-dir).
+
+`coi: true` activates the cross-origin isolation shim for webR, which needs
+`SharedArrayBuffer`. Because `coi-serviceworker.js:103` registers the service
+worker with `register(currentScript.src)` and NO scope option, the worker's
+default scope is the directory of the script URL — so the worker must be served
+from the page root to control `index.html`. The blendtutor filter's raw
+emission points at `_extensions/.../assets/` (a subdir whose scope never covers
+the page); `scripts/fix-demo-coi-scope.sh` post-processes the rendered HTML to
+point the script at `./coi-serviceworker.js` and copies the shim to the page
+root.
+
+## R exercise
+
+Write a function `add(a, b)` that returns the sum of two numbers.
+
+::: {.blendtutor language="r"}
+Write a function `add(a, b)` that returns the sum.
+
+```r
+add <- function(a, b) { ___ }
+```
+
+```{.r .checks}
+stopifnot(add(1, 2) == 3)
+```
+
+```{.r .solution}
+a + b
+```
+
+::: {.hints}
+Use the `<-` operator to assign the function body.
+:::
+:::
+
+## Python exercise
+
+Write a function `square(n)` that returns the square of a number.
+
+::: {.blendtutor language="python"}
+Write a function `square(n)` that returns `n * n`.
+
+```python
+def square(n):
+    ___
+```
+
+```{.python .checks}
+assert square(3) == 9
+```
+
+```{.python .solution}
+return n * n
+```
+:::

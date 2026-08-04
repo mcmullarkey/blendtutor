@@ -142,6 +142,51 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Assertion 17: static fallback block emitted before payload script
+# (fix-demo-visible-exercises Part 1 — progressive enhancement: exercises
+# visible even when JS never runs, e.g. file:// CORS-blocked ES modules).
+# ---------------------------------------------------------------------------
+
+echo "== Assertion 17: static fallback block emitted before payload script =="
+
+if [ -f "$HTML_FILE" ]; then
+  HTML_CONTENT=$(cat "$HTML_FILE")
+  if grep -q 'bt-exercise-static' <<< "$HTML_CONTENT"; then
+    ok "static fallback block emitted (.bt-exercise-static)"
+  else
+    ko "static fallback block emitted — no .bt-exercise-static found"
+  fi
+
+  if grep -q 'bt-static-title' <<< "$HTML_CONTENT"; then
+    ok "static title emitted (.bt-static-title)"
+  else
+    ko "static title emitted — no .bt-static-title found"
+  fi
+
+  if grep -q 'bt-static-code' <<< "$HTML_CONTENT"; then
+    ok "static code template emitted (.bt-static-code)"
+  else
+    ko "static code template emitted — no .bt-static-code found"
+  fi
+
+  if grep -q 'bt-static-hints' <<< "$HTML_CONTENT"; then
+    ok "static hints details emitted (.bt-static-hints)"
+  else
+    ko "static hints details emitted — no .bt-static-hints found"
+  fi
+
+  FIRST_STATIC=$(grep -bo 'bt-exercise-static' <<< "$HTML_CONTENT" | head -1 | cut -d: -f1)
+  FIRST_JSON=$(grep -bo 'type="application/json"' <<< "$HTML_CONTENT" | head -1 | cut -d: -f1)
+  if [ -n "$FIRST_STATIC" ] && [ -n "$FIRST_JSON" ] && [ "$FIRST_STATIC" -lt "$FIRST_JSON" ]; then
+    ok "static block precedes payload script (positional)"
+  else
+    ko "static block precedes payload script — first static at '$FIRST_STATIC', first json at '$FIRST_JSON'"
+  fi
+else
+  ko "static fallback block emitted — HTML missing"
+fi
+
+# ---------------------------------------------------------------------------
 # Assertions 10-11: data-language emission (AC-1 clause 2-3 shell-level check)
 # ---------------------------------------------------------------------------
 

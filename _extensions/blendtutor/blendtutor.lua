@@ -418,15 +418,75 @@ local function build_payload(index, parsed, packages)
 end
 
 -- ---------------------------------------------------------------------------
+-- Static fallback block (fix-demo-visible-exercises, Part 1)
+-- ---------------------------------------------------------------------------
+
+--- Escape a string for safe inclusion in HTML text content.
+-- Used for the STATIC fallback block ONLY (code template, hints, gotchas).
+-- The prompt is already HTML rendered by pandoc (trusted, server-side) and
+-- is inserted raw. Escaping `<`/`>` prevents author-supplied code like
+-- "</script>" from closing surrounding elements in the static markup.
+-- @param s The raw string (may be nil)
+-- @return The HTML-escaped string (empty string if nil)
+local function html_escape(s)
+  if s == nil then
+    return ""
+  end
+  s = s:gsub("&", "&amp;")
+  s = s:gsub("<", "&lt;")
+  s = s:gsub(">", "&gt;")
+  s = s:gsub('"', "&quot;")
+  return s
+end
+
+--- Build the static fallback HTML block for an exercise div.
+-- Emitted BEFORE the payload script so the exercise is VISIBLE even when JS
+-- never runs (file:// CORS-blocks ES modules; JS disabled; CDN slow). The
+-- runtime (exercise-runtime.js) removes this block when it mounts the
+-- interactive editor — progressive enhancement: static content
+-- server-rendered, JS upgrades it. The block shares the payload-building
+-- source of truth: it renders from the SAME `parsed` table + auto-generated
+-- title that build_payload() encodes (§4.1 — no duplicate parsing).
+-- @param title The exercise title ("Exercise <N>")
+-- @param parsed The parsed inner blocks table (prompt/code_template/hints/gotchas)
+-- @return An HTML string (empty string only if nothing to show)
+local function build_static_block(title, parsed)
+  local parts = {}
+  parts[#parts + 1] = '<div class="bt-exercise-static">'
+  parts[#parts + 1] = '<h3 class="bt-static-title">' .. html_escape(title) .. "</h3>"
+  if parsed.prompt ~= nil and parsed.prompt ~= "" then
+    parts[#parts + 1] = '<div class="bt-static-prompt">' .. parsed.prompt .. "</div>"
+  end
+  if parsed.code_template ~= nil then
+    parts[#parts + 1] = '<pre class="bt-static-code"><code>'
+      .. html_escape(parsed.code_template) .. "</code></pre>"
+  end
+  if parsed.hints ~= nil then
+    parts[#parts + 1] = '<details class="bt-static-hints"><summary>Hints</summary>'
+      .. html_escape(parsed.hints) .. "</details>"
+  end
+  if parsed.gotchas ~= nil then
+    parts[#parts + 1] = '<details class="bt-static-gotchas"><summary>Gotchas</summary>'
+      .. html_escape(parsed.gotchas) .. "</details>"
+  end
+  parts[#parts + 1] = "</div>"
+  return table.concat(parts, "\n")
+end
+
+-- ---------------------------------------------------------------------------
 -- Widget emitter
 -- ---------------------------------------------------------------------------
 
 --- Emit the widget HTML as a Pandoc RawBlock.
 -- @param payload The JSON string
 -- @param lang The validated exercise language ("r" or "python")
+-- @param title The exercise title ("Exercise <N>")
+-- @param parsed The parsed inner blocks table (single source of truth for the
+--   static fallback content — same table build_payload() encodes)
 -- @return A pandoc.RawBlock("html", ...) element
-local function emit_widget(payload, lang)
+local function emit_widget(payload, lang, title, parsed)
   local html = '<div class="bt-exercise" data-language="' .. lang .. '">\n'
+    .. build_static_block(title, parsed)
     .. '<script type="application/json">' .. payload .. "</script>\n"
     .. "</div>"
   return pandoc.RawBlock("html", html)
@@ -503,7 +563,11 @@ function Div(div)
   local payload = build_payload(index, parsed, packages)
   -- lang validated to {r, python} above (:364-368) — attribute is the
   -- sole language carrier (payload has no language key, AC-1 §3).
-  return emit_widget(payload, lang)
+  local title = "Exercise " .. (index + 1)
+  -- build_payload() derives the same title internally (build_payload :403) —
+  -- passing it through keeps the static block and JSON payload in lockstep
+  -- (single source of truth, fix-demo-visible-exercises Part 1).
+  return emit_widget(payload, lang, title, parsed)
 end
 
 -- ---------------------------------------------------------------------------

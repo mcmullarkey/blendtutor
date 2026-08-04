@@ -1,0 +1,15 @@
+project:
+  type: default
+
+# Explicit file-path filter reference (assertion-2b convention from
+# test_quarto_render.sh). By-name extension discovery fails for standalone
+# projects; the explicit path bypasses discovery entirely.
+#
+# Repo-root-relative reference (../_extensions/blendtutor/blendtutor.lua):
+# no vendoring, sync-quarto-assets.sh untouched, no asset-parity propagation
+# surface. The raw coi emission from this form is
+# ../_extensions/blendtutor/assets/coi-serviceworker.js — a subdir-scoped SW
+# that never covers the page. scripts/fix-demo-coi-scope.sh post-processes the
+# rendered src to ./coi-serviceworker.js at page root (see that script's header
+# for the register-default-scope mechanics).
+filters: [../_extensions/blendtutor/blendtutor.lua]

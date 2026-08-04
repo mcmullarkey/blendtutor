@@ -303,23 +303,43 @@ page with the required headers. Pyodide-only pages do not need COI.
 > **Book-mode limitation:** COI does not function in Quarto `type: book`
 > projects. The shim re-serves the page's own scope, which cannot cover the
 > book's `_output/` directory where rendered pages are written. For
-> COI-enabled exercises, use a standalone document rather than a book.
+> COI-enabled exercises, use a standalone document rather than a book. Live
+> demos of both project types — and what runs in each — are linked in the
+> Demo book section below; the runtime-scope mechanics are documented in
+> [ADR-0015](docs/adr/0015-opt-in-coi-cross-origin.md).
 
 ### Demo book
 
 A complete demo book with R and Python exercises lives in
-[`demo-book/`](demo-book/). To render it:
+[`demo-book/`](demo-book/), and the rendered book is deployed live at
+<https://mcmullarkey.github.io/blendtutor/demo-book/>. To render it:
 
 ```bash
 cd demo-book
 quarto render
 ```
 
-This produces a multi-page HTML book in `demo-book/_output/` with interactive
-exercises, checks, and solutions. The demo book's exercise pages set
-`coi: true`, but because it is a Quarto `type: book` project, COI does not
-take effect in the book render (see the COI book-mode limitation above) — use
-a standalone document for COI-enabled exercises.
+This produces a multi-page HTML book in `demo-book/_output/` with exercises,
+checks, and solutions. The demo book's exercise pages set `coi: true`, but
+because it is a Quarto `type: book` project, COI does not take effect in the
+book render (see the COI book-mode limitation above) — use a standalone
+document for COI-enabled exercises.
+
+What runs in the book: Python exercises are fully interactive (Pyodide needs
+no COI), and every page ships a static fallback — the server-rendered title,
+prompt, code template, and hints display even before the runtime boots. R
+exercises do NOT run in book mode — their editors mount but execution is
+unavailable; use the standalone demo below for runnable R.
+
+#### Standalone demo
+
+The standalone demo renders the same exercises in a single-page Quarto
+project (`type: default`), where COI is active, deployed live at
+<https://mcmullarkey.github.io/blendtutor/demo/>.
+
+R exercises run interactively via webR — SharedArrayBuffer works because
+cross-origin isolation is active — and Python exercises run interactively
+via Pyodide (which needs no COI).
 
 #### Viewing the demo book
 
@@ -333,11 +353,12 @@ python3 -m http.server 8000
 # open http://localhost:8000/index.html
 ```
 
-Note: `open demo-book/_output/index.html` (file://) shows static exercise content only (title, prompt, code template, hints — the server-rendered fallback), not the interactive editors. Serve over HTTP for the full experience.
+Note: `open demo-book/_output/index.html` (file://) shows static exercise content only — the server-rendered static fallback (title, prompt, code template, hints) — not the interactive editors. Serve over HTTP for the full experience.
 
 Note: R exercises in the book don't run under book mode (COI limitation,
 documented above) — their editors mount but execution is unavailable; use a
-standalone document for runnable R exercises.
+standalone document — such as the Standalone demo above — for runnable R
+exercises.
 
 ## License
 

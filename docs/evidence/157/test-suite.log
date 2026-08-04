@@ -1,0 +1,38 @@
+== c1: live demo URLs ==
+  PASS: live demo-book URL literal present (trailing slash)
+  PASS: live demo URL literal present (trailing slash)
+== c2: book capability mapping ==
+  PASS: book states Python exercises run interactively
+  PASS: book states literal 'static fallback'
+== c3: standalone capability mapping ==
+  PASS: standalone states interactive R via webR
+  PASS: standalone states interactive Python
+== c4: COI book-mode limitation ==
+  PASS: COI limitation names Quarto type: book
+  PASS: COI limitation states COI does not function/take effect/work
+== c5: R does not run in book ==
+  PASS: book states R does not run / editors mount but execution unavailable
+== c6: pyodide no-COI accuracy guard ==
+  PASS: README states pyodide needs no COI
+== c7: no stale /examples/ conflation ==
+  PASS: demo section free of stale /examples/ site URLs
+== c8: extend-don't-duplicate count pins ==
+  PASS: 'COI does not function in Quarto' appears exactly once
+  PASS: 'Book-mode limitation' appears exactly once
+== c9: demo section region pin ==
+  PASS: URL at line 315 (288 <= line < 342): https://mcmullarkey.github.io/blendtutor/demo-book/
+  PASS: URL at line 338 (288 <= line < 342): https://mcmullarkey.github.io/blendtutor/demo/
+== c10: ADR-0015 pointer ==
+  PASS: README links docs/adr/0015-opt-in-coi-cross-origin.md
+  PASS: ADR file exists (docs/adr/0015-opt-in-coi-cross-origin.md)
+== c11: distribution-doc pins survive ==
+  PASS: serve-over-HTTP instruction present (python3 -m http.server 8000)
+  PASS: no overclaiming 'COI configuration' phrase
+  PASS: no stale mechanism phrase 'PANDOC_SCRIPT_FILE'
+  PASS: COI caveat names Quarto type: book (README-wide)
+  PASS: demo-book/ directory exists (relative link target)
+
+=========================================
+  Results: 22 passed, 0 failed
+=========================================
+All tests passed.

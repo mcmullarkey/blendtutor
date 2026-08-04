@@ -1,0 +1,46 @@
+== Group 1: README ==
+== Clause 1: install command ==
+  PASS: install command present (quarto add mcmullarkey/blendtutor)
+== Clause 2: syntax both languages ==
+  PASS: R exercise syntax shown in README
+  PASS: Python exercise syntax shown in README
+== Clause 3: BYOK ==
+  PASS: BYOK mentioned in README
+== Clause 4: minimum Quarto version ==
+  PASS: minimum Quarto version stated in README
+== Clause 5: demo book link ==
+  PASS: demo book link present in README
+== Clause 6: install path contract ==
+  PASS: install command present (quarto add mcmullarkey/blendtutor)
+  PASS: install path stated (_extensions/mcmullarkey/blendtutor/)
+  PASS: old wrong install path claim removed
+  PASS: install-path independence stated in README
+  PASS: ADR-0017 annotated with org/repo install path (CI actually + _extensions/mcmullarkey/blendtutor/)
+== Clause 7: zero-bootstrap quick-start ==
+  PASS: quick-start uses by-name filter (filters: [mcmullarkey/blendtutor])
+  PASS: quick-start prose states zero hand-written bootstrap
+  PASS: quick-start shows .blendtutor exercise div
+== Clause 8: quick-start example integrity ==
+  PASS: quick-start example has no script/module/scanExercises/start(/buildRegistry tokens
+== Clause 9: auto-bootstrap opt-out ==
+  PASS: opt-out literal present (bt-auto-bootstrap: false)
+  PASS: opt-out prose present
+== Clause 10: feedback opt-in ==
+  PASS: feedback opt-in names exercise-feedback.js
+  PASS: feedback opt-in calls mountAllFeedback
+  PASS: feedback opt-in marked manual (not auto-mounted)
+  PASS: feedback opt-in BYOK key present (ANTHROPIC_API_KEY)
+== Clause 11: COI book-mode caveat ==
+  PASS: COI caveat names Quarto type: book
+  PASS: COI caveat states book-mode does not function
+  PASS: COI caveat explains _output/ scope
+  PASS: demo book no longer overclaims 'COI configuration'
+== Clause 12: no stale mechanism, command/version consistency ==
+  PASS: stale mechanism claim removed (relative to filter script / PANDOC_SCRIPT_FILE)
+  PASS: no stale runtime bootstrap import (import .*exercise-runtime.js)
+  PASS: no short-form install command (full org/repo required, matches ci.yml:148)
+  PASS: version stated matches _extension.yml (0.1.0)
+== Clause 13: demo book serve-over-HTTP instructions ==
+  PASS: README serve-over-HTTP instruction present (python3 -m http.server 8000)
+  PASS: README explains file:// blocks ES modules
+  PASS: README notes file:// shows static fallback content only

@@ -9,11 +9,12 @@ not run rodney/browser).
 
 | File | Lines | Role |
 |------|-------|------|
-| `rodney-probes/pages-live.js` | 656 | Effectful harness: renders demo-standalone/ if missing, serves worktree root :8088, drives uvx rodney (execFileSync — direct uvx rodney bash is permission-blocked), asserts P1-P5, writes report |
-| `rodney-probes/pages-live-core.js` | 174 | Pure core (§2): verdict closed enum, assertion-record construction, path normalization local `/demo-standalone/` vs live `/demo/`, timeout budgets (COI 30s / webR 120s / pyodide 60s), report assembly — zero side effects |
-| `rodney-probes/pages-live-core.test.js` | 235 | Pure-part unit tests (node:test, no rodney/DOM) — 21 tests, all green |
-| `scripts/rodney-chrome.sh` | 88 | Chrome wrapper (ROD_CHROME_BIN target): strips rodney/go-rod's isolation-breaking flags, execs a real Chrome (REAL_CHROME → macOS → Linux → rodney-managed Chromium.orig) — see "Chrome launch-flag fix" below |
-| `rodney-probes/rodney-chrome.test.js` | 125 | Wrapper smoke tests (node:test, fake REAL_CHROME echoes argv) — 5 tests, all green |
+| `rodney-probes/pages-live.js` | 700 | Effectful harness: renders demo-standalone/ if missing, serves worktree root :8088, drives uvx rodney (execFileSync — direct uvx rodney bash is permission-blocked), asserts P1-P5, writes report |
+| `rodney-probes/pages-live-core.js` | 182 | Pure core (§2): verdict closed enum, assertion-record construction, path normalization local `/demo-standalone/` vs live `/demo/`, timeout budgets (COI 30s / webR 120s / pyodide 60s), report assembly — zero side effects |
+| `rodney-probes/pages-live-core.test.js` | 249 | Pure-part unit tests (node:test, no rodney/DOM) — 23 tests, all green |
+| `rodney-probes/pages-live-structure.test.js` | 103 | Structural tests (node:test, fs read of harness source — no rodney/DOM): pins P1-unconditional-before-coiFailed orchestration + cm6_fallback "not hard fail" record status (review-cycle-2 findings) — 4 tests, all green |
+| `scripts/rodney-chrome.sh` | 86 | Chrome wrapper (ROD_CHROME_BIN target): strips rodney/go-rod's isolation-breaking flags, execs a real Chrome (REAL_CHROME → macOS → Linux → rodney-managed Chromium.orig) — see "Chrome launch-flag fix" below |
+| `rodney-probes/rodney-chrome.test.js` | 123 | Wrapper smoke tests (node:test, fake REAL_CHROME echoes argv) — 5 tests, all green |
 
 ## How to run
 
@@ -21,6 +22,13 @@ Pure-part unit tests (builder gate):
 
 ```bash
 uv run node --test rodney-probes/pages-live-core.test.js
+```
+
+Harness orchestration structure tests (review-cycle-2 pins — P1-unconditional
+hoist + cm6_fallback non-fail record):
+
+```bash
+uv run node --test rodney-probes/pages-live-structure.test.js
 ```
 
 Wrapper smoke tests (scripts/rodney-chrome.sh — see "Chrome launch-flag fix"
@@ -78,7 +86,12 @@ that cache, set `REAL_CHROME` to any Chrome/Chromium binary.
 - **P1** CM6 mounts + registry — `probeP1Mounts()`: vacuous guard first
   (`__btExercises` defined — PR #123 pattern), `.get('bt-exercise-0'/'1')`
   non-null, 2 `.cm-editor` each with a `.cm-content` child; textarea-only
-  degradation recorded as distinct `cm6_fallback` finding, not hard fail
+  degradation recorded as distinct `cm6_fallback` finding with status
+  "pass" (NOT "fail" — spec says not hard fail; a fail record would pollute
+  failedCount and make the non-fatal `cm6_fallback_noted` verdict unreachable
+  under exec_failure-first priority). P1 runs UNCONDITIONALLY — even on
+  coi_failure, so a COI report always carries mount diagnostics; only P3/P4
+  skip on the P2 timeout
 - **P2** COI gate — `probeP2Coi()`: poll ≤30s THROUGH the SW self-reload
   cycle (sessionStorage.coiReloadedBySelf) until `crossOriginIsolated ===
   true` AND `controller !== null`; timeout → `coi_failure` verdict, P3/P4
@@ -99,9 +112,15 @@ that cache, set `REAL_CHROME` to any Chrome/Chromium binary.
 Closed enum: `pass | coi_failure | exec_failure | cm6_fallback_noted`
 Per-assertion status: `pass | fail | skip` (skip only with recorded reason)
 
+Priority (highest first): `coi_failure` (P2 gate failed — wins over
+everything) → `exec_failure` (ANY failed assertion — checked BEFORE
+`cm6_fallback` so a real execution failure is never masked by the non-fatal
+CM6 note; the terminal AC exits 0 on `cm6_fallback_noted`) → `cm6_fallback_noted`
+(CM6 degraded to textarea-only AND zero failed assertions) → `pass`.
+
 ## Artifacts
 
-- `test-suite.log` — `uv run node --test` full output (26/26 pass:
-  21 pure-core + 5 wrapper smoke tests)
+- `test-suite.log` — `uv run node --test` full output (32/32 pass:
+  23 pure-core + 4 structure + 5 wrapper smoke tests)
 - `probe-report.json` + `rodney.log` — written by the harness run
   (vision-probe phase; not committed in the builder commit)

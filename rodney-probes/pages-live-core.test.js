@@ -66,6 +66,20 @@ test("computeVerdict: textarea-only CM6 fallback → cm6_fallback_noted (distinc
   );
 });
 
+test("computeVerdict: exec_failure beats cm6_fallback — a real failure is never masked by the non-fatal note", () => {
+  assert.equal(
+    core.computeVerdict({ coiFailed: false, cm6Fallback: true, failedCount: 1 }),
+    "exec_failure",
+  );
+});
+
+test("computeVerdict: coi_failure wins over everything, including cm6_fallback + failures", () => {
+  assert.equal(
+    core.computeVerdict({ coiFailed: true, cm6Fallback: true, failedCount: 1 }),
+    "coi_failure",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Assertion-record construction: {name, status, details}, status closed over
 // {pass, fail, skip}; skip only with recorded reason

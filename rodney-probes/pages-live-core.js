@@ -104,15 +104,23 @@ function makeRecord(name, status, details) {
 }
 
 /**
- * Compute the closed-enum verdict from probe outcomes. Priority: coi_failure
- * wins over everything (P2 gate failed — execution never attempted);
- * cm6_fallback_noted is a distinct, non-fatal outcome recorded when CM6
- * degraded to textarea-only; otherwise any failed assertion ⇒ exec_failure.
+ * Compute the closed-enum verdict from probe outcomes. Priority (highest
+ * first):
+ *   1. coi_failure — P2 gate failed, execution never attempted (wins over
+ *      everything);
+ *   2. exec_failure — ANY failed assertion. Checked BEFORE cm6Fallback so a
+ *      real execution failure is never masked by the non-fatal CM6 note —
+ *      the terminal verification AC exits 0 on cm6_fallback_noted, which
+ *      would otherwise paper over a broken P3/P4 exec;
+ *   3. cm6_fallback_noted — CM6 degraded to textarea-only AND no assertion
+ *      failed (distinct, non-fatal: execution still valid via textarea);
+ *   4. pass.
  */
 function computeVerdict({ coiFailed, cm6Fallback, failedCount }) {
   if (coiFailed) return VERDICTS.COI_FAILURE;
+  if (failedCount > 0) return VERDICTS.EXEC_FAILURE;
   if (cm6Fallback) return VERDICTS.CM6_FALLBACK_NOTED;
-  return failedCount > 0 ? VERDICTS.EXEC_FAILURE : VERDICTS.PASS;
+  return VERDICTS.PASS;
 }
 
 /**

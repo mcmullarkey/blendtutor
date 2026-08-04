@@ -380,13 +380,17 @@ function probeP1Mounts() {
     "document.querySelectorAll('.bt-exercise textarea').length",
   );
   if (cmCount !== "2" && taCount === "2") {
-    // Distinct finding, not hard fail: execution still valid via textarea
-    // fallback (exercise-runtime.js mountEditor graceful degradation).
+    // Distinct finding, NOT a hard fail (spec AC-3 line 12 + design intent):
+    // execution remains valid via the textarea fallback (exercise-runtime.js
+    // mountEditor graceful degradation). Recorded as pass-with-fallback-note
+    // so it does NOT count toward failedCount — the cm6Fallback flag alone
+    // drives the non-fatal cm6_fallback_noted verdict. A real mount failure
+    // (no CM6 AND no textarea) falls through to the hard-fail assert below.
     cm6Fallback = true;
     record(
-      "P1 mounts: 2 real CM6 editors",
-      "fail",
-      `cm6_fallback — ${cmCount} .cm-editor, ${taCount} textarea (CM6 failed, textarea fallback)`,
+      "P1 mounts: textarea fallback (CM6 unavailable)",
+      "pass",
+      `cm6_fallback — ${cmCount} .cm-editor, ${taCount} textarea (CM6 degraded, textarea fallback active)`,
     );
   } else {
     assertExpr(
@@ -655,17 +659,23 @@ function main() {
     // COI gate FIRST (P2): the SW self-reload cycle must settle before any
     // execution attempt. P1's vacuous guard absorbs the initial load(s).
     probeP2Coi();
+
+    // P1 is UNCONDITIONAL (spec AC-3 line 12): mounts/registry diagnostics
+    // must be captured even on coi_failure — a COI report with zero P1
+    // records cannot tell whether the page mounted. Wait for the page to
+    // settle, then assert P1; ONLY P3/P4 skip on the P2 timeout.
+    waitForExpr(
+      "window.__btExercises !== undefined && document.querySelectorAll('.cm-editor').length === 2",
+      core.REGISTRY_SETTLE_S,
+    );
+    probeP1Mounts();
+
     if (coiFailed) {
       record("P3 R exec", "skip", "skipped: coi_failure (P2 gate)");
       record("P4 Python exec", "skip", "skipped: coi_failure (P2 gate)");
     } else {
-      // Page settled (COI true implies the reload cycle finished): wait for
-      // the final load's mount, then assert P1 and execute P3/P4.
-      waitForExpr(
-        "window.__btExercises !== undefined && document.querySelectorAll('.cm-editor').length === 2",
-        core.REGISTRY_SETTLE_S,
-      );
-      probeP1Mounts();
+      // COI true implies the SW reload cycle finished and the page is
+      // settled: execute P3/P4.
       probeP3RExec();
       probeP4PyExec();
     }

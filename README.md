@@ -321,6 +321,24 @@ exercises, checks, and solutions. The demo book's exercise pages set
 take effect in the book render (see the COI book-mode limitation above) — use
 a standalone document for COI-enabled exercises.
 
+#### Viewing the demo book
+
+Exercises require serving over HTTP — `open file://` blocks the ES-module
+bootstrap (browsers refuse `import` under `file://` for CORS reasons), so the
+interactive editors never mount. To view interactively:
+
+```bash
+cd demo-book/_output
+python3 -m http.server 8000
+# open http://localhost:8000/index.html
+```
+
+Note: `open demo-book/_output/index.html` (file://) shows static exercise content only (title, prompt, code template, hints — the server-rendered fallback), not the interactive editors. Serve over HTTP for the full experience.
+
+Note: R exercises in the book don't run under book mode (COI limitation,
+documented above) — their editors mount but execution is unavailable; use a
+standalone document for runnable R exercises.
+
 ## License
 
 MIT License — see the `LICENSE` file for details.

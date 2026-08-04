@@ -127,6 +127,17 @@ jobs:
       - name: Pages artifact assembly test
         run: bash scripts/tests/test_docs_pages_artifact.sh
 
+      # Issue #156 — Verify-live wiring test. Phase 1 pins the docs.yml
+      # verify-live job (needs: deploy, deploy outputs: page_url,
+      # DEPLOYED_URL = needs.deploy.outputs.page_url + /demo/, live probe,
+      # no continue-on-error / exit-swallow / if: always(), checkout +
+      # setup-uv + setup-node, deploy does NOT need verify-live) via awk
+      # job-block extraction. Phase 2 stubs Chrome via REAL_CHROME=/bin/echo
+      # and asserts rodney-chrome.sh strips the COI-breaking flags. Phase 3
+      # pins ROD_CHROME_BIN harness wiring + rodney==0.4.0.
+      - name: Verify-live wiring test
+        run: bash scripts/tests/test_verify_live_wiring.sh
+
   asset-parity:
     name: asset parity
     runs-on: ubuntu-latest

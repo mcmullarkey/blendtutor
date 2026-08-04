@@ -1,0 +1,30 @@
+# rodney-chrome.sh argv capture (Phase 2, clause 14) — Chrome stubbed via REAL_CHROME=/bin/echo
+# No browser launched; the wrapper's argv filter + exec is what AC-4 wires.
+
+## Invocation (same literal args as test Phase 2):
+REAL_CHROME=/bin/echo bash scripts/rodney-chrome.sh --no-sandbox --single-process \
+  --disable-site-isolation-trials --disable-features=site-per-process \
+  --disable-dev-shm-usage about:blank
+
+## Actual argv passed to Chrome (wrapper output):
+    --no-sandbox --disable-dev-shm-usage about:blank
+
+## Per-flag occurrence counts in wrapper output (0 = stripped, 1+ = kept):
+  --single-process:                    0 occurrence(s)
+  --disable-site-isolation-trials:     0 occurrence(s)
+  --disable-features:                  0 occurrence(s)
+  --no-sandbox:                        1 occurrence(s)
+  --disable-dev-shm-usage:             1 occurrence(s)
+  about:blank:                         1 occurrence(s)
+  (about:blank must be the TRAILING arg — output ends with it: yes)
+
+## Wrapper static facts (clause 14):
+  -rwxr-xr-x@ 1 carbonite  staff  3533 Aug  4 13:35 scripts/rodney-chrome.sh
+  resolution order strings present:
+    34:  if [[ -n "${REAL_CHROME:-}" && -x "${REAL_CHROME}" ]]; then
+    35:    printf '%s\n' "${REAL_CHROME}"
+    39:  local mac_chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    45:  local linux_chrome="/usr/bin/google-chrome"
+    56:      if [[ -x "${dir}/Chromium.orig" ]]; then
+    57:        printf '%s\n' "${dir}/Chromium.orig"
+    71:  echo "rodney-chrome.sh: no real Chrome found. Set REAL_CHROME to a Chrome/Chromium binary path (e.g. REAL_CHROME=/path/to/chrome). Checked: \$REAL_CHROME, /Applications/Google Chrome.app/Contents/MacOS/Google Chrome, /usr/bin/google-chrome, ~/.cache/rod/browser/chromium-*/*.orig" >&2

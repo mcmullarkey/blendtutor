@@ -1,0 +1,20 @@
+=== Issue #162 E2E evidence — localStorage migration of exercise-feedback.js ===
+date: 2026-08-06T19:27:47Z
+
+=== 1. cmp — demo-book mirror byte-identical to canonical ===
+PASS: mirror byte-identical
+
+=== 2. source-scan — zero sessionStorage tokens in canonical asset ===
+sessionStorage occurrences: 0 (expect 0)
+localStorage occurrences: 25
+
+=== 3. module imports cleanly in Node ===
+PASS: module imports, syntax OK
+
+=== 4. cargo test -p blendtutor-cli — crates/core/assets/shared/feedback.js untouched ===
+     Running tests/build.rs (target/debug/deps/build-5e581d7c94c9eab0)
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 99.46s
+
+NOTE: build.rs (22 passed) pins crates/core/assets/shared/feedback.js, which
+stays sessionStorage-backed by design — proves the two feedback systems are
+separate and this migration did not touch the Rust-built one.

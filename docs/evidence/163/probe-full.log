@@ -1,0 +1,115 @@
+=== AC-2 key-page.js key-management UI — test_quarto_key_page.py ===
+
+-- test_files_exist --
+  PASS: key-page.js exists
+  PASS: exercise-feedback.js exists (import contract source)
+
+-- test_p1_import_contract --
+  PASS: P1: key-page.js imports from './exercise-feedback.js'
+  PASS: P1: import contract includes readKey
+  PASS: P1: import contract includes storeKey
+  PASS: P1: import contract includes clearKey
+  PASS: P1: import contract includes providerBaseUrl
+  PASS: P1: import contract includes PROVIDERS
+  PASS: P1: no literal 'fireworks_api_key' anywhere in source
+  PASS: P1: no literal 'anthropic_api_key' anywhere in source
+  PASS: P1: no literal 'byok_provider' anywhere in source
+  PASS: P1: no literal 'bt_feedback_count' anywhere in source
+  PASS: P1: no literal 'api.fireworks.ai' anywhere in source
+  PASS: P1: no literal 'sessionStorage' anywhere in source
+
+-- test_p3_discriminated_source --
+  PASS: P3: classifyValidation present (discriminated result)
+  PASS: P3: validation does NOT reuse listModels (401 must not collapse into []/network)
+
+-- test_p5_source_hygiene --
+  PASS: P5: zero console. calls (key never logged)
+  PASS: P5: zero innerHTML usage (textContent-only rendering)
+  PASS: P5: rendering is textContent-based
+
+-- test_p6_password_attrs --
+  PASS: P6: password input has type=password
+  PASS: P6: password input has autocomplete=off
+
+-- test_p15_pure_helpers --
+  PASS: P15: buildValidationUrl is an exported pure function
+  PASS: P15: buildValidationUrl body contains no fetch(
+  PASS: P15: buildValidationUrl body contains no localStorage
+  PASS: P15: buildValidationUrl body contains no document.
+  PASS: P15: classifyValidation is an exported pure function
+  PASS: P15: classifyValidation body contains no fetch(
+  PASS: P15: classifyValidation body contains no localStorage
+  PASS: P15: classifyValidation body contains no document.
+  PASS: P15: statusMessage is an exported pure function
+  PASS: P15: statusMessage body contains no fetch(
+  PASS: P15: statusMessage body contains no localStorage
+  PASS: P15: statusMessage body contains no document.
+
+-- test_p16_docstring_exports --
+  PASS: P16: docstring header names WHAT/WHERE/NOT
+  PASS: P16: at most 5 public exports (found 4)
+  PASS: P16: public export buildValidationUrl
+  PASS: P16: public export classifyValidation
+  PASS: P16: public export statusMessage
+  PASS: P16: public export mountKeyPage
+
+-- test_node_behavioral --
+  PASS: P3: 2xx -> {ok:true}
+  PASS: P3: any 2xx is ok
+  PASS: P3: 401 -> invalid-key
+  PASS: P3: 403 -> invalid-key
+  PASS: P3: other non-2xx -> network
+  PASS: P3: thrown fetch -> network
+  PASS: P4: statusMessage(saved) has friendly copy
+  PASS: P4: statusMessage(invalid-key) has friendly copy
+  PASS: P4: statusMessage(network) has friendly copy
+  PASS: P4: statusMessage(empty) has friendly copy
+  PASS: P4: statusMessage(cleared) has friendly copy
+  PASS: P2: validation URL honors localhost ?provider= override
+  PASS: P2: default validation URL ends with /models
+  PASS: P10: no-key mount renders a form
+  PASS: P10: no-key mount renders a password input
+  PASS: P6: input type is password
+  PASS: P6: input autocomplete is off
+  PASS: P10: no-key mount renders the Save button
+  PASS: P10: no-key mount has no Clear button
+  PASS: P13: submit handler calls preventDefault
+  PASS: P7: Save stores key via imported storeKey (AC-1 signature, key first)
+  PASS: P7: readKey round-trips the saved key
+  PASS: P14: input value reset to empty AFTER storeKey
+  PASS: P11: one save issues exactly one fetch
+  PASS: P2: validation fetch targets the host-gated models URL
+  PASS: key rides Authorization header, never the body
+  PASS: P7: save reports saved status on 2xx
+  PASS: P5: key never echoed into any DOM textContent
+  PASS: P5: at least one non-empty textContent after save
+  PASS: P9: empty save does NOT clear the existing key
+  PASS: P9: empty save issues no fetch
+  PASS: P9: empty save reports the empty status
+  PASS: P10: key-set mount shows 'key is set' status
+  PASS: P10: key-set mount shows the Clear button
+  PASS: P10: key-set mount renders NO input — the key is never pre-filled
+  PASS: P8: Clear removes the provider key slot
+  PASS: P8: Clear removes bt_feedback_count (no rate-lock)
+  PASS: P8: readKey returns null after Clear
+  PASS: P10: after Clear, UI returns to the empty input form
+  PASS: P10: post-Clear input starts empty
+  PASS: after Clear, the Clear button is gone
+  PASS: P4: Clear reports the cleared status
+  PASS: P11: double mount does not re-render (same form instance)
+  PASS: P11: double mount does not duplicate the submit listener
+  PASS: P11: double mount -> one save -> exactly one fetch
+  PASS: P11: save still works after double mount
+  PASS: P12: mountKeyPage(null/undefined) no-op without crash
+  PASS: P3: 401 save reports invalid-key (not collapsed into network)
+  PASS: 401 save issued one fetch
+  PASS: advisory: key stored even when validation rejects
+  PASS: P3: thrown fetch reports network
+  PASS: network save issued one fetch
+  PASS: storage-unavailable: ZERO fetches issued when storeKey throws
+  PASS: storage-unavailable: friendly storage status rendered
+  PASS: storage-unavailable: key NOT stored
+  PASS: storage-unavailable: input keeps its value for retry (no silent wipe)
+  PASS: Node.js behavioral tests passed (all key-page assertions)
+
+=== Results: 40 passed, 0 failed ===

@@ -425,30 +425,21 @@ function currentSubmissionForExercise(entry) {
   };
 }
 
-// Prompt the learner for a provider + key, with per-provider disclosure. The
-// provider chooser renders a <select data-byok="provider">. The key is stored
-// in the selected provider's localStorage slot (shared across exercises).
-function renderKeyPrompt(container) {
+// Prompt the learner for a key, with the Fireworks disclosure. Learner-facing
+// UX is Fireworks-only: there is NO provider chooser — the learner path cannot
+// represent a non-fireworks provider (the <select> is gone, so the illegal
+// state "learner chose anthropic" is unrepresentable). The Anthropic backend
+// SURVIVES in PROVIDERS for the ?provider= test seam + embedded-key builds.
+// The key is stored in the Fireworks localStorage slot (shared across
+// exercises). Exported so tests can render the prompt without a browser.
+export function renderKeyPrompt(container) {
   const form = document.createElement("form");
   form.dataset.byok = "key-prompt";
 
   const disclosure = document.createElement("p");
   disclosure.id = "byok-disclosure";
-
-  const provLabel = document.createElement("label");
-  provLabel.textContent = "Provider: ";
-  const provSelect = document.createElement("select");
-  provSelect.dataset.byok = "provider";
-  for (const [id, provider] of Object.entries(PROVIDERS)) {
-    const option = document.createElement("option");
-    option.value = id;
-    option.textContent = provider.label;
-    if (id === DEFAULT_PROVIDER) {
-      option.selected = true;
-    }
-    provSelect.append(option);
-  }
-  provLabel.append(provSelect);
+  const provider = PROVIDERS[DEFAULT_PROVIDER];
+  disclosure.textContent = PROVIDER_DISCLOSURES[DEFAULT_PROVIDER];
 
   const keyLabel = document.createElement("label");
   keyLabel.textContent = "API key: ";
@@ -456,29 +447,21 @@ function renderKeyPrompt(container) {
   keyInput.type = "password";
   keyInput.name = "provider-key";
   keyInput.autocomplete = "off";
+  keyInput.placeholder = "Paste your " + provider.label + " API key";
   keyLabel.append(keyInput);
-
-  function updateDisclosure() {
-    const prov = PROVIDERS[provSelect.value];
-    disclosure.textContent = PROVIDER_DISCLOSURES[provSelect.value];
-    keyInput.placeholder = "Paste your " + prov.label + " API key";
-    keyInput.value = "";
-  }
-  provSelect.addEventListener("change", updateDisclosure);
-  updateDisclosure();
 
   const save = document.createElement("button");
   save.type = "submit";
   save.textContent = "Save key & get feedback";
 
-  form.append(disclosure, provLabel, keyLabel, save);
+  form.append(disclosure, keyLabel, save);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const key = keyInput.value.trim();
     if (!key) {
       return;
     }
-    const providerId = provSelect.value;
+    const providerId = DEFAULT_PROVIDER;
     storeProvider(providerId);
     storeKey(key, providerId);
     handleSubmitForExercise(container._entry);

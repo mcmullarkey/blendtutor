@@ -267,7 +267,7 @@ Set one in the browser when prompted:
 - `ANTHROPIC_API_KEY` — [Anthropic](https://www.anthropic.com) (browser BYOK is
   Anthropic-only).
 
-The key is stored in the browser's `sessionStorage` and never sent to a server
+The key is stored in the browser's `localStorage` and never sent to a server
 other than the LLM provider.
 
 #### Feedback opt-in (manual)
@@ -283,7 +283,7 @@ import { mountAllFeedback } from "./_extensions/mcmullarkey/blendtutor/assets/ex
 mountAllFeedback(registry);
 ```
 
-The API key is entered once and shared across exercises via `sessionStorage`.
+The API key is entered once and shared across exercises via `localStorage`.
 
 ### Cross-origin isolation (COI)
 

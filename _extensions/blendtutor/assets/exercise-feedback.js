@@ -1,6 +1,6 @@
 // exercise-feedback.js — per-exercise BYOK LLM feedback (AC-7).
 //
-// WHAT:  Per-exercise feedback UI + shared sessionStorage key + ?provider= override.
+// WHAT:  Per-exercise feedback UI + shared localStorage key + ?provider= override.
 // WHERE: _extensions/blendtutor/assets/exercise-feedback.js
 // NOT:   NOT execution (exercise-runtime.js), NOT filter (blendtutor.lua),
 //        NOT CodeMirror editor, NOT prompt construction beyond the pure builder.
@@ -18,7 +18,7 @@
 //   toVerdict, fireworksRequest, fireworksToVerdict, providerBaseUrl.
 //   These are byte-identical to the Rust core::llm prompt constants (ADR-0006).
 //
-// Shared sessionStorage (key entered once, reused across exercises):
+// Shared localStorage (key entered once, reused across exercises):
 //   readKey/storeKey use provider-scoped slots (fireworks_api_key,
 //   anthropic_api_key) — NOT exercise-scoped. The key entered for exercise 1
 //   is reused for exercise 2 without re-prompting (clause 1 + clause 3).
@@ -51,12 +51,12 @@ export const OUTPUT_LABEL = "<<<CAPTURED_OUTPUT>>>";
 export const CHECKS_LABEL = "<<<CHECK_RESULTS>>>";
 const NEUTRALIZED = "[neutralized-delimiter]";
 
-// --- provider map + key handling (sessionStorage, tab-scoped) -------------------
+// --- provider map + key handling (localStorage, persistent) ----------------------
 
-// The closed set of providers. Each entry carries the tab-scoped
-// sessionStorage slot for the learner's key (provider-scoped, NOT
-// exercise-scoped — the key is entered once and reused across exercises),
-// the base URL, the fallback model, and the FeedbackBackend factory.
+// The closed set of providers. Each entry carries the persistent localStorage
+// slot for the learner's key (provider-scoped, NOT exercise-scoped — the key is
+// entered once and reused across exercises), the base URL, the fallback model,
+// and the FeedbackBackend factory.
 export const PROVIDERS = {
   fireworks: {
     label: "Fireworks",
@@ -79,12 +79,12 @@ export const DEFAULT_PROVIDER = "fireworks";
 // verify BOTH are present. Each matches the dynamic disclosure renderKeyPrompt
 // builds from PROVIDERS[id].label so the disclosure is never stale.
 const PROVIDER_DISCLOSURES = {
-  fireworks: "Your Fireworks API key is stored only in this tab (this browser " +
-    "tab's sessionStorage) and sent only to Fireworks to fetch feedback — never " +
-    "to this site's server or any third party.",
-  anthropic: "Your Anthropic API key is stored only in this tab (this browser " +
-    "tab's sessionStorage) and sent only to Anthropic to fetch feedback — never " +
-    "to this site's server or any third party.",
+  fireworks: "Your Fireworks API key is stored in this browser (localStorage) " +
+    "and sent only to Fireworks to fetch feedback — never to this site's " +
+    "server or any third party.",
+  anthropic: "Your Anthropic API key is stored in this browser (localStorage) " +
+    "and sent only to Anthropic to fetch feedback — never to this site's " +
+    "server or any third party.",
 };
 
 const TOOL_NAME = "respond_with_feedback";
@@ -128,7 +128,7 @@ export function buildPrompt({ task, code, output, checks }) {
   ].join("\n");
 }
 
-// --- key handling (sessionStorage, tab-scoped, SHARED across exercises) -----------
+// --- key handling (localStorage, persistent, SHARED across exercises) -------------
 //
 // The key slot is provider-scoped (fireworks_api_key / anthropic_api_key), NOT
 // exercise-scoped. This is the contract that makes "key entered once, reused
@@ -136,20 +136,35 @@ export function buildPrompt({ task, code, output, checks }) {
 // the same slot without re-prompting (clause 1 + clause 3).
 
 export function readKey(providerId) {
-  return window.sessionStorage.getItem(PROVIDERS[providerId].keySlot);
+  try {
+    return window.localStorage.getItem(PROVIDERS[providerId].keySlot);
+  } catch (_error) {
+    // localStorage unavailable (private mode / file://) → degrade to "no key"
+    // so the submit flow renders the key prompt instead of crashing.
+    return null;
+  }
 }
 
 export function storeKey(key, providerId) {
-  window.sessionStorage.setItem(PROVIDERS[providerId].keySlot, key);
+  window.localStorage.setItem(PROVIDERS[providerId].keySlot, key);
+}
+
+// Scoped removal: the provider's key AND the feedback counter. Deliberately NOT
+// localStorage.clear() — unrelated app state (byok_provider, anthropic_api_key,
+// quarto-reader-mode, quarto-persistent-tabsets-data) survives. Removing the
+// counter is what un-locks a rate-capped learner (the counter is persistent now).
+export function clearKey(providerId) {
+  window.localStorage.removeItem(PROVIDERS[providerId].keySlot);
+  window.localStorage.removeItem(FEEDBACK_COUNT_KEY);
 }
 
 export function readProvider() {
-  const stored = window.sessionStorage.getItem("byok_provider");
+  const stored = window.localStorage.getItem("byok_provider");
   return stored && Object.hasOwn(PROVIDERS, stored) ? stored : DEFAULT_PROVIDER;
 }
 
 export function storeProvider(providerId) {
-  window.sessionStorage.setItem("byok_provider", providerId);
+  window.localStorage.setItem("byok_provider", providerId);
 }
 
 // The provider base URL. A `?provider=` override is the test seam (point rodney
@@ -359,7 +374,7 @@ function byokFireworks({ baseUrl, apiKey }) {
   };
 }
 
-// --- rate limiting (sessionStorage counter, ported from feedback.js) ------------
+// --- rate limiting (localStorage counter, ported from feedback.js) ---------------
 
 const FEEDBACK_COUNT_KEY = "bt_feedback_count";
 
@@ -367,20 +382,23 @@ const FEEDBACK_COUNT_KEY = "bt_feedback_count";
 // non-integer. The parseInt + || 0 guard ensures a corrupt value never yields
 // NaN (which would silently disable limiting — the negative case from the spec).
 export function feedbackCount() {
-  return parseInt(sessionStorage.getItem(FEEDBACK_COUNT_KEY)) || 0;
+  return parseInt(localStorage.getItem(FEEDBACK_COUNT_KEY)) || 0;
 }
 
-// Whether the learner has reached the per-session feedback request limit.
+// Whether the learner has reached the per-browser feedback request limit. The
+// counter lives in localStorage, so the cap is persistent across tabs and
+// reloads; clearKey() resets it. The maxFeedbackPerSession config key keeps its
+// name (smallest correct move) but now caps PER-BROWSER, not per-session.
 export function rateLimitReached() {
   const max =
     (window.__btConfig && window.__btConfig.maxFeedbackPerSession) || 0;
   return feedbackCount() >= max;
 }
 
-// Increment the per-session feedback request counter. Called AFTER the try/catch
+// Increment the per-browser feedback request counter. Called AFTER the try/catch
 // in handleSubmitForExercise — both successful and failed requests count.
 export function incrementFeedbackCount() {
-  sessionStorage.setItem(FEEDBACK_COUNT_KEY, String(feedbackCount() + 1));
+  localStorage.setItem(FEEDBACK_COUNT_KEY, String(feedbackCount() + 1));
 }
 
 // --- the per-exercise submit flow (effectful shell, REWRITTEN) -------------------
@@ -388,7 +406,7 @@ export function incrementFeedbackCount() {
 // The old feedback.js used a singleton #feedback container and window.__bt.
 // This module uses per-exercise containers (created in mountFeedback) and the
 // AC-4 registry entry's getSubmission(). The key handling is shared
-// (sessionStorage), so the key entered for exercise 1 is reused for exercise 2.
+// (localStorage), so the key entered for exercise 1 is reused for exercise 2.
 
 // Read the current lesson + the learner's code from the per-exercise registry
 // entry — no reach into runner internals (§3.4). The code comes from
@@ -409,7 +427,7 @@ function currentSubmissionForExercise(entry) {
 
 // Prompt the learner for a provider + key, with per-provider disclosure. The
 // provider chooser renders a <select data-byok="provider">. The key is stored
-// in the selected provider's sessionStorage slot (shared across exercises).
+// in the selected provider's localStorage slot (shared across exercises).
 function renderKeyPrompt(container) {
   const form = document.createElement("form");
   form.dataset.byok = "key-prompt";
@@ -503,7 +521,7 @@ function renderLimitReached(container) {
   const note = document.createElement("p");
   note.dataset.byok = "limit-reached";
   note.textContent =
-    "Feedback request limit reached for this session. Reload the page to reset.";
+    "Feedback request limit reached for this browser. Clear your saved API key to reset.";
   container.replaceChildren(note);
 }
 
@@ -558,7 +576,7 @@ function selectedModel(container, providerId) {
 //   picker shown     → build the prompt and send feedback through the chosen
 //                      provider's backend, using the chosen model.
 //
-// The provider + key are read from SHARED sessionStorage (entered once, reused).
+// The provider + key are read from SHARED localStorage (entered once, reused).
 // The submission is read from the per-exercise registry entry. The verdict
 // renders into the per-exercise container (no cross-exercise bleed).
 //
@@ -618,7 +636,7 @@ async function handleSubmitForExercise(entry) {
 // --- embedded key (build-time --embed-key, ported) ------------------------------
 //
 // Apply an embedded API key (if present). The decrypt shell sets
-// window.__btEmbeddedKey; applyEmbeddedKey stores it in sessionStorage and
+// window.__btEmbeddedKey; applyEmbeddedKey stores it in localStorage and
 // clears the global, so handleSubmitForExercise's key-entry phase is skipped
 // naturally. Exported, NOT called at module load — the caller invokes it before
 // mountAllFeedback (§2.1: no module-level effectful code).
@@ -637,7 +655,7 @@ export function applyEmbeddedKey() {
 // div.bt-exercise. Each exercise gets its own UI — no singleton #feedback.
 // The button triggers handleSubmitForExercise(entry), which reads the
 // submission from entry.getSubmission() (the per-exercise editor) and the key
-// from shared sessionStorage (entered once, reused).
+// from shared localStorage (entered once, reused).
 export function mountFeedback(entry) {
   // Create the feedback container inside the exercise div.
   const feedbackContainer = document.createElement("div");
@@ -669,7 +687,7 @@ export function mountFeedback(entry) {
 // Mount feedback UI for every exercise in the registry. Called by the page
 // AFTER start(registry, adapters) boots the runtime — each exercise already has
 // its editor + Run button wired by exercise-runtime.js. This adds the feedback
-// button + container per-exercise, using the shared sessionStorage key.
+// button + container per-exercise, using the shared localStorage key.
 export function mountAllFeedback(registry) {
   applyEmbeddedKey();
   for (const entry of registry) {

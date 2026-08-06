@@ -5,7 +5,8 @@ Verifies the 16-clause predicate from AC-2 of byok-api-key:
   P1 (import contract)   — key-page.js imports {readKey, storeKey, clearKey,
                            providerBaseUrl, PROVIDERS} from "./exercise-feedback.js";
                            ZERO literals of fireworks_api_key / anthropic_api_key /
-                           byok_provider / bt_feedback_count / api.fireworks.ai.
+                           byok_provider / bt_feedback_count / api.fireworks.ai;
+                           ZERO sessionStorage (AC-1's storage invariant).
   P2 (host-gated)        — validation URL built via providerBaseUrl("fireworks");
                            ?provider=http://localhost:8080 routes to the stub;
                            no hardcoded Fireworks host.
@@ -117,6 +118,7 @@ def test_p1_import_contract() -> None:
         "byok_provider",
         "bt_feedback_count",
         "api.fireworks.ai",
+        "sessionStorage",
     ]:
         check(literal not in src, f"P1: no literal '{literal}' anywhere in source")
 
@@ -174,10 +176,14 @@ const localStorageMap = new Map();
 const textContents = [];
 const fetchCalls = [];
 let fetchImpl = async () => ({ status: 200, ok: true });
+let storageError = null; // when set, localStorage.setItem throws (private mode / quota)
 
 const localStorageMock = {
   getItem: (k) => (localStorageMap.has(k) ? localStorageMap.get(k) : null),
-  setItem: (k, v) => localStorageMap.set(k, String(v)),
+  setItem: (k, v) => {
+    if (storageError) throw new Error(storageError);
+    localStorageMap.set(k, String(v));
+  },
   removeItem: (k) => localStorageMap.delete(k),
 };
 const location = { search: "" };
@@ -368,6 +374,26 @@ fetchCalls.length = 0;
 await form4._listeners.submit[0]({ preventDefault: () => {} });
 assert(status4.textContent === mod.statusMessage("network"), "P3: thrown fetch reports network");
 assert(fetchCalls.length === 1, "network save issued one fetch");
+
+// --- storage-unavailable: storeKey throws -> friendly status, ZERO fetches --
+// Refusal arm #4: localStorage unavailable (private mode / quota) must NOT
+// crash the save handler, must NOT fetch (no point validating an unstored
+// key), and must surface a friendly storage status instead.
+localStorageMap.clear();
+storageError = "QuotaExceededError: storage unavailable";
+fetchCalls.length = 0;
+const t5 = freshTarget();
+mod.mountKeyPage(t5);
+const form5 = findByDataset(t5, "byok", "key-page-form");
+const input5 = findByDataset(t5, "byok", "key-input");
+const status5 = findByDataset(t5, "byok", "key-status");
+input5.value = "KEY-STORE-THROW";
+await form5._listeners.submit[0]({ preventDefault: () => {} });
+assert(fetchCalls.length === 0, "storage-unavailable: ZERO fetches issued when storeKey throws");
+assert(status5.textContent === mod.statusMessage("storage-unavailable"), "storage-unavailable: friendly storage status rendered");
+assert(localStorageMap.get("fireworks_api_key") === undefined, "storage-unavailable: key NOT stored");
+assert(input5.value === "KEY-STORE-THROW", "storage-unavailable: input keeps its value for retry (no silent wipe)");
+storageError = null;
 
 process.exit(failures > 0 ? 1 : 0);
 """

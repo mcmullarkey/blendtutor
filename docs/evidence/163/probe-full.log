@@ -16,6 +16,7 @@
   PASS: P1: no literal 'byok_provider' anywhere in source
   PASS: P1: no literal 'bt_feedback_count' anywhere in source
   PASS: P1: no literal 'api.fireworks.ai' anywhere in source
+  PASS: P1: no literal 'sessionStorage' anywhere in source
 
 -- test_p3_discriminated_source --
   PASS: P3: classifyValidation present (discriminated result)
@@ -105,6 +106,10 @@
   PASS: advisory: key stored even when validation rejects
   PASS: P3: thrown fetch reports network
   PASS: network save issued one fetch
+  PASS: storage-unavailable: ZERO fetches issued when storeKey throws
+  PASS: storage-unavailable: friendly storage status rendered
+  PASS: storage-unavailable: key NOT stored
+  PASS: storage-unavailable: input keeps its value for retry (no silent wipe)
   PASS: Node.js behavioral tests passed (all key-page assertions)
 
-=== Results: 39 passed, 0 failed ===
+=== Results: 40 passed, 0 failed ===

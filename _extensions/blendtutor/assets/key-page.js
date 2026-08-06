@@ -27,6 +27,7 @@ const STATUS_MESSAGES = {
   saved: "Key saved and verified.",
   "invalid-key": "That key was rejected by the provider. Check it and try again.",
   network: "Key saved, but the provider could not be reached to verify it.",
+  "storage-unavailable": "Could not save your key — browser storage is unavailable. Check your browser's privacy settings and try again.",
   empty: "Enter a key to save it.",
   cleared: "Your saved API key has been removed.",
 };
@@ -130,13 +131,21 @@ function renderKeyForm(container, initialReason) {
 // Save flow: empty input is a no-op (stored key survives, no fetch); otherwise
 // store optimistically via the imported contract, reset the input immediately
 // (no password-manager capture, no echo), then validate (advisory status).
+// When storage is unavailable (storeKey throws — private mode, quota exceeded),
+// report a friendly storage status and STOP: no fetch, input keeps its value so
+// the user can retry. The key is only cleared from the input on the success path.
 function handleSave(input, status) {
   const value = input.value.trim();
   if (!value) {
     setStatus(status, "empty");
     return;
   }
-  storeKey(value, PROVIDER_ID);
+  try {
+    storeKey(value, PROVIDER_ID);
+  } catch (_error) {
+    setStatus(status, "storage-unavailable");
+    return;
+  }
   input.value = "";
   return validateAndReport(status, value);
 }

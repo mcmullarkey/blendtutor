@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Executable spec for issue #112 — Per-exercise BYOK LLM feedback.
 
-Verifies the 9-clause predicate from AC-7, plus the issue #162 localStorage
-migration (P1-P7):
+Verifies the 9-clause predicate from AC-7, the issue #162 localStorage
+migration (P1-P7), and the issue #167 Fireworks-only learner UX (C1-C6):
   1. key entered once — shared localStorage key slot (provider-scoped, not
      exercise-scoped); entered once, reused across exercises.
   2. per-exercise scoping — each exercise has its own feedback container; no
@@ -13,8 +13,11 @@ migration (P1-P7):
       counter all live in localStorage (shared, persistent); clearKey(providerId)
       removes the provider key AND bt_feedback_count; zero sessionStorage tokens
       remain (P4); readKey degrades to null when localStorage is unavailable (P7).
-  4. provider switch — PROVIDERS map + storeProvider/readProvider; the provider
-     chooser renders a <select data-byok="provider">.
+  4. provider switch — PROVIDERS map + storeProvider/readProvider; Fireworks-only
+     learner UX (issue #167): renderKeyPrompt renders NO provider <select>
+     (C1 — absent, not hidden), the anthropic backend + ?provider= seam survive
+     (C3/C4), both disclosures state localStorage wording (C5), and submit
+     stores under fireworks with no dangling provSelect ref (C6).
   5. ?provider= override — providerBaseUrl honors a localhost-only override and
      rejects non-local / credentialed overrides.
   6. llm_evaluation_prompt ABSENT — never in the JS source or the qmd fixture.
@@ -241,6 +244,42 @@ def check_provider_override(src: str) -> None:
         ko("localhost-only gate missing — key could be exfiltrated")
 
 
+def check_fireworks_only_ux(src: str) -> None:
+    """AC-6 (source): learner-facing UX is Fireworks-only.
+
+    C1 (source): the provider <select> literal AND its creation pattern are
+    absent — no data-byok="provider" in source. DOM absence is asserted in the
+    Node behavioral section; a hidden/display:none select would still trip the
+    render checks (absence, not concealment).
+    C3 (source): the anthropic backend factory stays wired in PROVIDERS.
+    C5 (source): BOTH disclosure strings state localStorage wording.
+    C6 (source): no dangling provSelect reference survives in the submit path.
+    """
+    if 'data-byok="provider"' not in src:
+        ok('C1 (source): no data-byok="provider" literal in exercise-feedback.js')
+    else:
+        ko('C1 (source): data-byok="provider" literal still in source')
+    if 'dataset.byok = "provider"' not in src:
+        ok('C1 (source): no provider <select> creation pattern (dataset.byok = "provider")')
+    else:
+        ko("C1 (source): provider <select> creation pattern still present")
+    if "factory: byokAnthropic" in src:
+        ok("C3 (source): PROVIDERS.anthropic keeps the byokAnthropic factory")
+    else:
+        ko("C3 (source): byokAnthropic factory missing from PROVIDERS map")
+    if "provSelect" not in src:
+        ok("C6 (source): no orphaned provSelect references")
+    else:
+        ko("C6 (source): provSelect reference survives — submit would throw")
+    if (
+        "Your Fireworks API key is stored in this browser (localStorage)" in src
+        and "Your Anthropic API key is stored in this browser (localStorage)" in src
+    ):
+        ok("C5 (source): BOTH provider disclosures state localStorage wording")
+    else:
+        ko("C5 (source): one or both disclosures missing localStorage wording")
+
+
 def check_concurrent_guard(src: str) -> None:
     """Clause 8 (source): per-exercise concurrent feedback guard."""
     if (
@@ -321,8 +360,79 @@ const location = { search: "" };
 globalThis.window = { localStorage, sessionStorage, location, __btConfig: {} };
 globalThis.localStorage = localStorage;
 globalThis.sessionStorage = sessionStorage;
+
+// Minimal DOM mock for renderKeyPrompt (AC-6 C1/C5/C6). Supports the element
+// operations renderKeyPrompt uses: append, replaceChildren, addEventListener,
+// dataset, querySelector/querySelectorAll, and submit dispatch. Selector
+// matching covers the selectors the assertions query — NOT a general CSS engine.
+function elementMatches(el, selector) {
+  if (selector === "option" || selector === "form" || selector === "p") {
+    return el.tagName === selector.toUpperCase();
+  }
+  const m = /^([a-z]+)\[data-byok="([^"]+)"\]$/.exec(selector);
+  if (m) return el.tagName === m[1].toUpperCase() && el.dataset.byok === m[2];
+  const mn = /^input\[name="([^"]+)"\]$/.exec(selector);
+  if (mn) return el.tagName === "INPUT" && el.name === mn[1];
+  const mi = /^#([A-Za-z0-9_-]+)$/.exec(selector);
+  if (mi) return el.id === mi[1];
+  return false;
+}
+function matchFirst(root, selector) {
+  if (elementMatches(root, selector)) return root;
+  for (const child of root.children || []) {
+    const found = matchFirst(child, selector);
+    if (found) return found;
+  }
+  return null;
+}
+function collectMatches(root, selector, out) {
+  if (elementMatches(root, selector)) out.push(root);
+  for (const child of root.children || []) collectMatches(child, selector, out);
+}
+function mockElement(tag) {
+  return {
+    tagName: tag.toUpperCase(),
+    dataset: {},
+    children: [],
+    _handlers: {},
+    value: "",
+    textContent: "",
+    placeholder: "",
+    type: "",
+    name: "",
+    autocomplete: "",
+    selected: false,
+    id: "",
+    append(...nodes) {
+      for (const n of nodes) this.children.push(n);
+    },
+    appendChild(n) {
+      this.children.push(n);
+      return n;
+    },
+    replaceChildren(...nodes) {
+      this.children = [...nodes];
+    },
+    addEventListener(type, fn) {
+      (this._handlers[type] || (this._handlers[type] = [])).push(fn);
+    },
+    dispatchEvent(event) {
+      const fns = this._handlers[event.type] || [];
+      for (const fn of fns) fn(event);
+      return true;
+    },
+    querySelector(selector) {
+      return matchFirst(this, selector);
+    },
+    querySelectorAll(selector) {
+      const out = [];
+      collectMatches(this, selector, out);
+      return out;
+    },
+  };
+}
 globalThis.document = {
-  createElement: () => ({ append: () => {}, addEventListener: () => {}, replaceChildren: () => {}, dataset: {}, style: {}, appendChild: () => {} }),
+  createElement: mockElement,
   getElementById: () => null,
   querySelector: () => null,
 };
@@ -456,6 +566,52 @@ localStorage.getItem = () => { throw new Error("SecurityError: localStorage unav
 assert(mod.readKey("fireworks") === null, "P7: readKey returns null when localStorage.getItem throws");
 localStorage.getItem = realGetItem;
 
+// --- AC-6 C2: empty storage defaults to fireworks (readProvider NOT made
+//     unconditional — semantics stay default-when-absent) ---
+localStorageMap.clear();
+assert(mod.readProvider() === "fireworks", "C2: empty storage defaults to fireworks");
+
+// --- AC-6 C3: PROVIDERS.anthropic survives (backend kept for ?provider= seam
+//     + embedded-key builds — no overzealous cleanup) ---
+assert(Object.hasOwn(mod.PROVIDERS, "anthropic"), "C3: PROVIDERS.anthropic survives (backend not deleted)");
+assert(mod.PROVIDERS.anthropic.keySlot === "anthropic_api_key", "C3: anthropic keySlot preserved");
+assert(mod.PROVIDERS.anthropic.baseUrl === "https://api.anthropic.com", "C3: anthropic baseUrl preserved");
+assert(typeof mod.PROVIDERS.anthropic.factory === "function", "C3: anthropic factory wired");
+const anthropicBackend = mod.PROVIDERS.anthropic.factory({ baseUrl: "https://api.anthropic.com", apiKey: "k" });
+assert(anthropicBackend.name === "byok-anthropic", "C3: anthropic factory builds the byok-anthropic backend");
+const fireworksBackend = mod.PROVIDERS.fireworks.factory({ baseUrl: "https://api.fireworks.ai/inference/v1", apiKey: "k" });
+assert(fireworksBackend.name === "byok-fireworks", "C3: fireworks factory builds the byok-fireworks backend (pair intact)");
+
+// --- AC-6 C1+C5: renderKeyPrompt renders NO provider <select> and the
+//     disclosure states localStorage ---
+const keyPromptContainer = mockElement("div");
+mod.renderKeyPrompt(keyPromptContainer);
+assert(keyPromptContainer.querySelector('select[data-byok="provider"]') === null, "C1: key prompt renders NO provider <select> (absent, not hidden)");
+assert(keyPromptContainer.querySelectorAll("option").length === 0, "C1: key prompt renders ZERO <option> elements");
+const keyPromptDisclosure = keyPromptContainer.querySelector("#byok-disclosure").textContent;
+assert(keyPromptDisclosure.includes("localStorage"), "C5: rendered disclosure states localStorage");
+assert(!keyPromptDisclosure.includes("sessionStorage"), "C5: rendered disclosure does NOT state sessionStorage");
+assert(keyPromptDisclosure.includes("Fireworks"), "C5: rendered disclosure names Fireworks (default provider)");
+
+// --- AC-6 C6: submit with non-empty key stores fireworks — no dangling
+//     provSelect.value ReferenceError after the select is removed ---
+localStorageMap.clear();
+const c6Container = mockElement("div");
+const c6Entry = { id: "c6-exercise", feedbackContainer: c6Container, _feedbackRunning: true };
+c6Container._entry = c6Entry; // back-ref mirrors mountFeedback
+mod.renderKeyPrompt(c6Container);
+const c6Form = c6Container.querySelector("form");
+c6Form.querySelector('input[name="provider-key"]').value = "fw-key-abc";
+let submitThrew = null;
+try {
+  c6Form.dispatchEvent({ type: "submit", preventDefault() {} });
+} catch (err) {
+  submitThrew = err;
+}
+assert(submitThrew === null, "C6: key prompt submit does not throw after select removal");
+assert(localStorageMap.get("byok_provider") === "fireworks", "C6: storeProvider called with fireworks");
+assert(localStorageMap.get("fireworks_api_key") === "fw-key-abc", "C6: key stored in the fireworks localStorage slot");
+
 process.exit(failures > 0 ? 1 : 0);
 """
 
@@ -554,6 +710,7 @@ def main() -> int:
     check_pure_layer_exported(src)
     check_prompt_fences(src)
     check_providers_map(src)
+    check_fireworks_only_ux(src)
     check_shared_local_storage(src)
     check_zero_session_storage(src)
     check_no_singleton_feedback(src)

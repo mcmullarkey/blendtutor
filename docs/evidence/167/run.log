@@ -1,0 +1,57 @@
+E2E run log — issue #167: Scope learner UX to Fireworks-only (AC-6)
+====================================================================
+Date: 2026-08-06
+Branch: 167-fireworks-only
+Verification: code (pytest + jsdom DOM render/submit via Node mock)
+
+The AC-6 change removes the provider <select> from the learner key prompt,
+keeps readProvider default-when-absent, keeps the Anthropic backend +
+?provider= seam, and updates disclosure copy to localStorage wording.
+Because the probe is the extended test file itself (jsdom render of
+renderKeyPrompt + jsdom submit), the behavioral evidence IS the run log
+below: the key prompt is actually rendered into a DOM container and the
+save form is actually submitted.
+
+1) Full test suite (40/40): docs/evidence/167/test-suite.log
+
+2) AC-6 C1-C6 behavioral assertions (extract from test-suite.log):
+   PASS: C1 (source): no data-byok="provider" literal in exercise-feedback.js
+   PASS: C1 (source): no provider <select> creation pattern (dataset.byok = "provider")
+   PASS: C3 (source): PROVIDERS.anthropic keeps the byokAnthropic factory
+   PASS: C6 (source): no orphaned provSelect references
+   PASS: C5 (source): BOTH provider disclosures state localStorage wording
+   PASS: C2: empty storage defaults to fireworks
+   PASS: C3: PROVIDERS.anthropic survives (backend not deleted)
+   PASS: C3: anthropic keySlot preserved
+   PASS: C3: anthropic baseUrl preserved
+   PASS: C3: anthropic factory builds the byok-anthropic backend
+   PASS: C1: key prompt renders NO provider <select> (absent, not hidden)
+   PASS: C1: key prompt renders ZERO <option> elements
+   PASS: C5: rendered disclosure states localStorage
+   PASS: C5: rendered disclosure does NOT state sessionStorage
+   PASS: C5: rendered disclosure names Fireworks (default provider)
+   PASS: C6: key prompt submit does not throw after select removal
+   PASS: C6: storeProvider called with fireworks
+   PASS: C6: key stored in the fireworks localStorage slot
+
+3) Negative control — dangling provSelect.value in submit handler:
+   (temporarily reverted `const providerId = DEFAULT_PROVIDER;` back to
+   `const providerId = provSelect.value;`)
+   FAIL: C6: key prompt submit does not throw after select removal
+   FAIL: C6: storeProvider called with fireworks
+   FAIL: C6: key stored in the fireworks localStorage slot
+   FAIL: C6 (source): provSelect reference survives — submit would throw
+   (restored; 40/40 green again) — proves the C6 test pins the regression.
+
+4) Three-copy propagation — demo-book mirror byte-identical:
+   $ cmp _extensions/blendtutor/assets/exercise-feedback.js \
+        demo-book/_extensions/mcmullarkey/blendtutor/assets/exercise-feedback.js
+   MIRROR BYTE-IDENTICAL
+
+5) Unaffected systems:
+   - crates/core/assets/shared/feedback.js NOT touched (separate Rust system,
+     pinned by crates/cli/tests/build.rs)
+   - rodney-probes/ NOT touched (AC-8 ownership)
+   - readProvider diff = ZERO lines (default-when-absent already in place)
+   - C4 (?provider= localhost seam) assertions unchanged, still green
+   - Sibling suite test_quarto_ux.py: 46 passed, 0 failed

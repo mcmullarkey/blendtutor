@@ -40,8 +40,9 @@ README="README.md"
 DEMO_BOOK_DIR="demo-book"
 ADR_FILE="docs/adr/0015-opt-in-coi-cross-origin.md"
 
-# Demo section scope: `### Demo book` through `## License` (exclusive).
-DEMO_SECTION="$(awk '/^### Demo book/,/^## License/' "$README")"
+# Demo section scope: `### Demo book` through `## BYOK` (exclusive of the
+# BYOK section, which now follows the demo section before `## License`).
+DEMO_SECTION="$(awk '/^### Demo book/,/^## BYOK/' "$README")"
 
 # ---------------------------------------------------------------------------
 # c1: Both live URLs exact literals, trailing slash pinned (demo section)

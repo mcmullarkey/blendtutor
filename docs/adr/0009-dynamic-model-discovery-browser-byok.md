@@ -1,6 +1,6 @@
 # ADR-0009: Dynamic model discovery for browser BYOK feedback
 
-- Status: Extended
+- Status: Extended; partially superseded by ADR-0016 (Fireworks-only learner UX)
 - Date: 2026-06-09 (extended 2026-06-23 with multi-provider chooser)
 
 ## Context

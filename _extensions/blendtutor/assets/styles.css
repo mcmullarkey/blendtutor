@@ -796,7 +796,8 @@
  * The Quarto fork renders per-exercise feedback into a .bt-feedback container
  * (exercise-feedback.js mountFeedback) — the #feedback rules above serve the
  * crates site shell and are NOT matched by the new code. This section styles
- * the per-exercise container, the no-key link, and the KEY PAGE form.
+ * the per-exercise container, the INLINE key form (issue #186), and the
+ * KEY PAGE form.
  *
  * Scoping notes (scripts/sync-quarto-assets.sh):
  *  - Rules in this source file are prefixed with .bt-exercise by the sync
@@ -804,10 +805,12 @@
  *    UNscoped. The key page (.blendtutor-key) sits OUTSIDE any .bt-exercise
  *    wrapper, so its form rules MUST use :global(...) — a scoped rule would
  *    never match the key page ("bizarre page" bug, issue 182).
- *  - The no-key link renders INSIDE .bt-feedback inside .bt-exercise — scoped.
+ *  - The INLINE key form (issue #186) renders INSIDE .bt-feedback inside
+ *    .bt-exercise — scoped. The flatten override below cancels the :global
+ *    card styling so there is no card-in-card.
  */
 
-/* Per-exercise feedback container — cards the verdict/no-key/error area */
+/* Per-exercise feedback container — cards the verdict/inline-form/error area */
 
 .bt-exercise .bt-feedback {
   margin-top: var(--bt-space-md);
@@ -818,35 +821,18 @@
   font-family: var(--bt-font-family-ui);
 }
 
-/* No-key state (AC-4, issue 182): a real affordance — button-styled link,
- * not a bare default anchor */
+/* Inline key form inside the feedback container (issue #186): the key-page
+ * form rules are :global passthrough (card styling for the standalone key
+ * page). When the form mounts INLINE inside the .bt-feedback card, flatten
+ * the card-in-card — the container already supplies border/background/padding.
+ * This scoped rule beats the :global passthrough by specificity. */
 
-.bt-exercise [data-byok="no-key"] {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--bt-space-md);
-  color: var(--bt-color-text-secondary);
-  font-size: 0.875em;
-  line-height: var(--bt-line-height);
-}
-
-.bt-exercise [data-byok="no-key"] a {
-  display: inline-block;
-  background: var(--bt-color-brand);
-  color: var(--bt-color-surface);
-  border-radius: var(--bt-radius-sm);
-  padding: var(--bt-space-xs) var(--bt-space-sm);
-  font-family: var(--bt-font-family-ui);
-  font-size: var(--bt-font-size-base);
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.bt-exercise [data-byok="no-key"] a:hover {
-  background: var(--bt-color-brand-hover);
+.bt-exercise .bt-feedback [data-byok="key-page-form"] {
+  max-width: none;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
 }
 
 /* Verdict / pending / error / limit-reached inside the per-exercise container */

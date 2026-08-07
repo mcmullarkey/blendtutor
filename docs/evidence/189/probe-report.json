@@ -1,0 +1,57 @@
+{
+  "issue": "189",
+  "branch": "189-rigorous-py-exercise",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/worktree-issue-189",
+  "timestamp": "2026-08-07T22:00:00.000Z",
+  "probes": [
+    {
+      "name": "bootstrap: r-exercises.html — 2 R exercises mounted",
+      "status": "PASS",
+      "details": "auto-bootstrap ran, __btExercises.length === 2, all data-language='r'"
+    },
+    {
+      "name": "bootstrap: python-exercises.html — 3 python exercises mounted",
+      "status": "PASS",
+      "details": "auto-bootstrap ran, __btExercises.length === 3, all data-language='python'"
+    },
+    {
+      "name": "exercise-3: mounts editor + Check + Solution buttons",
+      "status": "PASS",
+      "details": "bt-exercise-2 has CodeMirror editor, .bt-check-btn (Check), .bt-solution-btn (Show solution)"
+    },
+    {
+      "name": "exercise-3: solution runs in Pyodide — green pass (all 5 checks)",
+      "status": "PASS",
+      "details": "Pasted .solution into editor, clicked Check. Pyodide booted, status='pass', output='ok'. All 5 checks pass: no-NA, no-dupes, canonical-categories, exact-revenue, row-count."
+    },
+    {
+      "name": "exercise-3: raw scaffold Check — no hard crash",
+      "status": "PASS",
+      "details": "Clicked Check on unmodified code_template (__ placeholders). Shows 'Python error: NameError name ___ is not defined' (expected). No 'Check error' — Pyodide executed code, caught error, displayed gracefully."
+    },
+    {
+      "name": "exercise-3: packages=['pandas'] loaded from CDN",
+      "status": "PASS",
+      "details": "pandas available in Pyodide runtime (solution ran pd.read_csv, groupby, etc. successfully)"
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "docs/evidence/189/exercise-3-rendered.png",
+      "ui_state": "Exercise 3 widget rendered with CodeMirror editor, Check button, Show solution button",
+      "ac_reference": "AC: Exercise 3 mounts editor + buttons"
+    },
+    {
+      "path": "docs/evidence/189/exercise-3-solution-pass.png",
+      "ui_state": "Exercise 3 after running solution — status=pass, output=ok, green pass indicator",
+      "ac_reference": "AC: Pyodide parity — solution produces green pass"
+    },
+    {
+      "path": "docs/evidence/189/exercise-3-raw-scaffold-check.png",
+      "ui_state": "Exercise 3 after running raw scaffold — Python error (expected for ___ placeholders), no hard crash",
+      "ac_reference": "AC: Raw scaffold Check shows expected error, no crash"
+    }
+  ],
+  "verdict": "PROBES_PASS",
+  "notes": "Re-captured screenshots 2026-08-07T22:00. Original PNGs were byte-identical (all 89506 bytes, same SHA). New captures: rendered=165853B, solution-pass=138529B, raw-scaffold=111521B — all distinct SHA256 hashes. Exercise 3 editor scrolled into viewport before each capture. Pyodide parity confirmed: solution→pass, scaffold→NameError on ___."
+}

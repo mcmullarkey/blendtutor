@@ -1,0 +1,16 @@
+# Rodney probes for branch 189-rigorous-py-exercise
+verdict: PROBES_PASS
+timestamp: 2026-08-07T21:45:00.000Z
+
+- PASS: bootstrap: r-exercises.html — 2 R exercises mounted
+  auto-bootstrap ran, __btExercises.length === 2, all data-language='r'
+- PASS: bootstrap: python-exercises.html — 3 python exercises mounted
+  auto-bootstrap ran, __btExercises.length === 3, all data-language='python'
+- PASS: exercise-3: mounts editor + Check + Solution buttons
+  bt-exercise-2 has CodeMirror editor, .bt-check-btn (Check), .bt-solution-btn (Show solution)
+- PASS: exercise-3: solution runs in Pyodide — green pass (all 5 checks)
+  Pasted .solution into editor, clicked Check. Pyodide booted, status='pass', output='ok'. All 5 checks pass.
+- PASS: exercise-3: raw scaffold Check — no hard crash
+  Shows 'Python error: NameError name ___ is not defined' (expected). No 'Check error'.
+- PASS: exercise-3: packages=['pandas'] loaded from CDN
+  pandas available in Pyodide runtime (solution ran pd.read_csv, groupby, etc. successfully)

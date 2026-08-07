@@ -8,8 +8,8 @@
  *   r-exercises.html      → window.__btExercises.length === 3 AND
  *                           .cm-editor count === 3 AND every entry
  *                           data-language === "r"
- *   python-exercises.html → window.__btExercises.length === 2 AND
- *                           .cm-editor count === 2 AND every entry
+ *   python-exercises.html → window.__btExercises.length === 3 AND
+ *                           .cm-editor count === 3 AND every entry
  *                           data-language === "python"
  *
  * The assertions NEVER wait for boot completion: webR/pyodide boot pulls CDN
@@ -219,7 +219,7 @@ function runProbes() {
   );
 
   // ------------------------------------------------------------------
-  // Clause 8: demo-book/_output/python-exercises.html — 2 python mounted
+  // Clause 8: demo-book/_output/python-exercises.html — 3 python mounted
   // ------------------------------------------------------------------
   navigateToPage(PY_URL);
   if (!waitForExpr("window.__btExercises !== undefined")) {
@@ -227,12 +227,12 @@ function runProbes() {
   }
 
   rodneyAssert(
-    "clause-8 python page: __btExercises.length === 2 (2 python exercises mounted)",
-    "return window.__btExercises.length === 2",
+    "clause-8 python page: __btExercises.length === 3 (3 python exercises mounted)",
+    "return window.__btExercises.length === 3",
   );
   rodneyAssert(
-    "clause-8 python page: .cm-editor count === 2 (both exercises have editors)",
-    "return document.querySelectorAll('.cm-editor').length === 2",
+    "clause-8 python page: .cm-editor count === 3 (all exercises have editors)",
+    "return document.querySelectorAll('.cm-editor').length === 3",
   );
   rodneyAssert(
     "clause-8 python page: every entry data-language === 'python'",
@@ -245,6 +245,10 @@ function runProbes() {
   rodneyAssert(
     "fix python page: static fallback removed after boot (.bt-exercise-static count 0)",
     "return document.querySelectorAll('.bt-exercise-static').length === 0",
+  );
+  rodneyAssert(
+    "fix python page: payload script still present after boot (static block did not clobber it)",
+    "return document.querySelectorAll('div.bt-exercise script[type=\"application/json\"]').length === 3",
   );
 
   // ------------------------------------------------------------------

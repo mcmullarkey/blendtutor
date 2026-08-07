@@ -2,7 +2,7 @@
   "issue": "189",
   "branch": "189-rigorous-py-exercise",
   "worktree": "/Users/carbonite/Documents/coding/portfolio/worktree-issue-189",
-  "timestamp": "2026-08-07T21:45:00.000Z",
+  "timestamp": "2026-08-07T22:00:00.000Z",
   "probes": [
     {
       "name": "bootstrap: r-exercises.html — 2 R exercises mounted",
@@ -53,5 +53,5 @@
     }
   ],
   "verdict": "PROBES_PASS",
-  "notes": "Bootstrap probe had intermittent issues with browser page navigation (quarto book SPA-style navigation causes URL drift to r-exercises.html). Cache-clear resolved stale content. Direct functional verification confirms all ACs pass."
+  "notes": "Re-captured screenshots 2026-08-07T22:00. Original PNGs were byte-identical (all 89506 bytes, same SHA). New captures: rendered=165853B, solution-pass=138529B, raw-scaffold=111521B — all distinct SHA256 hashes. Exercise 3 editor scrolled into viewport before each capture. Pyodide parity confirmed: solution→pass, scaffold→NameError on ___."
 }

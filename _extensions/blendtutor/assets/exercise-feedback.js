@@ -588,6 +588,17 @@ export function applyEmbeddedKey() {
 // The button triggers handleSubmitForExercise(entry), which reads the
 // submission from entry.getSubmission() (the per-exercise editor) and the key
 // from shared localStorage (entered once, reused).
+//
+// Issue #182 (toolbar placement): when the runtime has exposed entry.controls
+// (the Check/Show-solution row created by exercise-runtime.js
+// wireExercise), the Get feedback button is PREPENDED INTO that row so it
+// occupies the former Run button's slot — FIRST, before Check and Show
+// solution (the user's stated fix: "replace the Run button", which was
+// first in the toolbar). The feedback CONTAINER (verdict area,
+// data-byok="feedback") stays as a direct child of the exercise element
+// below the controls. When entry.controls is absent (standalone mounts,
+// tests), the button falls back to a direct child of the exercise element
+// above the container.
 export function mountFeedback(entry) {
   // Create the feedback container inside the exercise div.
   const feedbackContainer = document.createElement("div");
@@ -608,10 +619,18 @@ export function mountFeedback(entry) {
     handleSubmitForExercise(entry);
   });
 
-  const wrapper = document.createElement("div");
-  wrapper.className = "bt-feedback-wrapper";
-  wrapper.append(feedbackBtn, feedbackContainer);
-  entry.element.appendChild(wrapper);
+  if (entry.controls) {
+    // Toolbar placement (issue #182): the button joins the Check/Show
+    // solution row created by exercise-runtime.js wireExercise — PREPENDED
+    // so Get feedback is first (the former Run button's slot, per the
+    // user's stated fix).
+    entry.controls.insertBefore(feedbackBtn, entry.controls.firstChild);
+  } else {
+    // Fallback for standalone mounts (no runtime controls row): the button
+    // sits directly above the container inside the exercise element.
+    entry.element.appendChild(feedbackBtn);
+  }
+  entry.element.appendChild(feedbackContainer);
 }
 
 // Mount feedback UI for every exercise in the registry. Called by the page

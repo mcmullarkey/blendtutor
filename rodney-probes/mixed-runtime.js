@@ -225,8 +225,11 @@ function waitForExpr(expr, timeoutSeconds = 20) {
 }
 
 function clickRun(exerciseIndex) {
+  // Issue #182: the Run button is removed (Get feedback replaces its slot).
+  // The mock exercises have NO checks, so no Check button exists either —
+  // trigger execution through the registry entry's runSubmission() directly.
   rodneyJs(
-    `document.querySelectorAll('.bt-exercise')[${exerciseIndex}].querySelector('.bt-run-btn').click()`,
+    `(() => { const e = window.__btExercises[${exerciseIndex}]; if (!e) return false; e.runSubmission(); return true; })()`,
   );
 }
 

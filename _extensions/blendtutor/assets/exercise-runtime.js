@@ -2,7 +2,7 @@
 //
 // WHAT:  DOM scan, per-exercise registry, N CodeMirror editors, adapter injection,
 //        hints <details> toggle, solution reveal, check button conditional,
-//        Run button disable/enable, data-status state machine.
+//        controls container exposure (issue #182), data-status state machine.
 // WHERE: _extensions/blendtutor/assets/exercise-runtime.js
 // NOT:   NOT execution (delegated to adapter), NOT feedback (AC-7), NOT filter (AC-2).
 //        NOT adapter loading (AC-3 bootstrap owns that), NOT language defaulting —
@@ -289,16 +289,23 @@ function renderHintsForExercise(entry) {
 }
 
 /**
- * Wire Check/Run buttons and per-exercise state for a single exercise.
- * Creates hints <details>, controls (Run + Check + Solution buttons), status,
- * and output elements inside the exercise div, and binds
+ * Wire Check/Solution buttons and per-exercise state for a single exercise.
+ * Creates hints <details>, controls (Check + Solution buttons + the Get
+ * feedback button slot, which the feedback module fills via entry.controls),
+ * status, and output elements inside the exercise div, and binds
  * getSubmission/setEditorContent/setStatus/runSubmission to the entry.
  *
- * UX polish (AC-8):
+ * UX polish (AC-8) + issue #182:
  *   - Hints <details> toggle rendered before controls (clause 1).
  *   - Check button only when payload.checks is non-empty (clause 3).
  *   - Solution button only when payload.solution is non-null (clause 2).
- *   - Run button disabled during runSubmission, re-enabled in finally (clauses 4+7).
+ *   - Run button REMOVED (issue #182) — Check already runs the deterministic
+ *     tests; Get feedback (mounted by the feedback module into entry.controls)
+ *     replaces Run's toolbar slot.
+ *   - Controls container exposed as entry.controls so other modules (feedback)
+ *     can append into the same toolbar row.
+ *   - Check/Solution buttons disabled during runSubmission, re-enabled in
+ *     finally (clauses 4+7).
  *   - data-status closed set: idle → running → (pass | fail) (clause 6).
  *
  * @param {Object} entry — Registry entry (mutated: adds methods + state).
@@ -311,12 +318,9 @@ function wireExercise(entry, runtime) {
   // Create UI elements inside the exercise div
   const controls = document.createElement("div");
   controls.className = "bt-controls";
-
-  const runBtn = document.createElement("button");
-  runBtn.textContent = "Run";
-  runBtn.className = "bt-run-btn";
-
-  controls.appendChild(runBtn);
+  // Expose the toolbar on the entry (issue #182) so the feedback module can
+  // append the Get feedback button into the same row as Check/Solution.
+  entry.controls = controls;
 
   // Check button — only when the exercise has checks (clause 3: absent when
   // no checks). The button runs the same submission flow as Run.
@@ -387,8 +391,8 @@ function wireExercise(entry, runtime) {
 
   // Per-exercise runSubmission — evaluates via the injected runtime adapter.
   // Concurrent run safety: rejects if already running (§5.3).
-  // Disables THIS exercise's Run button only (clause 4: per-exercise, not
-  // singleton). Also disables Check/Solution buttons when present, so a
+  // Disables THIS exercise's Check/Solution buttons (issue #182: the Run
+  // button is gone; Get feedback is a separate flow with its own guard), so a
   // mid-run click cannot overwrite the editor or trigger a stale run.
   // Re-enables all in finally (clause 7: buttons re-enabled on pass).
   entry._running = false;
@@ -398,7 +402,6 @@ function wireExercise(entry, runtime) {
       return "fail";
     }
     entry._running = true;
-    runBtn.disabled = true;
     if (entry.checkBtn) entry.checkBtn.disabled = true;
     if (entry.solutionBtn) entry.solutionBtn.disabled = true;
     try {
@@ -414,16 +417,10 @@ function wireExercise(entry, runtime) {
       return ok ? "pass" : "fail";
     } finally {
       entry._running = false;
-      runBtn.disabled = false;
       if (entry.checkBtn) entry.checkBtn.disabled = false;
       if (entry.solutionBtn) entry.solutionBtn.disabled = false;
     }
   };
-
-  // Wire the Run button
-  runBtn.addEventListener("click", () => {
-    entry.runSubmission();
-  });
 }
 
 // ---------------------------------------------------------------------------

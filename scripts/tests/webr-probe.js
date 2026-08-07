@@ -89,9 +89,11 @@ async function runProbe() {
 
   // 3. First Run: boot progress shown
   await asyncTest("3. First Run: boot progress shown", async () => {
-    // Click Run on Exercise 1
-    const runBtn = reg[0].element.querySelector(".bt-run-btn");
-    assert(runBtn !== null, "Exercise 1 Run button not found");
+    // Trigger execution (issue #182: the Run button is removed; the webr
+    // fixture exercises have no checks, so no Check button exists either —
+    // drive runSubmission() directly like the concurrent-guard test does).
+    const reg0 = reg[0];
+    assert(reg0.element.querySelector(".bt-run-btn") === null, "Exercise 1 has no .bt-run-btn (issue #182)");
 
     // Record output before run
     const outputEl = reg[0].element.querySelector(".bt-output");
@@ -99,8 +101,8 @@ async function runProbe() {
     assert(outputEl !== null, "Exercise 1 output element not found");
     assert(statusEl !== null, "Exercise 1 status element not found");
 
-    // Click Run
-    runBtn.click();
+    // Trigger run
+    reg[0].runSubmission();
 
     // Wait for boot progress to appear (status should show booting/booting…)
     const bootProgressSeen = await waitFor(() => {
@@ -134,9 +136,8 @@ async function runProbe() {
     // Record resource count before second run
     const resourcesBefore = performance.getEntriesByType("resource").length;
 
-    // Click Run on Exercise 2
-    const runBtn = reg[1].element.querySelector(".bt-run-btn");
-    assert(runBtn !== null, "Exercise 2 Run button not found");
+    // Trigger run on Exercise 2 (issue #182: no Run button — direct call)
+    assert(reg[1].element.querySelector(".bt-run-btn") === null, "Exercise 2 has no .bt-run-btn (issue #182)");
 
     const statusEl = reg[1].element.querySelector(".bt-status");
     const outputEl = reg[1].element.querySelector(".bt-output");
@@ -144,8 +145,8 @@ async function runProbe() {
     // Record status before run
     const statusBefore = statusEl.dataset.status;
 
-    // Click Run
-    runBtn.click();
+    // Trigger run
+    reg[1].runSubmission();
 
     // Wait for run to complete
     await waitFor(() => {
@@ -180,8 +181,7 @@ async function runProbe() {
 
   // 7. Concurrent run guard: second concurrent Run rejected
   await asyncTest("7. Concurrent run guard: second concurrent Run rejected", async () => {
-    // Start a run on Exercise 1
-    const runBtn0 = reg[0].element.querySelector(".bt-run-btn");
+    // Start a run on Exercise 1 (issue #182: no Run button — direct call)
     const runPromise = reg[0].runSubmission();
 
     // Immediately try to run Exercise 2 (concurrent)

@@ -7,6 +7,11 @@
 # NOT:   Runtime loading, coi-serviceworker.js (AC-9), lesson-runner-core.js,
 #        feedback.js. Source files are READ-ONLY — never modify.
 #
+# CSS scoping: all selectors are prefixed with .bt-exercise EXCEPT :root,
+# body (→ .bt-exercise), and :global(...) wrappers (passthrough — see
+# scope_selector). The :global passthrough exists for the key-page form rules
+# (issue #182): the key page renders OUTSIDE any .bt-exercise wrapper.
+#
 # Modes:
 #   sync (default):  Write vendored files. Exit 0 on success.
 #   --check:         Regenerate to temp, compare with committed. Exit 0=match,
@@ -41,6 +46,9 @@ ASSET_FILES=(
 #   - body{}: transformed to .bt-exercise{}, page-layout props stripped
 #     (max-width, margin, padding, min-height, display, flex-direction)
 #   - Other rules: selectors prefixed with .bt-exercise (descendant combinator)
+#   - :global(...) wrappers: emitted UNscoped (passthrough). Used for the
+#     key-page form rules (issue #182) — the key page (.blendtutor-key) sits
+#     OUTSIDE any .bt-exercise wrapper, so its rules must NOT be prefixed.
 #   - @media: wrapper preserved, inner selectors scoped (except :root)
 #   - @keyframes: kept global (not scoped)
 #   - Comma-separated selectors: each individually prefixed
@@ -159,12 +167,21 @@ def scope_selector(selector):
     Exceptions (kept global, not scoped):
       - body: transformed to .bt-exercise (handled separately)
       - :root: kept as :root (design tokens are global)
+      - :global(...) wrapper: emitted UNscoped (passthrough) — used by the
+        key-page form rules (issue #182) which must match elements OUTSIDE
+        any .bt-exercise wrapper.
     """
     selector = selector.strip()
     if selector == "body":
         return SCOPE
     if selector == ":root":
         return selector
+    if selector.startswith(":global(") and selector.endswith(")"):
+        inner = selector[len(":global(") : -1].strip()
+        if not inner:
+            raise ValueError(f"empty :global() wrapper in selector {selector!r}")
+        parts = split_selectors(inner)
+        return ",\n".join(parts)
     parts = split_selectors(selector)
     scoped = [f"{SCOPE} {p}" for p in parts]
     return ",\n".join(scoped)

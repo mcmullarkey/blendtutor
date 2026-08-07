@@ -38,6 +38,21 @@ TYPOGRAPHY_PROPS = frozenset({
     "font-family", "font-size", "line-height", "color", "background",
 })
 
+# Issue #182: the key-page form rules are deliberately GLOBAL — the key page
+# (.blendtutor-key) renders OUTSIDE any .bt-exercise wrapper. The sync
+# transform passes :global(...) selectors through unscoped; these selectors
+# are the ONLY allowed unscoped rules (tests 9/10 skip them).
+GLOBAL_ALLOWLIST = frozenset({
+    '[data-byok="key-page-form"]',
+    '[data-byok="key-input"]',
+    '[data-byok="key-input"]:focus',
+    '[data-byok="save"]',
+    '[data-byok="save"]:hover',
+    '[data-byok="clear"]',
+    '[data-byok="clear"]:hover',
+    '[data-byok="key-status"]',
+})
+
 PASS = 0
 FAIL = 0
 
@@ -345,7 +360,7 @@ def main() -> int:
 
     # ------------------------------------------------------------------
     # Test 9 — All selectors scoped under .bt-exercise
-    #          (except :root, @media, @keyframes)
+    #          (except :root and the :global(...) key-page allowlist)
     # ------------------------------------------------------------------
 
     print("== Test 9: all selectors scoped under .bt-exercise ==")
@@ -360,13 +375,17 @@ def main() -> int:
         # Check each comma-separated part.
         parts = split_selectors(selector)
         for part in parts:
-            if not part.startswith(SCOPE_PREFIX):
-                unscoped_selectors.append(part)
+            if part.startswith(SCOPE_PREFIX):
+                continue
+            if part in GLOBAL_ALLOWLIST:
+                # Issue #182: key-page form rules pass through :global(...)
+                continue
+            unscoped_selectors.append(part)
 
     if unscoped_selectors:
         ko(f"all selectors scoped — unscoped: {unscoped_selectors[:5]}")
     else:
-        ok("all selectors scoped under .bt-exercise (except :root)")
+        ok("all selectors scoped under .bt-exercise (except :root + key-page allowlist)")
 
     # ------------------------------------------------------------------
     # Test 10 — No unscoped page-level IDs
@@ -418,6 +437,44 @@ def main() -> int:
         ko(f"@media inner selectors scoped — unscoped: {unscoped_media[:5]}")
     else:
         ok("@media inner selectors scoped (except :root)")
+
+    # ------------------------------------------------------------------
+    # Test 12 (issue #182) — key-page form rules emitted GLOBAL.
+    # The key page (.blendtutor-key) sits OUTSIDE any .bt-exercise wrapper,
+    # so the key-page form selectors MUST appear unscoped in the vendored
+    # styles.css. If the transform ever scopes them (drops :global passthrough
+    # or the source wraps wrong), the key page loses ALL styling — the
+    # "bizarre page" bug. Pins BOTH the source :global(...) wrappers AND the
+    # transform passthrough.
+    # ------------------------------------------------------------------
+
+    print("== Test 12: key-page form rules emitted GLOBAL (issue #182) ==")
+
+    source_has_global = all(
+        f':global({sel})' in SOURCE_CSS.read_text()
+        for sel in sorted(GLOBAL_ALLOWLIST)
+    )
+    if source_has_global:
+        ok("source styles.css wraps all key-page selectors in :global(...)")
+    else:
+        ko("source styles.css wraps all key-page selectors in :global(...)")
+
+    scoped_selector_set = set()
+    for item in scoped_items:
+        if item[0] != "rule":
+            continue
+        scoped_selector_set.update(split_selectors(item[1].selector))
+    missing_global = sorted(GLOBAL_ALLOWLIST - scoped_selector_set)
+    if missing_global:
+        ko(f"key-page selectors emitted GLOBAL — missing: {missing_global}")
+    else:
+        ok("key-page selectors present unscoped in vendored styles.css")
+
+    scoped_leak = [sel for sel in sorted(GLOBAL_ALLOWLIST) if f".bt-exercise {sel}" in scoped_selector_set]
+    if scoped_leak:
+        ko(f"key-page selectors NOT double-scoped — found scoped variant: {scoped_leak}")
+    else:
+        ok("key-page selectors not scoped under .bt-exercise")
 
     # ------------------------------------------------------------------
     # Summary

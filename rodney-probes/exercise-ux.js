@@ -234,7 +234,7 @@ function runProbes() {
   // ------------------------------------------------------------------
   screenshot(
     "01-initial-state",
-    "Initial render: three exercises with hints on ex0, no hints on ex2, Run/Check/Solution buttons",
+    "Initial render: three exercises with hints on ex0, no hints on ex2, Check/Solution/Get-feedback toolbar (issue #182: no Run button)",
     "AC-8 clause 1 (hints visible/absent), clause 3 (check button conditional), negative (solution button for empty exercise)",
   );
   rodneyAssert(
@@ -285,8 +285,28 @@ function runProbes() {
   );
 
   // ------------------------------------------------------------------
-  // Clause 4: Run disables ex-0 only (per-exercise, not singleton)
+  // Issue #182: Run button removed — Get feedback replaces its slot.
+  // Negative pin: no .bt-run-btn anywhere; ex0 (has checks) has a
+  // .bt-check-btn; the controls row exposes Get feedback's slot.
+  // ------------------------------------------------------------------
+  rodneyAssert(
+    "issue-182: no .bt-run-btn anywhere",
+    "return document.querySelectorAll('.bt-run-btn').length === 0",
+  );
+  rodneyAssert(
+    "issue-182: ex0 controls row exists with check + solution",
+    "const ex0 = document.querySelectorAll('.bt-exercise')[0]; " +
+      "return ex0.querySelector('.bt-controls') !== null && " +
+      "ex0.querySelector('.bt-check-btn') !== null && " +
+      "ex0.querySelector('.bt-solution-btn') !== null",
+  );
+
+  // ------------------------------------------------------------------
+  // Clause 4: per-exercise button disable (issue #182 reworked)
   // Patch the mock adapter to delay so we can inspect the disabled state.
+  // The ux fixture mounts NO feedback (its bootstrap calls start() only), so
+  // the only button on ex0 that exists on a checks-having exercise is Check;
+  // ex1/ex2 have no Check button at all — disable can never leak to them.
   // ------------------------------------------------------------------
   rodneyJs(
     "(() => { " +
@@ -298,22 +318,22 @@ function runProbes() {
   );
   rodneyJs(
     "(() => { " +
-      "document.querySelectorAll('.bt-exercise')[0].querySelector('.bt-run-btn').click(); " +
+      "document.querySelectorAll('.bt-exercise')[0].querySelector('.bt-check-btn').click(); " +
       "})()",
   );
   sleep(0.5);
   screenshot(
     "03-run-disabled-isolation",
-    "During exercise 0 run: ex0 Run button disabled, ex1 and ex2 Run buttons still enabled",
-    "AC-8 clause 4 (Run disables ex-0 only), clause 5 (cursor on disabled buttons), clause 7 (buttons re-enabled on pass)",
+    "During exercise 0 run: ex0 Check button disabled, ex1/ex2 have no Check button (per-exercise scoping, issue #182)",
+    "AC-8 clause 4 (per-exercise disable), clause 5 (cursor on disabled buttons), clause 7 (buttons re-enabled on pass)",
   );
   rodneyAssert(
-    "clause-4: Run disables ex-0 only",
+    "clause-4: Check disables ex-0 only (per-exercise, no singleton)",
     "const exercises = document.querySelectorAll('.bt-exercise'); " +
-      "const runBtn0 = exercises[0].querySelector('.bt-run-btn'); " +
-      "const runBtn1 = exercises[1].querySelector('.bt-run-btn'); " +
-      "const runBtn2 = exercises[2].querySelector('.bt-run-btn'); " +
-      "return runBtn0.disabled === true && runBtn1.disabled === false && runBtn2.disabled === false",
+      "const check0 = exercises[0].querySelector('.bt-check-btn'); " +
+      "return check0.disabled === true && " +
+      "exercises[1].querySelector('.bt-check-btn') === null && " +
+      "exercises[2].querySelector('.bt-check-btn') === null",
   );
 
   // ------------------------------------------------------------------
@@ -321,10 +341,10 @@ function runProbes() {
   // ------------------------------------------------------------------
   rodneyAssert(
     "clause-5: cursor not-allowed on disabled buttons",
-    "const runBtn0 = document.querySelectorAll('.bt-exercise')[0].querySelector('.bt-run-btn'); " +
-      "runBtn0.disabled = true; " +
-      "const cursor = getComputedStyle(runBtn0).cursor; " +
-      "runBtn0.disabled = false; " +
+    "const check0 = document.querySelectorAll('.bt-exercise')[0].querySelector('.bt-check-btn'); " +
+      "check0.disabled = true; " +
+      "const cursor = getComputedStyle(check0).cursor; " +
+      "check0.disabled = false; " +
       "return cursor === 'not-allowed'",
   );
 
@@ -346,15 +366,12 @@ function runProbes() {
   // ------------------------------------------------------------------
   rodneyAssert(
     "clause-7: buttons re-enabled on pass",
-    "const exercises = document.querySelectorAll('.bt-exercise'); " +
-      "const runBtn0 = exercises[0].querySelector('.bt-run-btn'); " +
-      "const runBtn1 = exercises[1].querySelector('.bt-run-btn'); " +
-      "const runBtn2 = exercises[2].querySelector('.bt-run-btn'); " +
-      "return runBtn0.disabled === false && runBtn1.disabled === false && runBtn2.disabled === false",
+    "const check0 = document.querySelectorAll('.bt-exercise')[0].querySelector('.bt-check-btn'); " +
+      "return check0.disabled === false",
   );
   screenshot(
     "04-status-pass",
-    "After exercise 0 run completes: status shows pass, all Run buttons re-enabled",
+    "After exercise 0 run completes: status shows pass, Check button re-enabled",
     "AC-8 clause 6 (data-status closed set), clause 7 (buttons re-enabled on pass)",
   );
 }

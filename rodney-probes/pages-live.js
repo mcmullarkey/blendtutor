@@ -14,7 +14,7 @@
  *              === true AND navigator.serviceWorker.controller !== null.
  *              Timeout → coi_failure verdict, P3/P4 skipped.
  *          P3  REAL R execution: setEditorContent('add <- function(a, b) { a
- *              + b }\nprint(add(1, 2))') → click .bt-run-btn → poll ≤120s
+ * + b }\nprint(add(1, 2))') → click .bt-check-btn (issue #182: Run button removed) → poll ≤120s
  *              (webR cold boot 30-90s) until data-status="pass" AND
  *              .bt-output textContent contains "3". Status-only is
  *              insufficient — webR ignores the checks param and a pure
@@ -462,7 +462,7 @@ function probeP3RExec() {
     return;
   }
 
-  rodney(["click", `${sel} .bt-run-btn`]);
+  rodney(["click", `${sel} .bt-check-btn`]);
   const elapsed = waitForExpr(
     `document.querySelector('${sel} .bt-status').dataset.status === 'pass'`,
     core.WEBR_TIMEOUT_S,
@@ -513,7 +513,7 @@ function probeP4PyExec() {
     rodneyJs(
       `(() => { const e = window.__btExercises.find(x => x.element.dataset.language === 'python'); if (!e) return false; e.setEditorContent(${JSON.stringify(code)}); return true; })()`,
     );
-    rodney(["click", `${sel} .bt-run-btn`]);
+    rodney(["click", `${sel} .bt-check-btn`]);
     return waitForExpr(
       `document.querySelector('${sel} .bt-status').dataset.status === 'pass'`,
       core.PYODIDE_TIMEOUT_S,
@@ -551,7 +551,7 @@ function probeP4PyExec() {
   rodneyJs(
     `(() => { const e = window.__btExercises.find(x => x.element.dataset.language === 'python'); if (!e) return false; e.setEditorContent(${JSON.stringify("def square(n):\n    return 0")}); return true; })()`,
   );
-  rodney(["click", `${sel} .bt-run-btn`]);
+  rodney(["click", `${sel} .bt-check-btn`]);
   const t1 = Date.now();
   const failElapsed = waitForExpr(
     `document.querySelector('${sel} .bt-status').dataset.status === 'fail'`,

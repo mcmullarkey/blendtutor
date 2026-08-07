@@ -1,0 +1,52 @@
+# Issue #182 — UI fix evidence: Get feedback toolbar + key page styling
+
+Fix items (from the user report / fix spec):
+1. Get feedback button moved INTO the toolbar (div.bt-controls), styled like the removed Run button.
+2. Run button removed (redundant with Check; Get feedback takes its slot).
+3. `.bt-feedback-btn` styled like Run (brand-filled pill) via the crates source of truth.
+4. Key-page form styled via GLOBAL (unscoped) rules that pass through the sync `:global(...)` transform.
+5. No-key link styled as a real affordance (button-styled, not bare anchor).
+6. `mountKeyPage` decoupled from `start()` — runs BEFORE start, never skipped on boot failure.
+7. demo-book placeholder softened to "Loading API key settings…".
+
+## 1. Rendered demo-book inspection (quarto render demo-book)
+
+Rendered `_output/api-key.html`:
+
+- `.blendtutor-key` div present with softened placeholder:
+  `Loading API key settings`
+- Bootstrap order (issue #182 fix item 6): `mountKeyPage` BEFORE `start`:
+```
+  const registry = buildRegistry(scanExercises());
+  mountKeyPage(document.querySelector(".blendtutor-key"));
+  start(registry, {
+  }).then(() => {
+```
+- Stylesheet link resolves to the deployed libs CSS:
+  `href="site_libs/quarto-contrib/blendtutor-0.1.0/styles.css"`
+
+## 2. Deployed libs styles.css — key-page GLOBAL rules + toolbar rules present
+
+Selector occurrences in `_output/site_libs/quarto-contrib/blendtutor-0.1.0/styles.css`:
+
+```
+   2 .bt-exercise .bt-feedback-btn          (rule + hover — fix item 3)
+   2 .bt-exercise [data-byok="no-key"] a    (rule + hover — fix item 5)
+   2 [data-byok="clear"]                    (global — fix item 4)
+   2 [data-byok="key-input"]                (global + :focus — fix item 4)
+   1 [data-byok="key-page-form"]            (global — fix item 4)
+   1 [data-byok="key-status"]               (global — fix item 4)
+   2 [data-byok="save"]                     (rule + hover — fix item 4)
+```
+
+## 3. Key-page form GLOBAL (unscoped) — NOT .bt-exercise-prefixed (fix item 4)
+
+```
+[data-byok="key-page-form"] {
+  display: flex;
+  ...
+```
+The key page (.blendtutor-key) sits OUTSIDE any .bt-exercise wrapper, so the
+sync transform's `:global(...)` passthrough is what makes these rules reach it.
+A scoped `.bt-exercise [data-byok=...]` rule would miss the key page entirely
+(the "bizarre page" bug).

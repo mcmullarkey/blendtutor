@@ -487,14 +487,16 @@ footer.site-footer {
 }
 
 /* === exercise UX polish (AC-8) === */
-/* Per-exercise UX elements: hints <details> toggle, solution/check/run buttons,
+/* Per-exercise UX elements: hints <details> toggle, solution/check buttons,
  * data-status badge, and disabled-button cursor. These are the class-based
  * equivalents of the singleton #lesson-* selectors above, used by
  * exercise-runtime.js's per-exercise wireExercise().
  *
  * What it does:
  *  - .bt-hints: expandable <details> panel for hints (clause 1).
- *  - .bt-run-btn / .bt-check-btn / .bt-solution-btn: control buttons.
+ *  - .bt-feedback-btn / .bt-check-btn / .bt-solution-btn: control buttons.
+ *    (issue 182: .bt-feedback-btn replaced .bt-run-btn — Get feedback takes
+ *    Run's toolbar slot with Run's styling.)
  *  - button[disabled]: cursor not-allowed (clause 5).
  *  - .bt-status[data-status]: closed-set status badge (clause 6).
  *
@@ -539,7 +541,7 @@ footer.site-footer {
   margin-bottom: var(--bt-space-sm);
 }
 
-.bt-run-btn {
+.bt-feedback-btn {
   background: var(--bt-color-brand);
   color: var(--bt-color-surface);
   border: none;
@@ -551,9 +553,13 @@ footer.site-footer {
   font-weight: 600;
 }
 
-.bt-run-btn:hover {
+.bt-feedback-btn:hover {
   background: var(--bt-color-brand-hover);
 }
+
+/* The former .bt-run-btn (issue 182) is REMOVED from the runtime — Check
+ * runs the deterministic tests and Get feedback (.bt-feedback-btn) takes
+ * Run's toolbar slot with Run's styling (above). */
 
 .bt-check-btn {
   background: transparent;
@@ -751,6 +757,173 @@ button[disabled] {
 /* Error — text-only emphasis: fail color, no background tint (distinct from verdict) */
 #feedback [data-byok="error"] {
   color: var(--bt-color-status-fail);
+}
+
+/* === Quarto path (per-exercise .bt-feedback) + key page (issue 182) ===
+ * The Quarto fork renders per-exercise feedback into a .bt-feedback container
+ * (exercise-feedback.js mountFeedback) — the #feedback rules above serve the
+ * crates site shell and are NOT matched by the new code. This section styles
+ * the per-exercise container, the no-key link, and the KEY PAGE form.
+ *
+ * Scoping notes (scripts/sync-quarto-assets.sh):
+ *  - Rules in this source file are prefixed with .bt-exercise by the sync
+ *    transform, EXCEPT selectors wrapped in :global(...) which pass through
+ *    UNscoped. The key page (.blendtutor-key) sits OUTSIDE any .bt-exercise
+ *    wrapper, so its form rules MUST use :global(...) — a scoped rule would
+ *    never match the key page ("bizarre page" bug, issue 182).
+ *  - The no-key link renders INSIDE .bt-feedback inside .bt-exercise — scoped.
+ */
+
+/* Per-exercise feedback container — cards the verdict/no-key/error area */
+.bt-feedback {
+  margin-top: var(--bt-space-md);
+  padding: var(--bt-space-sm);
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  background: var(--bt-color-surface);
+  font-family: var(--bt-font-family-ui);
+}
+
+/* No-key state (AC-4, issue 182): a real affordance — button-styled link,
+ * not a bare default anchor */
+[data-byok="no-key"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bt-space-md);
+  color: var(--bt-color-text-secondary);
+  font-size: 0.875em;
+  line-height: var(--bt-line-height);
+}
+
+[data-byok="no-key"] a {
+  display: inline-block;
+  background: var(--bt-color-brand);
+  color: var(--bt-color-surface);
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  font-family: var(--bt-font-family-ui);
+  font-size: var(--bt-font-size-base);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+[data-byok="no-key"] a:hover {
+  background: var(--bt-color-brand-hover);
+}
+
+/* Verdict / pending / error / limit-reached inside the per-exercise container */
+[data-byok="feedback"] [data-byok="verdict"][data-correct="true"] {
+  background: var(--bt-color-success-bg);
+  color: var(--bt-color-text-primary);
+  border-left: 4px solid var(--bt-color-status-pass);
+}
+
+[data-byok="feedback"] [data-byok="verdict"][data-correct="true"] strong {
+  color: var(--bt-color-status-pass);
+}
+
+[data-byok="feedback"] [data-byok="verdict"][data-correct="false"] {
+  background: var(--bt-color-danger-bg);
+  color: var(--bt-color-text-primary);
+  border-left: 4px solid var(--bt-color-status-fail);
+}
+
+[data-byok="feedback"] [data-byok="verdict"][data-correct="false"] strong {
+  color: var(--bt-color-status-fail);
+}
+
+[data-byok="feedback"] [data-byok="pending"] {
+  color: var(--bt-color-text-secondary);
+  animation: bt-pulse 1.5s ease-in-out infinite;
+}
+
+[data-byok="feedback"] [data-byok="error"] {
+  color: var(--bt-color-status-fail);
+}
+
+[data-byok="feedback"] [data-byok="limit-reached"] {
+  color: var(--bt-color-text-secondary);
+  font-size: 0.875em;
+}
+
+/* === KEY PAGE (issue 182) — GLOBAL rules via :global(...) ===
+ * The key-management form (key-page.js mountKeyPage) renders into
+ * <div class="blendtutor-key"> on the api-key page — OUTSIDE any
+ * .bt-exercise wrapper. The sync transform passes :global(...) selectors
+ * through unscoped so these rules reach the key page. */
+
+:global([data-byok="key-page-form"]) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bt-space-md);
+  max-width: 28rem;
+  padding: var(--bt-space-lg);
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-md);
+  background: var(--bt-color-surface);
+  box-shadow: var(--bt-shadow-sm);
+  font-family: var(--bt-font-family-ui);
+}
+
+:global([data-byok="key-input"]) {
+  border: 1px solid var(--bt-color-border);
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  background: var(--bt-color-surface);
+  color: var(--bt-color-text-primary);
+  font-family: var(--bt-font-family-ui);
+  font-size: var(--bt-font-size-base);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+:global([data-byok="key-input"]:focus) {
+  outline: none;
+  border-color: var(--bt-color-brand);
+}
+
+:global([data-byok="save"]) {
+  align-self: flex-start;
+  background: var(--bt-color-brand);
+  color: var(--bt-color-surface);
+  border: none;
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  font-family: var(--bt-font-family-ui);
+  font-size: var(--bt-font-size-base);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+:global([data-byok="save"]:hover) {
+  background: var(--bt-color-brand-hover);
+}
+
+:global([data-byok="clear"]) {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid var(--bt-color-border);
+  color: var(--bt-color-text-primary);
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  font-family: var(--bt-font-family-ui);
+  font-size: var(--bt-font-size-base);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+:global([data-byok="clear"]:hover) {
+  background: color-mix(in srgb, var(--bt-color-border) 20%, transparent);
+}
+
+:global([data-byok="key-status"]) {
+  margin: 0;
+  color: var(--bt-color-text-secondary);
+  font-size: 0.875em;
+  line-height: var(--bt-line-height);
 }
 
 /* ── Dark mode ────────────────────────────────────────────────────

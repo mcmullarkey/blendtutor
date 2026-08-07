@@ -22,9 +22,9 @@ slices: [188]
     occurrences (2 assert bodies + 2 message strings).
 - 2026-08-07 (#188): R print-contract grading — solution stdout labels
   `print("Step N: ...")` are the only signal the LLM grades beyond code.
-  `print(agg)` on an aggregate() data.frame sorts rows alphabetically and
-  renders `96.0` as `96` (but keeps `172.5`) — parse with numeric comparison,
-  not string equality.
+  `print(agg)` on an aggregate() data.frame sorts rows alphabetically;
+  whole-number revenues render as `96.0` (R preserves the `.0` in fixed-width
+  column output) — parse with numeric comparison, not string equality.
 - 2026-08-07 (#188): Verification pattern that works: extract the LAST
   `{.r .solution}` block via awk, run `Rscript --vanilla`, assert exit 0 +
   step labels + exact aggregate. Negative controls (omit a step → aggregate

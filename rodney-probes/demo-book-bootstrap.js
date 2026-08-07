@@ -198,7 +198,7 @@ function runProbes() {
     "return window.__btExercises.length === 3",
   );
   rodneyAssert(
-    "clause-8 r page: .cm-editor count === 3 (both exercises have editors)",
+    "clause-8 r page: .cm-editor count === 3 (3 exercises have editors)",
     "return document.querySelectorAll('.cm-editor').length === 3",
   );
   rodneyAssert(

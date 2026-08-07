@@ -896,34 +896,6 @@ globalThis.window.__btConfig = undefined;
 assert(mod.keyPageUrl() === "api-key.html", "AC-4 arm 3: window.__btConfig undefined → default (never throws)");
 globalThis.window.__btConfig = savedBtConfig;
 
-// --- issue #186: no-key click mounts the INLINE key form (no link) ---
-// The no-key guard now mounts the key-page form INTO the feedback container
-// (key-page.js mountKeyPage) with an onSaved save-continuation. ZERO fetches
-// before the key is saved; saving stores the key and re-runs the submit flow
-// — exactly one /chat/completions fetch + verdict.
-localStorageMap.clear();
-globalThis.window.__btConfig = { maxFeedbackPerSession: 100 };
-installFetchSpy();
-const eNK = makeEntry({ id: "exNK", output: "" });
-mountAndClick(eNK);
-await flush();
-assert(fetchCalls.length === 0, "issue #186 (Node): no key → ZERO fetches (inline form shown, no auto-fire)");
-const nkForm = eNK.feedbackContainer.querySelector('[data-byok="key-page-form"]');
-assert(nkForm !== null, "issue #186 (Node): inline key form mounted inside the feedback container");
-assert(eNK.feedbackContainer.querySelector('[data-byok="key-input"]') !== null, "issue #186 (Node): password input present");
-assert(eNK.feedbackContainer.querySelector('[data-byok="save"]') !== null, "issue #186 (Node): Save button present");
-assert(eNK.feedbackContainer.querySelector('[data-byok="no-key"]') === null, "issue #186 (Node): NO data-byok=no-key anchor");
-assert(eNK.feedbackContainer.querySelector("a") === null, "issue #186 (Node): NO anchor rendered (no navigation link)");
-const nkInput = eNK.feedbackContainer.querySelector('[data-byok="key-input"]');
-nkInput.value = "k-inline-node";
-await nkForm._handlers.submit[0]({ preventDefault: () => {} });
-await flush();
-assert(mod.readKey("fireworks") === "k-inline-node", "issue #186 (Node): save stored the key via shared localStorage");
-const nkCompletions = fetchCalls.filter((c) => String(c.url).includes("/chat/completions"));
-assert(nkCompletions.length === 1, "issue #186 (Node): save-continuation fires EXACTLY ONE /chat/completions fetch");
-assert(eNK.feedbackContainer.querySelector('[data-byok="verdict"]') !== null, "issue #186 (Node): verdict rendered after save-continuation");
-assert(eNK.feedbackContainer.querySelector('[data-byok="error"]') === null, "issue #186 (Node): no error state after save-continuation");
-
 // ===========================================================================
 // AC-5 (issue #166): check-output wiring + pinned model + picker collapse
 // ===========================================================================
@@ -994,6 +966,34 @@ function promptBodyAt(i) {
   if (!call || call.url.indexOf("/chat/completions") === -1) return null;
   return JSON.parse(call.opts.body);
 }
+
+// --- issue #186: no-key click mounts the INLINE key form (no link) ---
+// The no-key guard now mounts the key-page form INTO the feedback container
+// (key-page.js mountKeyPage) with an onSaved save-continuation. ZERO fetches
+// before the key is saved; saving stores the key and re-runs the submit flow
+// — exactly one /chat/completions fetch + verdict.
+localStorageMap.clear();
+globalThis.window.__btConfig = { maxFeedbackPerSession: 100 };
+installFetchSpy();
+const eNK = makeEntry({ id: "exNK", output: "" });
+mountAndClick(eNK);
+await flush();
+assert(fetchCalls.length === 0, "issue #186 (Node): no key → ZERO fetches (inline form shown, no auto-fire)");
+const nkForm = eNK.feedbackContainer.querySelector('[data-byok="key-page-form"]');
+assert(nkForm !== null, "issue #186 (Node): inline key form mounted inside the feedback container");
+assert(eNK.feedbackContainer.querySelector('[data-byok="key-input"]') !== null, "issue #186 (Node): password input present");
+assert(eNK.feedbackContainer.querySelector('[data-byok="save"]') !== null, "issue #186 (Node): Save button present");
+assert(eNK.feedbackContainer.querySelector('[data-byok="no-key"]') === null, "issue #186 (Node): NO data-byok=no-key anchor");
+assert(eNK.feedbackContainer.querySelector("a") === null, "issue #186 (Node): NO anchor rendered (no navigation link)");
+const nkInput = eNK.feedbackContainer.querySelector('[data-byok="key-input"]');
+nkInput.value = "k-inline-node";
+await nkForm._handlers.submit[0]({ preventDefault: () => {} });
+await flush();
+assert(mod.readKey("fireworks") === "k-inline-node", "issue #186 (Node): save stored the key via shared localStorage");
+const nkCompletions = fetchCalls.filter((c) => String(c.url).includes("/chat/completions"));
+assert(nkCompletions.length === 1, "issue #186 (Node): save-continuation fires EXACTLY ONE /chat/completions fetch");
+assert(eNK.feedbackContainer.querySelector('[data-byok="verdict"]') !== null, "issue #186 (Node): verdict rendered after save-continuation");
+assert(eNK.feedbackContainer.querySelector('[data-byok="error"]') === null, "issue #186 (Node): no error state after save-continuation");
 
 // Arm 1: mounting feedback triggers ZERO fetches (no auto-fire).
 localStorageMap.clear();

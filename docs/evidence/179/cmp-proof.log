@@ -1,0 +1,13 @@
+=== Issue #179 done-condition — demo-book vendored blendtutor.lua sync ===
+date: Fri Aug  7 03:31:27 MDT 2026
+
+--- Command ---
+cp _extensions/blendtutor/blendtutor.lua demo-book/_extensions/mcmullarkey/blendtutor/blendtutor.lua
+cmp _extensions/blendtutor/blendtutor.lua demo-book/_extensions/mcmullarkey/blendtutor/blendtutor.lua
+
+--- cmp result (empty output + exit 0 = byte-identical) ---
+CMP IDENTICAL (exit 0)
+
+--- sha256 of both copies ---
+0842bbaa8ca73b6b0d7510c94e6be1a42bf6bd33be4c75e5df7ed3f562e6ea0d  _extensions/blendtutor/blendtutor.lua
+0842bbaa8ca73b6b0d7510c94e6be1a42bf6bd33be4c75e5df7ed3f562e6ea0d  demo-book/_extensions/mcmullarkey/blendtutor/blendtutor.lua

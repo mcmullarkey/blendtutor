@@ -1,0 +1,23 @@
+=== Issue #179 E2E render proof — quarto render demo-book ===
+date: Fri Aug  7 03:31:17 MDT 2026
+quarto version: 1.10.18
+
+--- Command ---
+quarto render demo-book --to html
+
+--- Render output ---
+
+Output created: _output/index.html
+
+
+--- grep -c maxFeedbackPerSession demo-book/_output/*.html ---
+demo-book/_output/index.html:1
+demo-book/_output/r-exercises.html:1
+demo-book/_output/python-exercises.html:1
+demo-book/_output/api-key.html:1
+
+--- Full merge-pattern emission in r-exercises.html (head script) ---
+window.__btConfig = window.__btConfig || {};window.__btConfig.keyPageUrl = "api-key.html";window.__btConfig.maxFeedbackPerSession = window.__btConfig.maxFeedbackPerSession ?? 20;
+
+--- Absence of bare clobber in rendered output ---
+0 (no bare clobber)

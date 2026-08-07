@@ -394,6 +394,14 @@ function probeP11NoKeyLink() {
 // P5 — cross-page persistence (save via key-page UI → real navigation)
 // ---------------------------------------------------------------------------
 function probeP5CrossPage() {
+  // Precondition: EMPTY storage. P11 ran first in the same rodney session and
+  // stored its inline key (fw_inline_probe_789) — with a key present,
+  // mountKeyPage renders the key-set state (status + Clear) and the key-input
+  // form never appears, which would make the guard below vacuous-fail. Clear
+  // through the page (same origin) so the empty-storage → key-page UI → save
+  // → cross-page flow is deterministic. This is a precondition reset, NOT the
+  // save step — the key must still be entered through the real key-page UI.
+  rodneyJs("(() => { localStorage.clear(); return 'cleared'; })()");
   // Page 1 — save the key through the REAL key-page UI (password input →
   // Save button). NOT eval localStorage.setItem (sneaky-pass).
   navigateTo(KEY_PAGE_URL);

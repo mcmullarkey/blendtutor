@@ -1,0 +1,286 @@
+=== test_quarto_feedback.py ===
+  PASS: exercise-feedback.js exists
+  PASS: feedback.qmd exists
+  PASS: llm_evaluation_prompt ABSENT from exercise-feedback.js
+  PASS: llm_evaluation_prompt ABSENT from feedback.qmd
+  PASS: pure function exported: neutralize
+  PASS: pure function exported: buildPrompt
+  PASS: pure function exported: parseModels
+  PASS: pure function exported: modelRoster
+  PASS: pure function exported: feedbackRequest
+  PASS: pure function exported: toVerdict
+  PASS: pure function exported: fireworksRequest
+  PASS: pure function exported: fireworksToVerdict
+  PASS: pure function exported: providerBaseUrl
+  PASS: STUDENT_CODE fences present in source
+  PASS: PROVIDERS map has fireworks + anthropic
+  PASS: provider-scoped key slots present (fireworks_api_key, anthropic_api_key)
+  PASS: C1 (source): no data-byok="provider" literal in exercise-feedback.js
+  PASS: C1 (source): no provider <select> creation pattern (dataset.byok = "provider")
+  PASS: C3 (source): PROVIDERS.anthropic keeps the byokAnthropic factory
+  PASS: C6 (source): no orphaned provSelect references
+  PASS: C5 (source): BOTH provider disclosures state localStorage wording
+  PASS: issue #186 (source): `import { mountKeyPage } from "./key-page.js"` present
+  PASS: issue #186 (source): no-key guard mounts the inline form with save-continuation (`if (!apiKey) { mountKeyPage(container, { onSaved: () => handleSubmitForExercise(entry) }); return; }`) first in submit flow
+  PASS: issue #186 (source): keyPageUrl region keeps the window.__btConfig read
+  PASS: issue #186 (source): default api-key.html fallback present
+  PASS: issue #186 (source): keyPageUrl() exported (api-key chapter + key-page-url.test.js)
+  PASS: issue #186 (source): renderKeyPrompt GONE (no link renderer)
+  PASS: issue #186 (source): [data-byok="no-key"] marker ABSENT (no link wrapper)
+  PASS: issue #186 (source): target=_blank ABSENT (no new-tab navigation)
+  PASS: key slot is provider-scoped (not exercise-scoped)
+  PASS: storeKey + readKey present (shared key handling)
+  PASS: clearKey present (scoped key + counter removal, issue #162)
+  PASS: storage backend is localStorage (shared, persistent)
+  PASS: zero sessionStorage tokens in exercise-feedback.js (P4)
+  PASS: no singleton getElementById('feedback') — per-exercise scoping
+  PASS: no window.__bt singleton access (uses __btExercises registry)
+  PASS: ?provider= override parsed via URLSearchParams
+  PASS: localhost-only gate present (non-local override rejected)
+  PASS: per-exercise concurrent feedback guard present
+  PASS: mountFeedback/mountAllFeedback present (per-exercise mount)
+  PASS: feedback UI elements carry data-byok markers (dataset.byok)
+  PASS: fetch() called in backends (feedback is not silently skipped)
+  PASS: no module-level applyEmbeddedKey() call (pure layer importable)
+  PASS: AC-5 arm 3 (source): FIREWORKS_MODEL pinned to deepseek-v4-flash-0731 at both uses (fallbackModel + const)
+  PASS: AC-5 arm 3 (source): no unpinned deepseek-v4-flash model literal remains
+  PASS: AC-5 arm 4 (source): renderModelPicker removed
+  PASS: AC-5 arm 4 (source): modelPickerPresent removed
+  PASS: AC-5 arm 4 (source): selectedModel removed
+  PASS: AC-5 arm 4 (source): data-byok="model-picker" literal absent (never rendered)
+  PASS: AC-5 arm 4 (source): submit flow is key check → rate-limit check → fetch (no picker phase)
+  PASS: AC-5 arm 8 (source): zero innerHTML (verdict render is textContent-only)
+  PASS: AC-5 arm 9 (source): rateLimitReached() evaluated before getFeedback
+  PASS: AC-5 arm 1 (source): exercise-runtime.js has zero exercise-feedback references
+  PASS: AC-5 (fixture): feedback.qmd sets window.__btConfig.maxFeedbackPerSession
+  PASS: AC-5 (fixture): __btConfig uses the C22 merge pattern (no keyPageUrl clobber)
+  PASS: issue #179 (source): blendtutor.lua emits maxFeedbackPerSession default 20 (crates parity)
+  PASS: issue #179 (source): __btConfig merge pattern in blendtutor.lua (no keyPageUrl clobber)
+  PASS: issue #179 (source): build_key_page_config_script has no bare __btConfig clobber
+  PASS: buildPrompt emits STUDENT_CODE_BEGIN fence
+  PASS: buildPrompt emits STUDENT_CODE_END fence
+  PASS: buildPrompt includes task
+  PASS: buildPrompt includes student code
+  PASS: buildPrompt includes captured output
+  PASS: buildPrompt includes checks
+  PASS: neutralize strips forged STUDENT_CODE_BEGIN
+  PASS: neutralize replaces with marker
+  PASS: P1: key round-trips through localStorage (entered once, reused)
+  PASS: P1: key stored under provider-scoped localStorage slot
+  PASS: P1: key NOT written to sessionStorage
+  PASS: P1: no zombie fallback — stale sessionStorage key ignored
+  PASS: provider switched to anthropic
+  PASS: provider choice stored in localStorage
+  PASS: provider switched back to fireworks
+  PASS: localhost override honored
+  PASS: non-local override rejected (key exfil prevented)
+  PASS: non-local override falls back to provider base URL
+  PASS: credentialed override rejected
+  PASS: parseModels extracts model ids
+  PASS: modelRoster falls back when list empty
+  PASS: feedbackRequest embeds prompt in messages
+  PASS: feedbackRequest forces feedback tool
+  PASS: toVerdict maps Anthropic tool call to Verdict
+  PASS: fireworksToVerdict maps OpenAI tool call to Verdict
+  PASS: P3: feedbackCount starts at 0
+  PASS: P3: incrementFeedbackCount increments the counter
+  PASS: P3: counter value lives in localStorage.bt_feedback_count
+  PASS: P3: counter NOT written to sessionStorage
+  PASS: P3: no zombie counter — stale sessionStorage count ignored
+  PASS: P2: clearKey removes the provider key
+  PASS: P2: fireworks_api_key removed from localStorage
+  PASS: P2: clearKey removes bt_feedback_count (no permanent rate-lock)
+  PASS: P2: feedbackCount resets to 0 after clearKey
+  PASS: P2: clearKey leaves anthropic_api_key intact
+  PASS: P2: clearKey leaves byok_provider intact
+  PASS: P2: clearKey leaves quarto-reader-mode intact
+  PASS: P2: clearKey leaves quarto-persistent-tabsets-data intact
+  PASS: P2: clearKey never calls localStorage.clear()
+  PASS: P7: readKey returns null when localStorage.getItem throws
+  PASS: C2: empty storage defaults to fireworks
+  PASS: C3: PROVIDERS.anthropic survives (backend not deleted)
+  PASS: C3: anthropic keySlot preserved
+  PASS: C3: anthropic baseUrl preserved
+  PASS: C3: anthropic factory wired
+  PASS: C3: anthropic factory builds the byok-anthropic backend
+  PASS: C3: fireworks factory builds the byok-fireworks backend (pair intact)
+  PASS: AC-4 arm 7: keyPageUrl() falls back to api-key.html when config key absent
+  PASS: AC-4 arm 7: keyPageUrl() returns configured value verbatim
+  PASS: AC-4 arm 6: javascript: scheme rejected
+  PASS: AC-4 arm 6: javascript: rejection is case-insensitive
+  PASS: AC-4 arm 6: javascript: rejection trims whitespace
+  PASS: AC-4 arm 6: data: scheme rejected
+  PASS: AC-4 arm 3: empty keyPageUrl falls back
+  PASS: AC-4 arm 3: undefined keyPageUrl falls back
+  PASS: AC-4 arm 3: window.__btConfig undefined → default (never throws)
+  PASS: AC-5 arm 5 (Node): buildPrompt emits <<<CAPTURED_OUTPUT>>> exactly once
+  PASS: AC-5 arm 6 (Node): buildPrompt emits <<<CHECK_RESULTS>>> exactly once
+  PASS: AC-5 arm 5 (Node): output text appears exactly once
+  PASS: AC-5 arm 6 (Node): buildPrompt includes Task line
+  PASS: AC-5 arm 6 (Node): buildPrompt includes code fences
+  PASS: AC-5 arm 13 (Node): empty output still yields CAPTURED_OUTPUT section (not an error)
+  PASS: AC-5 arm 13 (Node): empty output never injects undefined/null
+  PASS: AC-5 arm 3 (Node): PROVIDERS.fireworks.fallbackModel pinned to -0731
+  PASS: issue #186 (Node): no key → ZERO fetches (inline form shown, no auto-fire)
+  PASS: issue #186 (Node): inline key form mounted inside the feedback container
+  PASS: issue #186 (Node): password input present
+  PASS: issue #186 (Node): Save button present
+  PASS: issue #186 (Node): NO data-byok=no-key anchor
+  PASS: issue #186 (Node): NO anchor rendered (no navigation link)
+  PASS: issue #186 (Node): save stored the key via shared localStorage
+  PASS: issue #186 (Node): save-continuation fires EXACTLY ONE /chat/completions fetch
+  PASS: issue #186 (Node): verdict rendered after save-continuation
+  PASS: issue #186 (Node): no error state after save-continuation
+  PASS: AC-5 arm 1: mounting feedback triggers ZERO fetches (no auto-fire)
+  PASS: AC-5 arm 2: ONE click after key stored → exactly ONE fetch
+  PASS: AC-5 arm 2: fetch POST to ${providerBaseUrl('fireworks')}/chat/completions
+  PASS: AC-5 arm 2: fetch method is POST
+  PASS: AC-5 arm 3: request body model is the pinned -0731 model
+  PASS: AC-5 arm 5: prompt contains <<<CAPTURED_OUTPUT>>> exactly once
+  PASS: AC-5 arm 5: prompt contains this exercise's .bt-output text exactly once
+  PASS: AC-5 arm 5: output text is fenced under the CAPTURED_OUTPUT label
+  PASS: AC-5 arm 6: prompt contains <<<CHECK_RESULTS>>> block
+  PASS: AC-5 arm 6: prompt contains student code fences
+  PASS: AC-5 arm 6: prompt contains Task line + lesson prompt
+  PASS: AC-5 arm 4: NO model-picker rendered — single click goes straight to fetch
+  PASS: AC-5 arm 2: verdict rendered after fetch
+  PASS: AC-5 arm 2: button textContent EXACT 'Get feedback'
+  PASS: AC-5 arm 13: button enabled (not disabled-gated) before Check
+  PASS: AC-5 arm 7: two exercises → two fetches (one per click)
+  PASS: AC-5 arm 7: exercise A's prompt has A's output, NOT B's
+  PASS: AC-5 arm 7: exercise B's prompt has B's output, NOT A's
+  PASS: AC-5 arm 8: XSS payload renders as literal text
+  PASS: AC-5 arm 8: window.__xss stays undefined — payload NOT executed
+  PASS: AC-5 arm 9: counter at cap → ZERO fetches
+  PASS: AC-5 arm 9: limit-reached message rendered
+  PASS: AC-5 arm 10: no key → ZERO fetches (inline form shown, no auto-fire)
+  PASS: AC-5 arm 10: inline key form rendered in feedback container
+  PASS: AC-5 arm 10: NO no-key link rendered
+  PASS: AC-5 arm 10: key input present for save
+  PASS: AC-5 arm 10: save → EXACTLY ONE /chat/completions fetch (save-continuation)
+  PASS: AC-5 arm 10: verdict rendered after save-continuation
+  PASS: AC-5 arm 11: error state rendered via textContent
+  PASS: AC-5 arm 11: session counter incremented on failed fetch
+  PASS: AC-5 arm 12: two rapid clicks → exactly ONE fetch (_feedbackRunning guard)
+  PASS: AC-5 arm 13: empty .bt-output → fetch still fires (explicit click, no gate)
+  PASS: AC-5 arm 13: prompt still has CAPTURED_OUTPUT section
+  PASS: AC-5 arm 13: empty output does not inject undefined/null
+  PASS: AC-5 arm 14: feedback button exists after mount
+  PASS: AC-5 arm 14: feedback button appended INTO entry.controls (toolbar)
+  PASS: AC-5 arm 14: feedback button is FIRST in the toolbar (former Run slot, before Check/Show solution)
+  PASS: AC-5 arm 14: toolbar order is Get feedback · Check · Show solution
+  PASS: AC-5 arm 14: no .bt-feedback-wrapper created when controls present
+  PASS: AC-5 arm 14: feedback container is a direct child of the exercise element
+  PASS: Node.js behavioral tests passed (all pure-function assertions)
+  PASS: keyPageUrl standalone node:test suite passed (8 tests, incl. typeof-window-absent branch)
+  PASS: feedback.qmd has 2 exercises (>=2 for key-reuse test)
+  PASS: feedback.qmd imports exercise-feedback.js
+  PASS: feedback.qmd imports exercise-runtime.js (AC-4 dependency)
+  PASS: feedback.qmd calls mountFeedback/mountAllFeedback
+=== Results: 64 passed, 0 failed ===
+
+=== test_quarto_key_page.py ===
+  PASS: key-page.js exists
+  PASS: exercise-feedback.js exists (import contract source)
+  PASS: P1: key-page.js imports from './exercise-feedback.js'
+  PASS: P1: import contract includes readKey
+  PASS: P1: import contract includes storeKey
+  PASS: P1: import contract includes clearKey
+  PASS: P1: import contract includes providerBaseUrl
+  PASS: P1: import contract includes PROVIDERS
+  PASS: P1: no literal 'fireworks_api_key' anywhere in source
+  PASS: P1: no literal 'anthropic_api_key' anywhere in source
+  PASS: P1: no literal 'byok_provider' anywhere in source
+  PASS: P1: no literal 'bt_feedback_count' anywhere in source
+  PASS: P1: no literal 'api.fireworks.ai' anywhere in source
+  PASS: P1: no literal 'sessionStorage' anywhere in source
+  PASS: P3: classifyValidation present (discriminated result)
+  PASS: P3: validation does NOT reuse listModels (401 must not collapse into []/network)
+  PASS: P5: zero console. calls (key never logged)
+  PASS: P5: zero innerHTML usage (textContent-only rendering)
+  PASS: P5: rendering is textContent-based
+  PASS: P6: password input has type=password
+  PASS: P6: password input has autocomplete=off
+  PASS: P15: buildValidationUrl is an exported pure function
+  PASS: P15: buildValidationUrl body contains no fetch(
+  PASS: P15: buildValidationUrl body contains no localStorage
+  PASS: P15: buildValidationUrl body contains no document.
+  PASS: P15: classifyValidation is an exported pure function
+  PASS: P15: classifyValidation body contains no fetch(
+  PASS: P15: classifyValidation body contains no localStorage
+  PASS: P15: classifyValidation body contains no document.
+  PASS: P15: statusMessage is an exported pure function
+  PASS: P15: statusMessage body contains no fetch(
+  PASS: P15: statusMessage body contains no localStorage
+  PASS: P15: statusMessage body contains no document.
+  PASS: P16: docstring header names WHAT/WHERE/NOT
+  PASS: P16: at most 5 public exports (found 4)
+  PASS: P16: public export buildValidationUrl
+  PASS: P16: public export classifyValidation
+  PASS: P16: public export statusMessage
+  PASS: P16: public export mountKeyPage
+  PASS: P3: 2xx -> {ok:true}
+  PASS: P3: any 2xx is ok
+  PASS: P3: 401 -> invalid-key
+  PASS: P3: 403 -> invalid-key
+  PASS: P3: other non-2xx -> network
+  PASS: P3: thrown fetch -> network
+  PASS: P4: statusMessage(saved) has friendly copy
+  PASS: P4: statusMessage(invalid-key) has friendly copy
+  PASS: P4: statusMessage(network) has friendly copy
+  PASS: P4: statusMessage(empty) has friendly copy
+  PASS: P4: statusMessage(cleared) has friendly copy
+  PASS: P2: validation URL honors localhost ?provider= override
+  PASS: P2: default validation URL ends with /models
+  PASS: P10: no-key mount renders a form
+  PASS: P10: no-key mount renders a password input
+  PASS: P6: input type is password
+  PASS: P6: input autocomplete is off
+  PASS: P10: no-key mount renders the Save button
+  PASS: P10: no-key mount has no Clear button
+  PASS: P13: submit handler calls preventDefault
+  PASS: P7: Save stores key via imported storeKey (AC-1 signature, key first)
+  PASS: P7: readKey round-trips the saved key
+  PASS: P14: input value reset to empty AFTER storeKey
+  PASS: P11: one save issues exactly one fetch
+  PASS: P2: validation fetch targets the host-gated models URL
+  PASS: key rides Authorization header, never the body
+  PASS: P7: save reports saved status on 2xx
+  PASS: P5: key never echoed into any DOM textContent
+  PASS: P5: at least one non-empty textContent after save
+  PASS: P9: empty save does NOT clear the existing key
+  PASS: P9: empty save issues no fetch
+  PASS: P9: empty save reports the empty status
+  PASS: P10: key-set mount shows 'key is set' status
+  PASS: P10: key-set mount shows the Clear button
+  PASS: P10: key-set mount renders NO input — the key is never pre-filled
+  PASS: P8: Clear removes the provider key slot
+  PASS: P8: Clear removes bt_feedback_count (no rate-lock)
+  PASS: P8: readKey returns null after Clear
+  PASS: P10: after Clear, UI returns to the empty input form
+  PASS: P10: post-Clear input starts empty
+  PASS: after Clear, the Clear button is gone
+  PASS: P4: Clear reports the cleared status
+  PASS: P11: double mount does not re-render (same form instance)
+  PASS: P11: double mount does not duplicate the submit listener
+  PASS: P11: double mount -> one save -> exactly one fetch
+  PASS: P11: save still works after double mount
+  PASS: P12: mountKeyPage(null/undefined) no-op without crash
+  PASS: P3: 401 save reports invalid-key (not collapsed into network)
+  PASS: 401 save issued one fetch
+  PASS: advisory: key stored even when validation rejects
+  PASS: P3: thrown fetch reports network
+  PASS: network save issued one fetch
+  PASS: storage-unavailable: ZERO fetches issued when storeKey throws
+  PASS: storage-unavailable: friendly storage status rendered
+  PASS: storage-unavailable: key NOT stored
+  PASS: storage-unavailable: input keeps its value for retry (no silent wipe)
+  PASS: P17: empty save does NOT fire onSaved
+  PASS: P17: empty save still reports the empty status
+  PASS: P17: storage-unavailable save does NOT fire onSaved
+  PASS: P17: storage-unavailable save issues no fetch (onSaved would continue a doomed flow)
+  PASS: P17: successful save fires onSaved EXACTLY once
+  PASS: P17: key stored alongside onSaved (onSaved runs after storeKey)
+  PASS: P17: successful save still issues one validation fetch
+  PASS: Node.js behavioral tests passed (all key-page assertions)
+=== Results: 40 passed, 0 failed ===

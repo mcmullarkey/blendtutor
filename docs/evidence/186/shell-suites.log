@@ -1,0 +1,10 @@
+=== test_quarto_asset_deployment.sh ===
+  Results: 68 passed, 0 failed
+All tests passed.
+
+=== test_quarto_bootstrap.sh ===
+  Results: 74 passed, 0 failed
+All tests passed.
+
+=== test_quarto_ux.py ===
+=== Results: 46 passed, 0 failed ===

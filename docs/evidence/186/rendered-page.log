@@ -1,0 +1,21 @@
+=== demo-book render: bootstrap imports (rendered r-exercises.html) ===
+83:  import { mountAllFeedback } from "./site_libs/quarto-contrib/blendtutor-0.1.0/exercise-feedback.js";
+84:  import { mountKeyPage } from "./site_libs/quarto-contrib/blendtutor-0.1.0/key-page.js";
+88:  mountKeyPage(document.querySelector(".blendtutor-key"));
+92:    mountAllFeedback(registry);
+
+=== deployed libs copy byte-identical to extension source ===
+deployed exercise-feedback.js == extension source
+deployed key-page.js == extension source
+
+=== inline mount + save-continuation in deployed JS ===
+43:// Issue #186: the no-key state mounts the key-management form (key-page.js
+87:// learners; the no-key state mounts the key-page form inline (issue #186)
+418:// --- the no-key state (issue #186): INLINE key form, no navigation link ----
+427:// Save-continuation: onSaved re-invokes handleSubmitForExercise once the key
+503://                        with an onSaved save-continuation that re-runs this
+538:    // container. The onSaved continuation re-runs this handler once the key
+541:    mountKeyPage(container, { onSaved: () => handleSubmitForExercise(entry) });
+
+=== scoped CSS flatten override in deployed book ===
+830:.bt-exercise .bt-feedback [data-byok="key-page-form"] {

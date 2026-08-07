@@ -71,9 +71,10 @@ clothing       190.0
 electronics    172.5
 Name: revenue, dtype: float64
   PASS: dict-parity: solution output {'books': 96.0, 'clothing': 190.0, 'electronics': 172.5} == check-4 literal
+  PASS: hard-pin: solution and check-4 literal match EXPECTED_REVENUE
   PASS: sum(revenue_by_cat) == 458.5 (self-consistency)
 
 -- Predicate (e): hardcode sneaky-pass --
   PASS: hardcoded sneaky-pass defeated (4 passed, checks [5] failed)
 
-=== Results: 26 passed, 0 failed ===
+=== Results: 27 passed, 0 failed ===

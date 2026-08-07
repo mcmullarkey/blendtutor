@@ -51,6 +51,10 @@
 #      opt-outs (webr.qmd bt-auto-bootstrap: false still gets keyPageUrl, C18);
 #      bt-key-page YAML honored (C20); default api-key.html (C21); merge pattern
 #      never bare = {...} (C22).
+#  Issue #179 adds to clause 14: the same head script ALSO emits the
+#      maxFeedbackPerSession default (20, crates parity) via merge pattern +
+#      nullish fill (`??`) so deployed books never compute 0>=0===true and
+#      silently disable feedback; the default must be non-zero.
 #
 # Negative cases killed here: classic script no type=module (1), hardcodes both
 # adapters (2), opt-out via guard (4), hardcoded specifier (6), omits .catch (7),
@@ -682,6 +686,24 @@ if [ -f "$MIXED_HTML" ]; then
     ok "keyPageUrl defaults to api-key.html (C21)"
   else
     ko "keyPageUrl defaults to api-key.html — not found"
+  fi
+
+  # Issue #179 — maxFeedbackPerSession default on the SAME head script.
+  # Absent, a deployed book computes (maxFeedbackPerSession || 0) = 0 →
+  # rateLimitReached() = 0>=0===true → feedback silently disabled. Default 20
+  # mirrors crates default_max_feedback() (crates/core/src/course.rs) so both
+  # render paths agree. `??` (nullish), not `||`, so a deliberate user-set 0
+  # survives the fill.
+  if has_token "$MIXED_CONTENT" 'window.__btConfig.maxFeedbackPerSession = window.__btConfig.maxFeedbackPerSession ?? 20'; then
+    ok "maxFeedbackPerSession default 20 emitted via merge pattern (issue #179)"
+  else
+    ko "maxFeedbackPerSession default 20 emitted via merge pattern — not found (feedback would be silently disabled)"
+  fi
+
+  if grep -qF 'maxFeedbackPerSession ?? 0' <<< "$MIXED_CONTENT"; then
+    ko "maxFeedbackPerSession default must be ≥ 1 (a 0 default still disables feedback)"
+  else
+    ok "maxFeedbackPerSession default is non-zero"
   fi
 
   if grep -qF 'window.__btConfig = {' <<< "$MIXED_CONTENT"; then

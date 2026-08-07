@@ -401,17 +401,13 @@ function probeP5CrossPage() {
 
   // Proceed past the no-key state: with the key present, clicking the
   // feedback button must NOT render the no-key link (it goes to pending →
-  // verdict through the stub). maxFeedbackPerSession is injected manually
-  // below to paper over a KNOWN production gap: the demo-book Quarto render
-  // emits ONLY window.__btConfig.keyPageUrl (blendtutor.lua
-  // build_key_page_config_script), never maxFeedbackPerSession — so without
-  // this injection the deployed demo-book page would compute
-  // (window.__btConfig.maxFeedbackPerSession || 0) = 0, making
-  // rateLimitReached() return 0 >= 0 === true and silently disabling
-  // feedback. quarto-fixture/feedback.qmd DOES set maxFeedbackPerSession = 3,
-  // but demo-book pages do NOT; the lua-side emission fix is tracked by a
-  // follow-up AC.
-  rodneyJs("(() => { window.__btConfig = window.__btConfig || {}; window.__btConfig.maxFeedbackPerSession = 100; return 'cfg-ok'; })()");
+  // verdict through the stub). The rate-limit config comes from the REAL
+  // rendered page: blendtutor.lua build_key_page_config_script now emits
+  // window.__btConfig.maxFeedbackPerSession = window.__btConfig.maxFeedbackPerSession ?? 20
+  // (issue #179, crates parity) alongside keyPageUrl — so NO manual injection
+  // here. A regression to keyPageUrl-only emission would compute
+  // (maxFeedbackPerSession || 0) = 0 → rateLimitReached() = 0>=0===true and
+  // silently disable feedback; the P10 config guard below catches that.
   installSpies();
   rodney(["click", ".bt-exercise:first-of-type .bt-feedback-btn"]);
   sleep(1);
@@ -434,10 +430,17 @@ function probeP5CrossPage() {
 // ---------------------------------------------------------------------------
 function probeP10Verdict() {
   // Key already present from P5 (same rodney session, same origin). Rate-limit
-  // config already set in P5; assert it so a silent-disable regression fails
-  // loudly here rather than vacuous-passing.
-  const cfgOk = rodneyJs("(window.__btConfig && window.__btConfig.maxFeedbackPerSession) === 100");
-  record("P10 config guard: maxFeedbackPerSession set", cfgOk === "true", `config=${cfgOk}`);
+  // config comes from the REAL rendered page (issue #179: blendtutor.lua emits
+  // maxFeedbackPerSession ?? 20 — default 20, crates parity; NO probe-side
+  // injection). Assert the rendered config is a working non-zero numeric value
+  // so a silent-disable regression (keyPageUrl-only emission → undefined →
+  // 0>=0===true) fails loudly here rather than vacuous-passing. Deliberately
+  // loose on the exact number (>= 1, not === 20): the probe pins the CONTRACT
+  // (a working rate limit), not the tuning constant.
+  const cfgOk = rodneyJs(
+    "(window.__btConfig && typeof window.__btConfig.maxFeedbackPerSession === 'number' && window.__btConfig.maxFeedbackPerSession >= 1)",
+  );
+  record("P10 config guard: real render carries non-zero maxFeedbackPerSession", cfgOk === "true", `config=${cfgOk}`);
 
   // P10 explicitly: NO fetch-spy substitution — the verdict must come from a
   // NEW real stub /chat/completions round-trip. P5 already rendered a verdict,

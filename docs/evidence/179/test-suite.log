@@ -1,0 +1,32 @@
+=== Issue #179 regression test-suite log ===
+date: 2026-08-07 (independent re-verification; original run 2026-08-07T09:56:47Z)
+
+1) test_quarto_feedback.py  (python3 scripts/tests/test_quarto_feedback.py)
+   exit: 0
+=== Results: 65 passed, 0 failed ===
+
+2) test_quarto_bootstrap.sh  (bash scripts/tests/test_quarto_bootstrap.sh)
+   exit: 0
+=========================================
+  Results: 73 passed, 0 failed
+=========================================
+All tests passed.
+
+3) test_quarto_asset_deployment.sh  (bash scripts/tests/test_quarto_asset_deployment.sh)
+   exit: 0
+=========================================
+  Results: 68 passed, 0 failed
+=========================================
+All tests passed.
+
+4) test_quarto_distribution.sh  (bash scripts/tests/test_quarto_distribution.sh)
+   exit: 0
+=========================================
+  Results: 89 passed, 0 failed
+=========================================
+All tests passed.
+
+Note: an orphaned hung `quarto render key-only.qmd` process (left by an earlier
+dispatch) made local re-runs hang at bootstrap Clause 12; after killing it, all
+suites pass. CI jobs (quarto render / quarto distribution / rodney probes) run
+in fresh containers so they are unaffected.

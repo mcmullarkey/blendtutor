@@ -46,6 +46,11 @@ wiring (AC-5 arms 1-13):
       (button sole trigger, no picker, per-exercise output scoping, XSS
       textContent-only verdict, rate-limit/no-key refusal, error path,
       concurrent guard, empty-output tolerance).
+   12. rate-limit default emission (issue #179) — blendtutor.lua's
+      build_key_page_config_script emits window.__btConfig.maxFeedbackPerSession
+      = window.__btConfig.maxFeedbackPerSession ?? 20 via the C22 merge pattern
+      (crates parity), so deployed Quarto books never compute 0>=0===true and
+      silently disable feedback.
 
 Negative: silently skips fetch (no fetch call). Cross-exercise bleed (key
 re-prompted per exercise). llm_evaluation_prompt leaks into the browser.
@@ -65,6 +70,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 JS_PATH = REPO_ROOT / "_extensions" / "blendtutor" / "assets" / "exercise-feedback.js"
 RUNTIME_PATH = REPO_ROOT / "_extensions" / "blendtutor" / "assets" / "exercise-runtime.js"
 QMD_PATH = REPO_ROOT / "quarto-fixture" / "feedback.qmd"
+LUA_PATH = REPO_ROOT / "_extensions" / "blendtutor" / "blendtutor.lua"
 
 PASS = 0
 FAIL = 0
@@ -554,6 +560,35 @@ def check_ac5_fixture_config(qmd: str) -> None:
         ok("AC-5 (fixture): __btConfig uses the C22 merge pattern (no keyPageUrl clobber)")
     else:
         ko("AC-5 (fixture): __btConfig must use the C22 merge pattern (window.__btConfig = window.__btConfig || {})")
+
+
+def check_bt_config_lua_emission(lua: str) -> None:
+    """Issue #179 (source): blendtutor.lua's build_key_page_config_script must
+    emit the maxFeedbackPerSession DEFAULT alongside keyPageUrl — via the C22
+    MERGE pattern + nullish fill (`??`). Absent, a deployed Quarto book reads
+    (maxFeedbackPerSession || 0) = 0 → rateLimitReached() = 0>=0===true →
+    feedback silently disabled. Default 20 mirrors crates default_max_feedback()
+    (crates/core/src/course.rs) so both render paths agree.
+
+    The bare-clobber negative inspects ONLY the function body (not the whole
+    file): the docstring above the function legitimately writes the forbidden
+    pattern in prose, which would false-positive a whole-file grep.
+    """
+    if "window.__btConfig.maxFeedbackPerSession = window.__btConfig.maxFeedbackPerSession ?? 20" in lua:
+        ok("issue #179 (source): blendtutor.lua emits maxFeedbackPerSession default 20 (crates parity)")
+    else:
+        ko("issue #179 (source): blendtutor.lua must emit window.__btConfig.maxFeedbackPerSession ?? 20 — absent, deployed books compute 0>=0===true, feedback silently disabled")
+    if "window.__btConfig = window.__btConfig || {};" in lua:
+        ok("issue #179 (source): __btConfig merge pattern in blendtutor.lua (no keyPageUrl clobber)")
+    else:
+        ko("issue #179 (source): blendtutor.lua must use the C22 merge pattern (window.__btConfig = window.__btConfig || {})")
+    start = lua.find("local function build_key_page_config_script")
+    end = lua.find("\nend", start) if start != -1 else -1
+    body = lua[start:end] if start != -1 and end != -1 else ""
+    if "window.__btConfig = {" in body:
+        ko("issue #179 (source): build_key_page_config_script must NEVER bare-assign window.__btConfig = {...} (clobber drops config)")
+    else:
+        ok("issue #179 (source): build_key_page_config_script has no bare __btConfig clobber")
 
 
 # ---------------------------------------------------------------------------
@@ -1237,6 +1272,9 @@ def main() -> int:
     check_ac5_rate_limit_ordering(src)
     check_ac5_runtime_zero_feedback_refs(runtime_src)
     check_ac5_fixture_config(qmd)
+
+    print("\n-- Issue #179 lua emission check --")
+    check_bt_config_lua_emission(LUA_PATH.read_text())
 
     print("\n-- Behavioral checks (Node.js) --")
     check_node_behavioral()

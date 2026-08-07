@@ -693,11 +693,18 @@ end
 -- (crates/core/src/site/mod.rs:321) sets maxFeedbackPerSession on the SAME
 -- object; a clobber would silently break rate limiting at
 -- exercise-feedback.js:376.
+-- ISSUE #179: also emits the maxFeedbackPerSession DEFAULT via nullish fill
+-- (`??`) so a deployed Quarto book never computes (maxFeedbackPerSession || 0)
+-- = 0 → rateLimitReached() = 0>=0===true → "Get feedback" silently disabled.
+-- Default 20 mirrors crates default_max_feedback() (crates/core/src/course.rs)
+-- so both render paths agree. `??` (not `||`) so a deliberate user-set 0 in
+-- config.js or a future YAML override survives the fill.
 -- @param key_page_url The bt-key-page YAML value (string) or the default
 -- @return A classic <script>…</script> string for the <head>
 local function build_key_page_config_script(key_page_url)
   return '<script>window.__btConfig = window.__btConfig || {};'
-    .. 'window.__btConfig.keyPageUrl = "' .. json_escape(key_page_url) .. '";</script>'
+    .. 'window.__btConfig.keyPageUrl = "' .. json_escape(key_page_url) .. '";'
+    .. 'window.__btConfig.maxFeedbackPerSession = window.__btConfig.maxFeedbackPerSession ?? 20;</script>'
 end
 
 --- Normalize a pandoc meta value to a plain Lua string, or nil when the value
@@ -835,7 +842,8 @@ function Pandoc(doc)
   -- link). Present on EVERY has_blendtutor-or-has_key page REGARDLESS of
   -- bt-auto-bootstrap / bt-feedback opt-outs. Value from doc.meta["bt-key-page"]
   -- YAML (string form), default "api-key.html". Merge pattern (C22) — never a
-  -- bare window.__btConfig = {...} clobber.
+  -- bare window.__btConfig = {...} clobber. Also emits the maxFeedbackPerSession
+  -- default (issue #179) — see build_key_page_config_script for the parity note.
   if (has_blendtutor or has_key) and is_html_format() then
     -- bt-key-page YAML value normalized via meta_string (pandoc 3 wraps plain
     -- YAML strings in a structured type — the custom value would be silently

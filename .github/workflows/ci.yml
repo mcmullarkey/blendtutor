@@ -199,3 +199,47 @@ jobs:
 
       - name: Render demo book
         run: quarto render demo-book --to html
+
+  rodney-probes:
+    name: rodney probes (key page + feedback)
+    runs-on: ubuntu-latest
+    # Probe wall-time: two browser sessions (key page + feedback flow) with
+    # COI settle waits; the alarm must outlive the probes so a slow-but-healthy
+    # run is not killed mid-flight.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      # uvx rodney (pinned rodney==0.4.0 inside the probes) requires uv.
+      - uses: astral-sh/setup-uv@v5
+
+      # Defensive node pin over the ubuntu-latest default.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      # Chrome for the rodney probes. ubuntu-latest ships google-chrome, and
+      # scripts/rodney-chrome.sh resolves it; the wrapper strips rodney 0.4.0's
+      # isolation-breaking flags (--single-process, --disable-site-isolation-
+      # trials, --disable-features=*) so the cross-page COI leg works. Wired
+      # here explicitly via ROD_CHROME_BIN (P13); the probes also default to
+      # the wrapper if unset.
+      - name: Render demo book for rodney probes
+        run: quarto render demo-book --to html
+
+      # AC-8 P2 — BOTH probes run PR-gating. No error-swallowing on the probe
+      # steps (no resilient flags of any kind): a probe failure FAILS this job
+      # via the probes' own non-zero exit (P1) plus step-level fail-fast.
+      - name: Key page probe (P6-P9)
+        env:
+          EVIDENCE_DIR: docs/evidence/169
+          ROD_CHROME_BIN: scripts/rodney-chrome.sh
+        run: uv run node rodney-probes/key-page-probe.js
+
+      - name: Feedback probe (P5/P10/P11)
+        env:
+          EVIDENCE_DIR: docs/evidence/169
+          ROD_CHROME_BIN: scripts/rodney-chrome.sh
+        run: uv run node rodney-probes/feedback-probe.js

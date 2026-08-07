@@ -14,11 +14,13 @@
 #   2. Conditional JS resources: resources table built conditionally —
 #      assets/exercise-runtime.js + assets/codemirror.js always;
 #      assets/webr-adapter.js iff has_r; assets/pyodide-adapter.js iff
-#      has_python.
+#      has_python. ISSUE #164 (byok-api-key AC-3): assets/exercise-feedback.js
+#      + assets/key-page.js ALWAYS (C1 — the bootstrap imports both).
 #   3. Deployed to libs: files physically exist at
 #      <stem>_files/libs/quarto-contrib/blendtutor-0.1.0/ — exercise-runtime.js,
 #      codemirror.js, styles.css always; webr-adapter.js present iff page has R
-#      exercises, ABSENT otherwise (same for pyodide/python).
+#      exercises, ABSENT otherwise (same for pyodide/python); exercise-feedback.js
+#      + key-page.js always (C2).
 #   4. CSS via Quarto link: rendered HTML contains exactly one
 #      <link ... blendtutor-0.1.0/styles.css>; no _extensions/.../assets/styles.css
 #      link present.
@@ -42,6 +44,13 @@
 #  10. Version pin single-sourced: BT_DEP_VERSION = "0.1.0" Lua constant equals
 #      _extension.yml:3 version AND used in BOTH dependency declaration and
 #      emitted libs URL string.
+#  5b. Key-only page (issue #164 C14): hermetic render with ONLY a
+#      ::: {.blendtutor-key} div deploys both feedback + key-page assets to the
+#      libs dir AND injects the bootstrap calling mountKeyPage (guards
+#      broadened to has_blendtutor or has_key).
+#  9+. Latex leak (issue #164 C23): hermetic latex render with blendtutor
+#      exercise + .blendtutor-key div → zero libs dirs, zero bootstrap, zero
+#      __btConfig, zero key-page.js on disk.
 #
 # Negative cases killed here: _extension.yml resources (1), scripts= classic
 # tag (1+6), URL rewritten but files not deployed (3 file-existence), hardcoded
@@ -77,12 +86,12 @@ fi
 
 count_occurrences() {
   local content="$1" token="$2"
-  printf '%s' "$content" | grep -oF "$token" | wc -l | tr -d ' ' || true
+  grep -oF "$token" <<< "$content" | wc -l | tr -d ' ' || true
 }
 
 has_token() {
   local content="$1" token="$2"
-  printf '%s' "$content" | grep -qF "$token"
+  grep -qF "$token" <<< "$content"
 }
 
 # Extract the body of the filter-injected bootstrap script (between the marker
@@ -156,10 +165,12 @@ fi
 echo "== Clause 2: conditional JS resources (static pin) =="
 
 if has_token "$LUA_CONTENT" '"assets/exercise-runtime.js"' \
-  && has_token "$LUA_CONTENT" '"assets/codemirror.js"'; then
-  ok "exercise-runtime.js + codemirror.js always in resources"
+  && has_token "$LUA_CONTENT" '"assets/codemirror.js"' \
+  && has_token "$LUA_CONTENT" '"assets/exercise-feedback.js"' \
+  && has_token "$LUA_CONTENT" '"assets/key-page.js"'; then
+  ok "exercise-runtime.js + codemirror.js + exercise-feedback.js + key-page.js always in resources (C1)"
 else
-  ko "exercise-runtime.js + codemirror.js always in resources — missing one or both"
+  ko "exercise-runtime.js + codemirror.js + exercise-feedback.js + key-page.js always in resources — missing one or more"
 fi
 
 if has_token "$LUA_CONTENT" '"assets/webr-adapter.js"' && has_token "$LUA_CONTENT" "has_r"; then
@@ -192,7 +203,7 @@ render_to_html "$FIXTURE_DIR/mixed-lang.qmd" >/dev/null 2>&1 || true
 if [ ! -d "$LIBS_DIR" ]; then
   ko "mixed-lang libs dir exists — missing: $LIBS_DIR"
 else
-  for f in exercise-runtime.js codemirror.js styles.css webr-adapter.js pyodide-adapter.js; do
+  for f in exercise-runtime.js codemirror.js styles.css webr-adapter.js pyodide-adapter.js exercise-feedback.js key-page.js; do
     if [ -f "$LIBS_DIR/$f" ]; then
       ok "mixed-lang libs contains $f"
     else
@@ -273,7 +284,7 @@ if [ ! -f "$FIXTURE_DIR/mixed-lang.html" ]; then
 else
   MIXED_BOOTSTRAP=$(extract_bootstrap "$(cat "$FIXTURE_DIR/mixed-lang.html")")
   LIBS_PREFIX="mixed-lang_files/$LIBS_REL"
-  for f in exercise-runtime.js webr-adapter.js pyodide-adapter.js; do
+  for f in exercise-runtime.js webr-adapter.js pyodide-adapter.js exercise-feedback.js key-page.js; do
     if has_token "$MIXED_BOOTSTRAP" "$LIBS_PREFIX/$f"; then
       ok "bootstrap imports $f from libs URL"
     else
@@ -294,12 +305,89 @@ else
   else
     ok "no _extensions/ substring in bootstrap specifiers"
   fi
-  if printf '%s' "$MIXED_BOOTSTRAP" | grep -qE "assets/(exercise-runtime|webr-adapter|pyodide-adapter)\.js"; then
+  if grep -qE "assets/(exercise-runtime|webr-adapter|pyodide-adapter)\.js" <<< "$MIXED_BOOTSTRAP"; then
     ko "no resolve_asset_path output in specifiers — bare assets/ path found"
   else
     ok "no resolve_asset_path output in specifiers"
   fi
 fi
+
+# ---------------------------------------------------------------------------
+# Clause 5b (issue #164): key-only page deploys BOTH assets + bootstrap (C14)
+#
+# A page with ONLY a ::: {.blendtutor-key} div (zero exercises) must still get
+# the add_html_dependency deployment (exercise-feedback.js + key-page.js in the
+# libs dir), the injected bootstrap, and the mountKeyPage call — the guards at
+# build_html_dependency() and the bootstrap injection must read
+# has_blendtutor or has_key.
+# ---------------------------------------------------------------------------
+
+echo "== Clause 5b: key-only page deploys both assets + bootstrap (C14) =="
+
+TMP_KEY=$(mktemp -d)
+setup_extension "$TMP_KEY"
+
+cat > "$TMP_KEY/key-only.qmd" <<'QMD'
+---
+title: Key-only deployment fixture
+filters: [_extensions/mcmullarkey/blendtutor/blendtutor.lua]
+---
+
+## Key-only page
+
+::: {.blendtutor-key}
+Manage your API key here.
+:::
+QMD
+
+KEY_OUTPUT=$( ( cd "$TMP_KEY" && quarto render key-only.qmd --to html ) 2>&1 ) && KEY_RC=0 || KEY_RC=$?
+if [ "$KEY_RC" -eq 0 ]; then
+  ok "key-only render exits 0"
+else
+  ko "key-only render exits 0 — exit code $KEY_RC"
+  echo "  render output: $KEY_OUTPUT" >&2
+fi
+
+KEY_LIBS="$TMP_KEY/key-only_files/$LIBS_REL"
+if [ -d "$KEY_LIBS" ]; then
+  for f in key-page.js exercise-feedback.js exercise-runtime.js codemirror.js styles.css; do
+    if [ -f "$KEY_LIBS/$f" ]; then
+      ok "key-only libs contains $f"
+    else
+      ko "key-only libs contains $f — missing (guard not broadened to has_key)"
+    fi
+  done
+  if [ -f "$KEY_LIBS/pyodide-adapter.js" ]; then
+    ko "key-only libs ABSENT pyodide-adapter.js — deployed despite no python"
+  else
+    ok "key-only libs absent pyodide-adapter.js (no python)"
+  fi
+else
+  ko "key-only libs dir exists — missing: $KEY_LIBS (deployment guard did not broaden)"
+fi
+
+if [ -f "$TMP_KEY/key-only.html" ]; then
+  KEY_BOOT_COUNT=$(count_occurrences "$(cat "$TMP_KEY/key-only.html")" "$MARKER")
+  if [ "$KEY_BOOT_COUNT" -eq 1 ]; then
+    ok "key-only page bootstrap injected (1 found)"
+  else
+    ko "key-only page bootstrap injected — expected 1, found $KEY_BOOT_COUNT"
+  fi
+  KEY_BOOTSTRAP=$(extract_bootstrap "$(cat "$TMP_KEY/key-only.html")")
+  if has_token "$KEY_BOOTSTRAP" 'mountKeyPage(document.querySelector(".blendtutor-key"))'; then
+    ok "key-only page bootstrap calls mountKeyPage"
+  else
+    ko "key-only page bootstrap calls mountKeyPage — not found"
+  fi
+  if has_token "$KEY_BOOTSTRAP" "./key-only_files/$LIBS_REL/key-page.js"; then
+    ok "key-only bootstrap imports key-page.js from libs URL"
+  else
+    ko "key-only bootstrap imports key-page.js from libs URL — not found"
+  fi
+else
+  ko "key-only page rendered — key-only.html missing"
+fi
+rm -rf "$TMP_KEY"
 
 # ---------------------------------------------------------------------------
 # Clause 6: No classic runtime script tag
@@ -310,7 +398,7 @@ echo "== Clause 6: no classic runtime script tag =="
 if [ ! -f "$FIXTURE_DIR/mixed-lang.html" ]; then
   ko "no classic runtime script tag — HTML missing"
 else
-  if printf '%s' "$(cat "$FIXTURE_DIR/mixed-lang.html")" | grep -qE '<script src="[^"]*exercise-runtime\.js"'; then
+  if grep -qE '<script src="[^"]*exercise-runtime\.js"' <<< "$(cat "$FIXTURE_DIR/mixed-lang.html")"; then
     ko "no classic runtime script tag — classic <script src=...exercise-runtime.js> found"
   else
     ok "no classic <script src=...exercise-runtime.js> tag"
@@ -485,7 +573,7 @@ if [ -f "$BOOK_PAGE" ]; then
   else
     ko "book bootstrap specifier uses ./site_libs/... — not found: $BOOK_BOOTSTRAP"
   fi
-  if printf '%s' "$BOOK_BOOTSTRAP" | grep -qF "_files/libs/"; then
+  if grep -qF "_files/libs/" <<< "$BOOK_BOOTSTRAP"; then
     ko "book bootstrap has NO <stem>_files/ specifier — found _files/libs/ path"
   else
     ok "book bootstrap specifier has no <stem>_files/ path"
@@ -545,7 +633,7 @@ if [ -f "$TMP_OUTDIR/index.html" ]; then
   else
     ko "standalone+output-dir keeps <stem>_files specifier — got: $OUTDIR_BOOTSTRAP"
   fi
-  if printf '%s' "$OUTDIR_BOOTSTRAP" | grep -qF "site_libs/"; then
+  if grep -qF "site_libs/" <<< "$OUTDIR_BOOTSTRAP"; then
     ko "standalone+output-dir has NO site_libs specifier — found site_libs/ path"
   else
     ok "standalone+output-dir specifier has no site_libs/ path"
@@ -582,6 +670,10 @@ Write a function `add(a, b)`.
 add <- function(a, b) { a + b }
 ```
 :::
+
+::: {.blendtutor-key}
+Manage your API key here.
+:::
 QMD
 
 LATEX_OUTPUT=$( ( cd "$TMP_LATEX" && quarto render index.qmd --to latex ) 2>&1 ) && LATEX_RC=0 || LATEX_RC=$?
@@ -598,11 +690,24 @@ else
   ok "zero libs dirs created on latex render"
 fi
 
+# Only libs-dir deployment is a leak: the hermetic project's own
+# _extensions/.../assets/key-page.js source copy is expected on disk.
+if find "$TMP_LATEX" -type f -path "*libs*" -name "key-page.js" | grep -q .; then
+  ko "zero key-page.js on latex — JS asset leaked into libs output (C23)"
+else
+  ok "zero key-page.js on latex render (C23)"
+fi
+
 if [ -f "$TMP_LATEX/index.tex" ]; then
   if grep -qF "$MARKER" "$TMP_LATEX/index.tex"; then
     ko "zero bootstrap injection on latex — found data-bt-bootstrap in tex"
   else
     ok "zero bootstrap injection on latex"
+  fi
+  if grep -qF "__btConfig" "$TMP_LATEX/index.tex"; then
+    ko "zero __btConfig on latex — found window.__btConfig in tex (C23)"
+  else
+    ok "zero __btConfig emission on latex (C23)"
   fi
 fi
 rm -rf "$TMP_LATEX"

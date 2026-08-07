@@ -1,0 +1,42 @@
+Using render tool: quarto
+== Structural guard: .qmd YAML declares explicit filter path ==
+  PASS: filter path declared in filter.qmd YAML
+== Assertions 1-6: HTML render + JSON contract ==
+  PASS: render exits 0
+All assertions passed (4 widgets verified)
+  PASS: >=4 bt-exercise widgets with all 9 keys
+  PASS: full exercise values correct (prompt <code>, code_template <-, checks len 2, solution 'a + b', hints <-, gotchas null, packages [])
+  PASS: minimal Python: packages parsed, all 9 keys present
+  PASS: empty exercise: all 9 keys present (null/[] for absent)
+  PASS: IDs distinct, titles non-empty
+  PASS: llm_evaluation_prompt ABSENT
+== Assertion 17: static fallback block emitted before payload script ==
+  PASS: static fallback block emitted (.bt-exercise-static)
+  PASS: static title emitted (.bt-static-title)
+  PASS: static code template emitted (.bt-static-code)
+  PASS: static hints details emitted (.bt-static-hints)
+  PASS: static block precedes payload script (positional)
+== Assertions 10-11: data-language emission ==
+  PASS: data-language=r emitted
+  PASS: data-language=python emitted
+  PASS: >=4 data-language attrs emitted (found 4)
+== Assertions 12-13: static pins (runtime read + verifier shape) ==
+  PASS: runtime reads entry.element.dataset.language
+  PASS: verifier dropped exact matcher — no <div class="bt-exercise"> in verify_filter_output.py
+== Assertion 14: non-HTML format skips widget emission ==
+  PASS: non-HTML render exits 0
+  PASS: no bt-exercise in non-HTML output
+  PASS: warning emitted for non-HTML format
+== Assertion 15: invalid language warning + skip ==
+  PASS: invalid-lang render exits 0
+  PASS: no bt-exercise for invalid language
+  PASS: warning for invalid language
+== Assertion 16: missing language warning + skip ==
+  PASS: missing-lang render exits 0
+  PASS: no bt-exercise for missing language
+  PASS: warning for missing language
+
+=========================================
+  Results: 27 passed, 0 failed
+=========================================
+All tests passed.

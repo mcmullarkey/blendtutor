@@ -3,16 +3,33 @@
 --        with embedded 9-key SiteLesson JSON (ADR-0008 contract), and
 --        injects the auto-bootstrap module script that boots the exercise
 --        runtime with per-language adapters (AC-3).
+--        ISSUE #164 (byok-api-key AC-3) additionally:
+--          * recognizes ::: {.blendtutor-key} divs as the key-page mount
+--            point (pass-through HTML, has_key flag drives emission only);
+--          * deploys exercise-feedback.js + key-page.js alongside the runtime
+--            assets via add_html_dependency (single resources table);
+--          * auto-mounts per-exercise feedback + the key page in the injected
+--            bootstrap (mountAllFeedback AFTER start() resolves, mountKeyPage
+--            unconditional — null is a no-op);
+--          * emits window.__btConfig.keyPageUrl via a SEPARATE classic head
+--            script on every has_blendtutor-or-has_key page, regardless of
+--            bt-auto-bootstrap / bt-feedback opt-outs (AC-4's no-key link);
+--          * reads bt-feedback: false (bool OR "false") as the granular
+--            feedback opt-out (keeps start() + mountKeyPage, drops only
+--            mountAllFeedback), distinct from bt-auto-bootstrap: false (total
+--            opt-out — no bootstrap at all).
 -- WHERE: _extensions/blendtutor/blendtutor.lua (loaded via _extension.yml contributes.filters)
 -- NOT:   No code execution. The filter emits AST only; runtime JS
---        (exercise-runtime + adapters + codemirror) and CSS (styles.css)
---        deploy to the render output libs dir via
---        quarto.doc.add_html_dependency (AC-4), loaded by the browser from
---        <stem>_files/libs/quarto-contrib/blendtutor-<version>/ (standalone)
---        or ./site_libs/quarto-contrib/blendtutor-<version>/ (book renders,
---        AC-5); pyodide CDN and coi-serviceworker.js stay include_text
---        (external URL / SW scope).
---        This filter owns the div→widget AST transform only (§4.1).
+--        (exercise-runtime + adapters + codemirror + exercise-feedback +
+--        key-page) and CSS (styles.css) deploy to the render output libs dir
+--        via quarto.doc.add_html_dependency (AC-4), loaded by the browser
+--        from <stem>_files/libs/quarto-contrib/blendtutor-<version>/
+--        (standalone) or ./site_libs/quarto-contrib/blendtutor-<version>/
+--        (book renders, AC-5); pyodide CDN and coi-serviceworker.js stay
+--        include_text (external URL / SW scope).
+--        This filter owns the div→widget AST transform, dual-asset
+--        deployment, bootstrap + head-script injection, and opt-out
+--        semantics only (§4.1) — NOT key validation logic (key-page.js).
 --
 -- This filter is loaded via explicit path in .qmd YAML:
 --   filters: [_extensions/blendtutor/blendtutor.lua]
@@ -48,6 +65,24 @@ local has_r = false
 -- Read in Pandoc() to conditionally inject styles.css (needed for all exercises).
 -- Reset in Pandoc() so each document gets a fresh check.
 local has_blendtutor = false
+
+-- has_key flag — set in Div() when a ::: {.blendtutor-key} div is found
+-- (issue #164, byok-api-key AC-3). The div itself is pure HTML pass-through
+-- (pandoc renders <div class="blendtutor-key"> natively); has_key ONLY drives
+-- filter emission: deploy key-page.js + exercise-feedback.js, inject the
+-- bootstrap, and emit the __btConfig.keyPageUrl head script. Set BEFORE the
+-- non-blendtutor early-return in Div() — a key-only page has zero blendtutor
+-- divs, so the flag must be readable from a page with no exercises at all.
+-- Reset in Pandoc() so each document gets a fresh check (C13).
+local has_key = false
+
+-- bt_feedback_optout — set when YAML metadata bt-feedback: false (bool OR
+-- string "false") is present (issue #164, AC-3 C15). GRANULAR opt-out: the
+-- bootstrap is still injected, start() still runs, mountKeyPage is still
+-- called — only the mountAllFeedback import + call are suppressed. Distinct
+-- from bt_auto_bootstrap_optout, which suppresses the bootstrap ENTIRELY.
+-- Reset in Pandoc() so each document gets a fresh check.
+local bt_feedback_optout = false
 
 -- Pinned CDN URL for pyodide.js (classic script, not ES module).
 -- loadPyodide is a global function, not an ES module export (§3.4).
@@ -186,12 +221,18 @@ end
 -- AC-3 conditional imports: exercise-runtime.js + codemirror.js always
 -- (exercise-runtime.js:29-42 statically imports ./codemirror.js, so both must
 -- ship in the SAME libs dir), webr-adapter.js iff has_r, pyodide-adapter.js
--- iff has_python. Effectful copy is owned by Quarto core — the filter only
--- declares (§2).
+-- iff has_python. ISSUE #164 (AC-3 C1): exercise-feedback.js + key-page.js
+-- ALSO always — the bootstrap statically imports mountAllFeedback from the
+-- former and mountKeyPage from the latter on EVERY has_blendtutor-or-has_key
+-- page, so both must ship whenever the dependency is created (a key-only page
+-- has no adapters but still imports both). Effectful copy is owned by Quarto
+-- core — the filter only declares (§2).
 local function build_html_dependency()
   local resources = {
     "assets/exercise-runtime.js",
     "assets/codemirror.js",
+    "assets/exercise-feedback.js",
+    "assets/key-page.js",
   }
   if has_r then
     resources[#resources + 1] = "assets/webr-adapter.js"
@@ -508,7 +549,17 @@ function Div(div)
     has_coi = true
   end
 
-  -- Non-blendtutor divs: pass through (COI flag already set above if present).
+  -- Check for the key-page mount div (issue #164, AC-3 C12/C13) — on ANY div.
+  -- A ::: {.blendtutor-key} fenced div is a pure HTML pass-through marker:
+  -- pandoc renders it as <div class="blendtutor-key"> unchanged, and has_key
+  -- only drives asset/bootstrap/config emission. MUST be set BEFORE the
+  -- non-blendtutor early-return below — a key-only page has zero blendtutor
+  -- divs and would otherwise never set the flag (C14 dead key page).
+  if div.classes:includes("blendtutor-key") then
+    has_key = true
+  end
+
+  -- Non-blendtutor divs: pass through (COI/key flags already set above if present).
   if not div.classes:includes("blendtutor") then
     return nil
   end
@@ -575,23 +626,37 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Build the filter-injected auto-bootstrap module script.
--- Imports the exercise runtime + per-language adapters from the deployed libs
--- URLs (AC-4 — add_html_dependency copies them to
--- <stem>_files/libs/quarto-contrib/blendtutor-<version>/), then calls
--- start(buildRegistry(scanExercises()), map) with the adapter map keyed only
--- for languages present on the page. The webR adapter is a FACTORY (call it:
--- createWebRAdapter()); the pyodide adapter is a SINGLETON (use pyodideAdapter
--- directly) — the emitted map handles both shapes. Ends with a single .catch()
--- error sink (§5).
+-- Imports the exercise runtime + per-language adapters + feedback + key-page
+-- modules from the deployed libs URLs (AC-4 — add_html_dependency copies them
+-- to <stem>_files/libs/quarto-contrib/blendtutor-<version>/), then calls
+-- start(registry, map) with the adapter map keyed only for languages present
+-- on the page. ISSUE #164 (AC-3):
+--   * registry is HOISTED to one shared const — the SAME registry instance is
+--     passed to start() and mountAllFeedback() (C9 — never re-built).
+--   * mountAllFeedback(registry) sits inside .then( — AFTER start() resolves,
+--     BEFORE .catch( (C7) — and has exactly one call site (C8).
+--   * mountKeyPage(document.querySelector(".blendtutor-key")) is UNCONDITIONAL
+--     (C10) — a missing div is a no-op in key-page.js (AC-2 P12), so no guard.
+--   * bt_feedback_optout suppresses ONLY the mountAllFeedback import + call
+--     (C16) — start() and mountKeyPage stay.
+-- The webR adapter is a FACTORY (call it: createWebRAdapter()); the pyodide
+-- adapter is a SINGLETON (use pyodideAdapter directly) — the emitted map
+-- handles both shapes. Ends with a single .catch() error sink (§5).
 -- @return The full <script type="module" data-bt-bootstrap="auto">…</script> string
 local function build_bootstrap_script()
   local runtime_url = libs_url("exercise-runtime.js")
+  local feedback_url = libs_url("exercise-feedback.js")
+  local key_page_url = libs_url("key-page.js")
   local webr_url = libs_url("webr-adapter.js")
   local pyodide_url = libs_url("pyodide-adapter.js")
   local parts = {
     '<script type="module" data-bt-bootstrap="auto">',
     '  import { scanExercises, buildRegistry, start } from "' .. runtime_url .. '";',
   }
+  if not bt_feedback_optout then
+    parts[#parts + 1] = '  import { mountAllFeedback } from "' .. feedback_url .. '";'
+  end
+  parts[#parts + 1] = '  import { mountKeyPage } from "' .. key_page_url .. '";'
   if has_r then
     parts[#parts + 1] = '  import { createWebRAdapter } from "' .. webr_url .. '";'
   end
@@ -600,17 +665,65 @@ local function build_bootstrap_script()
   end
 
   parts[#parts + 1] = ''
-  parts[#parts + 1] = '  start(buildRegistry(scanExercises()), {'
+  parts[#parts + 1] = '  const registry = buildRegistry(scanExercises());'
+  parts[#parts + 1] = '  start(registry, {'
   if has_r then
     parts[#parts + 1] = '    r: createWebRAdapter(),'
   end
   if has_python then
     parts[#parts + 1] = '    python: pyodideAdapter,'
   end
+  parts[#parts + 1] = '  }).then(() => {'
+  if not bt_feedback_optout then
+    parts[#parts + 1] = '    mountAllFeedback(registry);'
+  end
+  parts[#parts + 1] = '    mountKeyPage(document.querySelector(".blendtutor-key"));'
   parts[#parts + 1] = '  }).catch((err) => console.error("[blendtutor] auto-bootstrap failed", err));'
   parts[#parts + 1] = '</script>'
 
   return table.concat(parts, "\n")
+end
+
+--- Build the classic (non-module) __btConfig keyPageUrl head script.
+-- ISSUE #164 (AC-3 C19-C22). Emitted via a SEPARATE include_text — NOT inside
+-- the module bootstrap, which is unreachable on bt-auto-bootstrap:false /
+-- bt-feedback:false opt-out pages (AC-4's no-key link still needs the URL).
+-- MERGE pattern (C22): `window.__btConfig = window.__btConfig || {};` then a
+-- property assignment — NEVER a bare `window.__btConfig = {...}`. config.js
+-- (crates/core/src/site/mod.rs:321) sets maxFeedbackPerSession on the SAME
+-- object; a clobber would silently break rate limiting at
+-- exercise-feedback.js:376.
+-- @param key_page_url The bt-key-page YAML value (string) or the default
+-- @return A classic <script>…</script> string for the <head>
+local function build_key_page_config_script(key_page_url)
+  return '<script>window.__btConfig = window.__btConfig || {};'
+    .. 'window.__btConfig.keyPageUrl = "' .. json_escape(key_page_url) .. '";</script>'
+end
+
+--- Normalize a pandoc meta value to a plain Lua string, or nil when the value
+-- is not a string (boolean/number/nil/other).
+-- Pandoc 3.x wraps YAML string scalars — including quoted "false" — in a
+-- structured type, NOT a plain Lua string: doc.meta["k"] for `k: "false"`
+-- arrives as a list of Inlines whose first element is Str "false" (empirically
+-- verified quarto 1.10.18 / pandoc 3.1). Pandoc 2.x returned the bare string.
+-- Both forms are normalized here so the bt-auto-bootstrap / bt-feedback
+-- string-form opt-outs work across pandoc versions (§5 — one helper, no
+-- duplicated type-switching at call sites).
+-- @param val A pandoc meta value (boolean, string, or structured table)
+-- @return The plain string, or nil
+local function meta_string(val)
+  if type(val) == "string" then
+    return val
+  end
+  if type(val) == "table" then
+    if type(val.text) == "string" then
+      return val.text
+    end
+    if #val == 1 and val[1] and val[1].t == "Str" and type(val[1].text) == "string" then
+      return val[1].text
+    end
+  end
+  return nil
 end
 
 --- Reset counters and inject CDN script tag at document level.
@@ -634,14 +747,23 @@ function Pandoc(doc)
 
   -- Check YAML metadata for bt-auto-bootstrap: false (AC-3) — page-level
   -- opt-out that suppresses auto-bootstrap injection ENTIRELY. Mirrors the
-  -- coi YAML read; also accepts string "false" for robustness. Pages that
-  -- hand-write their own bootstrap opt out here rather than relying on the
-  -- runtime's double-start guard.
+  -- coi YAML read; also accepts string "false" for robustness (normalized via
+  -- meta_string — pandoc 3 wraps quoted YAML strings in a structured type).
+  -- Pages that hand-write their own bootstrap opt out here rather than relying
+  -- on the runtime's double-start guard.
   local yaml_bootstrap = doc.meta["bt-auto-bootstrap"]
-  if yaml_bootstrap == false then
+  if yaml_bootstrap == false or meta_string(yaml_bootstrap) == "false" then
     bt_auto_bootstrap_optout = true
-  elseif type(yaml_bootstrap) == "string" and yaml_bootstrap == "false" then
-    bt_auto_bootstrap_optout = true
+  end
+
+  -- Check YAML metadata for bt-feedback: false (issue #164, AC-3 C15) —
+  -- GRANULAR opt-out: suppresses ONLY the mountAllFeedback import + call in
+  -- the bootstrap. start(), mountKeyPage, asset deployment, and the
+  -- __btConfig.keyPageUrl head script all stay. Accepts both boolean false
+  -- and string "false" for YAML-parser robustness (C17 parity).
+  local yaml_feedback = doc.meta["bt-feedback"]
+  if yaml_feedback == false or meta_string(yaml_feedback) == "false" then
+    bt_feedback_optout = true
   end
 
   -- Inject CDN script tag if Python exercises are present (AC-6).
@@ -674,11 +796,13 @@ function Pandoc(doc)
   end
 
   -- Deploy styles.css + runtime JS modules to the libs dir (AC-4).
-  -- has_blendtutor is set in Div() which runs before Pandoc().
+  -- has_blendtutor is set in Div() which runs before Pandoc(); has_key too
+  -- (issue #164, C14) — a key-only page still needs the deployed feedback +
+  -- key-page modules that its bootstrap imports.
   -- Quarto copies resources + rewrites the stylesheet <link>; add_html_dependency
   -- requires quarto (no RawBlock fallback — deployment is a Quarto-core
   -- mechanism, not a filter concern).
-  if has_blendtutor and is_html_format() then
+  if (has_blendtutor or has_key) and is_html_format() then
     if quarto and quarto.doc and quarto.doc.add_html_dependency then
       build_html_dependency()
     else
@@ -687,12 +811,13 @@ function Pandoc(doc)
     end
   end
 
-  -- Inject the auto-bootstrap module script if exercises are present (AC-3).
-  -- has_blendtutor is set in Div() (any valid r/python exercise); has_r and
+  -- Inject the auto-bootstrap module script if exercises OR a key-page div are
+  -- present (AC-3 + issue #164 C14). has_blendtutor is set in Div() (any valid
+  -- r/python exercise); has_key for the key-page mount div. has_r and
   -- has_python select which adapters to import. The hasBootstrapDone guard
   -- ensures exactly one bootstrap per page (mirror hasCoiDone, §5).
   -- YAML bt-auto-bootstrap: false opts out entirely (no injection branch).
-  if has_blendtutor and is_html_format() and not bt_auto_bootstrap_optout and not hasBootstrapDone then
+  if (has_blendtutor or has_key) and is_html_format() and not bt_auto_bootstrap_optout and not hasBootstrapDone then
     hasBootstrapDone = true
     local bootstrap = build_bootstrap_script()
     -- Try Quarto API first (injects in <head>), fall back to RawBlock.
@@ -704,15 +829,43 @@ function Pandoc(doc)
     end
   end
 
+  -- Emit window.__btConfig.keyPageUrl (issue #164, AC-3 C19-C22).
+  -- SEPARATE include_text classic script (NOT the module bootstrap — opt-out
+  -- pages never get the bootstrap but still need keyPageUrl for AC-4's no-key
+  -- link). Present on EVERY has_blendtutor-or-has_key page REGARDLESS of
+  -- bt-auto-bootstrap / bt-feedback opt-outs. Value from doc.meta["bt-key-page"]
+  -- YAML (string form), default "api-key.html". Merge pattern (C22) — never a
+  -- bare window.__btConfig = {...} clobber.
+  if (has_blendtutor or has_key) and is_html_format() then
+    -- bt-key-page YAML value normalized via meta_string (pandoc 3 wraps plain
+    -- YAML strings in a structured type — the custom value would be silently
+    -- ignored without it). Default "api-key.html".
+    local key_page_meta = meta_string(doc.meta["bt-key-page"])
+    local key_page_url = "api-key.html"
+    if key_page_meta ~= nil and key_page_meta ~= "" then
+      key_page_url = key_page_meta
+    end
+    local config_script = build_key_page_config_script(key_page_url)
+    -- Try Quarto API first (injects in <head>), fall back to RawBlock.
+    if quarto and quarto.doc and quarto.doc.include_text then
+      quarto.doc.include_text("in-header", config_script)
+    else
+      -- Pandoc fallback: prepend to document body.
+      table.insert(doc.blocks, 1, pandoc.RawBlock("html", config_script))
+    end
+  end
+
   -- Reset flags for next document (per-page isolation, §3).
   has_python = false
   hasDoneSetup = false
   has_coi = false
   hasCoiDone = false
   has_blendtutor = false
+  has_key = false
   has_r = false
   hasBootstrapDone = false
   bt_auto_bootstrap_optout = false
+  bt_feedback_optout = false
 
   return doc
 end

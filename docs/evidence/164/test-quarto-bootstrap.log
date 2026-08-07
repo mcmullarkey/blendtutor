@@ -1,0 +1,90 @@
+Using render tool: quarto
+== Clause 1: bootstrap emitted once (mixed-lang.qmd) ==
+  PASS: mixed-lang.qmd render exits 0
+  PASS: exactly one bootstrap script (1 found)
+  PASS: type="module" mandatory — present
+  PASS: bootstrap body contains start(
+  PASS: bootstrap body contains scanExercises
+  PASS: bootstrap body contains buildRegistry
+  PASS: bootstrap body contains createWebRAdapter
+  PASS: bootstrap body contains pyodideAdapter
+== Clause 2: per-language conditional imports ==
+  PASS: r-only: createWebRAdapter imported (has_r)
+  PASS: r-only: pyodideAdapter absent
+  PASS: pyodide: pyodideAdapter imported (has_python)
+  PASS: pyodide: createWebRAdapter absent
+== Clause 3: start() wiring + no-exercises gate ==
+  PASS: hoists registry then calls start(registry, <map>)
+  PASS: adapter map has key r (factory called)
+  PASS: adapter map has key python (singleton used directly)
+  PASS: no exercises → no bootstrap (0 found)
+== Clause 4: opt-out suppresses entirely (ux/webr/feedback) ==
+  PASS: ux.qmd declares YAML bt-auto-bootstrap: false
+  PASS: webr.qmd declares YAML bt-auto-bootstrap: false
+  PASS: feedback.qmd declares YAML bt-auto-bootstrap: false
+  PASS: ux opt-out — zero auto bootstrap (0 found)
+  PASS: ux exactly-one scanExercises module script (1 found)
+  PASS: ux hand-written specifiers preserved (../_extensions/, no libs-dir)
+  PASS: ux hand-written bootstrap preserved (__btTestAdapter)
+  PASS: webr opt-out — zero auto bootstrap (0 found)
+  PASS: webr exactly-one scanExercises module script (1 found)
+  PASS: webr hand-written specifiers preserved (../_extensions/, no libs-dir)
+  PASS: webr hand-written bootstrap preserved (__btWebRAdapter)
+  PASS: feedback opt-out — zero auto bootstrap (0 found)
+  PASS: feedback exactly-one scanExercises module script (1 found)
+  PASS: feedback hand-written specifiers preserved (../_extensions/, no libs-dir)
+  PASS: feedback hand-written bootstrap preserved (mountAllFeedback)
+== Clause 5: non-HTML gate (filter.qmd → latex) ==
+  PASS: non-HTML gate — zero bootstrap in latex (0 found)
+  PASS: non-HTML gate — zero __btConfig in latex
+== Clause 6: libs-URL specifiers + coi depth ==
+  PASS: specifiers are libs URLs (mixed-lang_files/libs/quarto-contrib/blendtutor-0.1.0/)
+  PASS: no _extensions/ substring in bootstrap specifiers
+  PASS: depth-correct ../.. specifier at coi-book depth
+== Clause 7: error sink ==
+  PASS: .catch( + console.error present
+== Clause 10: bootstrap imports mountAllFeedback + mountKeyPage (C5/C6) ==
+  PASS: bootstrap imports mountAllFeedback from libs exercise-feedback.js
+  PASS: bootstrap imports mountKeyPage from libs key-page.js
+== Clause 11: registry hoisted, mountAllFeedback after start, before catch (C7/C8/C9/C11) ==
+  PASS: registry hoisted to shared const (C9)
+  PASS: start() receives the hoisted registry (C9)
+  PASS: mountAllFeedback after start(, before .catch( (line order 8 < 12 < 14)
+  PASS: .then( and .catch( both present
+  PASS: exactly one mountAllFeedback(registry) call site (1 found)
+  PASS: mountKeyPage(document.querySelector('.blendtutor-key')) present, unconditional
+== Clause 12: key-only page renders div, deploys bootstrap + mountKeyPage (C12/C13/C14) ==
+  PASS: .blendtutor-key div renders as <div class="blendtutor-key"> (C12)
+  PASS: key-only page bootstrap injected (C14)
+  PASS: key-only page calls mountKeyPage (C14)
+  PASS: has_key = true set in Div() before non-blendtutor early-return (C13)
+  PASS: guards broadened to 'has_blendtutor or has_key' at all 3 emission sites (C14/C19)
+== Clause 13: bt-feedback opt-out — bootstrap kept, mountAllFeedback absent (C15/C16/C17) ==
+  PASS: feedback-optout declares YAML bt-feedback: false
+  PASS: feedback-optout bootstrap present (granular opt-out keeps bootstrap)
+  PASS: feedback-optout start( present
+  PASS: feedback-optout mountKeyPage present
+  PASS: feedback-optout mountAllFeedback ABSENT (import + call suppressed)
+  PASS: feedback-optout-string declares YAML bt-feedback: "false"
+  PASS: feedback-optout-string bootstrap present (granular opt-out keeps bootstrap)
+  PASS: feedback-optout-string start( present
+  PASS: feedback-optout-string mountKeyPage present
+  PASS: feedback-optout-string mountAllFeedback ABSENT (import + call suppressed)
+== Clause 14: __btConfig keyPageUrl via separate head script (C18-C22) ==
+  PASS: merge pattern window.__btConfig = window.__btConfig || {} present (C22)
+  PASS: keyPageUrl defaults to api-key.html (C21)
+  PASS: no bare window.__btConfig = { assignment (merge only)
+  PASS: keyPageUrl emitted as separate classic <script> (not module bootstrap)
+  PASS: bootstrap body free of __btConfig emission
+  PASS: custom bt-key-page value honored (C20)
+  PASS: bt-auto-bootstrap: false → zero auto bootstrap (C18 regression)
+  PASS: keyPageUrl head script STILL present on bt-auto-bootstrap:false page (C18/C19)
+== Clause 15: static pins (blendtutor.lua) ==
+  PASS: has_r = true in Div() (mirror has_python)
+  PASS: hasBootstrapDone guard (mirror hasCoiDone)
+  PASS: bt-auto-bootstrap YAML read in Pandoc() (mirror coi read)
+
+=========================================
+  Results: 71 passed, 0 failed
+=========================================
+All tests passed.

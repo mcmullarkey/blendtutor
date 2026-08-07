@@ -381,8 +381,10 @@ function probeP5CrossPage() {
   record("P5 save: key stored via key-page UI", true, `key saved through UI (${saved}ms)`);
 
   // Page 2 — REAL navigation in the SAME rodney browser session: same origin
-  // (localhost static server), location.href hop (blank-then-href bootstrap).
-  // NOT a new tab, NOT eval pre-seed.
+  // (localhost static server), DIRECT location.href hop (no blank-page
+  // intermediate — a blank page would clear localStorage and break the
+  // cross-page persistence this clause tests). NOT a new tab, NOT eval
+  // pre-seed.
   rodney(["js", `window.location.href = '${EXERCISE_PAGE_URL}'`]);
   sleep(3);
   const exerciseMounted = waitForFeedbackUi();
@@ -399,9 +401,16 @@ function probeP5CrossPage() {
 
   // Proceed past the no-key state: with the key present, clicking the
   // feedback button must NOT render the no-key link (it goes to pending →
-  // verdict through the stub). Rate-limit config is set through the same
-  // __btConfig seam the demo-book fixture uses (feedback.qmd sets it; without
-  // it rateLimitReached() returns 0>=0===true and feedback silently disables).
+  // verdict through the stub). maxFeedbackPerSession is injected manually
+  // below to paper over a KNOWN production gap: the demo-book Quarto render
+  // emits ONLY window.__btConfig.keyPageUrl (blendtutor.lua
+  // build_key_page_config_script), never maxFeedbackPerSession — so without
+  // this injection the deployed demo-book page would compute
+  // (window.__btConfig.maxFeedbackPerSession || 0) = 0, making
+  // rateLimitReached() return 0 >= 0 === true and silently disabling
+  // feedback. quarto-fixture/feedback.qmd DOES set maxFeedbackPerSession = 3,
+  // but demo-book pages do NOT; the lua-side emission fix is tracked by a
+  // follow-up AC.
   rodneyJs("(() => { window.__btConfig = window.__btConfig || {}; window.__btConfig.maxFeedbackPerSession = 100; return 'cfg-ok'; })()");
   installSpies();
   rodney(["click", ".bt-exercise:first-of-type .bt-feedback-btn"]);

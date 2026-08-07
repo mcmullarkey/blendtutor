@@ -1,0 +1,107 @@
+{
+  "issue": 169,
+  "branch": "169-rodney-probes-byok",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/blendtutor",
+  "timestamp": "2026-08-07T08:34:39.611Z",
+  "probes": [
+    {
+      "name": "P6 vacuous guard: key input mounted",
+      "status": "PASS",
+      "details": "key form mounted (56ms)"
+    },
+    {
+      "name": "P6 input: type=password",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P6 input: autocomplete=off",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P6 status: line text settles",
+      "status": "PASS",
+      "details": "status text set (41ms)"
+    },
+    {
+      "name": "P6 status: visible (getComputedStyle + rect)",
+      "status": "PASS",
+      "details": "display=block, height=25.5"
+    },
+    {
+      "name": "P6 effect: localStorage slot populated",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P6 effect: input cleared after save",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P6 effect: GET /models validation fired",
+      "status": "PASS",
+      "details": "fetch log: [{\"url\":\"http://localhost:8081/models\",\"method\":\"GET\"}]"
+    },
+    {
+      "name": "P7 vacuous guard: Clear button mounted",
+      "status": "PASS",
+      "details": "key-set state renders Clear"
+    },
+    {
+      "name": "P7 clear: fireworks_api_key null",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P7 clear: bt_feedback_count null",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P8 invalid-key: error status shown",
+      "status": "PASS",
+      "details": "invalid-key message rendered (42ms)"
+    },
+    {
+      "name": "P8 invalid-key: GET /models 401 actually fired",
+      "status": "PASS",
+      "details": "fetch log: [{\"url\":\"http://localhost:8081/models\",\"method\":\"GET\"}]"
+    },
+    {
+      "name": "P8 advisory storage: key stored (AC-2 optimistic save)",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P9 network error: status shown",
+      "status": "PASS",
+      "details": "network-error message rendered (44ms)"
+    },
+    {
+      "name": "P9 optimistic save: key stored despite unreachable stub",
+      "status": "PASS",
+      "details": "expression true"
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor/docs/evidence/169/key-01-saved.png",
+      "ui_state": "key page after save: status visible, input cleared"
+    },
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor/docs/evidence/169/key-02-cleared.png",
+      "ui_state": "key page after Clear: key + counter both null"
+    },
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor/docs/evidence/169/key-03-invalid-key.png",
+      "ui_state": "key page after 401: invalid-key error shown"
+    },
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor/docs/evidence/169/key-04-network-error.png",
+      "ui_state": "key page after network error: optimistic save + network status"
+    }
+  ],
+  "verdict": "PROBES_PASS"
+}

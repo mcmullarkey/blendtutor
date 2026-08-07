@@ -1,0 +1,36 @@
+# Rodney probes — key page (issue #169, AC-8 P6-P9)
+verdict: PROBES_PASS
+timestamp: 2026-08-07T08:34:39.611Z
+
+- PASS: P6 vacuous guard: key input mounted
+  key form mounted (56ms)
+- PASS: P6 input: type=password
+  expression true
+- PASS: P6 input: autocomplete=off
+  expression true
+- PASS: P6 status: line text settles
+  status text set (41ms)
+- PASS: P6 status: visible (getComputedStyle + rect)
+  display=block, height=25.5
+- PASS: P6 effect: localStorage slot populated
+  expression true
+- PASS: P6 effect: input cleared after save
+  expression true
+- PASS: P6 effect: GET /models validation fired
+  fetch log: [{"url":"http://localhost:8081/models","method":"GET"}]
+- PASS: P7 vacuous guard: Clear button mounted
+  key-set state renders Clear
+- PASS: P7 clear: fireworks_api_key null
+  expression true
+- PASS: P7 clear: bt_feedback_count null
+  expression true
+- PASS: P8 invalid-key: error status shown
+  invalid-key message rendered (42ms)
+- PASS: P8 invalid-key: GET /models 401 actually fired
+  fetch log: [{"url":"http://localhost:8081/models","method":"GET"}]
+- PASS: P8 advisory storage: key stored (AC-2 optimistic save)
+  expression true
+- PASS: P9 network error: status shown
+  network-error message rendered (44ms)
+- PASS: P9 optimistic save: key stored despite unreachable stub
+  expression true

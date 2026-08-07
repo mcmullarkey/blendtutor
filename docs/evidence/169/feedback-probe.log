@@ -1,0 +1,36 @@
+# Rodney probes — feedback flow (issue #169, AC-8 P5/P10/P11)
+verdict: PROBES_PASS
+timestamp: 2026-08-07T08:35:02.840Z
+
+- PASS: P11 vacuous guard: feedback UI mounted
+  feedback UI mounted (56ms)
+- PASS: P11 no-key: link rendered
+  no-key link appears on click with empty storage
+- PASS: P11 no-key: target=_blank
+  expression true
+- PASS: P11 no-key: rel=noopener
+  expression true
+- PASS: P11 no-key: href = keyPageUrl (api-key.html)
+  href=api-key.html
+- PASS: P11 no-key: ZERO /chat/completions fetches
+  fetches observed: []
+- PASS: P5 save: key stored via key-page UI
+  key saved through UI (44ms)
+- PASS: P5 vacuous guard: exercise page mounted
+  r-exercises.html mounted (61ms)
+- PASS: P5 cross-page: localStorage key persists after navigation
+  expression true
+- PASS: P5 past-no-key: click proceeds (no no-key link, pending/verdict reached)
+  no-key absent=true, pending/verdict reached=true
+- PASS: P10 config guard: maxFeedbackPerSession set
+  config=true
+- PASS: P10 verdict: real stub round-trip fired
+  new /chat/completions observed (43ms)
+- PASS: P10 verdict: rendered from real stub
+  verdict rendered (39ms)
+- PASS: P10 verdict: stub message rendered
+  verdict text: "CorrectStub says correct. <img src=x onerror=window.__xss=1>"
+- PASS: P10 XSS: payload renders as literal text (in textContent, no element)
+  payload-literal=true, window.__xss undefined=true, img-in-verdict=true
+- PASS: P10 real round-trip: /chat/completions hit stub
+  completions observed: [{"url":"http://localhost:8081/chat/completions","method":"POST"},{"url":"http://localhost:8081/chat/completions","method":"POST"}]

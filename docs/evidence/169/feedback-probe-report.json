@@ -1,0 +1,103 @@
+{
+  "issue": 169,
+  "branch": "169-rodney-probes-byok",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/blendtutor",
+  "timestamp": "2026-08-07T08:35:02.840Z",
+  "probes": [
+    {
+      "name": "P11 vacuous guard: feedback UI mounted",
+      "status": "PASS",
+      "details": "feedback UI mounted (56ms)"
+    },
+    {
+      "name": "P11 no-key: link rendered",
+      "status": "PASS",
+      "details": "no-key link appears on click with empty storage"
+    },
+    {
+      "name": "P11 no-key: target=_blank",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P11 no-key: rel=noopener",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P11 no-key: href = keyPageUrl (api-key.html)",
+      "status": "PASS",
+      "details": "href=api-key.html"
+    },
+    {
+      "name": "P11 no-key: ZERO /chat/completions fetches",
+      "status": "PASS",
+      "details": "fetches observed: []"
+    },
+    {
+      "name": "P5 save: key stored via key-page UI",
+      "status": "PASS",
+      "details": "key saved through UI (44ms)"
+    },
+    {
+      "name": "P5 vacuous guard: exercise page mounted",
+      "status": "PASS",
+      "details": "r-exercises.html mounted (61ms)"
+    },
+    {
+      "name": "P5 cross-page: localStorage key persists after navigation",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P5 past-no-key: click proceeds (no no-key link, pending/verdict reached)",
+      "status": "PASS",
+      "details": "no-key absent=true, pending/verdict reached=true"
+    },
+    {
+      "name": "P10 config guard: maxFeedbackPerSession set",
+      "status": "PASS",
+      "details": "config=true"
+    },
+    {
+      "name": "P10 verdict: real stub round-trip fired",
+      "status": "PASS",
+      "details": "new /chat/completions observed (43ms)"
+    },
+    {
+      "name": "P10 verdict: rendered from real stub",
+      "status": "PASS",
+      "details": "verdict rendered (39ms)"
+    },
+    {
+      "name": "P10 verdict: stub message rendered",
+      "status": "PASS",
+      "details": "verdict text: \"CorrectStub says correct. <img src=x onerror=window.__xss=1>\""
+    },
+    {
+      "name": "P10 XSS: payload renders as literal text (in textContent, no element)",
+      "status": "PASS",
+      "details": "payload-literal=true, window.__xss undefined=true, img-in-verdict=true"
+    },
+    {
+      "name": "P10 real round-trip: /chat/completions hit stub",
+      "status": "PASS",
+      "details": "completions observed: [{\"url\":\"http://localhost:8081/chat/completions\",\"method\":\"POST\"},{\"url\":\"http://localhost:8081/chat/completions\",\"method\":\"POST\"}]"
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor/docs/evidence/169/fb-01-no-key-link.png",
+      "ui_state": "exercise page with empty storage: no-key link to key page"
+    },
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor/docs/evidence/169/fb-02-cross-page-verdict.png",
+      "ui_state": "after cross-page hop: key present, verdict flow reached"
+    },
+    {
+      "path": "/Users/carbonite/Documents/coding/portfolio/blendtutor/docs/evidence/169/fb-03-verdict-xss-literal.png",
+      "ui_state": "verdict rendered with XSS payload as literal text"
+    }
+  ],
+  "verdict": "PROBES_PASS"
+}

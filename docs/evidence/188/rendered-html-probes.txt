@@ -1,0 +1,17 @@
+Rendered r-exercises.html structural probes (server-side DOM, rendered 2026-08-07)
+=================================================================================
+payload divs class="bt-exercise":             3
+static fallbacks bt-exercise-static:           3
+payload scripts (application/json):            3
+exercise-3 payload (title Exercise 3):         1
+empty checks payloads (ex3, no .checks):       1
+nonempty checks payloads (ex1+2):              2
+read.csv occurrences (template+solution):       3
+hints payloads:                                2
+
+Exercise 3 payload snippet (checks must be empty, solution complete):
+
+Exercise 3 payload deep-check (parsed JSON from rendered HTML):
+  title: Exercise 3 | checks: [] | gotchas: null
+  solution: complete, all 6 Step N: labels | code_template: read.csv + 5 blanks
+  prompt: 6 steps, 'do NOT impute', 'exact duplicate', no <ul>/<h>

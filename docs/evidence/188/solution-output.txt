@@ -1,0 +1,124 @@
+[1] "Step 1: raw data"
+   order_id product     category   price quantity
+1         1  Widget  Electronics  $12.50        3
+2         2  Gadget  electronics   $8.00        2
+3         3  Book A        Books  $15.00        1
+4         4   Shirt     Clothing  $20.00        2
+5         1  Widget  Electronics  $12.50        3
+6         5  Gadget ELECTRONICS  unknown        2
+7         6  Book B        books  $15.00       NA
+8         7   Pants    Clothing   $25.00        1
+9         8  Widget         Elec  $12.50        3
+10        2  Gadget  electronics   $8.00        2
+11        9  Book C        Books   15.00        2
+12       10   Shirt     clothing  $20.00        2
+13       11     Hat     Clothing  $10.00       NA
+14       12  Gadget  electronics   $8.00        1
+15       13  Book D        books  $18.00        2
+16       14  Widget  Electronics  $ 5.00        4
+17       15   Pants    clothing   $25.00        1
+18       16  Book E        Books  $15.00        1
+19       17  Gadget  ELECTRONICS   $8.00        2
+20       18  Widget  electronics  $12.50        3
+21       19   Shirt     Clothing  $20.00        2
+22        3  Book A        Books  $15.00        1
+23       20  Book F        books unknown        1
+24       21     Hat     clothing  $10.00        2
+[1] "Step 2: cleaned price"
+   order_id product     category price quantity
+1         1  Widget  Electronics  12.5        3
+2         2  Gadget  electronics   8.0        2
+3         3  Book A        Books  15.0        1
+4         4   Shirt     Clothing  20.0        2
+5         1  Widget  Electronics  12.5        3
+6         5  Gadget ELECTRONICS     NA        2
+7         6  Book B        books  15.0       NA
+8         7   Pants    Clothing   25.0        1
+9         8  Widget         Elec  12.5        3
+10        2  Gadget  electronics   8.0        2
+11        9  Book C        Books  15.0        2
+12       10   Shirt     clothing  20.0        2
+13       11     Hat     Clothing  10.0       NA
+14       12  Gadget  electronics   8.0        1
+15       13  Book D        books  18.0        2
+16       14  Widget  Electronics   5.0        4
+17       15   Pants    clothing   25.0        1
+18       16  Book E        Books  15.0        1
+19       17  Gadget  ELECTRONICS   8.0        2
+20       18  Widget  electronics  12.5        3
+21       19   Shirt     Clothing  20.0        2
+22        3  Book A        Books  15.0        1
+23       20  Book F        books    NA        1
+24       21     Hat     clothing  10.0        2
+[1] "Step 3: normalized category"
+   order_id product    category price quantity
+1         1  Widget electronics  12.5        3
+2         2  Gadget electronics   8.0        2
+3         3  Book A       books  15.0        1
+4         4   Shirt    clothing  20.0        2
+5         1  Widget electronics  12.5        3
+6         5  Gadget electronics    NA        2
+7         6  Book B       books  15.0       NA
+8         7   Pants    clothing  25.0        1
+9         8  Widget electronics  12.5        3
+10        2  Gadget electronics   8.0        2
+11        9  Book C       books  15.0        2
+12       10   Shirt    clothing  20.0        2
+13       11     Hat    clothing  10.0       NA
+14       12  Gadget electronics   8.0        1
+15       13  Book D       books  18.0        2
+16       14  Widget electronics   5.0        4
+17       15   Pants    clothing  25.0        1
+18       16  Book E       books  15.0        1
+19       17  Gadget electronics   8.0        2
+20       18  Widget electronics  12.5        3
+21       19   Shirt    clothing  20.0        2
+22        3  Book A       books  15.0        1
+23       20  Book F       books    NA        1
+24       21     Hat    clothing  10.0        2
+[1] "Step 4: dropped NA rows"
+   order_id product    category price quantity
+1         1  Widget electronics  12.5        3
+2         2  Gadget electronics   8.0        2
+3         3  Book A       books  15.0        1
+4         4   Shirt    clothing  20.0        2
+5         1  Widget electronics  12.5        3
+8         7   Pants    clothing  25.0        1
+9         8  Widget electronics  12.5        3
+10        2  Gadget electronics   8.0        2
+11        9  Book C       books  15.0        2
+12       10   Shirt    clothing  20.0        2
+14       12  Gadget electronics   8.0        1
+15       13  Book D       books  18.0        2
+16       14  Widget electronics   5.0        4
+17       15   Pants    clothing  25.0        1
+18       16  Book E       books  15.0        1
+19       17  Gadget electronics   8.0        2
+20       18  Widget electronics  12.5        3
+21       19   Shirt    clothing  20.0        2
+22        3  Book A       books  15.0        1
+24       21     Hat    clothing  10.0        2
+[1] "Step 5: dropped exact duplicates"
+   order_id product    category price quantity
+1         1  Widget electronics  12.5        3
+2         2  Gadget electronics   8.0        2
+3         3  Book A       books  15.0        1
+4         4   Shirt    clothing  20.0        2
+8         7   Pants    clothing  25.0        1
+9         8  Widget electronics  12.5        3
+11        9  Book C       books  15.0        2
+12       10   Shirt    clothing  20.0        2
+14       12  Gadget electronics   8.0        1
+15       13  Book D       books  18.0        2
+16       14  Widget electronics   5.0        4
+17       15   Pants    clothing  25.0        1
+18       16  Book E       books  15.0        1
+19       17  Gadget electronics   8.0        2
+20       18  Widget electronics  12.5        3
+21       19   Shirt    clothing  20.0        2
+24       21     Hat    clothing  10.0        2
+[1] "Step 6: revenue per category"
+     category revenue
+1       books    96.0
+2    clothing   190.0
+3 electronics   172.5

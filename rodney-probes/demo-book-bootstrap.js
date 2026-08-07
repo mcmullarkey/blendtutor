@@ -5,8 +5,8 @@
  *
  * Verifies clause 8 of the AC-5 predicate against the RENDERED demo-book
  * _output pages in a headless browser driven by uvx rodney:
- *   r-exercises.html      → window.__btExercises.length === 2 AND
- *                           .cm-editor count === 2 AND every entry
+ *   r-exercises.html      → window.__btExercises.length === 3 AND
+ *                           .cm-editor count === 3 AND every entry
  *                           data-language === "r"
  *   python-exercises.html → window.__btExercises.length === 2 AND
  *                           .cm-editor count === 2 AND every entry
@@ -186,7 +186,7 @@ function runProbes() {
   rodneyStarted = true;
 
   // ------------------------------------------------------------------
-  // Clause 8: demo-book/_output/r-exercises.html — 2 R exercises mounted
+  // Clause 8: demo-book/_output/r-exercises.html — 3 R exercises mounted
   // ------------------------------------------------------------------
   navigateToPage(R_URL);
   if (!waitForExpr("window.__btExercises !== undefined")) {
@@ -194,12 +194,12 @@ function runProbes() {
   }
 
   rodneyAssert(
-    "clause-8 r page: __btExercises.length === 2 (2 R exercises mounted)",
-    "return window.__btExercises.length === 2",
+    "clause-8 r page: __btExercises.length === 3 (3 R exercises mounted)",
+    "return window.__btExercises.length === 3",
   );
   rodneyAssert(
-    "clause-8 r page: .cm-editor count === 2 (both exercises have editors)",
-    "return document.querySelectorAll('.cm-editor').length === 2",
+    "clause-8 r page: .cm-editor count === 3 (3 exercises have editors)",
+    "return document.querySelectorAll('.cm-editor').length === 3",
   );
   rodneyAssert(
     "clause-8 r page: every entry data-language === 'r'",
@@ -215,7 +215,7 @@ function runProbes() {
   );
   rodneyAssert(
     "fix r page: payload script still present after boot (static block did not clobber it)",
-    "return document.querySelectorAll('div.bt-exercise script[type=\"application/json\"]').length === 2",
+    "return document.querySelectorAll('div.bt-exercise script[type=\"application/json\"]').length === 3",
   );
 
   // ------------------------------------------------------------------

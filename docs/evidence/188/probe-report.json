@@ -1,0 +1,77 @@
+{
+  "issue": "188",
+  "branch": "188-rigorous-r-exercise",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/worktree-issue-188",
+  "timestamp": "2026-08-07T21:30:00.000Z",
+  "probes": [
+    {
+      "name": "clause-8 r page: __btExercises.length === 3 (3 R exercises mounted)",
+      "status": "PASS",
+      "details": "3 R exercises mounted on r-exercises.html"
+    },
+    {
+      "name": "clause-8 r page: .cm-editor count === 3 (3 CodeMirror editors)",
+      "status": "PASS",
+      "details": "3 CodeMirror editors present"
+    },
+    {
+      "name": "clause-8 r page: every entry data-language === 'r'",
+      "status": "PASS",
+      "details": "All 3 exercises have data-language='r'"
+    },
+    {
+      "name": "clause-8 r page: mounted entries reference real elements",
+      "status": "PASS",
+      "details": "All 3 exercises reference real .bt-exercise elements"
+    },
+    {
+      "name": "fix r page: static fallback removed after boot",
+      "status": "PASS",
+      "details": "0 .bt-exercise-static elements after boot"
+    },
+    {
+      "name": "clause-8 python page: __btExercises.length === 2",
+      "status": "PASS",
+      "details": "2 Python exercises mounted on python-exercises.html"
+    },
+    {
+      "name": "clause-8 python page: .cm-editor count === 2",
+      "status": "PASS",
+      "details": "2 CodeMirror editors present"
+    },
+    {
+      "name": "clause-8 python page: every entry data-language === 'python'",
+      "status": "PASS",
+      "details": "All exercises have data-language='python'"
+    },
+    {
+      "name": "fix index page: __btExercises.length === 2",
+      "status": "PASS",
+      "details": "2 exercises mounted on index.html (1 R + 1 Python)"
+    },
+    {
+      "name": "fix index page: static fallback removed after boot",
+      "status": "PASS",
+      "details": "0 .bt-exercise-static elements after boot"
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "docs/evidence/188/exercise3-widget.png",
+      "ui_state": "Exercise 3 rendered with prompt prose, code template editor, and action buttons",
+      "ac_reference": "AC-1: Exercise 3 mounts a CodeMirror editor + Check button + Solution button"
+    },
+    {
+      "path": "docs/evidence/188/r-exercises-full.png",
+      "ui_state": "Full R exercises page showing all 3 exercises",
+      "ac_reference": "AC-1: 3rd .bt-exercise widget beyond the 2 existing"
+    },
+    {
+      "path": "docs/evidence/188/exercise3-prompt-editor.png",
+      "ui_state": "Exercise 3 prompt and editor at 1280x900 viewport",
+      "ac_reference": "AC-1: Exercise 3 prompt prose + editor layout"
+    }
+  ],
+  "verdict": "PROBES_PASS",
+  "notes": "All clause-8 probes for R page PASS. Exercise 3 mounts correctly with data-language='r', 3 CodeMirror editors total. webR runtime verification (solution execution) not possible in probe environment due to missing COI/COEP headers on static server. Python and index page probes also PASS. file:// fallback probes skipped (rodney session crash — pre-existing, unrelated to issue #188)."
+}

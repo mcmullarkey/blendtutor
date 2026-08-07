@@ -1,0 +1,30 @@
+[1mpandoc [22m
+  to: html
+  output-file: r-exercises.html
+  standalone: true
+  toc: true
+  number-sections: true
+  title-prefix: blendtutor Demo Book
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  number-offset:
+    - 3
+  
+[1mmetadata[22m
+  crossref:
+    chapters: true
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: "[3]{.chapter-number}\_ [R Exercises]{.chapter-title}"
+  coi: true
+  bt-key-page: api-key.html
+  hide-description: true
+  description: A demo Quarto book with R and Python blendtutor exercises.
+  
+Output created: _output/r-exercises.html
+
+RENDER_EXIT=0

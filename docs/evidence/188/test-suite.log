@@ -1,0 +1,10 @@
+Repo gate results for issue #188 (2026-08-07, worktree-issue-188)
+================================================================
+quarto render demo-book/r-exercises.qmd ......... PASS (see render.log)
+quarto render demo-book --to html ............... PASS (full book)
+scripts/tests/test_quarto_render.sh ............. 12 passed, 0 failed
+scripts/tests/test_quarto_filter.sh ............. 27 passed, 0 failed
+scripts/tests/test_quarto_bootstrap.sh .......... 74 passed, 0 failed
+scripts/tests/test_quarto_distribution.sh ....... 91 passed, 0 failed
+cargo gates (fmt/clippy/nextest) ................ N/A (no Rust changes)
+rodney bootstrap probe (demo-book-bootstrap.js) . NOT run by builder — dispatch builder-vision-probe (per role)

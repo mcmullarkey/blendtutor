@@ -251,12 +251,12 @@ function fetchBodies() {
 }
 
 function clearStateAndReload() {
-  rodney(["js", "(() => { sessionStorage.clear(); location.reload(); })()"]);
+  rodney(["js", "(() => { localStorage.clear(); location.reload(); })()"]);
   sleep(3);
 }
 
 function freshFixture() {
-  rodney(["js", "sessionStorage.clear()"]);
+  rodney(["js", "localStorage.clear()"]);
   navigateToFixture();
 }
 
@@ -323,30 +323,29 @@ function runProbes() {
   // -------------------------------------------------------------------
   // Clause 1: key entered once + Clause 2: per-exercise scoping
   // -------------------------------------------------------------------
+  // No key → the no-key state links to the key page (AC-4), it does NOT
+  // prompt for a key inline. The key is injected via the AC-1 localStorage
+  // seam (the inline form was removed by AC-4).
   rodney(["click", ".bt-exercise:first-of-type .bt-feedback-btn"]);
   sleep(1);
-  const keyPromptVisible = exists('[data-byok="key-prompt"]');
+  const noKeyLinkVisible = exists('[data-byok="no-key"]');
   record(
-    "clause-1: key prompt shown for first exercise",
-    keyPromptVisible,
-    keyPromptVisible ? "key prompt rendered" : "key prompt not found",
+    "clause-1: no-key link shown for first exercise",
+    noKeyLinkVisible,
+    noKeyLinkVisible ? "no-key link rendered" : "no-key link not found",
   );
-  screenshot("02-ex1-key-prompt", "first exercise asks for provider + API key");
+  screenshot("02-ex1-no-key-link", "first exercise links to the key page when no key is stored");
 
-  rodney([
-    "input",
-    '[data-byok="key-prompt"] input[name="provider-key"]',
-    "fake-key-123",
-  ]);
-  rodney(["click", '[data-byok="key-prompt"] button[type="submit"]']);
+  rodney(["js", "localStorage.setItem('fireworks_api_key', 'fake-key-123')"]);
+  rodney(["click", ".bt-exercise:first-of-type .bt-feedback-btn"]);
   sleep(1);
   const pickerVisible = exists('[data-byok="model-picker"]');
   record(
-    "clause-1: key stored after prompt",
+    "clause-1: key injected via localStorage seam reaches model picker",
     pickerVisible,
-    pickerVisible ? "model picker rendered after saving key" : "model picker not rendered",
+    pickerVisible ? "model picker rendered after key injected" : "model picker not rendered",
   );
-  screenshot("03-ex1-model-picker", "model picker rendered after key saved");
+  screenshot("03-ex1-model-picker", "model picker rendered after key stored");
 
   // -------------------------------------------------------------------
   // Clause 7: fetch payload contains STUDENT_CODE fences
@@ -374,33 +373,31 @@ function runProbes() {
     "document.querySelectorAll('.bt-exercise')[1].querySelector('.bt-feedback-btn').click()",
   ]);
   sleep(1);
-  const ex2NoPrompt = !exists('[data-byok="key-prompt"]');
+  const ex2NoKeyLink = !exists('[data-byok="no-key"]');
   const ex2Picker = exists('[data-byok="model-picker"]');
   const keyInStore = rodney([
     "js",
-    "sessionStorage.getItem('fireworks_api_key')",
+    "localStorage.getItem('fireworks_api_key')",
   ]);
   record(
     "clause-3: key reused across exercises",
-    ex2NoPrompt && ex2Picker && keyInStore === "fake-key-123",
-    `ex2 key prompt skipped=${ex2NoPrompt}, model picker=${ex2Picker}, stored key=${keyInStore}`,
+    ex2NoKeyLink && ex2Picker && keyInStore === "fake-key-123",
+    `ex2 no-key link skipped=${ex2NoKeyLink}, model picker=${ex2Picker}, stored key=${keyInStore}`,
   );
   screenshot("05-ex2-model-picker", "second exercise reuses key without prompting");
 
   // -------------------------------------------------------------------
   // Clause 4: provider switch
   // -------------------------------------------------------------------
+  // The learner path is Fireworks-only (AC-6); the provider switch seam is
+  // the AC-1 storage: inject byok_provider + the anthropic slot directly.
   clearStateAndReload();
   installSpies();
-  rodney(["click", ".bt-exercise:first-of-type .bt-feedback-btn"]);
-  sleep(0.5);
-  rodney(["select", '[data-byok="provider"]', "anthropic"]);
   rodney([
-    "input",
-    '[data-byok="key-prompt"] input[name="provider-key"]',
-    "fake-key-123",
+    "js",
+    "localStorage.setItem('byok_provider', 'anthropic'); localStorage.setItem('anthropic_api_key', 'fake-key-123')",
   ]);
-  rodney(["click", '[data-byok="key-prompt"] button[type="submit"]']);
+  rodney(["click", ".bt-exercise:first-of-type .bt-feedback-btn"]);
   sleep(1);
   rodney(["click", ".bt-exercise:first-of-type .bt-feedback-btn"]);
   sleep(2);
@@ -476,14 +473,9 @@ function runProbes() {
   ]);
   freshFixture();
   installSpies();
+  // Inject the key via the AC-1 localStorage seam (the inline form is gone).
+  rodney(["js", "localStorage.setItem('fireworks_api_key', 'fake-key-123')"]);
   rodney(["click", ".bt-exercise:first-of-type .bt-feedback-btn"]);
-  sleep(0.5);
-  rodney([
-    "input",
-    '[data-byok="key-prompt"] input[name="provider-key"]',
-    "fake-key-123",
-  ]);
-  rodney(["click", '[data-byok="key-prompt"] button[type="submit"]']);
   sleep(1);
   // Two quick feedback submits on the same exercise.
   rodney(["click", ".bt-exercise:first-of-type .bt-feedback-btn"]);

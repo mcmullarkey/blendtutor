@@ -1,0 +1,26 @@
+python-exercises.html rendered payload structure (issue #189 evidence)
+======================================================================
+bt-exercise divs: 3
+data-language=python markers: 3
+payload scripts: 3
+  payload 0: id=bt-exercise-0 title=Exercise 1 checks=1 packages=[] solution=yes hints=no
+  payload 1: id=bt-exercise-1 title=Exercise 2 checks=1 packages=[] solution=yes hints=no
+  payload 2: id=bt-exercise-2 title=Exercise 3 checks=5 packages=['pandas'] solution=yes hints=yes
+----------------------------------------------------------------------
+Exercise 3 prompt (text-only):
+Clean up a messy sales dataset with pandas. The dataset is a CSV of 24 sales rows with five columns: order_id, product, category, price, and quantity. It was deliberately dirtied to test your data-wrangling skills: prices appear with a dollar sign, with a space after the dollar sign, as bare numbers, or as the word unknown; categories are inconsistent in case and whitespace and include the abbrevi ...
+----------------------------------------------------------------------
+Exercise 3 code_template (first 8 lines):
+import pandas as pd
+import io
+
+csv = """order_id,product,category,price,quantity
+1,Widget,Electronics,$12.50,3
+2,Gadget,electronics,$8.00,2
+3,Book A,Books,$15.00,1
+4,Shirt,Clothing,$20.00,2
+----------------------------------------------------------------------
+checks: 5 | check 4 literal:
+   {'books': 96.0, 'clothing': 190.0, 'electronics': 172.5}
+solution bytes: 1517
+non-ASCII fields: 0

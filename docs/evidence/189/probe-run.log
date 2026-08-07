@@ -1,0 +1,79 @@
+=== AC-2 Rigorous Python data-wrangling exercise — test_python_exercise3.py ===
+
+-- Predicate (a): structure --
+  PASS: exactly 3 blendtutor language='python' divs (found 3)
+  PASS: Exercises 1-2 + YAML frontmatter byte-identical (append-only)
+  PASS: Exercise 3 div carries packages="pandas"
+
+-- Section shape --
+  PASS: Exercise 3 section heading present
+  PASS: exactly 5 .checks blocks
+  PASS: exactly 1 .solution block
+  PASS: Exercise 3 has a {.hints} div
+  PASS: exactly 1 plain ```python code_template block
+  PASS: code_template reads the CSV via pd.read_csv(io.StringIO(csv))
+  PASS: code_template embeds the canonical 24-row CSV byte-identically
+  PASS: solution embeds the canonical 24-row CSV byte-identically
+
+-- Predicate (b): prose contract --
+  PASS: prose is Para/Plain-only (no list/header/blockquote line starts)
+  PASS: prose names all required techniques + output names
+  PASS: prose gives expected STRUCTURE only (no numeric revenue values leaked)
+  PASS: prose names the 3 canonical categories
+
+-- Check discipline --
+  PASS: check 1: single assertion with f-string message
+  PASS: check 2: single assertion with f-string message
+  PASS: check 3: single assertion with f-string message
+  PASS: check 4: single assertion with f-string message
+  PASS: check 5: single assertion with f-string message
+
+-- Predicate (d): check-4 literal extraction --
+  PASS: check 4: expected-revenue dict literal extracted
+
+-- Predicate (c): solution + checks exec --
+   order_id product     category   price  quantity
+0         1  Widget  Electronics  $12.50       3.0
+1         2  Gadget  electronics   $8.00       2.0
+2         3  Book A        Books  $15.00       1.0
+3         4   Shirt     Clothing  $20.00       2.0
+4         1  Widget  Electronics  $12.50       3.0
+order_id      int64
+product         str
+category        str
+price           str
+quantity    float64
+dtype: object
+category
+books           96.0
+clothing       190.0
+electronics    172.5
+Name: revenue, dtype: float64
+  PASS: solution defines clean_df and revenue_by_cat
+  PASS: solution + all 5 checks exec to green in one namespace
+
+-- Predicate (d)+(f): dict-parity + sum --
+   order_id product     category   price  quantity
+0         1  Widget  Electronics  $12.50       3.0
+1         2  Gadget  electronics   $8.00       2.0
+2         3  Book A        Books  $15.00       1.0
+3         4   Shirt     Clothing  $20.00       2.0
+4         1  Widget  Electronics  $12.50       3.0
+order_id      int64
+product         str
+category        str
+price           str
+quantity    float64
+dtype: object
+category
+books           96.0
+clothing       190.0
+electronics    172.5
+Name: revenue, dtype: float64
+  PASS: dict-parity: solution output {'books': 96.0, 'clothing': 190.0, 'electronics': 172.5} == check-4 literal
+  PASS: sum(revenue_by_cat) == 458.5 (self-consistency)
+
+-- Predicate (e): hardcode sneaky-pass --
+  PASS: hardcoded sneaky-pass defeated (4 passed, checks [5] failed)
+
+=== Results: 26 passed, 0 failed ===

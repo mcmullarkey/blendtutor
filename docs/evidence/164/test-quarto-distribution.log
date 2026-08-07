@@ -1,0 +1,125 @@
+== Group 1: README ==
+== Clause 1: install command ==
+  PASS: install command present (quarto add mcmullarkey/blendtutor)
+== Clause 2: syntax both languages ==
+  PASS: R exercise syntax shown in README
+  PASS: Python exercise syntax shown in README
+== Clause 3: BYOK ==
+  PASS: BYOK mentioned in README
+== Clause 4: minimum Quarto version ==
+  PASS: minimum Quarto version stated in README
+== Clause 5: demo book link ==
+  PASS: demo book link present in README
+== Clause 6: install path contract ==
+  PASS: install command present (quarto add mcmullarkey/blendtutor)
+  PASS: install path stated (_extensions/mcmullarkey/blendtutor/)
+  PASS: old wrong install path claim removed
+  PASS: install-path independence stated in README
+  PASS: ADR-0017 annotated with org/repo install path (CI actually + _extensions/mcmullarkey/blendtutor/)
+== Clause 7: zero-bootstrap quick-start ==
+  PASS: quick-start uses by-name filter (filters: [mcmullarkey/blendtutor])
+  PASS: quick-start prose states zero hand-written bootstrap
+  PASS: quick-start shows .blendtutor exercise div
+== Clause 8: quick-start example integrity ==
+  PASS: quick-start example has no script/module/scanExercises/start(/buildRegistry tokens
+== Clause 9: auto-bootstrap opt-out ==
+  PASS: opt-out literal present (bt-auto-bootstrap: false)
+  PASS: opt-out prose present
+== Clause 10: feedback opt-in ==
+  PASS: feedback opt-in names exercise-feedback.js
+  PASS: feedback opt-in calls mountAllFeedback
+  PASS: feedback opt-in marked manual (not auto-mounted)
+  PASS: feedback opt-in BYOK key present (ANTHROPIC_API_KEY)
+== Clause 11: COI book-mode caveat ==
+  PASS: COI caveat names Quarto type: book
+  PASS: COI caveat states book-mode does not function
+  PASS: COI caveat explains _output/ scope
+  PASS: demo book no longer overclaims 'COI configuration'
+== Clause 12: no stale mechanism, command/version consistency ==
+  PASS: stale mechanism claim removed (relative to filter script / PANDOC_SCRIPT_FILE)
+  PASS: no stale runtime bootstrap import (import .*exercise-runtime.js)
+  PASS: no short-form install command (full org/repo required, matches ci.yml:148)
+  PASS: version stated matches _extension.yml (0.1.0)
+== Clause 13: demo book serve-over-HTTP instructions ==
+  PASS: README serve-over-HTTP instruction present (python3 -m http.server 8000)
+  PASS: README explains file:// blocks ES modules
+  PASS: README notes file:// shows static fallback content only
+
+== Group 2: Demo book ==
+== AC-5 Clause 1: by-name install committed ==
+  PASS: .gitignore no longer ignores /_extensions/
+  PASS: /_output/ added to .gitignore (render artifacts excluded)
+  PASS: vendored install present at demo-book/_extensions/mcmullarkey/blendtutor/ (extension.yml + lua + assets)
+== AC-5 Clause 2: vendored extension current (markers) ==
+  PASS: vendored lua current (add_html_dependency + BT_DEP_VERSION + libs URL markers)
+== AC-5 Clause 3: by-name filter reference ==
+  PASS: filters reference mcmullarkey/blendtutor (full org/repo form)
+  PASS: no ../_extensions filter path in _quarto.yml
+== Clause 7: render exits 0 ==
+  PASS: quarto render demo-book exits 0
+  PASS: asset href target exists: site_libs/quarto-contrib/blendtutor-0.1.0/styles.css
+== AC-5 Clause 5: book libs URLs (site_libs) + no _extensions/ in bootstrap ==
+  PASS: r-exercises references site_libs exercise-runtime.js URL
+  PASS: r-exercises references site_libs webr-adapter.js URL (conditional import)
+  PASS: r-exercises does not import pyodide-adapter.js (conditional per-language import)
+  PASS: r-exercises references site_libs styles.css URL
+  PASS: r-exercises bootstrap specifiers contain no _extensions/ substring
+  PASS: python-exercises references site_libs exercise-runtime.js URL
+  PASS: python-exercises references site_libs pyodide-adapter.js URL (conditional import)
+  PASS: python-exercises does not import webr-adapter.js (conditional per-language import)
+  PASS: python-exercises references site_libs styles.css URL
+  PASS: python-exercises bootstrap specifiers contain no _extensions/ substring
+== AC-5 Clause 6: files on disk at _output/site_libs/... ==
+  PASS: book site_libs contains exercise-runtime.js
+  PASS: book site_libs contains styles.css
+  PASS: book site_libs contains codemirror.js
+  PASS: book site_libs contains webr-adapter.js (book has R exercises)
+  PASS: book site_libs contains pyodide-adapter.js (book has python exercises)
+== AC-5 Clause 7: COI stays out of blendtutor libs dir (Quarto-managed src) ==
+  PASS: r-exercises loads coi-serviceworker.js via include_text (src present)
+  PASS: coi shim src does not point into blendtutor-0.1.0 libs dir
+  PASS: coi-serviceworker.js not in blendtutor libs dir
+== Clause 8: ≥2 exercises per language ==
+  PASS: ≥2 R exercises (3 found)
+  PASS: ≥2 Python exercises (3 found)
+== Clause 9: non-empty content ==
+  PASS: non-empty content (no empty exercise divs)
+  PASS: non-empty content (code blocks present: 6)
+== Clause 10: mixed-language ==
+  PASS: mixed-language (R: 3, Python: 3)
+== Clause 11: no llm_evaluation_prompt ==
+  PASS: no llm_evaluation_prompt (0 occurrences)
+== Clause 12: COI config ==
+  PASS: COI config present (coi="true" or coi: true)
+== Clause 13: index.qmd has R and Python exercises ==
+  PASS: index.qmd has >=1 R exercise (1 found)
+  PASS: index.qmd has >=1 Python exercise (1 found)
+
+== P9: demo-book side-effect free (org/repo-aware, issue #143) ==
+  PASS: demo-book side-effect free — no bare extension-dir residue (non-org path absent)
+  PASS: org/repo by-name install present (allowed by P9)
+
+== Group 3: CI ==
+== Clause 13: quarto add in temp dir ==
+  PASS: quarto add mcmullarkey/blendtutor present in CI
+  PASS: temp dir creation in CI
+  PASS: test -f paths use _extensions/mcmullarkey/blendtutor/ (actual install path)
+== Clause 14: setup@v2 ==
+  PASS: quarto-dev/quarto-actions/setup@v2 present in CI
+== Clause 15: no continue-on-error ==
+  PASS: no continue-on-error in quarto-distribution job
+
+== Negative cases ==
+== Negative 1: correct org/repo ==
+  PASS: correct org/repo (mcmullarkey/blendtutor)
+== Negative 2: no empty JSON (exercises have content) ==
+  PASS: no empty JSON (all exercises have content)
+== Negative 3: CI does not use _extensions: copy ==
+  PASS: CI does not use _extensions: copy (uses quarto add instead)
+== Negative 4: README mentions BYOK ==
+  PASS: README mentions BYOK
+
+=========================================
+  Results: 78 passed, 0 failed
+=========================================
+All tests passed.

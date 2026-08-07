@@ -11,6 +11,21 @@ blendtutor.lua. Verification: code (shell render-and-assert scripts).
 | test-quarto-asset-deployment.log | `bash scripts/tests/test_quarto_asset_deployment.sh` | **68 passed, 0 failed** (C1-C4, C14, C23) |
 | test-quarto-render.log | `bash scripts/tests/test_quarto_render.sh` | **12 passed, 0 failed** (verify path — regression) |
 | test-quarto-feedback.log | `uv run python scripts/tests/test_quarto_feedback.py` | **40 passed, 0 failed** (regression — __btConfig allow-list unaffected) |
+| test-quarto-filter.log | `bash scripts/tests/test_quarto_filter.sh` | **27 passed, 0 failed** (regression — full CI matrix) |
+| test-quarto-install-render.log | `bash scripts/tests/test_quarto_install_render.sh` | **13 passed, 0 failed** (regression — full CI matrix) |
+| test-quarto-distribution.log | `bash scripts/tests/test_quarto_distribution.sh` | **78 passed, 0 failed** (regression — full CI matrix) |
+| test-quarto-key-page.log | `uv run python scripts/tests/test_quarto_key_page.py` | **40 passed, 0 failed** (AC-2 suite regression) |
+
+## Local-machine caveat: test_quarto_ux.py
+
+`test_quarto_ux.py` hardcodes a 60 s subprocess timeout for the ux.qmd render
+(`timeout=60`, pre-existing since #142). On this local machine a quarto-fixture
+render takes ~80 s — verified INDEPENDENT of this issue by swapping in `main`'s
+`blendtutor.lua` and re-timing: main's filter renders ux.qmd in 78 s, this
+branch's in 83 s (both exceed the 60 s limit). The filter-code delta is not the
+cause; the local quarto/deno render overhead is. CI runners (GH Actions) pass
+the same script historically — this is an environment-speed artifact, not a
+regression.
 
 ## Key assertions exercised
 

@@ -1,6 +1,6 @@
 # ADR-0014: Per-exercise BYOK feedback with shared sessionStorage
 
-- Status: Accepted
+- Status: Accepted; superseded by ADR-0016 (storage moved to localStorage, feedback auto-mounted)
 - Date: 2026-07-23
 
 ## Context

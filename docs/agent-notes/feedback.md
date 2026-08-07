@@ -101,3 +101,12 @@ contract this mirrors.
   nothing": assert the *synchronous* render (e.g. the `data-byok="models-loading"`
   note) in the SAME `js` call as the click — if `#feedback` stays empty, the module
   didn't load (you're on `file://`), not a logic bug.
+- 2026-08-07 (#170): **Quarto-extension divergence (byok-api-key AC-1..AC-7).**
+  The extension's `exercise-feedback.js` (vendored under
+  `demo-book/_extensions/mcmullarkey/blendtutor/assets/`, ADR-0017) diverged from
+  the crates `feedback.js` claims above: it stores the key in `localStorage` (not
+  `sessionStorage`), is Fireworks-only (pinned `accounts/fireworks/models/
+  deepseek-v4-flash-0731`, no Anthropic option), auto-mounts feedback in the
+  injected bootstrap, and ships an API key page. The crates-built-site path
+  (`crates/core/assets/shared/feedback.js`) still uses `sessionStorage` + the
+  multi-provider map — the claims above remain true for it. See ADR-0016.

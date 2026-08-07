@@ -1,0 +1,38 @@
+Issue #170 (byok-api-key AC-9) — docs update: BYOK Fireworks-only + ADR-0016
+Date: 2026-08-07T09:19:41Z
+Branch: 170-docs-byok-fireworks-adr-0016
+
+=== SPEC-DEFECT DEMO: issue-body probe awk '/^## BYOK/,/^## /' ===
+The heading '## BYOK (Bring Your Own Key)' matches BOTH the range start
+(^## BYOK) and end (^## ) patterns, so awk's range self-terminates on the
+heading line. The extract is always 1 line — the section body is unreachable.
+This holds for any implementation (POSIX awk, mawk, gawk, bwK).
+Extract line count: 1
+Extract content: '## BYOK (Bring Your Own Key)'
+=> probe was corrected to heading-excluding awk (see below); intent unchanged.
+
+=== CORRECTED PROBE (clauses 1-8 + 12; heading-excluding awk) ===
+c1 Fireworks: PASS
+c1 model literal -0731: PASS
+c1 localStorage: PASS
+c1 no sessionStorage: PASS
+c1 no ANTHROPIC_API_KEY in BYOK: PASS
+c2 no 'Anthropic-only' (whole README): PASS
+c2 CLI ANTHROPIC_API_KEY doc kept (:43): PASS
+c3 auto-mounted: PASS
+c3 no manual opt-in/not auto-mounted: PASS
+c4 file:// present: PASS
+c5 connect-src: PASS
+c5 recommendation framing: PASS
+c5 CSP not framed enforced/applied/configured: PASS
+c6 Authorization header: PASS
+c6 no overclaim literals: PASS
+c7 ADR-0016 exists: PASS
+c7 references api-key: PASS
+c7 references Fireworks CORS: PASS
+c7 references ADR-0009: PASS
+c7 references ADR-0014: PASS
+c8 ADR-0009 superseded annotation: PASS
+c8 ADR-0014 superseded annotation: PASS
+c12 plan file SUPERSEDED: PASS
+BYOK section extract lines: 28

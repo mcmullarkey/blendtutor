@@ -317,7 +317,8 @@ function clearLocalStorageViaPage() {
 // ---------------------------------------------------------------------------
 function probeP6SaveFlow() {
   navigateTo(KEY_PAGE_URL);
-  // Wait for the key form to mount (mountKeyPage runs after start() resolves).
+  // Wait for the key form to mount (issue #182: mountKeyPage now runs BEFORE
+  // start() so a rejected boot can never skip the key page).
   const elapsed = waitForExpr(
     "document.querySelector('[data-byok=\"key-input\"]') !== null",
     15,

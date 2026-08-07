@@ -18,9 +18,7 @@ Create a Fireworks account and generate an API key from the
 
 ::: {.blendtutor-key}
 
-The key-management form appears here when the book is served over HTTP (see
-below). If you see nothing, open this page over HTTP — `file://` blocks the
-storage and module machinery the form needs.
+Loading API key settings…
 
 :::
 

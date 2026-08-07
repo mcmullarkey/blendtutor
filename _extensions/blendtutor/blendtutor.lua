@@ -666,6 +666,11 @@ local function build_bootstrap_script()
 
   parts[#parts + 1] = ''
   parts[#parts + 1] = '  const registry = buildRegistry(scanExercises());'
+  -- ISSUE #182: mountKeyPage runs BEFORE start() — a start() rejection (or a
+  -- synchronously-thrown adapter factory) must never skip the key-page mount
+  -- (previously it sat inside .then(), so a rejected boot left the key page
+  -- as bare placeholder text). mountKeyPage has no registry dependency.
+  parts[#parts + 1] = '  mountKeyPage(document.querySelector(".blendtutor-key"));'
   parts[#parts + 1] = '  start(registry, {'
   if has_r then
     parts[#parts + 1] = '    r: createWebRAdapter(),'
@@ -677,7 +682,6 @@ local function build_bootstrap_script()
   if not bt_feedback_optout then
     parts[#parts + 1] = '    mountAllFeedback(registry);'
   end
-  parts[#parts + 1] = '    mountKeyPage(document.querySelector(".blendtutor-key"));'
   parts[#parts + 1] = '  }).catch((err) => console.error("[blendtutor] auto-bootstrap failed", err));'
   parts[#parts + 1] = '</script>'
 

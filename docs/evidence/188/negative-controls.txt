@@ -1,0 +1,16 @@
+Negative controls — each wrangling step is load-bearing (issue #188 spec predicate 7)
+================================================================================
+
+Control 1 — alias step omitted (elec -> electronics mapping removed):
+  books 96.0 | clothing 190.0 | elec 37.5 | electronics 135.0
+  => spurious 4th group 'elec 37.5' appears. Aggregate no longer 3 categories.
+
+Control 2 — dedup step omitted (duplicated() not applied):
+  books 111 | clothing 190 | electronics 226
+  => matches plan signature 'dedup-miss -> electronics 226, books 111'.
+
+Control 3 — NA rows imputed (median) instead of dropped:
+  books 139.75 | clothing 210 | electronics 200
+  => does not match 96/190/172.5; imputation is graded wrong.
+
+Conclusion: every step changes the aggregate; pinned 96/190/172.5 is the invariant.

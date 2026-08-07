@@ -1,0 +1,24 @@
+=== 1. Structural counts ===
+blendtutor language="r" divs: 3 (expect 3)
+plain ```r blocks:            3 (expect 3)
+{.r .solution} blocks:          3 (expect 3)
+{.r .checks} blocks:            2 (expect 2)
+"## Exercise 3:" headings:     1 (expect 1)
+=== 2. No .checks in Exercise 3 region ===
+OK
+=== 3. Exercises 1-2 byte-identical (first 56 lines vs HEAD) ===
+OK
+=== 4. Prompt prose Para/Plain only (Ex3 opener -> first ```r) ===
+OK
+=== 5. Extract last {.r .solution} block and run via Rscript ===
+Rscript exited 0
+=== 6. Step labels ===
+OK: all six "Step N:" labels present
+=== 7. Aggregate ===
+books 96.0
+clothing 190.0
+electronics 172.5
+OK: aggregate matches books 96 / clothing 190 / electronics 172.5
+=== 8. Bootstrap R-page clause migrated 2 -> 3 ===
+OK: R clause === 3, python clause byte-identical to HEAD
+=== ALL VERIFICATIONS PASSED ===

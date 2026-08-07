@@ -16,7 +16,7 @@
 #     7. Zero-bootstrap quick-start (by-name filter + no hand-written bootstrap prose)
 #     8. Quick-start example integrity (no script/module/bootstrap tokens)
 #     9. Auto-bootstrap opt-out documented (bt-auto-bootstrap: false)
-#    10. Feedback opt-in (exercise-feedback.js + mountAllFeedback, manual, BYOK)
+#    10. Feedback auto-mount (exercise-feedback.js + mountAllFeedback, auto-mounted, Fireworks-only BYOK)
 #    11. COI book-mode caveat + demo book COI honesty
 #    12. No stale mechanism/bootstrap instructions + command/version consistency
 #
@@ -235,28 +235,44 @@ else
   ko "opt-out prose — no 'opt-out' mention found"
 fi
 
-# Clause 10: feedback opt-in (exercise-feedback.js + mountAllFeedback,
-# manual — NOT auto-mounted — BYOK ANTHROPIC_API_KEY).
-echo "== Clause 10: feedback opt-in =="
+# Clause 10: feedback auto-mount (exercise-feedback.js + mountAllFeedback,
+# auto-mounted by the injected bootstrap — BYOK is Fireworks-only). The old
+# 'manual opt-in / not auto-mounted' assertion was REVERSED by byok-api-key
+# AC-3 / ADR-0016; the BYOK section is checked with heading-excluding awk (a
+# plain /^## BYOK/,/^## / range self-terminates on the heading — the heading
+# matches both patterns).
+echo "== Clause 10: feedback auto-mount =="
 if [ -f "$README" ] && grep -qF 'exercise-feedback.js' "$README"; then
-  ok "feedback opt-in names exercise-feedback.js"
+  ok "feedback names exercise-feedback.js"
 else
-  ko "feedback opt-in — 'exercise-feedback.js' not found"
+  ko "feedback — 'exercise-feedback.js' not found"
 fi
 if [ -f "$README" ] && grep -qF 'mountAllFeedback' "$README"; then
-  ok "feedback opt-in calls mountAllFeedback"
+  ok "feedback auto-mounts via mountAllFeedback"
 else
-  ko "feedback opt-in — 'mountAllFeedback' not found"
+  ko "feedback — 'mountAllFeedback' not found"
 fi
-if [ -f "$README" ] && grep -qiE 'not auto-mounted|manual' "$README"; then
-  ok "feedback opt-in marked manual (not auto-mounted)"
+if [ -f "$README" ] && grep -qiE 'auto-mounted|auto-mounts' "$README"; then
+  ok "feedback stated auto-mounted (not manual opt-in)"
 else
-  ko "feedback opt-in — no 'not auto-mounted'/'manual' statement found"
+  ko "feedback — no 'auto-mounted'/'auto-mounts' statement found"
+fi
+if [ -f "$README" ] && ! grep -qiE 'not auto-mounted|manual opt-in' "$README"; then
+  ok "no stale 'manual opt-in' / 'not auto-mounted' claim survives"
+else
+  ko "feedback — stale 'not auto-mounted'/'manual opt-in' claim still present"
 fi
 if [ -f "$README" ] && grep -qF 'ANTHROPIC_API_KEY' "$README"; then
-  ok "feedback opt-in BYOK key present (ANTHROPIC_API_KEY)"
+  ok "CLI ANTHROPIC_API_KEY env-var doc survives (rig/ADR-0006)"
 else
-  ko "feedback opt-in — 'ANTHROPIC_API_KEY' not found"
+  ko "CLI ANTHROPIC_API_KEY doc — 'ANTHROPIC_API_KEY' not found in README"
+fi
+# BYOK section is Fireworks-only: zero ANTHROPIC_API_KEY inside it.
+BYOK_SEC="$(awk '/^## BYOK/{f=1} f{print} f && /^## / && !/^## BYOK/{exit}' "$README")"
+if [ -f "$README" ] && ! printf '%s' "$BYOK_SEC" | grep -q 'ANTHROPIC_API_KEY'; then
+  ok "BYOK section has zero ANTHROPIC_API_KEY (Fireworks-only)"
+else
+  ko "BYOK section contains ANTHROPIC_API_KEY — stale env-var advice in BYOK"
 fi
 
 # Clause 11: COI book-mode caveat + demo book COI honesty. The service-worker

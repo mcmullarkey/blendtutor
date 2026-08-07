@@ -40,8 +40,9 @@ This puts a `blendtutor` executable on your `PATH` (`~/.cargo/bin`).
 AI feedback calls an LLM provider. Set one of these in your environment:
 
 - `FIREWORKS_API_KEY` — [Fireworks AI](https://fireworks.ai) (the default provider).
-- `ANTHROPIC_API_KEY` — [Anthropic](https://www.anthropic.com) (used by built
-  browser sites, which are bring-your-own-key / Anthropic-only).
+- `ANTHROPIC_API_KEY` — [Anthropic](https://www.anthropic.com) (alternative
+  provider for CLI `run` and `eval`; the browser BYOK path is Fireworks-only —
+  see [BYOK](#byok-bring-your-own-key)).
 
 ```bash
 export FIREWORKS_API_KEY=fw_...
@@ -217,8 +218,9 @@ bt-auto-bootstrap: false
 ---
 ```
 
-With the opt-out set, the filter leaves bootstrapping to you — for example to
-mount per-exercise feedback (see below).
+With the opt-out set, the filter leaves bootstrapping to you. To keep the
+auto-bootstrap but disable just the auto-mounted AI feedback, set
+`bt-feedback: false` instead — see [BYOK](#byok-bring-your-own-key).
 
 ### Authoring syntax
 
@@ -258,32 +260,6 @@ assert square(3) == 9
 ```
 :::
 ```
-
-### BYOK (Bring Your Own Key)
-
-AI-powered feedback uses the learner's own API key — no server-side key needed.
-Set one in the browser when prompted:
-
-- `ANTHROPIC_API_KEY` — [Anthropic](https://www.anthropic.com) (browser BYOK is
-  Anthropic-only).
-
-The key is stored in the browser's `localStorage` and never sent to a server
-other than the LLM provider.
-
-#### Feedback opt-in (manual)
-
-Per-exercise AI feedback is not auto-mounted. To enable it, import
-`exercise-feedback.js` and call `mountAllFeedback` after the runtime has
-started — each exercise then gets its own feedback button and container:
-
-```js
-import { mountAllFeedback } from "./_extensions/mcmullarkey/blendtutor/assets/exercise-feedback.js";
-
-// After the runtime has started (registry = your exercise registry):
-mountAllFeedback(registry);
-```
-
-The API key is entered once and shared across exercises via `localStorage`.
 
 ### Cross-origin isolation (COI)
 
@@ -359,6 +335,33 @@ Note: R exercises in the book don't run under book mode (COI limitation,
 documented above) — their editors mount but execution is unavailable; use a
 standalone document — such as the Standalone demo above — for runnable R
 exercises.
+
+## BYOK (Bring Your Own Key)
+
+AI-powered feedback in the browser uses the learner's own API key — no
+server-side key needed. Feedback is **auto-mounted**: the injected bootstrap
+imports `exercise-feedback.js` and calls `mountAllFeedback(registry)` after
+the runtime starts, so every exercise gets its feedback button and container
+automatically. The key is entered once on the API key page (the demo book
+ships one, see the [Demo book](#demo-book) section) and shared across
+exercises via `localStorage`.
+
+- **Provider:** Fireworks AI — browser BYOK uses the pinned model
+  `accounts/fireworks/models/deepseek-v4-flash-0731` and is Fireworks-only.
+  The extension no longer offers an Anthropic option in the browser; the CLI
+  still supports other providers (see [API key](#api-key)).
+- **Key storage:** the key is stored in your browser's `localStorage`. Any
+  JavaScript running on the page's origin can read it, so an XSS
+  vulnerability could steal it — do not reuse a critical key for BYOK. The
+  key is sent only in the `Authorization` header to `api.fireworks.ai`, never
+  to any other server.
+- **Serving:** serve the book over HTTP. Opening it via `file://` breaks
+  `localStorage` sharing across pages AND blocks ES modules (browsers refuse
+  `import` under `file://`), so feedback never mounts.
+- **CSP:** we recommend adding `connect-src https://api.fireworks.ai` to your
+  Content-Security-Policy for self-hosted deployments. GitHub Pages cannot
+  set CSP headers, and the `coi-serviceworker` shim covers only COOP/COEP —
+  it is not a CSP mechanism.
 
 ## License
 

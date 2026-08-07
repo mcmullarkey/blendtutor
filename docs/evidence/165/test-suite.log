@@ -1,0 +1,12 @@
+=== regression: test_quarto_ux.py ===
+=== Results: 46 passed, 0 failed ===
+
+=== cmp demo-book mirrors (done-condition) ===
+exercise-feedback.js: BYTE-IDENTICAL
+styles.css: BYTE-IDENTICAL
+
+=== inline-form token sweep (arm 1 negative) ===
+  ABSENT provider-key
+  ABSENT Save key & get feedback
+  ABSENT innerHTML
+  ABSENT data-byok="provider"

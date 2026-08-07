@@ -2,7 +2,7 @@
 ac: 4
 depends_on: 1, 3
 risk: medium
-status: in-progress
+status: complete
 ---
 
 **Predicate:** Six arms, all MUST hold:

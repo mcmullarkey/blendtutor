@@ -81,6 +81,18 @@ jobs:
       - name: Exercise feedback test
         run: python3 scripts/tests/test_quarto_feedback.py
 
+      # Issue #189 — Rigorous Python data-wrangling exercise (Exercise 3) in
+      # demo-book/python-exercises.qmd. Extracts the exercise section, asserts
+      # the prose Para/Plain contract + technique names + output names, execs
+      # the solution + 5 checks to green, dict-parity vs the check-4 literal,
+      # and the hardcode sneaky-pass defeat. Needs pandas for exec — none of
+      # the other python3 steps install it, so the probe runs via uv (set up
+      # above) in an ephemeral env (PEP 668 blocks bare pip on ubuntu-latest).
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Python exercise 3 test
+        run: uv run --with pandas python3 scripts/tests/test_python_exercise3.py
+
       # Issue #114 — Opt-in cross-origin isolation via coi="true" filter
       # attribute. Validates 7-clause predicate: coi="true" activates,
       # false/yes/empty rejected, dedup, byte-parity, per-page isolation,

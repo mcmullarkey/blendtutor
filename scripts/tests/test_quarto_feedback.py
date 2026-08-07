@@ -2,7 +2,8 @@
 """Executable spec for issue #112 — Per-exercise BYOK LLM feedback.
 
 Verifies the 9-clause predicate from AC-7, the issue #162 localStorage
-migration (P1-P7), and the issue #167 Fireworks-only learner UX (C1-C6):
+migration (P1-P7), the issue #167 Fireworks-only learner UX (C1-C6), and
+the issue #165 no-key link (AC-4 arms 1-7):
   1. key entered once — shared localStorage key slot (provider-scoped, not
      exercise-scoped); entered once, reused across exercises.
   2. per-exercise scoping — each exercise has its own feedback container; no
@@ -13,11 +14,18 @@ migration (P1-P7), and the issue #167 Fireworks-only learner UX (C1-C6):
       counter all live in localStorage (shared, persistent); clearKey(providerId)
       removes the provider key AND bt_feedback_count; zero sessionStorage tokens
       remain (P4); readKey degrades to null when localStorage is unavailable (P7).
-  4. provider switch — PROVIDERS map + storeProvider/readProvider; Fireworks-only
-     learner UX (issue #167): renderKeyPrompt renders NO provider <select>
-     (C1 — absent, not hidden), the anthropic backend + ?provider= seam survive
-     (C3/C4), both disclosures state localStorage wording (C5), and submit
-     stores under fireworks with no dangling provSelect ref (C6).
+   4. provider switch — PROVIDERS map + storeProvider/readProvider; Fireworks-only
+      learner UX (issue #167): renderKeyPrompt renders NO provider <select>
+      (C1 — absent, not hidden), the anthropic backend + ?provider= seam survive
+      (C3/C4), both disclosures state localStorage wording (C5), and submit
+      stores under fireworks with no dangling provSelect ref (C6).
+   11. no-key link (issue #165) — renderKeyPrompt emits [data-byok="no-key"]
+      with exactly one DOM-built anchor (copy "Enter your API key first") whose
+      href is read LAZILY from window.__btConfig.keyPageUrl at render time
+      (arm 2); defaults to api-key.html (arm 3); javascript:/data: schemes
+      rejected (arm 6); keyPageUrl() exported pure fn (arm 7); inline form
+      tokens (provider-key input, Save key & get feedback, innerHTML) absent
+      (arm 1); no-key guard first in submit flow (arm 4).
   5. ?provider= override — providerBaseUrl honors a localhost-only override and
      rejects non-local / credentialed overrides.
   6. llm_evaluation_prompt ABSENT — never in the JS source or the qmd fixture.
@@ -280,6 +288,81 @@ def check_fireworks_only_ux(src: str) -> None:
         ko("C5 (source): one or both disclosures missing localStorage wording")
 
 
+def check_no_key_link(src: str) -> None:
+    """AC-4 (source): the no-key state is a link to the key page, not an
+    inline key-entry form.
+
+    arm 1 (source): renderKeyPrompt emits the no-key marker and the inline
+    form tokens (provider-key input, "Save key & get feedback" button,
+    innerHTML interpolation) are GONE from the asset.
+    arm 2 (source): `const href = keyPageUrl()` lives INSIDE the render body —
+    a module-top cache would freeze the value and fail the eval-injection seam.
+    arm 4 (source): the no-key guard stays FIRST in the submit flow.
+    arm 7 (source): keyPageUrl() is exported (Node-testable).
+    """
+    code = _strip_comments(src)
+
+    # The no-key region: keyPageUrl() definition + renderKeyPrompt body.
+    region_start = src.find("export function keyPageUrl")
+    region_end = src.find("function renderVerdict")
+    if region_start != -1 and region_end != -1 and region_end > region_start:
+        region = src[region_start:region_end]
+        if "keyPageUrl" in region and "__btConfig" in region:
+            ok("AC-4 (source): no-key region reads window.__btConfig via keyPageUrl()")
+        else:
+            ko("AC-4 (source): no-key region missing __btConfig/keyPageUrl read")
+        if "api-key.html" in region:
+            ok("AC-4 (source): default key-page fallback api-key.html present")
+        else:
+            ko("AC-4 (source): default api-key.html fallback missing")
+        if "no-key" in region:
+            ok('AC-4 (source): no-key marker (data-byok="no-key") present')
+        else:
+            ko("AC-4 (source): no-key marker missing")
+    else:
+        ko("AC-4 (source): keyPageUrl() export + renderKeyPrompt region not found")
+
+    if "const href = keyPageUrl()" in code:
+        ok("AC-4 (source): lazy read — const href = keyPageUrl() inside render body")
+    else:
+        ko("AC-4 (source): href must be read lazily inside render body (const href = keyPageUrl())")
+
+    if "export function keyPageUrl" in code:
+        ok("AC-4 (source): keyPageUrl() exported (Node-testable pure fn)")
+    else:
+        ko("AC-4 (source): keyPageUrl() not exported")
+
+    # Inline-form tokens must be GONE from the whole asset (arm 1 negative).
+    if 'input[name="provider-key"]' not in code:
+        ok('AC-4 (source): input[name="provider-key"] ABSENT (inline form gone)')
+    else:
+        ko('AC-4 (source): input[name="provider-key"] still present')
+    if "Save key & get feedback" not in code:
+        ok('AC-4 (source): "Save key & get feedback" button ABSENT')
+    else:
+        ko('AC-4 (source): "Save key & get feedback" button still present')
+    if "innerHTML" not in code:
+        ok("AC-4 (source): innerHTML ABSENT (anchor DOM-built, no URL interpolation)")
+    else:
+        ko("AC-4 (source): innerHTML present — anchor must be DOM-built")
+
+    # arm 4 (source): the no-key guard stays FIRST in the submit flow.
+    submit_start = src.find("async function handleSubmitForExercise")
+    submit_end = src.find("// --- embedded key")
+    if submit_start != -1 and submit_end != -1 and submit_end > submit_start:
+        submit_region = src[submit_start:submit_end]
+        if (
+            "if (!apiKey)" in submit_region
+            and "renderKeyPrompt(container);" in submit_region
+            and "return;" in submit_region
+        ):
+            ok("AC-4 (source): no-key guard `if (!apiKey) { renderKeyPrompt(container); return; }` first in submit flow")
+        else:
+            ko("AC-4 (source): no-key guard missing or out of place in handleSubmitForExercise")
+    else:
+        ko("AC-4 (source): handleSubmitForExercise region not found")
+
+
 def check_concurrent_guard(src: str) -> None:
     """Clause 8 (source): per-exercise concurrent feedback guard."""
     if (
@@ -366,7 +449,7 @@ globalThis.sessionStorage = sessionStorage;
 // dataset, querySelector/querySelectorAll, and submit dispatch. Selector
 // matching covers the selectors the assertions query — NOT a general CSS engine.
 function elementMatches(el, selector) {
-  if (selector === "option" || selector === "form" || selector === "p") {
+  if (selector === "option" || selector === "form" || selector === "p" || selector === "a" || selector === "button") {
     return el.tagName === selector.toUpperCase();
   }
   const m = /^([a-z]+)\[data-byok="([^"]+)"\]$/.exec(selector);
@@ -403,6 +486,9 @@ function mockElement(tag) {
     autocomplete: "",
     selected: false,
     id: "",
+    href: "",
+    target: "",
+    rel: "",
     append(...nodes) {
       for (const n of nodes) this.children.push(n);
     },
@@ -582,42 +668,79 @@ assert(anthropicBackend.name === "byok-anthropic", "C3: anthropic factory builds
 const fireworksBackend = mod.PROVIDERS.fireworks.factory({ baseUrl: "https://api.fireworks.ai/inference/v1", apiKey: "k" });
 assert(fireworksBackend.name === "byok-fireworks", "C3: fireworks factory builds the byok-fireworks backend (pair intact)");
 
-// --- AC-6 C1+C5: renderKeyPrompt renders NO provider <select> and the
-//     disclosure states localStorage ---
-const keyPromptContainer = mockElement("div");
-mod.renderKeyPrompt(keyPromptContainer);
-assert(keyPromptContainer.querySelector('select[data-byok="provider"]') === null, "C1: key prompt renders NO provider <select> (absent, not hidden)");
-assert(keyPromptContainer.querySelectorAll("option").length === 0, "C1: key prompt renders ZERO <option> elements");
-const keyPromptDisclosure = keyPromptContainer.querySelector("#byok-disclosure").textContent;
-assert(keyPromptDisclosure.includes("localStorage"), "C5: rendered disclosure states localStorage");
-assert(!keyPromptDisclosure.includes("sessionStorage"), "C5: rendered disclosure does NOT state sessionStorage");
-assert(keyPromptDisclosure.includes("Fireworks"), "C5: rendered disclosure names Fireworks (default provider)");
+// --- AC-4 arm 7: keyPageUrl() pure contract (default when config absent) ---
+// window.__btConfig was initialized as {} at import — keyPageUrl key absent.
+assert(mod.keyPageUrl() === "api-key.html", "AC-4 arm 7: keyPageUrl() falls back to api-key.html when config key absent");
 
-// --- AC-6 C6: submit with non-empty key stores fireworks — no dangling
-//     provSelect.value ReferenceError after the select is removed ---
-localStorageMap.clear();
-const c6Container = mockElement("div");
-const c6Entry = { id: "c6-exercise", feedbackContainer: c6Container, _feedbackRunning: true };
-c6Container._entry = c6Entry; // back-ref mirrors mountFeedback
-mod.renderKeyPrompt(c6Container);
-const c6Form = c6Container.querySelector("form");
-c6Form.querySelector('input[name="provider-key"]').value = "fw-key-abc";
-let submitThrew = null;
-try {
-  c6Form.dispatchEvent({ type: "submit", preventDefault() {} });
-} catch (err) {
-  submitThrew = err;
-}
-assert(submitThrew === null, "C6: key prompt submit does not throw after select removal");
-assert(localStorageMap.get("byok_provider") === "fireworks", "C6: storeProvider called with fireworks");
-assert(localStorageMap.get("fireworks_api_key") === "fw-key-abc", "C6: key stored in the fireworks localStorage slot");
+// --- AC-4 arm 7: configured value returned verbatim (post scheme-check) ---
+globalThis.window.__btConfig.keyPageUrl = "/custom/keys.html";
+assert(mod.keyPageUrl() === "/custom/keys.html", "AC-4 arm 7: keyPageUrl() returns configured value verbatim");
+
+// --- AC-4 arm 6: scheme rejection (case-insensitive, whitespace-trimmed) ---
+globalThis.window.__btConfig.keyPageUrl = "javascript:alert(1)";
+assert(mod.keyPageUrl() === "api-key.html", "AC-4 arm 6: javascript: scheme rejected");
+globalThis.window.__btConfig.keyPageUrl = "JaVaScRiPt:alert(1)";
+assert(mod.keyPageUrl() === "api-key.html", "AC-4 arm 6: javascript: rejection is case-insensitive");
+globalThis.window.__btConfig.keyPageUrl = "  javascript:alert(1)  ";
+assert(mod.keyPageUrl() === "api-key.html", "AC-4 arm 6: javascript: rejection trims whitespace");
+globalThis.window.__btConfig.keyPageUrl = "data:text/html,<script>alert(1)</script>";
+assert(mod.keyPageUrl() === "api-key.html", "AC-4 arm 6: data: scheme rejected");
+
+// --- AC-4 arm 3: absent/empty keyPageUrl and absent __btConfig → default ---
+globalThis.window.__btConfig.keyPageUrl = "";
+assert(mod.keyPageUrl() === "api-key.html", "AC-4 arm 3: empty keyPageUrl falls back");
+globalThis.window.__btConfig.keyPageUrl = undefined;
+assert(mod.keyPageUrl() === "api-key.html", "AC-4 arm 3: undefined keyPageUrl falls back");
+const savedBtConfig = globalThis.window.__btConfig;
+globalThis.window.__btConfig = undefined;
+assert(mod.keyPageUrl() === "api-key.html", "AC-4 arm 3: window.__btConfig undefined → default (never throws)");
+globalThis.window.__btConfig = savedBtConfig;
+
+// --- AC-4 arm 1+5: renderKeyPrompt renders the no-key link (inline form GONE) ---
+globalThis.window.__btConfig.keyPageUrl = "/keys.html";
+const nkContainer = mockElement("div");
+mod.renderKeyPrompt(nkContainer);
+const nkWrapper = nkContainer.children[0];
+assert(nkWrapper.dataset.byok === "no-key", "AC-4 arm 1: container carries data-byok=no-key");
+assert(nkContainer.querySelectorAll("a").length === 1, "AC-4 arm 1: exactly one <a> in no-key state");
+const nkLink = nkContainer.querySelector("a");
+assert(nkLink.textContent === "Enter your API key first", "AC-4 arm 1: link copy exact (AC literal)");
+assert(nkLink.href === "/keys.html", "AC-4 arm 1: link href resolved from keyPageUrl()");
+assert(nkLink.target === "_blank", "AC-4 arm 5: link opens in new tab (preserves learner's code)");
+assert(nkLink.rel.includes("noopener"), "AC-4 arm 5: rel includes noopener");
+assert(nkContainer.querySelector('input[name="provider-key"]') === null, "AC-4 arm 1: NO key input in rendered output");
+assert(nkContainer.querySelector("form") === null, "AC-4 arm 1: NO form in rendered output");
+assert(nkContainer.querySelector('button[type="submit"]') === null, "AC-4 arm 1: NO save/submit button in rendered output");
+assert(nkContainer.querySelector('select[data-byok="provider"]') === null, "C1: NO provider <select> (absent, not hidden)");
+assert(nkContainer.querySelectorAll("option").length === 0, "C1: ZERO <option> elements");
+assert(!JSON.stringify(nkContainer).includes("fake-key-123"), "AC-4 arm 5: no key value anywhere in rendered DOM");
+
+// --- AC-4 arm 2: lazy read at render time (post-import config honored) ---
+// keyPageUrl was set AFTER module import; an eager module-init cache would
+// have frozen the value read at import (when __btConfig was {} → default)
+// and would FAIL this assertion.
+globalThis.window.__btConfig.keyPageUrl = "/custom/keys.html";
+const lazyContainer = mockElement("div");
+mod.renderKeyPrompt(lazyContainer);
+const lazyLink = lazyContainer.querySelector("a");
+assert(lazyLink.href === "/custom/keys.html", "AC-4 arm 2: lazy read at render time — post-import eval-set config honored");
 
 process.exit(failures > 0 ? 1 : 0);
 """
 
 
 def check_node_behavioral() -> None:
-    """Run behavioral pure-function tests via Node.js."""
+    """Run behavioral pure-function tests via Node.js.
+
+    Two suites run back-to-back:
+    1. The embedded NODE_TEST_SCRIPT (assert() harness) for the full
+       feedback contract.
+    2. The standalone node:test suite at scripts/tests/key-page-url.test.js
+       (issue #165 AC-4 arm 7). It is NOT redundant with suite 1: it is the
+       only coverage of the "window absent (typeof window === 'undefined')"
+       branch — the embedded script sets globalThis.window before importing
+       the module, so it structurally cannot exercise that path.
+    """
     if not JS_PATH.exists():
         ko("Node.js behavioral tests skipped — exercise-feedback.js missing")
         return
@@ -649,6 +772,31 @@ def check_node_behavioral() -> None:
         ko("Node.js behavioral tests timed out")
     finally:
         os.unlink(tmp_path)
+
+    key_page_test = REPO_ROOT / "scripts" / "tests" / "key-page-url.test.js"
+    if not key_page_test.exists():
+        ko("key-page-url.test.js missing — standalone keyPageUrl suite skipped")
+        return
+    try:
+        result = subprocess.run(
+            ["node", "--test", str(key_page_test)],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            timeout=30,
+            check=False,
+        )
+        print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        if result.returncode == 0:
+            ok(
+                "keyPageUrl standalone node:test suite passed (8 tests, incl. typeof-window-absent branch)"
+            )
+        else:
+            ko("keyPageUrl standalone node:test suite failed — see errors above")
+    except subprocess.TimeoutExpired:
+        ko("keyPageUrl standalone node:test suite timed out")
 
 
 def shutil_which(cmd: str) -> str | None:
@@ -711,6 +859,7 @@ def main() -> int:
     check_prompt_fences(src)
     check_providers_map(src)
     check_fireworks_only_ux(src)
+    check_no_key_link(src)
     check_shared_local_storage(src)
     check_zero_session_storage(src)
     check_no_singleton_feedback(src)

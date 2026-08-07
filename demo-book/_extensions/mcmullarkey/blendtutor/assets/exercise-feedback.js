@@ -76,8 +76,9 @@ export const PROVIDERS = {
 export const DEFAULT_PROVIDER = "fireworks";
 
 // Per-provider disclosure texts — literal strings so the static scan can
-// verify BOTH are present. Each matches the dynamic disclosure renderKeyPrompt
-// builds from PROVIDERS[id].label so the disclosure is never stale.
+// verify BOTH are present. Documentation of the privacy promise shown to
+// learners; the no-key state no longer renders them inline (AC-4 routes
+// learners to the key page), but the copy stays pinned in source.
 const PROVIDER_DISCLOSURES = {
   fireworks: "Your Fireworks API key is stored in this browser (localStorage) " +
     "and sent only to Fireworks to fetch feedback — never to this site's " +
@@ -425,49 +426,61 @@ function currentSubmissionForExercise(entry) {
   };
 }
 
-// Prompt the learner for a key, with the Fireworks disclosure. Learner-facing
-// UX is Fireworks-only: there is NO provider chooser — the learner path cannot
-// represent a non-fireworks provider (the <select> is gone, so the illegal
-// state "learner chose anthropic" is unrepresentable). The Anthropic backend
-// SURVIVES in PROVIDERS for the ?provider= test seam + embedded-key builds.
-// The key is stored in the Fireworks localStorage slot (shared across
-// exercises). Exported so tests can render the prompt without a browser.
-export function renderKeyPrompt(container) {
-  const form = document.createElement("form");
-  form.dataset.byok = "key-prompt";
+// --- the no-key state (AC-4): link to the key page, no inline form ----------
+//
+// The learner clicks "Get feedback" with no stored key → the container renders
+// a single link to the key page instead of an inline key-entry form (the
+// inline form's job moved to the dedicated key page, assets/key-page.js,
+// AC-2). The link opens in a new tab (target=_blank + rel=noopener) so the
+// learner's in-progress code in the exercise editor survives the detour.
+//
+// The link target comes from window.__btConfig.keyPageUrl, emitted by the
+// blendtutor.lua head script (AC-3) from the bt-key-page YAML meta. It is read
+// LAZILY at render time (never cached at module init — §2.1: no module-level
+// effectful read) so a dynamically-set config value is honored.
 
-  const disclosure = document.createElement("p");
-  disclosure.id = "byok-disclosure";
-  const provider = PROVIDERS[DEFAULT_PROVIDER];
-  disclosure.textContent = PROVIDER_DISCLOSURES[DEFAULT_PROVIDER];
-
-  const keyLabel = document.createElement("label");
-  keyLabel.textContent = "API key: ";
-  const keyInput = document.createElement("input");
-  keyInput.type = "password";
-  keyInput.name = "provider-key";
-  keyInput.autocomplete = "off";
-  keyInput.placeholder = "Paste your " + provider.label + " API key";
-  keyLabel.append(keyInput);
-
-  const save = document.createElement("button");
-  save.type = "submit";
-  save.textContent = "Save key & get feedback";
-
-  form.append(disclosure, keyLabel, save);
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const key = keyInput.value.trim();
-    if (!key) {
-      return;
+// Pure-ish: the key-page URL for the no-key link. Reads window.__btConfig at
+// CALL time, rejects javascript:/data: schemes (defense in depth against a
+// crafted config), falls back to the default page. Total: never throws, never
+// returns "". Exported so it is Node-testable without a browser.
+export function keyPageUrl() {
+  const config = typeof window !== "undefined" ? window.__btConfig : null;
+  let candidate = config && config.keyPageUrl;
+  if (typeof candidate !== "string") {
+    return "api-key.html";
+  }
+  candidate = candidate.trim();
+  if (!candidate) {
+    return "api-key.html";
+  }
+  const scheme = /^[a-z][a-z0-9+.-]*:/i.exec(candidate);
+  if (scheme) {
+    const name = scheme[0].toLowerCase();
+    if (name === "javascript:" || name === "data:") {
+      return "api-key.html";
     }
-    const providerId = DEFAULT_PROVIDER;
-    storeProvider(providerId);
-    storeKey(key, providerId);
-    handleSubmitForExercise(container._entry);
-  });
+  }
+  return candidate;
+}
 
-  container.replaceChildren(form);
+// Render the no-key state: a single DOM-built anchor to the key page. The
+// anchor is built with createElement + .href/.textContent — never innerHTML
+// with URL interpolation. The copy is the AC literal "Enter your API key
+// first". Exported so tests can render the prompt without a browser.
+export function renderKeyPrompt(container) {
+  const wrapper = document.createElement("div");
+  wrapper.dataset.byok = "no-key";
+
+  // Lazy read at render time — never cached at module init (§2.1).
+  const href = keyPageUrl();
+  const link = document.createElement("a");
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.textContent = "Enter your API key first";
+
+  wrapper.append(link);
+  container.replaceChildren(wrapper);
 }
 
 // Render the verdict. textContent only — the message is model output (untrusted),
@@ -554,7 +567,7 @@ function selectedModel(container, providerId) {
 }
 
 // Orchestrate one submit for a single exercise, in four named states:
-//   no key           → prompt for provider + key (per-provider disclosure);
+//   no key           → render the no-key link to the key page (AC-4);
 //   key + no picker  → render the model picker from the live roster;
 //   picker shown     → build the prompt and send feedback through the chosen
 //                      provider's backend, using the chosen model.
@@ -646,8 +659,6 @@ export function mountFeedback(entry) {
   feedbackContainer.dataset.byok = "feedback";
   // Back-reference so handleSubmitForExercise can find the container from entry.
   entry.feedbackContainer = feedbackContainer;
-  // Back-reference so renderKeyPrompt's submit handler can find the entry.
-  feedbackContainer._entry = entry;
 
   // Per-exercise concurrent guard (clause 8).
   entry._feedbackRunning = false;

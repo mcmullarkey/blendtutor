@@ -353,7 +353,10 @@ def exec_solution_and_checks(solution: str, checks: list[str]) -> None:
 
 def exec_solution_dict_parity(solution: str, literal: dict) -> None:
     """Predicate (d): solution-only exec must reproduce check 4's literal —
-    transcription drift caught in both directions."""
+    transcription drift caught in both directions. Both the solution output
+    and the extracted check-4 literal are also hard-pinned to the
+    hand-verified EXPECTED_REVENUE, so solution and literal cannot drift
+    together past the external constant."""
     ns: dict = {}
     try:
         exec(compile(solution, "<exercise3-solution>", "exec"), ns)  # noqa: S102
@@ -366,6 +369,13 @@ def exec_solution_dict_parity(solution: str, literal: dict) -> None:
     else:
         ko(
             f"dict-parity: solution output {actual} != check-4 literal {literal} — hand-transcription drift"
+        )
+    if actual == EXPECTED_REVENUE and literal == EXPECTED_REVENUE:
+        ok("hard-pin: solution and check-4 literal match EXPECTED_REVENUE")
+    else:
+        ko(
+            f"hard-pin mismatch: actual={actual}, literal={literal}, "
+            f"expected={EXPECTED_REVENUE}"
         )
     if abs(sum(actual.values()) - 458.5) < 1e-9:
         ok("sum(revenue_by_cat) == 458.5 (self-consistency)")

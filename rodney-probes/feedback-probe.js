@@ -17,9 +17,12 @@
  *              in the stub response renders as literal text (window.__xss
  *              stays undefined). No fetch-spy substitution for this clause:
  *              the verdict must come from the REAL stub round-trip.
- *          P11 no-key link end-to-end — with empty localStorage, the exercise
- *              page renders [data-byok="no-key"] (target=_blank, rel=noopener,
- *              href = keyPageUrl) AND ZERO /chat/completions fetches observed.
+ *          P11 inline key form end-to-end — with empty localStorage, the
+ *              exercise page mounts the key-page form INLINE inside the
+ *              feedback container ([data-byok="key-page-form"], NO
+ *              navigation link); saving through the real form stores the key
+ *              and the save-continuation (issue #186) fires the feedback
+ *              fetch — verdict renders through the stub.
  *
  * P3: NO synthetic-DOM fixture generation — every navigation targets a file
  * under the served demo-book/_output/ root (AC-7 render output; the old
@@ -300,7 +303,8 @@ function waitForFeedbackUi() {
 }
 
 // ---------------------------------------------------------------------------
-// P11 — no-key link end-to-end (empty localStorage → link, ZERO fetches)
+// P11 — inline key form end-to-end (empty localStorage → inline form, save →
+// key stored → feedback fetch fires through the stub → verdict)
 // ---------------------------------------------------------------------------
 function probeP11NoKeyLink() {
   // Empty localStorage precondition: clear through the page (fresh state;
@@ -320,37 +324,70 @@ function probeP11NoKeyLink() {
   rodney(["click", ".bt-exercise:first-of-type .bt-feedback-btn"]);
   sleep(1);
 
-  const noKeyVisible = waitForExpr(
-    "document.querySelector('[data-byok=\"no-key\"]') !== null",
+  const formVisible = waitForExpr(
+    "document.querySelector('[data-byok=\"key-page-form\"]') !== null",
     10,
   );
-  if (noKeyVisible === -1) {
-    record("P11 no-key: link rendered", false, "[data-byok=no-key] not found after click");
+  if (formVisible === -1) {
+    record("P11 no-key: inline key form rendered", false, "[data-byok=key-page-form] not found after click");
     return;
   }
-  record("P11 no-key: link rendered", true, "no-key link appears on click with empty storage");
+  record("P11 no-key: inline key form rendered", true, "inline key form appears on click with empty storage");
 
   assertExpr(
-    "P11 no-key: target=_blank",
-    "document.querySelector('[data-byok=\"no-key\"] a').getAttribute('target') === '_blank'",
+    "P11 no-key: NO navigation link (no data-byok=no-key)",
+    "document.querySelector('[data-byok=\"no-key\"]') === null",
   );
   assertExpr(
-    "P11 no-key: rel=noopener",
-    "document.querySelector('[data-byok=\"no-key\"] a').getAttribute('rel') === 'noopener'",
+    "P11 no-key: NO anchor rendered in the form or feedback area",
+    "document.querySelector('[data-byok=\"key-page-form\"] a') === null && document.querySelector('[data-byok=\"feedback\"] a') === null",
   );
-  const href = rodneyJs("document.querySelector('[data-byok=\"no-key\"] a').getAttribute('href')");
-  const hrefOk = href === "api-key.html";
-  record("P11 no-key: href = keyPageUrl (api-key.html)", hrefOk, `href=${href}`);
 
-  const log = fetchLog();
-  const completions = log.filter((e) => e.url.includes("/chat/completions"));
+  const log0 = fetchLog();
+  const completions0 = log0.filter((e) => e.url.includes("/chat/completions"));
   record(
-    "P11 no-key: ZERO /chat/completions fetches",
-    completions.length === 0,
-    `fetches observed: ${JSON.stringify(log)}`,
+    "P11 no-key: ZERO /chat/completions fetches before save",
+    completions0.length === 0,
+    `fetches observed: ${JSON.stringify(log0)}`,
   );
 
-  screenshot("fb-01-no-key-link", "exercise page with empty storage: no-key link to key page");
+  // Save through the REAL inline form UI: type the key, click Save. The
+  // save-continuation (issue #186) then re-runs the submit flow — the key is
+  // now stored, so the feedback fetch fires and the verdict renders.
+  rodney(["input", '[data-byok="key-input"]', "fw_inline_probe_789"]);
+  rodney(["click", '[data-byok="save"]']);
+
+  const keyStored = waitForExpr(
+    "localStorage.getItem('fireworks_api_key') === 'fw_inline_probe_789'",
+    15,
+  );
+  if (keyStored === -1) {
+    record("P11 save: key stored via inline form", false, "fireworks_api_key not stored after save click");
+    return;
+  }
+  record("P11 save: key stored via inline form", true, `key stored (${keyStored}ms)`);
+
+  const fetchFired = waitForExpr(
+    "JSON.parse(JSON.stringify(window.__fetchLog || [])).filter((e) => String(e.url).includes('/chat/completions')).length >= 1",
+    20,
+  );
+  record(
+    "P11 save-continuation: feedback fetch fires through stub",
+    fetchFired !== -1,
+    fetchFired !== -1 ? `new /chat/completions observed (${fetchFired}ms)` : "no /chat/completions after save",
+  );
+
+  const verdictElapsed = waitForExpr(
+    "document.querySelector('[data-byok=\"verdict\"]') !== null",
+    20,
+  );
+  record(
+    "P11 save-continuation: verdict rendered",
+    verdictElapsed !== -1,
+    verdictElapsed !== -1 ? `verdict rendered (${verdictElapsed}ms)` : "no [data-byok=verdict] after save",
+  );
+
+  screenshot("fb-01-no-key-inline-form", "exercise page with empty storage: inline key form + save-continuation verdict");
 }
 
 // ---------------------------------------------------------------------------
@@ -400,9 +437,10 @@ function probeP5CrossPage() {
   );
 
   // Proceed past the no-key state: with the key present, clicking the
-  // feedback button must NOT render the no-key link (it goes to pending →
-  // verdict through the stub). The rate-limit config comes from the REAL
-  // rendered page: blendtutor.lua build_key_page_config_script now emits
+  // feedback button must NOT render the no-key state (no inline key form —
+  // it goes straight to pending → verdict through the stub). The rate-limit
+  // config comes from the REAL rendered page: blendtutor.lua
+  // build_key_page_config_script now emits
   // window.__btConfig.maxFeedbackPerSession = window.__btConfig.maxFeedbackPerSession ?? 20
   // (issue #179, crates parity) alongside keyPageUrl — so NO manual injection
   // here. A regression to keyPageUrl-only emission would compute

@@ -1,0 +1,85 @@
+== Clause 1: mechanism pin (single add_html_dependency, no scripts=, no yml resources) ==
+  PASS: exactly one quarto.doc.add_html_dependency call (1 found)
+  PASS: dependency table pins {name, version=BT_DEP_VERSION, stylesheets, resources}
+  PASS: no scripts= key in blendtutor.lua
+  PASS: no resources: key in _extension.yml
+  PASS: old css_link include_text removed (no STYLES_CSS_PATH / css_link)
+== Clause 2: conditional JS resources (static pin) ==
+  PASS: exercise-runtime.js + codemirror.js + exercise-feedback.js + key-page.js always in resources (C1)
+  PASS: webr-adapter.js conditionally included (has_r)
+  PASS: pyodide-adapter.js conditionally included (has_python)
+== Clause 3: files exist on disk at <stem>_files/libs/... (conditional adapters) ==
+  PASS: mixed-lang libs contains exercise-runtime.js
+  PASS: mixed-lang libs contains codemirror.js
+  PASS: mixed-lang libs contains styles.css
+  PASS: mixed-lang libs contains webr-adapter.js
+  PASS: mixed-lang libs contains pyodide-adapter.js
+  PASS: mixed-lang libs contains exercise-feedback.js
+  PASS: mixed-lang libs contains key-page.js
+  PASS: r-only libs contains webr-adapter.js (has_r)
+  PASS: r-only libs absent pyodide-adapter.js (no python)
+  PASS: pyodide libs contains pyodide-adapter.js (has_python)
+  PASS: pyodide libs absent webr-adapter.js (no r)
+== Clause 4: CSS via Quarto link (exactly one, no source-tree link) ==
+  PASS: exactly one libs styles.css link (1 found)
+  PASS: no _extensions/blendtutor/assets/styles.css link in HTML
+== Clause 5: bootstrap specifiers are libs URLs from output_file stem ==
+  PASS: bootstrap imports exercise-runtime.js from libs URL
+  PASS: bootstrap imports webr-adapter.js from libs URL
+  PASS: bootstrap imports pyodide-adapter.js from libs URL
+  PASS: bootstrap imports exercise-feedback.js from libs URL
+  PASS: bootstrap imports key-page.js from libs URL
+  PASS: runtime specifier is ES-module-safe (./ prefix)
+  PASS: no _extensions/ substring in bootstrap specifiers
+  PASS: no resolve_asset_path output in specifiers
+== Clause 5b: key-only page deploys both assets + bootstrap (C14) ==
+  PASS: key-only render exits 0
+  PASS: key-only libs contains key-page.js
+  PASS: key-only libs contains exercise-feedback.js
+  PASS: key-only libs contains exercise-runtime.js
+  PASS: key-only libs contains codemirror.js
+  PASS: key-only libs contains styles.css
+  PASS: key-only libs absent pyodide-adapter.js (no python)
+  PASS: key-only page bootstrap injected (1 found)
+  PASS: key-only page bootstrap calls mountKeyPage
+  PASS: key-only bootstrap imports key-page.js from libs URL
+== Clause 6: no classic runtime script tag ==
+  PASS: no classic <script src=...exercise-runtime.js> tag
+== Clause 7: coi-serviceworker.js stays source-tree (NOT in libs) ==
+  PASS: coi script src still source-tree resolve_asset_path path
+  PASS: coi-serviceworker.js not in libs dir
+== Clause 8: nested pages/ stem + multi-page book render ==
+  PASS: nested pages/ render exits 0
+  PASS: nested libs at pages/index_files/libs/quarto-contrib/blendtutor-0.1.0 (stem + subdir correct)
+  PASS: nested bootstrap specifier document-relative (./index_files/...)
+  PASS: nested bootstrap specifier has no pages/ prefix
+  PASS: coi-book multi-page render exits 0
+== Clause 8b: book project → site_libs URLs; standalone+output-dir → _files ==
+  PASS: book fixture render exits 0
+  PASS: book bootstrap specifier uses ./site_libs/... (book-aware libs_url)
+  PASS: book bootstrap specifier has no <stem>_files/ path
+  PASS: book site_libs contains exercise-runtime.js
+  PASS: book site_libs contains codemirror.js
+  PASS: book site_libs contains styles.css
+  PASS: book site_libs contains webr-adapter.js
+  PASS: book render creates no <stem>_files dirs under _output (site_libs only)
+  PASS: standalone+output-dir render exits 0
+  PASS: standalone+output-dir keeps <stem>_files specifier (discriminator: not site_libs)
+  PASS: standalone+output-dir specifier has no site_libs/ path
+  PASS: standalone+output-dir libs deployed at index_files/libs (unchanged)
+== Clause 9: non-HTML gate (latex — zero libs dirs, zero bootstrap) ==
+  PASS: latex render exits 0
+  PASS: zero libs dirs created on latex render
+  PASS: zero key-page.js on latex render (C23)
+  PASS: zero bootstrap injection on latex
+  PASS: zero __btConfig emission on latex (C23)
+== Clause 10: BT_DEP_VERSION single-sourced ==
+  PASS: BT_DEP_VERSION = "0.1.0" constant in blendtutor.lua
+  PASS: dependency declaration uses BT_DEP_VERSION
+  PASS: emitted libs URL uses BT_DEP_VERSION
+  PASS: _extension.yml line 3 version = 0.1.0 (parity with BT_DEP_VERSION)
+
+=========================================
+  Results: 68 passed, 0 failed
+=========================================
+All tests passed.

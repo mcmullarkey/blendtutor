@@ -97,8 +97,10 @@ function renderKeySet(container) {
 }
 
 // No-key mount state: password input + Save. `initialReason` seeds the status
-// line (used after Clear to report the removal).
-function renderKeyForm(container, initialReason) {
+// line (used after Clear to report the removal). `onSaved` (optional, issue
+// #186) is threaded to handleSave — an inline caller (the exercise feedback
+// no-key state) re-runs its submit flow once the key is stored.
+function renderKeyForm(container, initialReason, onSaved) {
   const form = document.createElement("form");
   form.dataset.byok = "key-page-form";
 
@@ -119,7 +121,7 @@ function renderKeyForm(container, initialReason) {
   form.append(status, input, save);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    return handleSave(input, status);
+    return handleSave(input, status, onSaved);
   });
 
   if (initialReason) {
@@ -131,10 +133,15 @@ function renderKeyForm(container, initialReason) {
 // Save flow: empty input is a no-op (stored key survives, no fetch); otherwise
 // store optimistically via the imported contract, reset the input immediately
 // (no password-manager capture, no echo), then validate (advisory status).
+// `onSaved` (optional, issue #186) fires ONCE right after the key is stored —
+// before the advisory validation resolves — so an inline caller can re-run its
+// submit flow with the key now present. The optimistic contract: key stored =
+// proceed; a rejected/network validation is advisory copy only and must NOT
+// block continuation.
 // When storage is unavailable (storeKey throws — private mode, quota exceeded),
 // report a friendly storage status and STOP: no fetch, input keeps its value so
 // the user can retry. The key is only cleared from the input on the success path.
-function handleSave(input, status) {
+function handleSave(input, status, onSaved) {
   const value = input.value.trim();
   if (!value) {
     setStatus(status, "empty");
@@ -147,6 +154,9 @@ function handleSave(input, status) {
     return;
   }
   input.value = "";
+  if (typeof onSaved === "function") {
+    onSaved();
+  }
   return validateAndReport(status, value);
 }
 
@@ -173,7 +183,11 @@ async function validateAndReport(status, key) {
 
 // Mount the key-management UI into `target`. No-op when the target is absent
 // or already mounted (idempotent — one save issues exactly one fetch).
-export function mountKeyPage(target) {
+// `opts.onSaved` (optional, issue #186) is called once after a successful
+// save — the exercise feedback inline mount uses it to re-run the submit flow
+// once the key exists. Backward-compatible: existing callers pass no opts and
+// get the mount-only behavior (blendtutor.lua bootstrap passes none).
+export function mountKeyPage(target, opts = {}) {
   if (!target || mountedTargets.has(target)) {
     return;
   }
@@ -181,6 +195,6 @@ export function mountKeyPage(target) {
   if (readKey(PROVIDER_ID)) {
     renderKeySet(target);
   } else {
-    renderKeyForm(target);
+    renderKeyForm(target, undefined, opts.onSaved);
   }
 }

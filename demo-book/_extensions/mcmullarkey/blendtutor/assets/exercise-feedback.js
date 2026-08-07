@@ -40,6 +40,13 @@
 //   invokes it AFTER the runtime boots. Pure functions are importable in
 //   Node.js without side effects, so they are testable without a browser.
 
+// Issue #186: the no-key state mounts the key-management form (key-page.js
+// mountKeyPage) INLINE into the feedback container — no navigation link. The
+// import is a cycle (key-page.js imports the storage/provider contract from
+// this module) — safe: both modules use imported bindings only at call time,
+// never at module-eval time (ES live bindings resolve by then).
+import { mountKeyPage } from "./key-page.js";
+
 // --- prompt structure (the single source, ported from feedback.js) -------------
 //
 // Byte-identical to the Rust core::llm prompt constants (pinned by the
@@ -77,8 +84,8 @@ export const DEFAULT_PROVIDER = "fireworks";
 
 // Per-provider disclosure texts — literal strings so the static scan can
 // verify BOTH are present. Documentation of the privacy promise shown to
-// learners; the no-key state no longer renders them inline (AC-4 routes
-// learners to the key page), but the copy stays pinned in source.
+// learners; the no-key state mounts the key-page form inline (issue #186)
+// without repeating the disclosures, but the copy stays pinned in source.
 const PROVIDER_DISCLOSURES = {
   fireworks: "Your Fireworks API key is stored in this browser (localStorage) " +
     "and sent only to Fireworks to fetch feedback — never to this site's " +
@@ -408,23 +415,31 @@ function currentSubmissionForExercise(entry) {
   };
 }
 
-// --- the no-key state (AC-4): link to the key page, no inline form ----------
+// --- the no-key state (issue #186): INLINE key form, no navigation link ----
 //
-// The learner clicks "Get feedback" with no stored key → the container renders
-// a single link to the key page instead of an inline key-entry form (the
-// inline form's job moved to the dedicated key page, assets/key-page.js,
-// AC-2). The link opens in a new tab (target=_blank + rel=noopener) so the
-// learner's in-progress code in the exercise editor survives the detour.
+// The learner clicks "Get feedback" with no stored key → the feedback
+// container mounts the key-management form (key-page.js mountKeyPage) INLINE
+// instead of rendering a link to a separate key page (the user-reported fix:
+// the old link navigated away to a confusing page and dropped the learner's
+// context). The container itself is the mount target — key-page.js renders
+// its password input + Save button into it.
 //
-// The link target comes from window.__btConfig.keyPageUrl, emitted by the
-// blendtutor.lua head script (AC-3) from the bt-key-page YAML meta. It is read
-// LAZILY at render time (never cached at module init — §2.1: no module-level
-// effectful read) so a dynamically-set config value is honored.
+// Save-continuation: onSaved re-invokes handleSubmitForExercise once the key
+// is stored, so the same click path proceeds to the rate-limit check + fetch
+// without a second user action. The callback only fires on a successful
+// storeKey (optimistic contract — key stored = proceed); a rejected or
+// unreachable advisory validation is copy on the form's status line and must
+// NOT block continuation.
+//
+// keyPageUrl() is retained for the standalone api-key chapter (the demo-book
+// index + the lua bt-key-page emission still point at it) and stays exported
+// (Node-tested by key-page-url.test.js).
 
-// Pure-ish: the key-page URL for the no-key link. Reads window.__btConfig at
-// CALL time, rejects javascript:/data: schemes (defense in depth against a
-// crafted config), falls back to the default page. Total: never throws, never
-// returns "". Exported so it is Node-testable without a browser.
+// Pure-ish: the key-page URL for the standalone api-key chapter. Reads
+// window.__btConfig at CALL time, rejects javascript:/data: schemes (defense
+// in depth against a crafted config), falls back to the default page. Total:
+// never throws, never returns "". Exported so it is Node-testable without a
+// browser.
 export function keyPageUrl() {
   const config = typeof window !== "undefined" ? window.__btConfig : null;
   let candidate = config && config.keyPageUrl;
@@ -443,26 +458,6 @@ export function keyPageUrl() {
     }
   }
   return candidate;
-}
-
-// Render the no-key state: a single DOM-built anchor to the key page. The
-// anchor is built with createElement + .href/.textContent — never innerHTML
-// with URL interpolation. The copy is the AC literal "Enter your API key
-// first". Exported so tests can render the prompt without a browser.
-export function renderKeyPrompt(container) {
-  const wrapper = document.createElement("div");
-  wrapper.dataset.byok = "no-key";
-
-  // Lazy read at render time — never cached at module init (§2.1).
-  const href = keyPageUrl();
-  const link = document.createElement("a");
-  link.href = href;
-  link.target = "_blank";
-  link.rel = "noopener";
-  link.textContent = "Enter your API key first";
-
-  wrapper.append(link);
-  container.replaceChildren(wrapper);
 }
 
 // Render the verdict. textContent only — the message is model output (untrusted),
@@ -504,7 +499,9 @@ function renderLimitReached(container) {
 }
 
 // Orchestrate one submit for a single exercise, in three named states:
-//   no key            → render the no-key link to the key page (AC-4);
+//   no key            → mount the key form INLINE (key-page.js mountKeyPage)
+//                        with an onSaved save-continuation that re-runs this
+//                        handler once the key is stored (issue #186);
 //   rate-limited      → render the limit-reached message (no fetch);
 //   key present       → build the prompt (task + student code + captured
 //                        .bt-output + checks) and send feedback through the
@@ -537,7 +534,11 @@ async function handleSubmitForExercise(entry) {
   const providerId = readProvider();
   const apiKey = readKey(providerId);
   if (!apiKey) {
-    renderKeyPrompt(container);
+    // Inline key form (issue #186): mount key-page.js INTO the feedback
+    // container. The onSaved continuation re-runs this handler once the key
+    // is stored — the key check then passes and the flow proceeds to the
+    // rate-limit check + fetch without a second user action.
+    mountKeyPage(container, { onSaved: () => handleSubmitForExercise(entry) });
     return;
   }
   // Rate-limit check BEFORE the fetch — a capped learner never fires a

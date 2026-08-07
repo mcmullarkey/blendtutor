@@ -1,0 +1,10 @@
+=== sync-quarto-assets.sh --check ===
+  ok: codemirror.js matches source
+  ok: styles.css matches source
+  ok: coi-serviceworker.js matches source
+All assets in sync.
+
+=== cmp vendored copies ===
+exercise-feedback.js byte-identical
+key-page.js byte-identical
+styles.css byte-identical

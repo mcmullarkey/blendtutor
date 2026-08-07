@@ -1,0 +1,122 @@
+# CI fix — PR #187 (issue #186 inline API key entry)
+
+Date: 2026-08-07
+Branch: 186-inline-api-key-entry
+
+Three CI failures root-caused from CI logs and fixed. All mechanical — no
+redesign, no re-review.
+
+## Failure 1 — Node TDZ in test_quarto_feedback.py NODE_TEST_SCRIPT
+
+`ReferenceError: Cannot access 'fetchCalls' before initialization` at
+installFetchSpy (tmp.mjs:357) called from module top-level (tmp.mjs:301).
+
+The committed NODE_TEST_SCRIPT ran the issue #186 no-key block at module
+top-level BEFORE `let fetchCalls = []` was declared: installFetchSpy() closes
+over fetchCalls, so the call at top-level hit the TDZ. The block was moved
+below the helper definitions (`fetchCalls`, installFetchSpy, makeEntry,
+mountAndClick, flush, promptBodyAt) so all state the spy closes over is
+initialized before installFetchSpy() is invoked.
+
+Verify (local):
+```
+=== Results: 64 passed, 0 failed ===
+```
+
+## Failure 2 — cargo nextest hex-regex: `#186` in new CSS comments
+
+build.rs Clause 7 (`crates/cli/tests/build.rs`) scans the ENTIRE built
+styles.css for `#[0-9a-fA-F]{3}\b` literals outside `:root` blocks — and
+comments count. The issue #186 fix added `issue #186` comments to
+crates/core/assets/shared/styles.css; `#186` matched the hex regex
+(`186` = 3 hex digits). Same trap as `#182` in PR #183.
+
+Failures (all three named build tests):
+- build_pyodide_emits_a_deployable_python_lesson_site
+- build_dark_mode_token_overrides
+- build_webr_emits_a_deployable_r_lesson_site
+
+Fix: `issue #186` → `issue 186` in the 3 comment lines of
+crates/core/assets/shared/styles.css, then re-ran
+`bash scripts/sync-quarto-assets.sh` (regenerates the scoped
+_extensions/blendtutor/assets/styles.css) and re-copied to the demo-book
+vendored copy (demo-book/_extensions/mcmullarkey/blendtutor/assets/styles.css).
+
+Verify (local):
+```
+cargo nextest run -p blendtutor-cli
+Summary [  60.273s] 105 tests run: 105 passed, 0 skipped
+```
+(including the three named tests, all PASS)
+
+Future footgun scan: only `issue #186` occurrences existed; no other `#NNN`
+issue references in styles.css comments. Remaining comment hex `#ffffff`
+(line 83) sits inside the `:root` block — allowed by Clause 7.
+
+## Failure 3 — rodney probe P5 state leak from new P11
+
+P5 vacuous guard failed: "key form mounted: no [data-byok=key-input] after
+15s" then "element not found: .bt-exercise:first-of-type .bt-feedback-btn".
+
+Root cause: the #186 P11 rewrite (runner order: P11 → P5 → P10) SAVES a key
+via the inline form and leaves `fireworks_api_key = 'fw_inline_probe_789'`
+in localStorage. P5 then opens api-key.html in the SAME browser
+session/origin; mountKeyPage renders renderKeySet (status + Clear button, NO
+key-input) instead of renderKeyForm → P5's guard expecting
+[data-byok=key-input] fails, and the subsequent .bt-feedback-btn click times
+out (different page state).
+
+Fix (option a — P5's semantic is "empty storage → key-page UI → save →
+cross-page persistence", it MUST start from empty): explicit
+`localStorage.clear()` through the page at P5 start, before navigating to the
+key page. P10 still runs after P5 and consumes P5's key (`fw_cross_page_456`)
+— the clear only resets P11's leftover state, not P5's own save.
+
+Verify (local): `node --check rodney-probes/feedback-probe.js` passes.
+Rodney harness needs Chrome — CI rodney job re-verifies P5/P10/P11 ordering
+end-to-end.
+
+## Re-run logs
+
+### python3 scripts/tests/test_quarto_feedback.py
+```
+=== Results: 64 passed, 0 failed ===
+```
+
+### cargo nextest run -p blendtutor-cli (full suite)
+```
+Summary [  60.273s] 105 tests run: 105 passed, 0 skipped
+```
+Named failures (all PASS):
+- blendtutor-cli::build build_webr_emits_a_deployable_r_lesson_site
+- blendtutor-cli::build build_pyodide_emits_a_deployable_python_lesson_site
+- blendtutor-cli::build build_dark_mode_token_overrides
+
+### bash scripts/sync-quarto-assets.sh --check
+```
+  ok: codemirror.js matches source
+  ok: styles.css matches source
+  ok: coi-serviceworker.js matches source
+All assets in sync.
+```
+
+### cmp vendored copies (byte-identical)
+```
+cmp _extensions/blendtutor/assets/styles.css
+    demo-book/_extensions/mcmullarkey/blendtutor/assets/styles.css
+→ identical
+```
+
+### node --check rodney-probes/feedback-probe.js
+```
+NODE-SYNTAX-OK
+```
+
+## Diff stats
+- scripts/tests/test_quarto_feedback.py — reorder #186 block after fetch-spy
+  helpers (28+/28-)
+- crates/core/assets/shared/styles.css — `issue #186` → `issue 186` (3 comment
+  lines)
+- _extensions/blendtutor/assets/styles.css — regenerated scoped copy (sync)
+- demo-book/_extensions/mcmullarkey/blendtutor/assets/styles.css — re-copied
+- rodney-probes/feedback-probe.js — P5 start localStorage clear + note

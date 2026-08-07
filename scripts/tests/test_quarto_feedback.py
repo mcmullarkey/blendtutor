@@ -3,8 +3,8 @@
 
 Verifies the 9-clause predicate from AC-7, the issue #162 localStorage
 migration (P1-P7), the issue #167 Fireworks-only learner UX (C1-C6), the
-issue #165 no-key link (AC-4 arms 1-7), and the issue #166 check-output
-wiring (AC-5 arms 1-13):
+issue #165 no-key link (AC-4 arms 1-7), the issue #166 check-output
+wiring (AC-5 arms 1-13), and the issue #186 inline key form (no-key state):
   1. key entered once — shared localStorage key slot (provider-scoped, not
      exercise-scoped); entered once, reused across exercises.
   2. per-exercise scoping — each exercise has its own feedback container; no
@@ -16,17 +16,18 @@ wiring (AC-5 arms 1-13):
       removes the provider key AND bt_feedback_count; zero sessionStorage tokens
       remain (P4); readKey degrades to null when localStorage is unavailable (P7).
    4. provider switch — PROVIDERS map + storeProvider/readProvider; Fireworks-only
-      learner UX (issue #167): renderKeyPrompt renders NO provider <select>
+      learner UX (issue #167): the no-key state renders NO provider <select>
       (C1 — absent, not hidden), the anthropic backend + ?provider= seam survive
       (C3/C4), both disclosures state localStorage wording (C5), and submit
       stores under fireworks with no dangling provSelect ref (C6).
-   11. no-key link (issue #165) — renderKeyPrompt emits [data-byok="no-key"]
-      with exactly one DOM-built anchor (copy "Enter your API key first") whose
-      href is read LAZILY from window.__btConfig.keyPageUrl at render time
-      (arm 2); defaults to api-key.html (arm 3); javascript:/data: schemes
-      rejected (arm 6); keyPageUrl() exported pure fn (arm 7); inline form
-      tokens (provider-key input, Save key & get feedback, innerHTML) absent
-      (arm 1); no-key guard first in submit flow (arm 4).
+   11. inline key form (issue #186) — the no-key state mounts the key-page
+      form (key-page.js mountKeyPage) INLINE into the feedback container: the
+      mountKeyPage import + inline call with an onSaved save-continuation live
+      FIRST in the submit flow; renderKeyPrompt, the [data-byok="no-key"]
+      anchor, its href/target=_blank link, and the inline-form-negative tokens
+      of AC-4 are GONE; keyPageUrl() stays exported (api-key chapter, arm 7);
+      save stores the key then re-runs the submit flow (exactly one feedback
+      fetch + verdict).
    5. ?provider= override — providerBaseUrl honors a localhost-only override and
       rejects non-local / credentialed overrides.
    6. llm_evaluation_prompt ABSENT — never in the JS source or the qmd fixture.
@@ -44,8 +45,9 @@ wiring (AC-5 arms 1-13):
       fetch-spy suite drives the REAL handleSubmitForExercise through
       mountFeedback clicks and asserts arms 2,4,5,7,8,9,10,11,12,13
       (button sole trigger, no picker, per-exercise output scoping, XSS
-      textContent-only verdict, rate-limit/no-key refusal, error path,
-      concurrent guard, empty-output tolerance).
+      textContent-only verdict, rate-limit refusal, inline no-key form with
+      save-continuation, error path, concurrent guard, empty-output
+      tolerance).
    12. rate-limit default emission (issue #179) — blendtutor.lua's
       build_key_page_config_script emits window.__btConfig.maxFeedbackPerSession
       = window.__btConfig.maxFeedbackPerSession ?? 20 via the C22 merge pattern
@@ -307,63 +309,31 @@ def check_fireworks_only_ux(src: str) -> None:
         ko("C5 (source): one or both disclosures missing localStorage wording")
 
 
-def check_no_key_link(src: str) -> None:
-    """AC-4 (source): the no-key state is a link to the key page, not an
-    inline key-entry form.
+def check_no_key_inline_form(src: str) -> None:
+    """Issue #186 (source): the no-key state mounts the key-page form INLINE
+    in the feedback container with a save-continuation — no navigation link.
 
-    arm 1 (source): renderKeyPrompt emits the no-key marker and the inline
-    form tokens (provider-key input, "Save key & get feedback" button,
-    innerHTML interpolation) are GONE from the asset.
-    arm 2 (source): `const href = keyPageUrl()` lives INSIDE the render body —
-    a module-top cache would freeze the value and fail the eval-injection seam.
+    arm 1 (source): the inline mount — `import { mountKeyPage } from
+    "./key-page.js"` — is present, and handleSubmitForExercise's no-key guard
+    calls mountKeyPage(container, { onSaved: ... }) which re-invokes the
+    submit handler once the key is stored.
+    arm 2 (source): the AC-4 link machinery is GONE — renderKeyPrompt, the
+    [data-byok="no-key"] marker, the href/target=_blank anchor.
+    arm 3 (source): keyPageUrl() stays exported (the api-key chapter still
+    links to it; key-page-url.test.js pins the contract).
     arm 4 (source): the no-key guard stays FIRST in the submit flow.
-    arm 7 (source): keyPageUrl() is exported (Node-testable).
     """
     code = _strip_comments(src)
 
-    # The no-key region: keyPageUrl() definition + renderKeyPrompt body.
-    region_start = src.find("export function keyPageUrl")
-    region_end = src.find("function renderVerdict")
-    if region_start != -1 and region_end != -1 and region_end > region_start:
-        region = src[region_start:region_end]
-        if "keyPageUrl" in region and "__btConfig" in region:
-            ok("AC-4 (source): no-key region reads window.__btConfig via keyPageUrl()")
-        else:
-            ko("AC-4 (source): no-key region missing __btConfig/keyPageUrl read")
-        if "api-key.html" in region:
-            ok("AC-4 (source): default key-page fallback api-key.html present")
-        else:
-            ko("AC-4 (source): default api-key.html fallback missing")
-        if "no-key" in region:
-            ok('AC-4 (source): no-key marker (data-byok="no-key") present')
-        else:
-            ko("AC-4 (source): no-key marker missing")
+    # arm 1 (source): the inline mount import + save-continuation call.
+    import_line = next(
+        (l for l in src.split("\n") if "mountKeyPage" in l and '"./key-page.js"' in l),
+        "",
+    )
+    if import_line and "import" in import_line:
+        ok('issue #186 (source): `import { mountKeyPage } from "./key-page.js"` present')
     else:
-        ko("AC-4 (source): keyPageUrl() export + renderKeyPrompt region not found")
-
-    if "const href = keyPageUrl()" in code:
-        ok("AC-4 (source): lazy read — const href = keyPageUrl() inside render body")
-    else:
-        ko("AC-4 (source): href must be read lazily inside render body (const href = keyPageUrl())")
-
-    if "export function keyPageUrl" in code:
-        ok("AC-4 (source): keyPageUrl() exported (Node-testable pure fn)")
-    else:
-        ko("AC-4 (source): keyPageUrl() not exported")
-
-    # Inline-form tokens must be GONE from the whole asset (arm 1 negative).
-    if 'input[name="provider-key"]' not in code:
-        ok('AC-4 (source): input[name="provider-key"] ABSENT (inline form gone)')
-    else:
-        ko('AC-4 (source): input[name="provider-key"] still present')
-    if "Save key & get feedback" not in code:
-        ok('AC-4 (source): "Save key & get feedback" button ABSENT')
-    else:
-        ko('AC-4 (source): "Save key & get feedback" button still present')
-    if "innerHTML" not in code:
-        ok("AC-4 (source): innerHTML ABSENT (anchor DOM-built, no URL interpolation)")
-    else:
-        ko("AC-4 (source): innerHTML present — anchor must be DOM-built")
+        ko('issue #186 (source): mountKeyPage import from "./key-page.js" missing')
 
     # arm 4 (source): the no-key guard stays FIRST in the submit flow.
     submit_start = src.find("async function handleSubmitForExercise")
@@ -372,14 +342,52 @@ def check_no_key_link(src: str) -> None:
         submit_region = src[submit_start:submit_end]
         if (
             "if (!apiKey)" in submit_region
-            and "renderKeyPrompt(container);" in submit_region
+            and "mountKeyPage(container" in submit_region
+            and "onSaved:" in submit_region
+            and "handleSubmitForExercise(entry)" in submit_region
             and "return;" in submit_region
         ):
-            ok("AC-4 (source): no-key guard `if (!apiKey) { renderKeyPrompt(container); return; }` first in submit flow")
+            ok("issue #186 (source): no-key guard mounts the inline form with save-continuation (`if (!apiKey) { mountKeyPage(container, { onSaved: () => handleSubmitForExercise(entry) }); return; }`) first in submit flow")
         else:
-            ko("AC-4 (source): no-key guard missing or out of place in handleSubmitForExercise")
+            ko("issue #186 (source): no-key guard must mount the inline form with onSaved save-continuation in handleSubmitForExercise")
     else:
-        ko("AC-4 (source): handleSubmitForExercise region not found")
+        ko("issue #186 (source): handleSubmitForExercise region not found")
+
+    # The keyPageUrl region: kept for the api-key chapter, but the link
+    # rendering that consumed it is gone.
+    region_start = src.find("export function keyPageUrl")
+    region_end = src.find("function renderVerdict")
+    if region_start != -1 and region_end != -1 and region_end > region_start:
+        region = src[region_start:region_end]
+        if "keyPageUrl" in region and "__btConfig" in region:
+            ok("issue #186 (source): keyPageUrl region keeps the window.__btConfig read")
+        else:
+            ko("issue #186 (source): keyPageUrl region missing __btConfig read")
+        if "api-key.html" in region:
+            ok("issue #186 (source): default api-key.html fallback present")
+        else:
+            ko("issue #186 (source): default api-key.html fallback missing")
+    else:
+        ko("issue #186 (source): keyPageUrl() export region not found")
+
+    if "export function keyPageUrl" in code:
+        ok("issue #186 (source): keyPageUrl() exported (api-key chapter + key-page-url.test.js)")
+    else:
+        ko("issue #186 (source): keyPageUrl() not exported")
+
+    # arm 2 (source): the link machinery is GONE (negatives).
+    if "renderKeyPrompt" not in code:
+        ok('issue #186 (source): renderKeyPrompt GONE (no link renderer)')
+    else:
+        ko("issue #186 (source): renderKeyPrompt still present")
+    if 'data-byok="no-key"' not in code:
+        ok('issue #186 (source): [data-byok="no-key"] marker ABSENT (no link wrapper)')
+    else:
+        ko('issue #186 (source): data-byok="no-key" marker still present')
+    if "_blank" not in code:
+        ok("issue #186 (source): target=_blank ABSENT (no new-tab navigation)")
+    else:
+        ko("issue #186 (source): target=_blank still present — the link must be gone")
 
 
 def check_concurrent_guard(src: str) -> None:
@@ -888,35 +896,6 @@ globalThis.window.__btConfig = undefined;
 assert(mod.keyPageUrl() === "api-key.html", "AC-4 arm 3: window.__btConfig undefined → default (never throws)");
 globalThis.window.__btConfig = savedBtConfig;
 
-// --- AC-4 arm 1+5: renderKeyPrompt renders the no-key link (inline form GONE) ---
-globalThis.window.__btConfig.keyPageUrl = "/keys.html";
-const nkContainer = mockElement("div");
-mod.renderKeyPrompt(nkContainer);
-const nkWrapper = nkContainer.children[0];
-assert(nkWrapper.dataset.byok === "no-key", "AC-4 arm 1: container carries data-byok=no-key");
-assert(nkContainer.querySelectorAll("a").length === 1, "AC-4 arm 1: exactly one <a> in no-key state");
-const nkLink = nkContainer.querySelector("a");
-assert(nkLink.textContent === "Enter your API key first", "AC-4 arm 1: link copy exact (AC literal)");
-assert(nkLink.href === "/keys.html", "AC-4 arm 1: link href resolved from keyPageUrl()");
-assert(nkLink.target === "_blank", "AC-4 arm 5: link opens in new tab (preserves learner's code)");
-assert(nkLink.rel.includes("noopener"), "AC-4 arm 5: rel includes noopener");
-assert(nkContainer.querySelector('input[name="provider-key"]') === null, "AC-4 arm 1: NO key input in rendered output");
-assert(nkContainer.querySelector("form") === null, "AC-4 arm 1: NO form in rendered output");
-assert(nkContainer.querySelector('button[type="submit"]') === null, "AC-4 arm 1: NO save/submit button in rendered output");
-assert(nkContainer.querySelector('select[data-byok="provider"]') === null, "C1: NO provider <select> (absent, not hidden)");
-assert(nkContainer.querySelectorAll("option").length === 0, "C1: ZERO <option> elements");
-assert(!JSON.stringify(nkContainer).includes("fake-key-123"), "AC-4 arm 5: no key value anywhere in rendered DOM");
-
-// --- AC-4 arm 2: lazy read at render time (post-import config honored) ---
-// keyPageUrl was set AFTER module import; an eager module-init cache would
-// have frozen the value read at import (when __btConfig was {} → default)
-// and would FAIL this assertion.
-globalThis.window.__btConfig.keyPageUrl = "/custom/keys.html";
-const lazyContainer = mockElement("div");
-mod.renderKeyPrompt(lazyContainer);
-const lazyLink = lazyContainer.querySelector("a");
-assert(lazyLink.href === "/custom/keys.html", "AC-4 arm 2: lazy read at render time — post-import eval-set config honored");
-
 // ===========================================================================
 // AC-5 (issue #166): check-output wiring + pinned model + picker collapse
 // ===========================================================================
@@ -987,6 +966,34 @@ function promptBodyAt(i) {
   if (!call || call.url.indexOf("/chat/completions") === -1) return null;
   return JSON.parse(call.opts.body);
 }
+
+// --- issue #186: no-key click mounts the INLINE key form (no link) ---
+// The no-key guard now mounts the key-page form INTO the feedback container
+// (key-page.js mountKeyPage) with an onSaved save-continuation. ZERO fetches
+// before the key is saved; saving stores the key and re-runs the submit flow
+// — exactly one /chat/completions fetch + verdict.
+localStorageMap.clear();
+globalThis.window.__btConfig = { maxFeedbackPerSession: 100 };
+installFetchSpy();
+const eNK = makeEntry({ id: "exNK", output: "" });
+mountAndClick(eNK);
+await flush();
+assert(fetchCalls.length === 0, "issue #186 (Node): no key → ZERO fetches (inline form shown, no auto-fire)");
+const nkForm = eNK.feedbackContainer.querySelector('[data-byok="key-page-form"]');
+assert(nkForm !== null, "issue #186 (Node): inline key form mounted inside the feedback container");
+assert(eNK.feedbackContainer.querySelector('[data-byok="key-input"]') !== null, "issue #186 (Node): password input present");
+assert(eNK.feedbackContainer.querySelector('[data-byok="save"]') !== null, "issue #186 (Node): Save button present");
+assert(eNK.feedbackContainer.querySelector('[data-byok="no-key"]') === null, "issue #186 (Node): NO data-byok=no-key anchor");
+assert(eNK.feedbackContainer.querySelector("a") === null, "issue #186 (Node): NO anchor rendered (no navigation link)");
+const nkInput = eNK.feedbackContainer.querySelector('[data-byok="key-input"]');
+nkInput.value = "k-inline-node";
+await nkForm._handlers.submit[0]({ preventDefault: () => {} });
+await flush();
+assert(mod.readKey("fireworks") === "k-inline-node", "issue #186 (Node): save stored the key via shared localStorage");
+const nkCompletions = fetchCalls.filter((c) => String(c.url).includes("/chat/completions"));
+assert(nkCompletions.length === 1, "issue #186 (Node): save-continuation fires EXACTLY ONE /chat/completions fetch");
+assert(eNK.feedbackContainer.querySelector('[data-byok="verdict"]') !== null, "issue #186 (Node): verdict rendered after save-continuation");
+assert(eNK.feedbackContainer.querySelector('[data-byok="error"]') === null, "issue #186 (Node): no error state after save-continuation");
 
 // Arm 1: mounting feedback triggers ZERO fetches (no auto-fire).
 localStorageMap.clear();
@@ -1072,15 +1079,26 @@ await flush();
 assert(fetchCalls.length === 0, "AC-5 arm 9: counter at cap → ZERO fetches");
 assert(eR.feedbackContainer.querySelector('[data-byok="limit-reached"]') !== null, "AC-5 arm 9: limit-reached message rendered");
 
-// Arm 10: no key → no-key link rendered, ZERO fetches.
+// Arm 10: no key → inline key form rendered, ZERO fetches until save; save
+// → exactly one /chat/completions fetch + verdict (issue #186 continuation).
 localStorageMap.clear();
 globalThis.window.__btConfig = { maxFeedbackPerSession: 3 };
 installFetchSpy();
 const eN = makeEntry({ id: "exN", output: "" });
 mountAndClick(eN);
 await flush();
-assert(fetchCalls.length === 0, "AC-5 arm 10: no key → ZERO fetches");
-assert(eN.feedbackContainer.querySelector('[data-byok="no-key"]') !== null, "AC-5 arm 10: no-key link rendered");
+assert(fetchCalls.length === 0, "AC-5 arm 10: no key → ZERO fetches (inline form shown, no auto-fire)");
+assert(eN.feedbackContainer.querySelector('[data-byok="key-page-form"]') !== null, "AC-5 arm 10: inline key form rendered in feedback container");
+assert(eN.feedbackContainer.querySelector('[data-byok="no-key"]') === null, "AC-5 arm 10: NO no-key link rendered");
+const nkInput10 = eN.feedbackContainer.querySelector('[data-byok="key-input"]');
+const nkForm10 = eN.feedbackContainer.querySelector('[data-byok="key-page-form"]');
+assert(nkInput10 !== null, "AC-5 arm 10: key input present for save");
+nkInput10.value = "k-inline-arm10";
+await nkForm10._handlers.submit[0]({ preventDefault: () => {} });
+await flush();
+const nkComp10 = fetchCalls.filter((c) => String(c.url).includes("/chat/completions"));
+assert(nkComp10.length === 1, "AC-5 arm 10: save → EXACTLY ONE /chat/completions fetch (save-continuation)");
+assert(eN.feedbackContainer.querySelector('[data-byok="verdict"]') !== null, "AC-5 arm 10: verdict rendered after save-continuation");
 
 // Arm 11: failed fetch → error state rendered, counter still incremented.
 localStorageMap.clear();
@@ -1291,7 +1309,7 @@ def main() -> int:
     check_prompt_fences(src)
     check_providers_map(src)
     check_fireworks_only_ux(src)
-    check_no_key_link(src)
+    check_no_key_inline_form(src)
     check_shared_local_storage(src)
     check_zero_session_storage(src)
     check_no_singleton_feedback(src)

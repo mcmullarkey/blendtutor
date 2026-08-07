@@ -34,13 +34,18 @@ Verifies the 16-clause predicate from AC-2 of byok-api-key:
   P15 (pure helpers)     — buildValidationUrl / classifyValidation / statusMessage
                            bodies contain no fetch(, localStorage, document..
   P16 (module discipline)— docstring header (WHAT/WHERE/NOT) + <=5 public exports.
+  P17 (onSaved contract) — mountKeyPage(target, {onSaved}) calls onSaved
+                           EXACTLY once after a successful storeKey (issue
+                           #186 save-continuation); empty save and
+                           storage-unavailable save NEVER fire it.
 
 Negative: key echoed into DOM textContent or console; hardcoded api.fireworks.ai;
 innerHTML of status (XSS); Save writing sessionStorage or old slot names; Clear
 leaving bt_feedback_count; validation silently skipped or 401 collapsed into
 network error (listModels reuse); empty save wiping the stored key; key
 pre-filled into the input on key-set mount; duplicate literal slot names instead
-of the imported contract; fetch issued twice on double-mount.
+of the imported contract; fetch issued twice on double-mount; onSaved fired
+without a key actually stored (empty or storage-unavailable save).
 
 Usage: python3 scripts/tests/test_quarto_key_page.py
        uv run pytest scripts/tests/test_quarto_key_page.py -x -q
@@ -394,6 +399,33 @@ assert(status5.textContent === mod.statusMessage("storage-unavailable"), "storag
 assert(localStorageMap.get("fireworks_api_key") === undefined, "storage-unavailable: key NOT stored");
 assert(input5.value === "KEY-STORE-THROW", "storage-unavailable: input keeps its value for retry (no silent wipe)");
 storageError = null;
+
+// --- P17: onSaved fires EXACTLY once after a successful storeKey; never on
+// empty or storage-unavailable saves (issue #186 save-continuation) ---------
+localStorageMap.clear();
+fetchCalls.length = 0;
+let savedCalls = 0;
+const t6 = freshTarget();
+mod.mountKeyPage(t6, { onSaved: () => { savedCalls++; } });
+const form6 = findByDataset(t6, "byok", "key-page-form");
+const input6 = findByDataset(t6, "byok", "key-input");
+const status6 = findByDataset(t6, "byok", "key-status");
+input6.value = "   ";
+await form6._listeners.submit[0]({ preventDefault: () => {} });
+assert(savedCalls === 0, "P17: empty save does NOT fire onSaved");
+assert(status6.textContent === mod.statusMessage("empty"), "P17: empty save still reports the empty status");
+storageError = "QuotaExceededError: storage unavailable";
+input6.value = "KEY-STORE-THROW";
+await form6._listeners.submit[0]({ preventDefault: () => {} });
+assert(savedCalls === 0, "P17: storage-unavailable save does NOT fire onSaved");
+assert(fetchCalls.length === 0, "P17: storage-unavailable save issues no fetch (onSaved would continue a doomed flow)");
+storageError = null;
+input6.value = "P17-KEY";
+fetchCalls.length = 0;
+await form6._listeners.submit[0]({ preventDefault: () => {} });
+assert(savedCalls === 1, "P17: successful save fires onSaved EXACTLY once");
+assert(localStorageMap.get("fireworks_api_key") === "P17-KEY", "P17: key stored alongside onSaved (onSaved runs after storeKey)");
+assert(fetchCalls.length === 1, "P17: successful save still issues one validation fetch");
 
 process.exit(failures > 0 ? 1 : 0);
 """

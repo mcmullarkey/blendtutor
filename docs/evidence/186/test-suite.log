@@ -1,0 +1,252 @@
+=== AC-7 Per-exercise BYOK LLM feedback — test_quarto_feedback.py ===
+
+  PASS: exercise-feedback.js exists
+  PASS: feedback.qmd exists
+-- Clause 6: llm_evaluation_prompt ABSENT --
+  PASS: llm_evaluation_prompt ABSENT from exercise-feedback.js
+  PASS: llm_evaluation_prompt ABSENT from feedback.qmd
+
+-- Source-pattern checks --
+  PASS: pure function exported: neutralize
+  PASS: pure function exported: buildPrompt
+  PASS: pure function exported: parseModels
+  PASS: pure function exported: modelRoster
+  PASS: pure function exported: feedbackRequest
+  PASS: pure function exported: toVerdict
+  PASS: pure function exported: fireworksRequest
+  PASS: pure function exported: fireworksToVerdict
+  PASS: pure function exported: providerBaseUrl
+  PASS: STUDENT_CODE fences present in source
+  PASS: PROVIDERS map has fireworks + anthropic
+  PASS: provider-scoped key slots present (fireworks_api_key, anthropic_api_key)
+  PASS: C1 (source): no data-byok="provider" literal in exercise-feedback.js
+  PASS: C1 (source): no provider <select> creation pattern (dataset.byok = "provider")
+  PASS: C3 (source): PROVIDERS.anthropic keeps the byokAnthropic factory
+  PASS: C6 (source): no orphaned provSelect references
+  PASS: C5 (source): BOTH provider disclosures state localStorage wording
+  PASS: issue #186 (source): `import { mountKeyPage } from "./key-page.js"` present
+  PASS: issue #186 (source): no-key guard mounts the inline form with save-continuation (`if (!apiKey) { mountKeyPage(container, { onSaved: () => handleSubmitForExercise(entry) }); return; }`) first in submit flow
+  PASS: issue #186 (source): keyPageUrl region keeps the window.__btConfig read
+  PASS: issue #186 (source): default api-key.html fallback present
+  PASS: issue #186 (source): keyPageUrl() exported (api-key chapter + key-page-url.test.js)
+  PASS: issue #186 (source): renderKeyPrompt GONE (no link renderer)
+  PASS: issue #186 (source): [data-byok="no-key"] marker ABSENT (no link wrapper)
+  PASS: issue #186 (source): target=_blank ABSENT (no new-tab navigation)
+  PASS: key slot is provider-scoped (not exercise-scoped)
+  PASS: storeKey + readKey present (shared key handling)
+  PASS: clearKey present (scoped key + counter removal, issue #162)
+  PASS: storage backend is localStorage (shared, persistent)
+  PASS: zero sessionStorage tokens in exercise-feedback.js (P4)
+  PASS: no singleton getElementById('feedback') — per-exercise scoping
+  PASS: no window.__bt singleton access (uses __btExercises registry)
+  PASS: ?provider= override parsed via URLSearchParams
+  PASS: localhost-only gate present (non-local override rejected)
+  PASS: per-exercise concurrent feedback guard present
+  PASS: mountFeedback/mountAllFeedback present (per-exercise mount)
+  PASS: feedback UI elements carry data-byok markers (dataset.byok)
+  PASS: fetch() called in backends (feedback is not silently skipped)
+  PASS: no module-level applyEmbeddedKey() call (pure layer importable)
+
+-- AC-5 source checks (issue #166) --
+  PASS: AC-5 arm 3 (source): FIREWORKS_MODEL pinned to deepseek-v4-flash-0731 at both uses (fallbackModel + const)
+  PASS: AC-5 arm 3 (source): no unpinned deepseek-v4-flash model literal remains
+  PASS: AC-5 arm 4 (source): renderModelPicker removed
+  PASS: AC-5 arm 4 (source): modelPickerPresent removed
+  PASS: AC-5 arm 4 (source): selectedModel removed
+  PASS: AC-5 arm 4 (source): data-byok="model-picker" literal absent (never rendered)
+  PASS: AC-5 arm 4 (source): submit flow is key check → rate-limit check → fetch (no picker phase)
+  PASS: AC-5 arm 8 (source): zero innerHTML (verdict render is textContent-only)
+  PASS: AC-5 arm 9 (source): rateLimitReached() evaluated before getFeedback
+  PASS: AC-5 arm 1 (source): exercise-runtime.js has zero exercise-feedback references
+  PASS: AC-5 (fixture): feedback.qmd sets window.__btConfig.maxFeedbackPerSession
+  PASS: AC-5 (fixture): __btConfig uses the C22 merge pattern (no keyPageUrl clobber)
+
+-- Issue #179 lua emission check --
+  PASS: issue #179 (source): blendtutor.lua emits maxFeedbackPerSession default 20 (crates parity)
+  PASS: issue #179 (source): __btConfig merge pattern in blendtutor.lua (no keyPageUrl clobber)
+  PASS: issue #179 (source): build_key_page_config_script has no bare __btConfig clobber
+
+-- Behavioral checks (Node.js) --
+[blendtutor] Exercise "exC" feedback already in flight, ignoring concurrent request.
+  PASS: buildPrompt emits STUDENT_CODE_BEGIN fence
+  PASS: buildPrompt emits STUDENT_CODE_END fence
+  PASS: buildPrompt includes task
+  PASS: buildPrompt includes student code
+  PASS: buildPrompt includes captured output
+  PASS: buildPrompt includes checks
+  PASS: neutralize strips forged STUDENT_CODE_BEGIN
+  PASS: neutralize replaces with marker
+  PASS: P1: key round-trips through localStorage (entered once, reused)
+  PASS: P1: key stored under provider-scoped localStorage slot
+  PASS: P1: key NOT written to sessionStorage
+  PASS: P1: no zombie fallback — stale sessionStorage key ignored
+  PASS: provider switched to anthropic
+  PASS: provider choice stored in localStorage
+  PASS: provider switched back to fireworks
+  PASS: localhost override honored
+  PASS: non-local override rejected (key exfil prevented)
+  PASS: non-local override falls back to provider base URL
+  PASS: credentialed override rejected
+  PASS: parseModels extracts model ids
+  PASS: modelRoster falls back when list empty
+  PASS: feedbackRequest embeds prompt in messages
+  PASS: feedbackRequest forces feedback tool
+  PASS: toVerdict maps Anthropic tool call to Verdict
+  PASS: fireworksToVerdict maps OpenAI tool call to Verdict
+  PASS: P3: feedbackCount starts at 0
+  PASS: P3: incrementFeedbackCount increments the counter
+  PASS: P3: counter value lives in localStorage.bt_feedback_count
+  PASS: P3: counter NOT written to sessionStorage
+  PASS: P3: no zombie counter — stale sessionStorage count ignored
+  PASS: P2: clearKey removes the provider key
+  PASS: P2: fireworks_api_key removed from localStorage
+  PASS: P2: clearKey removes bt_feedback_count (no permanent rate-lock)
+  PASS: P2: feedbackCount resets to 0 after clearKey
+  PASS: P2: clearKey leaves anthropic_api_key intact
+  PASS: P2: clearKey leaves byok_provider intact
+  PASS: P2: clearKey leaves quarto-reader-mode intact
+  PASS: P2: clearKey leaves quarto-persistent-tabsets-data intact
+  PASS: P2: clearKey never calls localStorage.clear()
+  PASS: P7: readKey returns null when localStorage.getItem throws
+  PASS: C2: empty storage defaults to fireworks
+  PASS: C3: PROVIDERS.anthropic survives (backend not deleted)
+  PASS: C3: anthropic keySlot preserved
+  PASS: C3: anthropic baseUrl preserved
+  PASS: C3: anthropic factory wired
+  PASS: C3: anthropic factory builds the byok-anthropic backend
+  PASS: C3: fireworks factory builds the byok-fireworks backend (pair intact)
+  PASS: AC-4 arm 7: keyPageUrl() falls back to api-key.html when config key absent
+  PASS: AC-4 arm 7: keyPageUrl() returns configured value verbatim
+  PASS: AC-4 arm 6: javascript: scheme rejected
+  PASS: AC-4 arm 6: javascript: rejection is case-insensitive
+  PASS: AC-4 arm 6: javascript: rejection trims whitespace
+  PASS: AC-4 arm 6: data: scheme rejected
+  PASS: AC-4 arm 3: empty keyPageUrl falls back
+  PASS: AC-4 arm 3: undefined keyPageUrl falls back
+  PASS: AC-4 arm 3: window.__btConfig undefined → default (never throws)
+  PASS: AC-5 arm 5 (Node): buildPrompt emits <<<CAPTURED_OUTPUT>>> exactly once
+  PASS: AC-5 arm 6 (Node): buildPrompt emits <<<CHECK_RESULTS>>> exactly once
+  PASS: AC-5 arm 5 (Node): output text appears exactly once
+  PASS: AC-5 arm 6 (Node): buildPrompt includes Task line
+  PASS: AC-5 arm 6 (Node): buildPrompt includes code fences
+  PASS: AC-5 arm 13 (Node): empty output still yields CAPTURED_OUTPUT section (not an error)
+  PASS: AC-5 arm 13 (Node): empty output never injects undefined/null
+  PASS: AC-5 arm 3 (Node): PROVIDERS.fireworks.fallbackModel pinned to -0731
+  PASS: issue #186 (Node): no key → ZERO fetches (inline form shown, no auto-fire)
+  PASS: issue #186 (Node): inline key form mounted inside the feedback container
+  PASS: issue #186 (Node): password input present
+  PASS: issue #186 (Node): Save button present
+  PASS: issue #186 (Node): NO data-byok=no-key anchor
+  PASS: issue #186 (Node): NO anchor rendered (no navigation link)
+  PASS: issue #186 (Node): save stored the key via shared localStorage
+  PASS: issue #186 (Node): save-continuation fires EXACTLY ONE /chat/completions fetch
+  PASS: issue #186 (Node): verdict rendered after save-continuation
+  PASS: issue #186 (Node): no error state after save-continuation
+  PASS: AC-5 arm 1: mounting feedback triggers ZERO fetches (no auto-fire)
+  PASS: AC-5 arm 2: ONE click after key stored → exactly ONE fetch
+  PASS: AC-5 arm 2: fetch POST to ${providerBaseUrl('fireworks')}/chat/completions
+  PASS: AC-5 arm 2: fetch method is POST
+  PASS: AC-5 arm 3: request body model is the pinned -0731 model
+  PASS: AC-5 arm 5: prompt contains <<<CAPTURED_OUTPUT>>> exactly once
+  PASS: AC-5 arm 5: prompt contains this exercise's .bt-output text exactly once
+  PASS: AC-5 arm 5: output text is fenced under the CAPTURED_OUTPUT label
+  PASS: AC-5 arm 6: prompt contains <<<CHECK_RESULTS>>> block
+  PASS: AC-5 arm 6: prompt contains student code fences
+  PASS: AC-5 arm 6: prompt contains Task line + lesson prompt
+  PASS: AC-5 arm 4: NO model-picker rendered — single click goes straight to fetch
+  PASS: AC-5 arm 2: verdict rendered after fetch
+  PASS: AC-5 arm 2: button textContent EXACT 'Get feedback'
+  PASS: AC-5 arm 13: button enabled (not disabled-gated) before Check
+  PASS: AC-5 arm 7: two exercises → two fetches (one per click)
+  PASS: AC-5 arm 7: exercise A's prompt has A's output, NOT B's
+  PASS: AC-5 arm 7: exercise B's prompt has B's output, NOT A's
+  PASS: AC-5 arm 8: XSS payload renders as literal text
+  PASS: AC-5 arm 8: window.__xss stays undefined — payload NOT executed
+  PASS: AC-5 arm 9: counter at cap → ZERO fetches
+  PASS: AC-5 arm 9: limit-reached message rendered
+  PASS: AC-5 arm 10: no key → ZERO fetches (inline form shown, no auto-fire)
+  PASS: AC-5 arm 10: inline key form rendered in feedback container
+  PASS: AC-5 arm 10: NO no-key link rendered
+  PASS: AC-5 arm 10: key input present for save
+  PASS: AC-5 arm 10: save → EXACTLY ONE /chat/completions fetch (save-continuation)
+  PASS: AC-5 arm 10: verdict rendered after save-continuation
+  PASS: AC-5 arm 11: error state rendered via textContent
+  PASS: AC-5 arm 11: session counter incremented on failed fetch
+  PASS: AC-5 arm 12: two rapid clicks → exactly ONE fetch (_feedbackRunning guard)
+  PASS: AC-5 arm 13: empty .bt-output → fetch still fires (explicit click, no gate)
+  PASS: AC-5 arm 13: prompt still has CAPTURED_OUTPUT section
+  PASS: AC-5 arm 13: empty output does not inject undefined/null
+  PASS: AC-5 arm 14: feedback button exists after mount
+  PASS: AC-5 arm 14: feedback button appended INTO entry.controls (toolbar)
+  PASS: AC-5 arm 14: feedback button is FIRST in the toolbar (former Run slot, before Check/Show solution)
+  PASS: AC-5 arm 14: toolbar order is Get feedback · Check · Show solution
+  PASS: AC-5 arm 14: no .bt-feedback-wrapper created when controls present
+  PASS: AC-5 arm 14: feedback container is a direct child of the exercise element
+  PASS: Node.js behavioral tests passed (all pure-function assertions)
+TAP version 13
+# Subtest: keyPageUrl() returns api-key.html when window is absent (Node, no DOM)
+ok 1 - keyPageUrl() returns api-key.html when window is absent (Node, no DOM)
+  ---
+  duration_ms: 2.245916
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() returns api-key.html when __btConfig is undefined
+ok 2 - keyPageUrl() returns api-key.html when __btConfig is undefined
+  ---
+  duration_ms: 0.09225
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() returns api-key.html when the config key is absent
+ok 3 - keyPageUrl() returns api-key.html when the config key is absent
+  ---
+  duration_ms: 0.0665
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() returns api-key.html when the config key is empty
+ok 4 - keyPageUrl() returns api-key.html when the config key is empty
+  ---
+  duration_ms: 0.058166
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() returns the configured value verbatim
+ok 5 - keyPageUrl() returns the configured value verbatim
+  ---
+  duration_ms: 0.138584
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() rejects the javascript: scheme (case-insensitive, trimmed)
+ok 6 - keyPageUrl() rejects the javascript: scheme (case-insensitive, trimmed)
+  ---
+  duration_ms: 0.083667
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() rejects the data: scheme
+ok 7 - keyPageUrl() rejects the data: scheme
+  ---
+  duration_ms: 0.125709
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() allows ordinary relative and https URLs through
+ok 8 - keyPageUrl() allows ordinary relative and https URLs through
+  ---
+  duration_ms: 0.059916
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 59.25225
+  PASS: keyPageUrl standalone node:test suite passed (8 tests, incl. typeof-window-absent branch)
+
+-- feedback.qmd structure --
+  PASS: feedback.qmd has 2 exercises (>=2 for key-reuse test)
+  PASS: feedback.qmd imports exercise-feedback.js
+  PASS: feedback.qmd imports exercise-runtime.js (AC-4 dependency)
+  PASS: feedback.qmd calls mountFeedback/mountAllFeedback
+
+=== Results: 64 passed, 0 failed ===

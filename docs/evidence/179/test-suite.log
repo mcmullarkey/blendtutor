@@ -1,5 +1,5 @@
 === Issue #179 regression test-suite log ===
-date: 2026-08-07T09:56:47Z
+date: 2026-08-07 (independent re-verification; original run 2026-08-07T09:56:47Z)
 
 1) test_quarto_feedback.py  (python3 scripts/tests/test_quarto_feedback.py)
    exit: 0
@@ -25,3 +25,8 @@ All tests passed.
   Results: 89 passed, 0 failed
 =========================================
 All tests passed.
+
+Note: an orphaned hung `quarto render key-only.qmd` process (left by an earlier
+dispatch) made local re-runs hang at bootstrap Clause 12; after killing it, all
+suites pass. CI jobs (quarto render / quarto distribution / rodney probes) run
+in fresh containers so they are unaffected.

@@ -1,0 +1,44 @@
+---
+title: API Key
+---
+
+# API Key
+
+AI-powered feedback in this book uses the [Fireworks AI](https://fireworks.ai)
+API. To run the exercises interactively you need a Fireworks API key — the
+book never asks for any other key.
+
+## Get a key
+
+Create a Fireworks account and generate an API key from the
+[Fireworks console](https://app.fireworks.ai/account/keys). Keys look like
+`fw_...`.
+
+## Enter your key
+
+::: {.blendtutor-key}
+
+The key-management form appears here when the book is served over HTTP (see
+below). If you see nothing, open this page over HTTP — `file://` blocks the
+storage and module machinery the form needs.
+
+:::
+
+Enter your key above once. It is stored **only** in this browser's
+`localStorage` and shared across every chapter of the book, so you do not
+re-enter it per exercise. When an exercise runs, the key is sent **only** in
+an `Authorization: Bearer` header to `api.fireworks.ai`. It is never logged,
+never echoed back into the page, and never sent to any other server.
+
+## Serve the book over HTTP
+
+The key page and the exercises use `localStorage` and JavaScript ES modules,
+both of which are blocked when a page is opened from the local filesystem
+(`file://`). Serve the rendered book over HTTP instead — from the
+`demo-book/_output/` directory:
+
+```bash
+python3 -m http.server 8000
+```
+
+…then open <http://localhost:8000/api-key.html>.

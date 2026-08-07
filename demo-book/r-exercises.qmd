@@ -1,6 +1,7 @@
 ---
 title: R Exercises
 coi: true
+bt-key-page: api-key.html
 ---
 
 # R Exercises

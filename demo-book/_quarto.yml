@@ -8,6 +8,7 @@ book:
   description: "A demo Quarto book with R and Python blendtutor exercises."
   chapters:
     - index.qmd
+    - api-key.qmd
     - r-exercises.qmd
     - python-exercises.qmd
 

@@ -467,6 +467,29 @@ else
     else
       ko "asset href file check — rendered HTML dir not found: $RENDER_HTML_DIR"
     fi
+
+    # Issue #168 AC-7 P5 render arm: the rendered api-key.html exists, carries
+    # the .blendtutor-key mount div, and every chapter page (api-key,
+    # r-exercises, python-exercises) carries the __btConfig.keyPageUrl head
+    # script emitted by the vendored blendtutor.lua (AC-3 C19-C22). This is
+    # the tripwire for a stale vendored _extensions copy lacking AC-3's
+    # key-page reader.
+    echo "== AC-7 P5: rendered api-key page + __btConfig =="
+    AC7_RENDER_FAIL=0
+    if [ -f "$RENDER_HTML_DIR/api-key.html" ] && grep -qF 'class="blendtutor-key"' "$RENDER_HTML_DIR/api-key.html"; then
+      ok "api-key.html rendered with class=\"blendtutor-key\""
+    else
+      ko "api-key.html rendered with class=\"blendtutor-key\" — missing or wrong class"
+      AC7_RENDER_FAIL=1
+    fi
+    for page in api-key r-exercises python-exercises; do
+      if [ -f "$RENDER_HTML_DIR/$page.html" ] && grep -qF '__btConfig' "$RENDER_HTML_DIR/$page.html"; then
+        ok "$page.html carries __btConfig"
+      else
+        ko "$page.html carries __btConfig — missing (stale vendored lua?)"
+        AC7_RENDER_FAIL=1
+      fi
+    done
   fi
 fi
 
@@ -723,6 +746,63 @@ else
   else
     ko "index.qmd has >=1 Python exercise — found $INDEX_PY (need >=1)"
   fi
+fi
+
+# Issue #168 AC-7 (byok-api-key): demo-book API key page chapter. Structural
+# arms (no quarto needed) — the key page exists with the exact .blendtutor-key
+# fenced div, is registered FIRST in book.chapters (before r-exercises), both
+# exercise chapters declare bt-key-page: api-key.html, and the index BYOK
+# section is Fireworks-only (no ANTHROPIC_API_KEY env advice).
+echo "== AC-7: demo-book API key page (structural) =="
+AC7_STRUCT_FAIL=0
+if [ ! -f "$DEMO_BOOK_DIR/api-key.qmd" ]; then
+  ko "AC-7 api-key.qmd exists — demo-book/api-key.qmd not found"
+  AC7_STRUCT_FAIL=1
+else
+  if grep -qF '::: {.blendtutor-key}' "$DEMO_BOOK_DIR/api-key.qmd"; then
+    ok "api-key.qmd has fenced div ::: {.blendtutor-key}"
+  else
+    ko "api-key.qmd has fenced div — '::: {.blendtutor-key}' not found"
+    AC7_STRUCT_FAIL=1
+  fi
+fi
+KEY_PAGE_LINE=$(grep -nF -- '- api-key.qmd' "$DEMO_BOOK_DIR/_quarto.yml" 2>/dev/null | head -1 | cut -d: -f1) || KEY_PAGE_LINE=""
+R_EXERCISES_LINE=$(grep -nF -- '- r-exercises.qmd' "$DEMO_BOOK_DIR/_quarto.yml" 2>/dev/null | head -1 | cut -d: -f1) || R_EXERCISES_LINE=""
+if [ -n "$KEY_PAGE_LINE" ] && [ -n "$R_EXERCISES_LINE" ] && [ "$KEY_PAGE_LINE" -lt "$R_EXERCISES_LINE" ]; then
+  ok "api-key.qmd registered before r-exercises.qmd in book.chapters (line $KEY_PAGE_LINE < $R_EXERCISES_LINE)"
+else
+  ko "api-key.qmd registered before r-exercises.qmd — missing or after r-exercises in _quarto.yml"
+  AC7_STRUCT_FAIL=1
+fi
+if [ -f "$DEMO_BOOK_DIR/r-exercises.qmd" ] && grep -qF 'bt-key-page: api-key.html' "$DEMO_BOOK_DIR/r-exercises.qmd"; then
+  ok "r-exercises.qmd front matter has bt-key-page: api-key.html"
+else
+  ko "r-exercises.qmd front matter — 'bt-key-page: api-key.html' not found"
+  AC7_STRUCT_FAIL=1
+fi
+if [ -f "$DEMO_BOOK_DIR/python-exercises.qmd" ] && grep -qF 'bt-key-page: api-key.html' "$DEMO_BOOK_DIR/python-exercises.qmd"; then
+  ok "python-exercises.qmd front matter has bt-key-page: api-key.html"
+else
+  ko "python-exercises.qmd front matter — 'bt-key-page: api-key.html' not found"
+  AC7_STRUCT_FAIL=1
+fi
+if [ -f "$DEMO_BOOK_DIR/index.qmd" ] && grep -qF 'Fireworks' "$DEMO_BOOK_DIR/index.qmd"; then
+  ok "index.qmd BYOK section mentions Fireworks"
+else
+  ko "index.qmd BYOK section — 'Fireworks' not found"
+  AC7_STRUCT_FAIL=1
+fi
+if [ -f "$DEMO_BOOK_DIR/index.qmd" ] && grep -qF 'api-key.html' "$DEMO_BOOK_DIR/index.qmd"; then
+  ok "index.qmd BYOK section links api-key.html"
+else
+  ko "index.qmd BYOK section — 'api-key.html' link not found"
+  AC7_STRUCT_FAIL=1
+fi
+if [ -f "$DEMO_BOOK_DIR/index.qmd" ] && ! grep -qF 'ANTHROPIC_API_KEY' "$DEMO_BOOK_DIR/index.qmd"; then
+  ok "index.qmd has zero ANTHROPIC_API_KEY (Fireworks-only BYOK)"
+else
+  ko "index.qmd has zero ANTHROPIC_API_KEY — stale env-var advice survives"
+  AC7_STRUCT_FAIL=1
 fi
 
 # ---------------------------------------------------------------------------

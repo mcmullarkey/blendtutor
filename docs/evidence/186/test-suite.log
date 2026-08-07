@@ -1,8 +1,12 @@
-=== test_quarto_feedback.py ===
+=== AC-7 Per-exercise BYOK LLM feedback — test_quarto_feedback.py ===
+
   PASS: exercise-feedback.js exists
   PASS: feedback.qmd exists
+-- Clause 6: llm_evaluation_prompt ABSENT --
   PASS: llm_evaluation_prompt ABSENT from exercise-feedback.js
   PASS: llm_evaluation_prompt ABSENT from feedback.qmd
+
+-- Source-pattern checks --
   PASS: pure function exported: neutralize
   PASS: pure function exported: buildPrompt
   PASS: pure function exported: parseModels
@@ -42,6 +46,8 @@
   PASS: feedback UI elements carry data-byok markers (dataset.byok)
   PASS: fetch() called in backends (feedback is not silently skipped)
   PASS: no module-level applyEmbeddedKey() call (pure layer importable)
+
+-- AC-5 source checks (issue #166) --
   PASS: AC-5 arm 3 (source): FIREWORKS_MODEL pinned to deepseek-v4-flash-0731 at both uses (fallbackModel + const)
   PASS: AC-5 arm 3 (source): no unpinned deepseek-v4-flash model literal remains
   PASS: AC-5 arm 4 (source): renderModelPicker removed
@@ -54,9 +60,14 @@
   PASS: AC-5 arm 1 (source): exercise-runtime.js has zero exercise-feedback references
   PASS: AC-5 (fixture): feedback.qmd sets window.__btConfig.maxFeedbackPerSession
   PASS: AC-5 (fixture): __btConfig uses the C22 merge pattern (no keyPageUrl clobber)
+
+-- Issue #179 lua emission check --
   PASS: issue #179 (source): blendtutor.lua emits maxFeedbackPerSession default 20 (crates parity)
   PASS: issue #179 (source): __btConfig merge pattern in blendtutor.lua (no keyPageUrl clobber)
   PASS: issue #179 (source): build_key_page_config_script has no bare __btConfig clobber
+
+-- Behavioral checks (Node.js) --
+[blendtutor] Exercise "exC" feedback already in flight, ignoring concurrent request.
   PASS: buildPrompt emits STUDENT_CODE_BEGIN fence
   PASS: buildPrompt emits STUDENT_CODE_END fence
   PASS: buildPrompt includes task
@@ -172,115 +183,70 @@
   PASS: AC-5 arm 14: no .bt-feedback-wrapper created when controls present
   PASS: AC-5 arm 14: feedback container is a direct child of the exercise element
   PASS: Node.js behavioral tests passed (all pure-function assertions)
+TAP version 13
+# Subtest: keyPageUrl() returns api-key.html when window is absent (Node, no DOM)
+ok 1 - keyPageUrl() returns api-key.html when window is absent (Node, no DOM)
+  ---
+  duration_ms: 2.245916
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() returns api-key.html when __btConfig is undefined
+ok 2 - keyPageUrl() returns api-key.html when __btConfig is undefined
+  ---
+  duration_ms: 0.09225
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() returns api-key.html when the config key is absent
+ok 3 - keyPageUrl() returns api-key.html when the config key is absent
+  ---
+  duration_ms: 0.0665
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() returns api-key.html when the config key is empty
+ok 4 - keyPageUrl() returns api-key.html when the config key is empty
+  ---
+  duration_ms: 0.058166
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() returns the configured value verbatim
+ok 5 - keyPageUrl() returns the configured value verbatim
+  ---
+  duration_ms: 0.138584
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() rejects the javascript: scheme (case-insensitive, trimmed)
+ok 6 - keyPageUrl() rejects the javascript: scheme (case-insensitive, trimmed)
+  ---
+  duration_ms: 0.083667
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() rejects the data: scheme
+ok 7 - keyPageUrl() rejects the data: scheme
+  ---
+  duration_ms: 0.125709
+  type: 'test'
+  ...
+# Subtest: keyPageUrl() allows ordinary relative and https URLs through
+ok 8 - keyPageUrl() allows ordinary relative and https URLs through
+  ---
+  duration_ms: 0.059916
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 59.25225
   PASS: keyPageUrl standalone node:test suite passed (8 tests, incl. typeof-window-absent branch)
+
+-- feedback.qmd structure --
   PASS: feedback.qmd has 2 exercises (>=2 for key-reuse test)
   PASS: feedback.qmd imports exercise-feedback.js
   PASS: feedback.qmd imports exercise-runtime.js (AC-4 dependency)
   PASS: feedback.qmd calls mountFeedback/mountAllFeedback
-=== Results: 64 passed, 0 failed ===
 
-=== test_quarto_key_page.py ===
-  PASS: key-page.js exists
-  PASS: exercise-feedback.js exists (import contract source)
-  PASS: P1: key-page.js imports from './exercise-feedback.js'
-  PASS: P1: import contract includes readKey
-  PASS: P1: import contract includes storeKey
-  PASS: P1: import contract includes clearKey
-  PASS: P1: import contract includes providerBaseUrl
-  PASS: P1: import contract includes PROVIDERS
-  PASS: P1: no literal 'fireworks_api_key' anywhere in source
-  PASS: P1: no literal 'anthropic_api_key' anywhere in source
-  PASS: P1: no literal 'byok_provider' anywhere in source
-  PASS: P1: no literal 'bt_feedback_count' anywhere in source
-  PASS: P1: no literal 'api.fireworks.ai' anywhere in source
-  PASS: P1: no literal 'sessionStorage' anywhere in source
-  PASS: P3: classifyValidation present (discriminated result)
-  PASS: P3: validation does NOT reuse listModels (401 must not collapse into []/network)
-  PASS: P5: zero console. calls (key never logged)
-  PASS: P5: zero innerHTML usage (textContent-only rendering)
-  PASS: P5: rendering is textContent-based
-  PASS: P6: password input has type=password
-  PASS: P6: password input has autocomplete=off
-  PASS: P15: buildValidationUrl is an exported pure function
-  PASS: P15: buildValidationUrl body contains no fetch(
-  PASS: P15: buildValidationUrl body contains no localStorage
-  PASS: P15: buildValidationUrl body contains no document.
-  PASS: P15: classifyValidation is an exported pure function
-  PASS: P15: classifyValidation body contains no fetch(
-  PASS: P15: classifyValidation body contains no localStorage
-  PASS: P15: classifyValidation body contains no document.
-  PASS: P15: statusMessage is an exported pure function
-  PASS: P15: statusMessage body contains no fetch(
-  PASS: P15: statusMessage body contains no localStorage
-  PASS: P15: statusMessage body contains no document.
-  PASS: P16: docstring header names WHAT/WHERE/NOT
-  PASS: P16: at most 5 public exports (found 4)
-  PASS: P16: public export buildValidationUrl
-  PASS: P16: public export classifyValidation
-  PASS: P16: public export statusMessage
-  PASS: P16: public export mountKeyPage
-  PASS: P3: 2xx -> {ok:true}
-  PASS: P3: any 2xx is ok
-  PASS: P3: 401 -> invalid-key
-  PASS: P3: 403 -> invalid-key
-  PASS: P3: other non-2xx -> network
-  PASS: P3: thrown fetch -> network
-  PASS: P4: statusMessage(saved) has friendly copy
-  PASS: P4: statusMessage(invalid-key) has friendly copy
-  PASS: P4: statusMessage(network) has friendly copy
-  PASS: P4: statusMessage(empty) has friendly copy
-  PASS: P4: statusMessage(cleared) has friendly copy
-  PASS: P2: validation URL honors localhost ?provider= override
-  PASS: P2: default validation URL ends with /models
-  PASS: P10: no-key mount renders a form
-  PASS: P10: no-key mount renders a password input
-  PASS: P6: input type is password
-  PASS: P6: input autocomplete is off
-  PASS: P10: no-key mount renders the Save button
-  PASS: P10: no-key mount has no Clear button
-  PASS: P13: submit handler calls preventDefault
-  PASS: P7: Save stores key via imported storeKey (AC-1 signature, key first)
-  PASS: P7: readKey round-trips the saved key
-  PASS: P14: input value reset to empty AFTER storeKey
-  PASS: P11: one save issues exactly one fetch
-  PASS: P2: validation fetch targets the host-gated models URL
-  PASS: key rides Authorization header, never the body
-  PASS: P7: save reports saved status on 2xx
-  PASS: P5: key never echoed into any DOM textContent
-  PASS: P5: at least one non-empty textContent after save
-  PASS: P9: empty save does NOT clear the existing key
-  PASS: P9: empty save issues no fetch
-  PASS: P9: empty save reports the empty status
-  PASS: P10: key-set mount shows 'key is set' status
-  PASS: P10: key-set mount shows the Clear button
-  PASS: P10: key-set mount renders NO input — the key is never pre-filled
-  PASS: P8: Clear removes the provider key slot
-  PASS: P8: Clear removes bt_feedback_count (no rate-lock)
-  PASS: P8: readKey returns null after Clear
-  PASS: P10: after Clear, UI returns to the empty input form
-  PASS: P10: post-Clear input starts empty
-  PASS: after Clear, the Clear button is gone
-  PASS: P4: Clear reports the cleared status
-  PASS: P11: double mount does not re-render (same form instance)
-  PASS: P11: double mount does not duplicate the submit listener
-  PASS: P11: double mount -> one save -> exactly one fetch
-  PASS: P11: save still works after double mount
-  PASS: P12: mountKeyPage(null/undefined) no-op without crash
-  PASS: P3: 401 save reports invalid-key (not collapsed into network)
-  PASS: 401 save issued one fetch
-  PASS: advisory: key stored even when validation rejects
-  PASS: P3: thrown fetch reports network
-  PASS: network save issued one fetch
-  PASS: storage-unavailable: ZERO fetches issued when storeKey throws
-  PASS: storage-unavailable: friendly storage status rendered
-  PASS: storage-unavailable: key NOT stored
-  PASS: storage-unavailable: input keeps its value for retry (no silent wipe)
-  PASS: P17: empty save does NOT fire onSaved
-  PASS: P17: empty save still reports the empty status
-  PASS: P17: storage-unavailable save does NOT fire onSaved
-  PASS: P17: storage-unavailable save issues no fetch (onSaved would continue a doomed flow)
-  PASS: P17: successful save fires onSaved EXACTLY once
-  PASS: P17: key stored alongside onSaved (onSaved runs after storeKey)
-  PASS: P17: successful save still issues one validation fetch
-  PASS: Node.js behavioral tests passed (all key-page assertions)
-=== Results: 40 passed, 0 failed ===
+=== Results: 64 passed, 0 failed ===

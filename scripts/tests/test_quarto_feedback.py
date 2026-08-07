@@ -2,8 +2,9 @@
 """Executable spec for issue #112 — Per-exercise BYOK LLM feedback.
 
 Verifies the 9-clause predicate from AC-7, the issue #162 localStorage
-migration (P1-P7), the issue #167 Fireworks-only learner UX (C1-C6), and
-the issue #165 no-key link (AC-4 arms 1-7):
+migration (P1-P7), the issue #167 Fireworks-only learner UX (C1-C6), the
+issue #165 no-key link (AC-4 arms 1-7), and the issue #166 check-output
+wiring (AC-5 arms 1-13):
   1. key entered once — shared localStorage key slot (provider-scoped, not
      exercise-scoped); entered once, reused across exercises.
   2. per-exercise scoping — each exercise has its own feedback container; no
@@ -26,14 +27,25 @@ the issue #165 no-key link (AC-4 arms 1-7):
       rejected (arm 6); keyPageUrl() exported pure fn (arm 7); inline form
       tokens (provider-key input, Save key & get feedback, innerHTML) absent
       (arm 1); no-key guard first in submit flow (arm 4).
-  5. ?provider= override — providerBaseUrl honors a localhost-only override and
-     rejects non-local / credentialed overrides.
-  6. llm_evaluation_prompt ABSENT — never in the JS source or the qmd fixture.
-  7. fetch spy (STUDENT_CODE fences) — buildPrompt emits STUDENT_CODE fences;
-     the backend calls fetch with the prompt body.
-  8. concurrent — per-exercise concurrent feedback guard prevents overlapping
-     requests.
-  9. UI visibility — feedback button + container mounted per-exercise.
+   5. ?provider= override — providerBaseUrl honors a localhost-only override and
+      rejects non-local / credentialed overrides.
+   6. llm_evaluation_prompt ABSENT — never in the JS source or the qmd fixture.
+   7. fetch spy (STUDENT_CODE fences) — buildPrompt emits STUDENT_CODE fences;
+      the backend calls fetch with the prompt body.
+   8. concurrent — per-exercise concurrent feedback guard prevents overlapping
+      requests.
+   9. UI visibility — feedback button + container mounted per-exercise.
+   AC-5 (issue #166): check output wired into the LLM prompt. (a) static:
+      FIREWORKS_MODEL pinned to deepseek-v4-flash-0731 at BOTH uses; zero
+      innerHTML; renderModelPicker/modelPickerPresent/selectedModel removed;
+      exercise-runtime.js has zero exercise-feedback references; rateLimitReached
+      evaluated before getFeedback. (b) Node: buildPrompt emits
+      <<<CAPTURED_OUTPUT>>> + <<<CHECK_RESULTS>>> + Task + code fences; the
+      fetch-spy suite drives the REAL handleSubmitForExercise through
+      mountFeedback clicks and asserts arms 2,4,5,7,8,9,10,11,12,13
+      (button sole trigger, no picker, per-exercise output scoping, XSS
+      textContent-only verdict, rate-limit/no-key refusal, error path,
+      concurrent guard, empty-output tolerance).
 
 Negative: silently skips fetch (no fetch call). Cross-exercise bleed (key
 re-prompted per exercise). llm_evaluation_prompt leaks into the browser.
@@ -51,6 +63,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 JS_PATH = REPO_ROOT / "_extensions" / "blendtutor" / "assets" / "exercise-feedback.js"
+RUNTIME_PATH = REPO_ROOT / "_extensions" / "blendtutor" / "assets" / "exercise-runtime.js"
 QMD_PATH = REPO_ROOT / "quarto-fixture" / "feedback.qmd"
 
 PASS = 0
@@ -381,8 +394,12 @@ def check_mount_per_exercise(src: str) -> None:
         ok("mountFeedback/mountAllFeedback present (per-exercise mount)")
     else:
         ko("mountFeedback missing — no per-exercise mount function")
-    if "data-byok" in src or "data-feedback" in src:
-        ok("feedback UI elements carry data-byok/data-feedback markers")
+    # The marker mechanism is `dataset.byok = "..."` (DOM-built, no literal
+    # data-byok attributes). AC-5 removed the picker strings that were the
+    # last literal `data-byok="..."` tokens, so the check follows the
+    # mechanism, not the old hyphenated literals.
+    if "dataset.byok" in src:
+        ok("feedback UI elements carry data-byok markers (dataset.byok)")
     else:
         ko("feedback UI markers missing")
 
@@ -414,6 +431,129 @@ def check_no_module_level_effect(src: str) -> None:
         ok("no module-level applyEmbeddedKey() call (pure layer importable)")
     else:
         ko("module-level applyEmbeddedKey() call — pure layer not importable")
+
+
+# ---------------------------------------------------------------------------
+# AC-5 (issue #166): check-output wiring + pinned model + picker collapse
+# ---------------------------------------------------------------------------
+
+
+def check_ac5_model_pin(src: str) -> None:
+    """AC-5 arm 3 (source): FIREWORKS_MODEL pinned to the -0731 model at BOTH
+    uses — the PROVIDERS.fireworks.fallbackModel and the module constant. A
+    stale unpinned literal (`deepseek-v4-flash"` without the -0731 suffix)
+    fails, so a partial pin (one use updated, one left) is caught.
+    """
+    pinned = "accounts/fireworks/models/deepseek-v4-flash-0731"
+    count = src.count(pinned)
+    if count == 2:
+        ok("AC-5 arm 3 (source): FIREWORKS_MODEL pinned to deepseek-v4-flash-0731 at both uses (fallbackModel + const)")
+    else:
+        ko(f"AC-5 arm 3 (source): expected pinned model literal x2, found {count}")
+    if src.count('deepseek-v4-flash"') == 0:
+        ok("AC-5 arm 3 (source): no unpinned deepseek-v4-flash model literal remains")
+    else:
+        ko("AC-5 arm 3 (source): unpinned deepseek-v4-flash literal remains")
+
+
+def check_ac5_picker_absent(src: str) -> None:
+    """AC-5 arm 4 (source): the model picker is gone. The three picker
+    symbols are removed, and the data-byok="model-picker" literal is absent —
+    absence, not concealment: a hidden-but-rendered picker (display:none)
+    would still trip this check.
+    """
+    code = _strip_comments(src)
+    for sym in ("renderModelPicker", "modelPickerPresent", "selectedModel"):
+        if sym not in code:
+            ok(f"AC-5 arm 4 (source): {sym} removed")
+        else:
+            ko(f"AC-5 arm 4 (source): {sym} still present")
+    if 'data-byok="model-picker"' not in code:
+        ok('AC-5 arm 4 (source): data-byok="model-picker" literal absent (never rendered)')
+    else:
+        ko('AC-5 arm 4 (source): data-byok="model-picker" literal still present')
+
+
+def check_ac5_submit_single_path(src: str) -> None:
+    """AC-5 arm 4 (source): handleSubmitForExercise collapses to ONE path —
+    key check → rate-limit check → fetch. No picker phase between the key
+    check and the rate-limit check.
+    """
+    start = src.find("async function handleSubmitForExercise")
+    end = src.find("// --- embedded key")
+    if start == -1 or end == -1 or end < start:
+        ko("AC-5 arm 4 (source): handleSubmitForExercise region not found")
+        return
+    region = src[start:end]
+    key_idx = region.find("if (!apiKey)")
+    rate_idx = region.find("rateLimitReached()")
+    fetch_idx = region.find("getFeedback")
+    if key_idx != -1 and rate_idx != -1 and fetch_idx != -1 and key_idx < rate_idx < fetch_idx:
+        ok("AC-5 arm 4 (source): submit flow is key check → rate-limit check → fetch (no picker phase)")
+    else:
+        ko("AC-5 arm 4 (source): submit flow must be key check → rate-limit check → fetch")
+
+
+def check_ac5_zero_inner_html(src: str) -> None:
+    """AC-5 arm 8 (source): zero innerHTML in exercise-feedback.js — the
+    verdict render is textContent-only (XSS). Comments stripped so the
+    documentation of the negative doesn't false-positive.
+    """
+    code = _strip_comments(src)
+    if "innerHTML" not in code:
+        ok("AC-5 arm 8 (source): zero innerHTML (verdict render is textContent-only)")
+    else:
+        ko("AC-5 arm 8 (source): innerHTML found — verdict must render via textContent")
+
+
+def check_ac5_rate_limit_ordering(src: str) -> None:
+    """AC-5 arm 9 (source): rateLimitReached() is evaluated BEFORE the
+    getFeedback fetch inside handleSubmitForExercise. A reordering that let
+    a capped learner fire a request would fail this check.
+    """
+    start = src.find("async function handleSubmitForExercise")
+    end = src.find("// --- embedded key")
+    if start == -1 or end == -1 or end < start:
+        ko("AC-5 arm 9 (source): handleSubmitForExercise region not found")
+        return
+    region = src[start:end]
+    rate_idx = region.find("rateLimitReached()")
+    fetch_idx = region.find("getFeedback")
+    if rate_idx != -1 and fetch_idx != -1 and rate_idx < fetch_idx:
+        ok("AC-5 arm 9 (source): rateLimitReached() evaluated before getFeedback")
+    else:
+        ko("AC-5 arm 9 (source): rateLimitReached() must be evaluated before getFeedback")
+
+
+def check_ac5_runtime_zero_feedback_refs(runtime_src: str) -> None:
+    """AC-5 arm 1 (source): exercise-runtime.js contains ZERO references to
+    the feedback module — the runtime can never auto-trigger a feedback
+    fetch. The token checked is the module/file name "exercise-feedback";
+    the bare word "feedback" appears legitimately in the runtime header's
+    NOT list ("NOT feedback (AC-7)").
+    """
+    if "exercise-feedback" not in runtime_src:
+        ok("AC-5 arm 1 (source): exercise-runtime.js has zero exercise-feedback references")
+    else:
+        ko("AC-5 arm 1 (source): exercise-runtime.js references exercise-feedback")
+
+
+def check_ac5_fixture_config(qmd: str) -> None:
+    """AC-5 fixture: feedback.qmd sets maxFeedbackPerSession so the rate-limit
+    path is reachable in the fixture. Absent, rateLimitReached() reads
+    maxFeedbackPerSession || 0 → count >= 0 is always true → feedback is
+    silently disabled. Must use the C22 MERGE pattern (never a bare
+    window.__btConfig = {...} clobber — the lua head script sets keyPageUrl
+    on the same object).
+    """
+    if "maxFeedbackPerSession" in qmd:
+        ok("AC-5 (fixture): feedback.qmd sets window.__btConfig.maxFeedbackPerSession")
+    else:
+        ko("AC-5 (fixture): feedback.qmd missing maxFeedbackPerSession — rateLimitReached() returns 0>=0===true, feedback silently disabled")
+    if "window.__btConfig = window.__btConfig || {};" in qmd:
+        ok("AC-5 (fixture): __btConfig uses the C22 merge pattern (no keyPageUrl clobber)")
+    else:
+        ko("AC-5 (fixture): __btConfig must use the C22 merge pattern (window.__btConfig = window.__btConfig || {})")
 
 
 # ---------------------------------------------------------------------------
@@ -452,8 +592,15 @@ function elementMatches(el, selector) {
   if (selector === "option" || selector === "form" || selector === "p" || selector === "a" || selector === "button") {
     return el.tagName === selector.toUpperCase();
   }
-  const m = /^([a-z]+)\[data-byok="([^"]+)"\]$/.exec(selector);
-  if (m) return el.tagName === m[1].toUpperCase() && el.dataset.byok === m[2];
+  // data-byok with OPTIONAL tag prefix: "[data-byok=\"x\"]" and
+  // "div[data-byok=\"x\"]" both match (the runtime queries both forms).
+  const m = /^([a-z]*)\[data-byok="([^"]+)"\]$/.exec(selector);
+  if (m) {
+    const tagOk = m[1] === "" || el.tagName === m[1].toUpperCase();
+    return tagOk && el.dataset.byok === m[2];
+  }
+  const mc = /^\.([A-Za-z0-9_-]+)$/.exec(selector);
+  if (mc) return String(el.className || "").split(/\s+/).includes(mc[1]);
   const mn = /^input\[name="([^"]+)"\]$/.exec(selector);
   if (mn) return el.tagName === "INPUT" && el.name === mn[1];
   const mi = /^#([A-Za-z0-9_-]+)$/.exec(selector);
@@ -476,6 +623,7 @@ function mockElement(tag) {
   return {
     tagName: tag.toUpperCase(),
     dataset: {},
+    className: "",
     children: [],
     _handlers: {},
     value: "",
@@ -725,6 +873,215 @@ mod.renderKeyPrompt(lazyContainer);
 const lazyLink = lazyContainer.querySelector("a");
 assert(lazyLink.href === "/custom/keys.html", "AC-4 arm 2: lazy read at render time — post-import eval-set config honored");
 
+// ===========================================================================
+// AC-5 (issue #166): check-output wiring + pinned model + picker collapse
+// ===========================================================================
+// buildPrompt direct assertions (probe b) — the labelled sections must be
+// emitted with the fixture-shaped args.
+const ac5Prompt = mod.buildPrompt({
+  task: "Add two numbers",
+  code: "add <- function(a, b) a + b",
+  output: "OUTPUT-ALPHA",
+  checks: ["stopifnot(add(1,2)==3)"],
+});
+assert((ac5Prompt.match(/<<<CAPTURED_OUTPUT>>>/g) || []).length === 1, "AC-5 arm 5 (Node): buildPrompt emits <<<CAPTURED_OUTPUT>>> exactly once");
+assert((ac5Prompt.match(/<<<CHECK_RESULTS>>>/g) || []).length === 1, "AC-5 arm 6 (Node): buildPrompt emits <<<CHECK_RESULTS>>> exactly once");
+assert((ac5Prompt.match(/OUTPUT-ALPHA/g) || []).length === 1, "AC-5 arm 5 (Node): output text appears exactly once");
+assert(ac5Prompt.includes("Task:") && ac5Prompt.includes("Add two numbers"), "AC-5 arm 6 (Node): buildPrompt includes Task line");
+assert(ac5Prompt.includes("<<<STUDENT_CODE_BEGIN>>>") && ac5Prompt.includes("<<<STUDENT_CODE_END>>>"), "AC-5 arm 6 (Node): buildPrompt includes code fences");
+const emptyPrompt = mod.buildPrompt({ task: "t", code: "c", output: "", checks: [] });
+assert(emptyPrompt.includes("<<<CAPTURED_OUTPUT>>>"), "AC-5 arm 13 (Node): empty output still yields CAPTURED_OUTPUT section (not an error)");
+assert(!emptyPrompt.includes("undefined") && !emptyPrompt.includes("null"), "AC-5 arm 13 (Node): empty output never injects undefined/null");
+assert(mod.PROVIDERS.fireworks.fallbackModel === "accounts/fireworks/models/deepseek-v4-flash-0731", "AC-5 arm 3 (Node): PROVIDERS.fireworks.fallbackModel pinned to -0731");
+
+// --- AC-5 DOM→prompt wiring (fetch-spy behavioral suite) -------------------
+// The negative says a pure buildPrompt call passes while the DOM→prompt
+// wiring is broken — so arms 2,4,5,7,8,9,10,11,12,13 are asserted by driving
+// the REAL handleSubmitForExercise through mountFeedback clicks against a
+// recording fetch spy (no stub server; AC-8 owns the production stub).
+const PINNED_MODEL = "accounts/fireworks/models/deepseek-v4-flash-0731";
+const verdictOk = {
+  choices: [{ message: { tool_calls: [{ function: {
+    name: "respond_with_feedback",
+    arguments: '{"is_correct":true,"feedback_message":"Great job"}',
+  } } ] } }],
+};
+let fetchCalls = [];
+function installFetchSpy() {
+  fetchCalls = [];
+  globalThis.fetch = async (url, opts) => {
+    fetchCalls.push({ url: String(url), opts: opts || {} });
+    return { ok: true, json: async () => verdictOk };
+  };
+}
+function makeEntry({ id, code, output, task, checks }) {
+  const element = mockElement("div");
+  element.className = "bt-exercise";
+  const outputEl = mockElement("div");
+  outputEl.className = "bt-output";
+  outputEl.textContent = output || "";
+  element.appendChild(outputEl);
+  return {
+    id,
+    element,
+    payload: {
+      prompt: task || "Write a function that adds two numbers.",
+      checks: checks || ["stopifnot(add(1,2)==3)"],
+    },
+    getSubmission: () => code || "add <- function(a, b) a + b",
+  };
+}
+function mountAndClick(entry) {
+  mod.mountFeedback(entry);
+  entry.element.querySelector(".bt-feedback-btn").dispatchEvent({ type: "click" });
+}
+async function flush() {
+  await new Promise((r) => setTimeout(r, 20));
+}
+function promptBodyAt(i) {
+  const call = fetchCalls[i];
+  if (!call || call.url.indexOf("/chat/completions") === -1) return null;
+  return JSON.parse(call.opts.body);
+}
+
+// Arm 1: mounting feedback triggers ZERO fetches (no auto-fire).
+localStorageMap.clear();
+globalThis.window.__btConfig = { maxFeedbackPerSession: 100 };
+mod.storeKey("k-test", "fireworks");
+installFetchSpy();
+const e0 = makeEntry({ id: "ex0", output: "" });
+mod.mountFeedback(e0);
+await flush();
+assert(fetchCalls.length === 0, "AC-5 arm 1: mounting feedback triggers ZERO fetches (no auto-fire)");
+
+// Arms 2,3,4,5,6: single click after key stored → exactly one chat/completions
+// POST with pinned model + full labelled prompt; verdict rendered; no picker.
+installFetchSpy();
+const e1 = makeEntry({ id: "ex1", code: "add <- function(a, b) a + b", output: "OUTPUT-ALPHA", task: "Add two numbers." });
+mountAndClick(e1);
+await flush();
+assert(fetchCalls.length === 1, "AC-5 arm 2: ONE click after key stored → exactly ONE fetch");
+assert(fetchCalls[0].url === "https://api.fireworks.ai/inference/v1/chat/completions", "AC-5 arm 2: fetch POST to ${providerBaseUrl('fireworks')}/chat/completions");
+assert(fetchCalls[0].opts.method === "POST", "AC-5 arm 2: fetch method is POST");
+const body1 = promptBodyAt(0);
+if (body1) {
+  assert(body1.model === PINNED_MODEL, "AC-5 arm 3: request body model is the pinned -0731 model");
+  const prompt1 = body1.messages[0].content;
+  assert((prompt1.match(/<<<CAPTURED_OUTPUT>>>/g) || []).length === 1, "AC-5 arm 5: prompt contains <<<CAPTURED_OUTPUT>>> exactly once");
+  assert((prompt1.match(/OUTPUT-ALPHA/g) || []).length === 1, "AC-5 arm 5: prompt contains this exercise's .bt-output text exactly once");
+  assert(prompt1.indexOf("OUTPUT-ALPHA") > prompt1.indexOf("<<<CAPTURED_OUTPUT>>>"), "AC-5 arm 5: output text is fenced under the CAPTURED_OUTPUT label");
+  assert(prompt1.includes("<<<CHECK_RESULTS>>>"), "AC-5 arm 6: prompt contains <<<CHECK_RESULTS>>> block");
+  assert(prompt1.includes("<<<STUDENT_CODE_BEGIN>>>") && prompt1.includes("<<<STUDENT_CODE_END>>>"), "AC-5 arm 6: prompt contains student code fences");
+  assert(prompt1.includes("Task:") && prompt1.includes("Add two numbers."), "AC-5 arm 6: prompt contains Task line + lesson prompt");
+} else {
+  assert(false, "AC-5 arm 3: expected a chat/completions POST (no body captured)");
+}
+assert(e1.feedbackContainer.querySelector('[data-byok="model-picker"]') === null, "AC-5 arm 4: NO model-picker rendered — single click goes straight to fetch");
+assert(e1.feedbackContainer.querySelector('[data-byok="verdict"]') !== null, "AC-5 arm 2: verdict rendered after fetch");
+const btn1 = e1.element.querySelector(".bt-feedback-btn");
+assert(btn1.textContent === "Get feedback", "AC-5 arm 2: button textContent EXACT 'Get feedback'");
+assert(btn1.disabled !== true, "AC-5 arm 13: button enabled (not disabled-gated) before Check");
+
+// Arm 7: no cross-exercise bleed — two exercises, each prompt carries its own
+// .bt-output text and NOT the other's.
+localStorageMap.clear();
+globalThis.window.__btConfig = { maxFeedbackPerSession: 100 };
+mod.storeKey("k-test", "fireworks");
+installFetchSpy();
+const eA = makeEntry({ id: "exA", output: "OUTPUT-A-TEXT" });
+const eB = makeEntry({ id: "exB", output: "OUTPUT-B-TEXT" });
+mountAndClick(eA);
+await flush();
+mountAndClick(eB);
+await flush();
+assert(fetchCalls.length === 2, "AC-5 arm 7: two exercises → two fetches (one per click)");
+const promptA = promptBodyAt(0);
+const promptB = promptBodyAt(1);
+if (promptA && promptB) {
+  const contentA = promptA.messages[0].content;
+  const contentB = promptB.messages[0].content;
+  assert(contentA.includes("OUTPUT-A-TEXT") && !contentA.includes("OUTPUT-B-TEXT"), "AC-5 arm 7: exercise A's prompt has A's output, NOT B's");
+  assert(contentB.includes("OUTPUT-B-TEXT") && !contentB.includes("OUTPUT-A-TEXT"), "AC-5 arm 7: exercise B's prompt has B's output, NOT A's");
+} else {
+  assert(false, "AC-5 arm 7: expected two chat/completions POSTs");
+}
+
+// Arm 8: XSS — verdict payload renders as literal text; onerror NEVER runs.
+installFetchSpy();
+globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { tool_calls: [{ function: { name: "respond_with_feedback", arguments: '{"is_correct":false,"feedback_message":"<img src=x onerror=window.__xss=1>"}' } } ] } }] }) });
+const eX = makeEntry({ id: "xss", output: "" });
+mountAndClick(eX);
+await flush();
+const verdictX = eX.feedbackContainer.querySelector('[data-byok="verdict"]');
+assert(verdictX !== null && verdictX.children[1] && verdictX.children[1].textContent.includes('<img src=x onerror=window.__xss=1>'), "AC-5 arm 8: XSS payload renders as literal text");
+assert(globalThis.window.__xss === undefined, "AC-5 arm 8: window.__xss stays undefined — payload NOT executed");
+
+// Arm 9: rate limit at cap → limit-reached rendered, ZERO fetches.
+localStorageMap.clear();
+globalThis.window.__btConfig = { maxFeedbackPerSession: 3 };
+mod.storeKey("k-test", "fireworks");
+localStorageMap.set("bt_feedback_count", "3");
+installFetchSpy();
+const eR = makeEntry({ id: "exR", output: "" });
+mountAndClick(eR);
+await flush();
+assert(fetchCalls.length === 0, "AC-5 arm 9: counter at cap → ZERO fetches");
+assert(eR.feedbackContainer.querySelector('[data-byok="limit-reached"]') !== null, "AC-5 arm 9: limit-reached message rendered");
+
+// Arm 10: no key → no-key link rendered, ZERO fetches.
+localStorageMap.clear();
+globalThis.window.__btConfig = { maxFeedbackPerSession: 3 };
+installFetchSpy();
+const eN = makeEntry({ id: "exN", output: "" });
+mountAndClick(eN);
+await flush();
+assert(fetchCalls.length === 0, "AC-5 arm 10: no key → ZERO fetches");
+assert(eN.feedbackContainer.querySelector('[data-byok="no-key"]') !== null, "AC-5 arm 10: no-key link rendered");
+
+// Arm 11: failed fetch → error state rendered, counter still incremented.
+localStorageMap.clear();
+globalThis.window.__btConfig = { maxFeedbackPerSession: 3 };
+mod.storeKey("k-test", "fireworks");
+installFetchSpy();
+globalThis.fetch = async () => { throw new Error("network down"); };
+const eE = makeEntry({ id: "exE", output: "OUT" });
+mountAndClick(eE);
+await flush();
+const errBox = eE.feedbackContainer.querySelector('[data-byok="error"]');
+assert(errBox !== null && errBox.textContent.includes("Could not fetch feedback: network down"), "AC-5 arm 11: error state rendered via textContent");
+assert(mod.feedbackCount() === 1, "AC-5 arm 11: session counter incremented on failed fetch");
+localStorageMap.clear();
+
+// Arm 12: two rapid clicks → exactly ONE fetch (_feedbackRunning guard).
+globalThis.window.__btConfig = { maxFeedbackPerSession: 3 };
+mod.storeKey("k-test", "fireworks");
+installFetchSpy();
+const eC = makeEntry({ id: "exC", output: "OUT" });
+mod.mountFeedback(eC);
+const btnC = eC.element.querySelector(".bt-feedback-btn");
+btnC.dispatchEvent({ type: "click" });
+btnC.dispatchEvent({ type: "click" });
+await flush();
+assert(fetchCalls.length === 1, "AC-5 arm 12: two rapid clicks → exactly ONE fetch (_feedbackRunning guard)");
+
+// Arm 13: empty .bt-output before Check → fetch still fires, empty section.
+localStorageMap.clear();
+globalThis.window.__btConfig = { maxFeedbackPerSession: 3 };
+mod.storeKey("k-test", "fireworks");
+installFetchSpy();
+const eZ = makeEntry({ id: "exZ", output: "" });
+mountAndClick(eZ);
+await flush();
+assert(fetchCalls.length === 1, "AC-5 arm 13: empty .bt-output → fetch still fires (explicit click, no gate)");
+const promptZ = promptBodyAt(0);
+if (promptZ) {
+  const contentZ = promptZ.messages[0].content;
+  assert(contentZ.includes("<<<CAPTURED_OUTPUT>>>"), "AC-5 arm 13: prompt still has CAPTURED_OUTPUT section");
+  assert(!contentZ.includes("undefined") && !contentZ.includes("null"), "AC-5 arm 13: empty output does not inject undefined/null");
+} else {
+  assert(false, "AC-5 arm 13: expected a chat/completions POST");
+}
+
 process.exit(failures > 0 ? 1 : 0);
 """
 
@@ -850,6 +1207,9 @@ def main() -> int:
 
     src = JS_PATH.read_text()
     qmd = QMD_PATH.read_text()
+    runtime_src = (
+        RUNTIME_PATH.read_text() if RUNTIME_PATH.exists() else ""
+    )
 
     print("-- Clause 6: llm_evaluation_prompt ABSENT --")
     check_llm_eval_prompt_absent(src, qmd)
@@ -868,6 +1228,15 @@ def main() -> int:
     check_mount_per_exercise(src)
     check_fetch_in_backends(src)
     check_no_module_level_effect(src)
+
+    print("\n-- AC-5 source checks (issue #166) --")
+    check_ac5_model_pin(src)
+    check_ac5_picker_absent(src)
+    check_ac5_submit_single_path(src)
+    check_ac5_zero_inner_html(src)
+    check_ac5_rate_limit_ordering(src)
+    check_ac5_runtime_zero_feedback_refs(runtime_src)
+    check_ac5_fixture_config(qmd)
 
     print("\n-- Behavioral checks (Node.js) --")
     check_node_behavioral()

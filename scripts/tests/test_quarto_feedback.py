@@ -730,7 +730,17 @@ process.exit(failures > 0 ? 1 : 0);
 
 
 def check_node_behavioral() -> None:
-    """Run behavioral pure-function tests via Node.js."""
+    """Run behavioral pure-function tests via Node.js.
+
+    Two suites run back-to-back:
+    1. The embedded NODE_TEST_SCRIPT (assert() harness) for the full
+       feedback contract.
+    2. The standalone node:test suite at scripts/tests/key-page-url.test.js
+       (issue #165 AC-4 arm 7). It is NOT redundant with suite 1: it is the
+       only coverage of the "window absent (typeof window === 'undefined')"
+       branch — the embedded script sets globalThis.window before importing
+       the module, so it structurally cannot exercise that path.
+    """
     if not JS_PATH.exists():
         ko("Node.js behavioral tests skipped — exercise-feedback.js missing")
         return
@@ -762,6 +772,31 @@ def check_node_behavioral() -> None:
         ko("Node.js behavioral tests timed out")
     finally:
         os.unlink(tmp_path)
+
+    key_page_test = REPO_ROOT / "scripts" / "tests" / "key-page-url.test.js"
+    if not key_page_test.exists():
+        ko("key-page-url.test.js missing — standalone keyPageUrl suite skipped")
+        return
+    try:
+        result = subprocess.run(
+            ["node", "--test", str(key_page_test)],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            timeout=30,
+            check=False,
+        )
+        print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        if result.returncode == 0:
+            ok(
+                "keyPageUrl standalone node:test suite passed (8 tests, incl. typeof-window-absent branch)"
+            )
+        else:
+            ko("keyPageUrl standalone node:test suite failed — see errors above")
+    except subprocess.TimeoutExpired:
+        ko("keyPageUrl standalone node:test suite timed out")
 
 
 def shutil_which(cmd: str) -> str | None:

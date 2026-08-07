@@ -54,3 +54,140 @@ stopifnot(greet("world") == "hello, world")
 paste("hello,", name)
 ```
 :::
+
+## Exercise 3: Clean and aggregate messy sales data
+
+This exercise cleans a realistic, messy sales CSV and aggregates total revenue
+per category. Complete the six steps in the template below.
+
+::: {.blendtutor language="r"}
+A realistic sales export is often messy. The CSV below has 24 rows with
+inconsistent category capitalization, dollar signs and stray spaces in prices,
+"unknown" prices, blank quantities, and a few exact duplicate rows. Clean it
+and compute total revenue per category in six steps.
+
+Step 1 inspects the raw data. Step 2 cleans the price column by removing dollar
+signs and spaces, then converting it to numeric, so that "unknown" prices
+become missing values. Step 3 normalizes the category column by trimming
+whitespace, lowercasing, and mapping the truncated alias "Elec" to
+"electronics". Step 4 drops every row with a missing value — drop the rows, do
+NOT impute missing values. Step 5 drops exact duplicate rows, keeping only the
+first occurrence of each identical row. Step 6 computes each row's revenue as
+price times quantity and aggregates total revenue per category.
+
+Print the result after every step with a labeled print such as
+print("Step 2: cleaned price"). The final aggregate must contain exactly three
+normalized categories: books, clothing, and electronics.
+
+```r
+sales <- read.csv(text = "order_id,product,category,price,quantity
+1,Widget,Electronics,$12.50,3
+2,Gadget,electronics,$8.00,2
+3,Book A,Books,$15.00,1
+4,Shirt,Clothing,$20.00,2
+1,Widget,Electronics,$12.50,3
+5,Gadget,ELECTRONICS ,unknown,2
+6,Book B,books,$15.00,
+7,Pants,Clothing ,$25.00,1
+8,Widget,Elec,$12.50,3
+2,Gadget,electronics,$8.00,2
+9,Book C,Books,15.00,2
+10,Shirt,clothing,$20.00,2
+11,Hat,Clothing,$10.00,
+12,Gadget,electronics,$8.00,1
+13,Book D,books,$18.00,2
+14,Widget,Electronics,$ 5.00,4
+15,Pants,clothing ,$25.00,1
+16,Book E,Books,$15.00,1
+17,Gadget,ELECTRONICS,$8.00,2
+18,Widget,electronics,$12.50,3
+19,Shirt,Clothing,$20.00,2
+3,Book A,Books,$15.00,1
+20,Book F,books,unknown,1
+21,Hat,clothing,$10.00,2", stringsAsFactors = FALSE)
+
+print("Step 1: raw data")
+print(sales)
+
+# Step 2: clean the price column
+___
+
+# Step 3: normalize the category column
+___
+
+# Step 4: drop rows with missing values
+___
+
+# Step 5: drop exact duplicate rows
+___
+
+# Step 6: compute revenue and aggregate per category
+___
+```
+
+```{.r .solution}
+sales <- read.csv(text = "order_id,product,category,price,quantity
+1,Widget,Electronics,$12.50,3
+2,Gadget,electronics,$8.00,2
+3,Book A,Books,$15.00,1
+4,Shirt,Clothing,$20.00,2
+1,Widget,Electronics,$12.50,3
+5,Gadget,ELECTRONICS ,unknown,2
+6,Book B,books,$15.00,
+7,Pants,Clothing ,$25.00,1
+8,Widget,Elec,$12.50,3
+2,Gadget,electronics,$8.00,2
+9,Book C,Books,15.00,2
+10,Shirt,clothing,$20.00,2
+11,Hat,Clothing,$10.00,
+12,Gadget,electronics,$8.00,1
+13,Book D,books,$18.00,2
+14,Widget,Electronics,$ 5.00,4
+15,Pants,clothing ,$25.00,1
+16,Book E,Books,$15.00,1
+17,Gadget,ELECTRONICS,$8.00,2
+18,Widget,electronics,$12.50,3
+19,Shirt,Clothing,$20.00,2
+3,Book A,Books,$15.00,1
+20,Book F,books,unknown,1
+21,Hat,clothing,$10.00,2", stringsAsFactors = FALSE)
+
+print("Step 1: raw data")
+print(sales)
+
+sales$price <- as.numeric(gsub("[$ ]", "", sales$price))
+print("Step 2: cleaned price")
+print(sales)
+
+sales$category <- trimws(tolower(sales$category))
+sales$category[sales$category == "elec"] <- "electronics"
+print("Step 3: normalized category")
+print(sales)
+
+sales <- sales[!is.na(sales$price) & !is.na(sales$quantity), ]
+print("Step 4: dropped NA rows")
+print(sales)
+
+sales <- sales[!duplicated(sales), ]
+print("Step 5: dropped exact duplicates")
+print(sales)
+
+sales$revenue <- sales$price * sales$quantity
+agg <- aggregate(revenue ~ category, data = sales, FUN = sum)
+print("Step 6: revenue per category")
+print(agg)
+```
+
+::: {.hints}
+- `gsub("[$ ]", "", price)` removes dollar signs and spaces; `as.numeric()`
+  then converts to numeric, turning `"unknown"` into `NA` automatically.
+- `trimws()` removes leading and trailing whitespace; `tolower()` lowercases;
+  a named vector like `c(elec = "electronics")` maps the truncated alias.
+- `is.na()` identifies missing values — keep rows where both price and
+  quantity are not missing.
+- `duplicated()` marks exact duplicate rows — keep only rows that are not
+  duplicates.
+- `aggregate(revenue ~ category, data = sales, FUN = sum)` computes total
+  revenue per category.
+:::
+:::

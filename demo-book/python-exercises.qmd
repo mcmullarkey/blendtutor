@@ -1,5 +1,6 @@
 ---
 title: Python Exercises
+bt-key-page: api-key.html
 ---
 
 # Python Exercises

@@ -17,13 +17,14 @@ in-browser editor, run it against checks, and get instant feedback.
 
 ## BYOK (Bring Your Own Key)
 
-AI-powered feedback requires an API key. Set one in your environment:
+AI-powered feedback requires a [Fireworks](https://fireworks.ai) API key.
+Enter it once on the [API key page](api-key.html) — the book stores it in
+your browser's `localStorage` and sends it only in an `Authorization: Bearer`
+header to `api.fireworks.ai`. No server-side key needed.
 
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-```
-
-The browser runtime uses the learner's key — no server-side key needed.
+> **Serve the book over HTTP** — the key page and exercises use `localStorage`
+> and ES modules, which `file://` blocks. Run `python3 -m http.server 8000`
+> from `demo-book/_output/` and open <http://localhost:8000>.
 
 ## Exercise 1: Double function (R)
 

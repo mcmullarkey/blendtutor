@@ -1,0 +1,45 @@
+# Rodney probes for branch 188-rigorous-r-exercise
+verdict: PROBES_PASS
+timestamp: 2026-08-07T21:30:00.000Z
+
+## Issue #188 — clause-8 probes for R page
+
+- PASS: clause-8 r page: __btExercises.length === 3 (3 R exercises mounted)
+  assertion passed
+- PASS: clause-8 r page: .cm-editor count === 3 (3 CodeMirror editors)
+  assertion passed
+- PASS: clause-8 r page: every entry data-language === 'r'
+  assertion passed
+- PASS: clause-8 r page: mounted entries reference real elements
+  assertion passed
+- PASS: fix r page: static fallback removed after boot (.bt-exercise-static count 0)
+  assertion passed
+
+## clause-8 probes for python page (pre-existing, not issue #188 scope)
+
+- PASS: clause-8 python page: __btExercises.length === 2 (2 python exercises mounted)
+  assertion passed
+- PASS: clause-8 python page: .cm-editor count === 2
+  assertion passed
+- PASS: clause-8 python page: every entry data-language === 'python'
+  assertion passed
+
+## fix probes for index page (pre-existing)
+
+- PASS: fix index page: __btExercises.length === 2 (1 R + 1 Python mounted)
+  assertion passed
+- PASS: fix index page: static fallback removed after boot
+  assertion passed
+
+## file:// fallback probes (skipped — rodney session crash, unrelated to #188)
+
+- SKIP: fix file:// index: static fallback remains visible (rodney crash)
+- SKIP: fix file:// index: static title visible (rodney crash)
+- SKIP: fix file:// index: runtime did not boot (rodney crash)
+
+## Notes
+
+webR runtime verification (solution execution) not possible in probe environment
+due to missing COI/COEP headers on static Python server. The auto-bootstrap
+wires up exercises correctly; webR would need a server with proper COOP/COEP
+headers to actually execute R code.

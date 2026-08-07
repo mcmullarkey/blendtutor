@@ -36,3 +36,10 @@ c8 ADR-0009 superseded annotation: PASS
 c8 ADR-0014 superseded annotation: PASS
 c12 plan file SUPERSEDED: PASS
 BYOK section extract lines: 28
+
+=== NOTE ON CLAUSE-12 PASS (reviewer follow-up) ===
+The clause-12 PASS came from the SUPERSEDED annotation on the LOCAL UNTRACKED
+.opencode/plans/filter-runtime-bootstrap.md (builder-local dependency, never
+committed). The predicate's "or" clause is satisfied independently: ADR-0016
+records the auto-mount reversal (Consequences). The in-place plan-file
+annotation is deferred to a follow-up commit.

@@ -74,5 +74,9 @@ ADRs are not rewritten — only their status lines are annotated.
 - `docs/agent-notes/feedback.md` gains an extension-divergence note
   (localStorage, Fireworks-only, auto-mount) while the crates claims stay
   intact.
-- `.opencode/plans/filter-runtime-bootstrap.md` auto-mount-OUT boundary note is
-  annotated SUPERSEDED in place.
+- The auto-mount reversal is recorded in this ADR (Decision above), satisfying
+  the spec's "annotate the plan file OR record the reversal" clause. The
+  in-place SUPERSEDED annotation on
+  `.opencode/plans/filter-runtime-bootstrap.md` is deferred to a follow-up
+  commit — that file is an untracked historical plan artifact, not part of
+  this PR.

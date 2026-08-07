@@ -495,7 +495,7 @@ footer.site-footer {
  * What it does:
  *  - .bt-hints: expandable <details> panel for hints (clause 1).
  *  - .bt-feedback-btn / .bt-check-btn / .bt-solution-btn: control buttons.
- *    (issue #182: .bt-feedback-btn replaced .bt-run-btn — Get feedback takes
+ *    (issue 182: .bt-feedback-btn replaced .bt-run-btn — Get feedback takes
  *    Run's toolbar slot with Run's styling.)
  *  - button[disabled]: cursor not-allowed (clause 5).
  *  - .bt-status[data-status]: closed-set status badge (clause 6).
@@ -557,7 +557,7 @@ footer.site-footer {
   background: var(--bt-color-brand-hover);
 }
 
-/* The former .bt-run-btn (issue #182) is REMOVED from the runtime — Check
+/* The former .bt-run-btn (issue 182) is REMOVED from the runtime — Check
  * runs the deterministic tests and Get feedback (.bt-feedback-btn) takes
  * Run's toolbar slot with Run's styling (above). */
 
@@ -759,7 +759,7 @@ button[disabled] {
   color: var(--bt-color-status-fail);
 }
 
-/* === Quarto path (per-exercise .bt-feedback) + key page (issue #182) ===
+/* === Quarto path (per-exercise .bt-feedback) + key page (issue 182) ===
  * The Quarto fork renders per-exercise feedback into a .bt-feedback container
  * (exercise-feedback.js mountFeedback) — the #feedback rules above serve the
  * crates site shell and are NOT matched by the new code. This section styles
@@ -770,7 +770,7 @@ button[disabled] {
  *    transform, EXCEPT selectors wrapped in :global(...) which pass through
  *    UNscoped. The key page (.blendtutor-key) sits OUTSIDE any .bt-exercise
  *    wrapper, so its form rules MUST use :global(...) — a scoped rule would
- *    never match the key page ("bizarre page" bug, issue #182).
+ *    never match the key page ("bizarre page" bug, issue 182).
  *  - The no-key link renders INSIDE .bt-feedback inside .bt-exercise — scoped.
  */
 
@@ -784,7 +784,7 @@ button[disabled] {
   font-family: var(--bt-font-family-ui);
 }
 
-/* No-key state (AC-4, issue #182): a real affordance — button-styled link,
+/* No-key state (AC-4, issue 182): a real affordance — button-styled link,
  * not a bare default anchor */
 [data-byok="no-key"] {
   display: flex;
@@ -849,7 +849,7 @@ button[disabled] {
   font-size: 0.875em;
 }
 
-/* === KEY PAGE (issue #182) — GLOBAL rules via :global(...) ===
+/* === KEY PAGE (issue 182) — GLOBAL rules via :global(...) ===
  * The key-management form (key-page.js mountKeyPage) renders into
  * <div class="blendtutor-key"> on the api-key page — OUTSIDE any
  * .bt-exercise wrapper. The sync transform passes :global(...) selectors

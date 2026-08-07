@@ -1,0 +1,18 @@
+# Issue #182 — sync + vendored parity verification
+
+## scripts/sync-quarto-assets.sh (asset-parity gate)
+  ok: codemirror.js matches source
+  ok: styles.css matches source
+  ok: coi-serviceworker.js matches source
+All assets in sync.
+sync --check exit: 0
+
+## Vendored demo-book copies byte-identical (cmp)
+  PASS: exercise-runtime.js byte-identical
+  PASS: exercise-feedback.js byte-identical
+  PASS: styles.css byte-identical
+  PASS: blendtutor.lua byte-identical
+
+## test_sync_assets.sh (12 assertions incl. idempotency)
+=========================================
+All tests passed.

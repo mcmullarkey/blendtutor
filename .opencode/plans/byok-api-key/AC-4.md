@@ -30,17 +30,23 @@ Rodney: AC-4 owns feedback-probe.js inline-form clause fix (clauses 1/3/4/8 → 
 **Rubric anchor:** §2.1 (no module-level effectful — lazy read pinned), §2 (pure `keyPageUrl()` core vs effectful render shell), §5 (one-thing render fn).
 
 ### Progress
-- [ ] Red: tests extended (test_quarto_feedback.py source + Node, key-page-url.test.js, feedback-probe.js) → confirm FAIL against current inline form
-- [ ] Green: renderKeyPrompt → no-key link + keyPageUrl() export
-- [ ] Demo-book mirror sync + cmp byte-identical
+- [x] Red: tests extended (test_quarto_feedback.py source + Node, key-page-url.test.js, feedback-probe.js) → 5 FAILs against inline form (keyPageUrl not a function, missing export, missing lazy read, Save button still present) — 2026-08-07
+- [x] Green: renderKeyPrompt → [data-byok="no-key"] single DOM-built anchor + keyPageUrl() exported pure fn — 49/49 python + 8/8 node --test — 2026-08-07
+- [x] Negative control: eager module-init cache injected → arm-2 lazy-read test FAILS (2 fails); reverted, 49/49 again
+- [x] Demo-book mirror sync (exercise-feedback.js + styles.css) + cmp byte-identical
 - [ ] Evidence at docs/evidence/165/
 - [ ] PR + push
 
 ### Decision Log
-- (pending)
+- 2026-08-07 — renderKeyPrompt KEEPS its name (spec: rename optional; AC-6 tests + guard reference it) and stays exported; body replaced with no-key link.
+- 2026-08-07 — PROVIDER_DISCLOSURES const KEPT as documentation-only (C5 source check in test_quarto_feedback.py requires both localStorage disclosure strings; the no-key state no longer renders them — AC-4 spec defines container + single anchor only).
+- 2026-08-07 — styles.css touched (beyond spec conflict set): [data-byok="no-key"] added to the card-container group + dead inline-form rules removed (key-prompt, provider select, input[type=password], button[type=submit], #byok-disclosure). Dead CSS was direct fallout of removing the inline form; crates/core origin styles.css untouched.
+- 2026-08-07 — keyPageUrl() inlines the "api-key.html" fallback literal (no DEFAULT const) so the spec's region source-check (keyPageUrl export → renderKeyPrompt body contains api-key.html) passes.
+- 2026-08-07 — standalone keyPageUrl unit test at scripts/tests/key-page-url.test.js (repo has no top-level assets/; spec probe path generic). CJS + dynamic import matches rodney-probes/*.test.js convention.
 
 ### Surprises & Discoveries
-- (placeholder — remove once real entries exist)
+- The AC-6 C6 behavioral test (submit stores fireworks key) died with the inline form: there is no submit path anymore. It was replaced by no-form/no-submit render assertions — the "store on submit" behavior moved to key-page.js (AC-2) and is pinned there.
+- styles.css had a whole dead section for the removed inline form (key-prompt/provider/password/submit/disclosure) — no test pinned it (test_quarto_ux.py only checks cursor/disabled/data-status/hints/solution), so cleanup was safe; demo-book mirror needed a manual cp + cmp (same sync gap as AC-3 — sync-quarto-assets.sh doesn't cover extension assets).
 
 ### Idempotence & Recovery
 - Safe retry: re-run `python3 scripts/tests/test_quarto_feedback.py` after any edit.

@@ -668,13 +668,13 @@
 
 /* BYOK feedback panel — styled via data-byok / data-correct attribute selectors.
  * All rules scoped to #feedback-descendant selectors or specific
- * [data-byok] selectors — never bare element selectors.
+ * [data-byok] / #byok-disclosure selectors — never bare element selectors.
  *
  * What it does:
  *  - Cards each #feedback child with surface + border + shadow + radius + padding.
  *  - Verdict states (correct/incorrect) visually distinct via success-bg/danger-bg.
- *  - No-key state ([data-byok="no-key"]) styled as a card containing the link
- *    to the key page (AC-4 — the inline key-entry form was removed).
+ *  - Disclosure (#byok-disclosure) styled as muted privacy note.
+ *  - Form elements consistent with AC-2 workspace styling.
  *  - Transient states (pending, loading, error) styled with appropriate emphasis.
  *
  * What it does NOT do:
@@ -687,7 +687,7 @@
 
 /* Card container — each phase uses surface + border + shadow for elevation */
 
-.bt-exercise #feedback [data-byok="no-key"],
+.bt-exercise #feedback [data-byok="key-prompt"],
 .bt-exercise #feedback [data-byok="model-picker"],
 .bt-exercise #feedback [data-byok="verdict"],
 .bt-exercise #feedback [data-byok="pending"],
@@ -701,15 +701,37 @@
   font-family: var(--bt-font-family-ui);
 }
 
-/* Model picker select — consistent with AC-2 workspace styling */
+/* Form elements — consistent with AC-2 workspace input/select/button styling */
 
-.bt-exercise #feedback [data-byok="model"] {
+.bt-exercise #feedback [data-byok="provider"],
+.bt-exercise #feedback [data-byok="model"],
+.bt-exercise #feedback input[type="password"] {
   border: 1px solid var(--bt-color-border);
   border-radius: var(--bt-radius-md);
   padding: var(--bt-space-xs) var(--bt-space-sm);
   background: var(--bt-color-surface);
   color: var(--bt-color-text-primary);
   font-family: var(--bt-font-family-ui);
+}
+
+.bt-exercise #feedback input[type="password"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.bt-exercise #feedback button[type="submit"] {
+  background: var(--bt-color-brand);
+  color: var(--bt-color-surface);
+  border: none;
+  border-radius: var(--bt-radius-sm);
+  padding: var(--bt-space-xs) var(--bt-space-sm);
+  font-family: var(--bt-font-family-ui);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.bt-exercise #feedback button[type="submit"]:hover {
+  background: var(--bt-color-brand-hover);
 }
 
 /* Verdict: correct — green-tinted surface, green left accent */
@@ -734,6 +756,15 @@
 
 .bt-exercise #feedback [data-byok="verdict"][data-correct="false"] strong {
   color: var(--bt-color-status-fail);
+}
+
+/* Disclosure — privacy note, visually distinct from body text */
+
+.bt-exercise #byok-disclosure {
+  color: var(--bt-color-text-secondary);
+  font-size: 0.875em;
+  font-style: italic;
+  margin-bottom: var(--bt-space-sm);
 }
 
 /* Pending / loading — transient states: secondary text with pulsing animation */

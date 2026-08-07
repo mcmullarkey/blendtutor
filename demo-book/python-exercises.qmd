@@ -51,3 +51,162 @@ assert is_even(7) == False
 return n % 2 == 0
 ```
 :::
+
+## Exercise 3: Clean a messy sales dataset
+
+Clean up a messy sales CSV with pandas. Normalize prices and categories, drop missing values and duplicate rows, and compute total revenue per category.
+
+::: {.blendtutor language="python" packages="pandas"}
+Clean up a messy sales dataset with pandas. The dataset is a CSV of 24 sales rows with five columns: order_id, product, category, price, and quantity. It was deliberately dirtied to test your data-wrangling skills: prices appear with a dollar sign, with a space after the dollar sign, as bare numbers, or as the word unknown; categories are inconsistent in case and whitespace and include the abbreviation Elec; some quantities are empty; and a few rows are exact duplicates.
+
+Work through six wrangling steps in order. Step 1, print the given data so you can see what you are working with. Step 2, normalize the price column: strip dollar signs and spaces with `str.replace`, then convert with `pd.to_numeric` and `errors='coerce'` so that anything non-numeric becomes NaN. Step 3, normalize the category column with `str.strip` and `str.lower`, then apply an alias map so the abbreviation Elec becomes electronics. Step 4, drop NA rows with `dropna`, do NOT impute. Step 5, drop exact duplicates with `drop_duplicates`. Step 6, compute revenue as price times quantity and aggregate it per category with `groupby`.
+
+Name your final variables clean_df and revenue_by_cat. clean_df must be the cleaned data frame: no missing price or quantity, no duplicate rows, and exactly three normalized categories: books, clothing, and electronics. revenue_by_cat must be a Series with the total revenue per category, computed from the cleaned data only. Print revenue_by_cat at the end so your captured output shows the result.
+
+```python
+import pandas as pd
+import io
+
+csv = """order_id,product,category,price,quantity
+1,Widget,Electronics,$12.50,3
+2,Gadget,electronics,$8.00,2
+3,Book A,Books,$15.00,1
+4,Shirt,Clothing,$20.00,2
+1,Widget,Electronics,$12.50,3
+5,Gadget,ELECTRONICS ,unknown,2
+6,Book B,books,$15.00,
+7,Pants,Clothing ,$25.00,1
+8,Widget,Elec,$12.50,3
+2,Gadget,electronics,$8.00,2
+9,Book C,Books,15.00,2
+10,Shirt,clothing,$20.00,2
+11,Hat,Clothing,$10.00,
+12,Gadget,electronics,$8.00,1
+13,Book D,books,$18.00,2
+14,Widget,Electronics,$ 5.00,4
+15,Pants,clothing ,$25.00,1
+16,Book E,Books,$15.00,1
+17,Gadget,ELECTRONICS,$8.00,2
+18,Widget,electronics,$12.50,3
+19,Shirt,Clothing,$20.00,2
+3,Book A,Books,$15.00,1
+20,Book F,books,unknown,1
+21,Hat,clothing,$10.00,2"""
+
+sales = pd.read_csv(io.StringIO(csv))
+
+# Step 1: print the given data
+print(sales.head())
+
+# Step 2: normalize the price column with pd.to_numeric (strip $ and spaces, coerce bad values to NaN)
+___
+
+# Step 3: normalize the category column with str.strip, str.lower, and an Elec -> electronics alias map
+___
+
+# Step 4: drop NA rows in price and quantity (do NOT impute)
+___
+
+# Step 5: drop exact duplicates
+___
+
+# Step 6: compute revenue = price * quantity, then aggregate by category with groupby
+___
+
+# Name your final variables clean_df and revenue_by_cat
+```
+
+```{.python .checks}
+# check 1 - no NA
+assert clean_df['price'].notna().all() and clean_df['quantity'].notna().all(), \
+    f"NA rows remain in clean_df: {clean_df[clean_df[['price','quantity']].isna().any(axis=1)].index.tolist()}"
+```
+
+```{.python .checks}
+# check 2 - no duplicates
+assert clean_df.duplicated().sum() == 0, \
+    f"{int(clean_df.duplicated().sum())} duplicate rows remain in clean_df"
+```
+
+```{.python .checks}
+# check 3 - canonical categories
+assert set(clean_df['category'].unique()) <= {'books', 'clothing', 'electronics'}, \
+    f"non-canonical categories: {sorted(set(clean_df['category'].unique()) - {'books','clothing','electronics'})}"
+```
+
+```{.python .checks}
+# check 4 - exact revenue
+assert revenue_by_cat.round(2).to_dict() == {'books': 96.0, 'clothing': 190.0, 'electronics': 172.5}, \
+    f"revenue mismatch: got {revenue_by_cat.round(2).to_dict()}"
+```
+
+```{.python .checks}
+# check 5 - row count
+assert len(clean_df) == 17, f"expected 17 clean rows, got {len(clean_df)}"
+```
+
+```{.python .solution}
+import pandas as pd
+import io
+
+csv = """order_id,product,category,price,quantity
+1,Widget,Electronics,$12.50,3
+2,Gadget,electronics,$8.00,2
+3,Book A,Books,$15.00,1
+4,Shirt,Clothing,$20.00,2
+1,Widget,Electronics,$12.50,3
+5,Gadget,ELECTRONICS ,unknown,2
+6,Book B,books,$15.00,
+7,Pants,Clothing ,$25.00,1
+8,Widget,Elec,$12.50,3
+2,Gadget,electronics,$8.00,2
+9,Book C,Books,15.00,2
+10,Shirt,clothing,$20.00,2
+11,Hat,Clothing,$10.00,
+12,Gadget,electronics,$8.00,1
+13,Book D,books,$18.00,2
+14,Widget,Electronics,$ 5.00,4
+15,Pants,clothing ,$25.00,1
+16,Book E,Books,$15.00,1
+17,Gadget,ELECTRONICS,$8.00,2
+18,Widget,electronics,$12.50,3
+19,Shirt,Clothing,$20.00,2
+3,Book A,Books,$15.00,1
+20,Book F,books,unknown,1
+21,Hat,clothing,$10.00,2"""
+
+sales = pd.read_csv(io.StringIO(csv))
+
+# Step 1: inspect
+print(sales.head())
+print(sales.dtypes)
+
+# Step 2: clean price
+sales['price'] = pd.to_numeric(sales['price'].astype(str).str.replace(r'[$ ]', '', regex=True), errors='coerce')
+
+# Step 3: normalize category
+sales['category'] = sales['category'].str.strip().str.lower()
+alias = {'elec': 'electronics'}
+sales['category'] = sales['category'].map(lambda c: alias.get(c, c))
+
+# Step 4: drop NA rows (drop, NOT impute)
+clean_df = sales.dropna(subset=['price', 'quantity'])
+
+# Step 5: drop exact duplicates
+clean_df = clean_df.drop_duplicates()
+
+# Step 6: aggregate revenue per category
+clean_df['revenue'] = clean_df['price'] * clean_df['quantity']
+revenue_by_cat = clean_df.groupby('category')['revenue'].sum()
+print(revenue_by_cat)
+```
+
+::: {.hints}
+- `pd.to_numeric(..., errors='coerce')` turns non-numeric prices into `NaN`.
+- Strip `$` and spaces from the price first: `.str.replace(r'[$ ]', '', regex=True)`.
+- Normalize categories with `.str.strip().str.lower()`, then map the abbreviation with an alias dict like `{'elec': 'electronics'}`.
+- `dropna(subset=['price', 'quantity'])` removes rows with missing values — drop, do not impute.
+- `drop_duplicates()` removes exact duplicate rows.
+- After computing `revenue = price * quantity`, aggregate with `clean_df.groupby('category')['revenue'].sum()`.
+:::
+:::

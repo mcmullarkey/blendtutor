@@ -679,6 +679,15 @@ function mockElement(tag) {
       this.children.push(n);
       return n;
     },
+    insertBefore(n, ref) {
+      const idx = ref ? this.children.indexOf(ref) : -1;
+      if (idx < 0) this.children.push(n);
+      else this.children.splice(idx, 0, n);
+      return n;
+    },
+    get firstChild() {
+      return this.children.length > 0 ? this.children[0] : null;
+    },
     replaceChildren(...nodes) {
       this.children = [...nodes];
     },
@@ -1118,18 +1127,30 @@ if (promptZ) {
 }
 
 // Arm 14 (issue #182): Get feedback button moves into the toolbar
-// (entry.controls) when present — NOT the separate .bt-feedback-wrapper.
-// The feedback CONTAINER stays a direct child of the exercise element.
+// (entry.controls) when present — NOT the separate .bt-feedback-wrapper —
+// and takes the FIRST slot (the former Run button's position: Run was
+// first in the toolbar, and the user's stated fix was "replace the Run
+// button"). The feedback CONTAINER stays a direct child of the exercise
+// element.
 localStorageMap.clear();
 const eT = makeEntry({ id: "exT", output: "" });
 const controlsEl = mockElement("div");
 controlsEl.className = "bt-controls";
 eT.element.appendChild(controlsEl);
 eT.controls = controlsEl;
+// Simulate the runtime's wireExercise: Check then Show solution appended.
+const checkBtn = mockElement("button");
+checkBtn.className = "bt-check-btn";
+controlsEl.appendChild(checkBtn);
+const solutionBtn = mockElement("button");
+solutionBtn.className = "bt-solution-btn";
+controlsEl.appendChild(solutionBtn);
 mod.mountFeedback(eT);
 const btnT = eT.element.querySelector(".bt-feedback-btn");
 assert(btnT !== null, "AC-5 arm 14: feedback button exists after mount");
 assert(controlsEl.querySelector(".bt-feedback-btn") === btnT, "AC-5 arm 14: feedback button appended INTO entry.controls (toolbar)");
+assert(controlsEl.firstChild === btnT, "AC-5 arm 14: feedback button is FIRST in the toolbar (former Run slot, before Check/Show solution)");
+assert(controlsEl.children[0] === btnT && controlsEl.children[1] === checkBtn && controlsEl.children[2] === solutionBtn, "AC-5 arm 14: toolbar order is Get feedback · Check · Show solution");
 assert(eT.element.querySelector(".bt-feedback-wrapper") === null, "AC-5 arm 14: no .bt-feedback-wrapper created when controls present");
 assert(eT.feedbackContainer !== null && eT.element.querySelector('[data-byok="feedback"]') === eT.feedbackContainer, "AC-5 arm 14: feedback container is a direct child of the exercise element");
 

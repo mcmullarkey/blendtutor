@@ -1,0 +1,23 @@
+---
+title: Feedback opt-out string test fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+bt-feedback: "false"
+---
+
+## Feedback opt-out (string form)
+
+`bt-feedback: "false"` (string) must be treated identically to the boolean
+form — the granular opt-out suppresses only the `mountAllFeedback` call
+(C17 parity).
+
+::: {.blendtutor language="r"}
+Write a function `add(a, b)`.
+
+```r
+add <- function(a, b) { ___ }
+```
+:::
+
+::: {.blendtutor-key}
+Manage your API key here.
+:::

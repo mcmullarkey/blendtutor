@@ -1,0 +1,23 @@
+---
+title: Feedback opt-out test fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+bt-feedback: false
+---
+
+## Feedback opt-out
+
+`bt-feedback: false` is the GRANULAR opt-out: the bootstrap is still
+injected, `start()` still runs, `mountKeyPage` is still called, but the
+`mountAllFeedback` call (and its import) are ABSENT (C16).
+
+::: {.blendtutor language="r"}
+Write a function `add(a, b)`.
+
+```r
+add <- function(a, b) { ___ }
+```
+:::
+
+::: {.blendtutor-key}
+Manage your API key here.
+:::

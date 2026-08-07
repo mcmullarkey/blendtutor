@@ -1,0 +1,15 @@
+---
+title: Key-only page test fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+---
+
+## Key-only page
+
+This page has NO exercises — only the key-page mount div. The filter must
+still deploy both assets (exercise-feedback.js + key-page.js), inject the
+auto-bootstrap, and call mountKeyPage (C14 — guards broadened to
+`has_blendtutor or has_key`).
+
+::: {.blendtutor-key}
+Manage your API key here.
+:::

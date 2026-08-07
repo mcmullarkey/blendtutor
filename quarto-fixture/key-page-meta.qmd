@@ -1,0 +1,22 @@
+---
+title: Custom key-page URL test fixture
+filters: [../_extensions/blendtutor/blendtutor.lua]
+bt-key-page: custom-key.html
+---
+
+## Custom key-page URL
+
+This page has an exercise AND the key-page mount div. The `bt-key-page` YAML
+value must be honored in the emitted `window.__btConfig.keyPageUrl` (C20).
+
+::: {.blendtutor language="r"}
+Write a function `add(a, b)`.
+
+```r
+add <- function(a, b) { ___ }
+```
+:::
+
+::: {.blendtutor-key}
+Manage your API key here.
+:::

@@ -75,7 +75,7 @@ jobs:
 
       # Issue #112 — Per-exercise BYOK LLM feedback with shared key and
       # per-exercise scoping. Validates pure layer (buildPrompt, neutralize,
-      # providerBaseUrl), shared sessionStorage key contract, per-exercise
+      # providerBaseUrl), shared localStorage key contract, per-exercise
       # scoping, ?provider= override, concurrent guard, and llm_evaluation_prompt
       # absence. Runs Node.js behavioral tests + source-pattern checks.
       - name: Exercise feedback test

@@ -1117,6 +1117,22 @@ if (promptZ) {
   assert(false, "AC-5 arm 13: expected a chat/completions POST");
 }
 
+// Arm 14 (issue #182): Get feedback button moves into the toolbar
+// (entry.controls) when present — NOT the separate .bt-feedback-wrapper.
+// The feedback CONTAINER stays a direct child of the exercise element.
+localStorageMap.clear();
+const eT = makeEntry({ id: "exT", output: "" });
+const controlsEl = mockElement("div");
+controlsEl.className = "bt-controls";
+eT.element.appendChild(controlsEl);
+eT.controls = controlsEl;
+mod.mountFeedback(eT);
+const btnT = eT.element.querySelector(".bt-feedback-btn");
+assert(btnT !== null, "AC-5 arm 14: feedback button exists after mount");
+assert(controlsEl.querySelector(".bt-feedback-btn") === btnT, "AC-5 arm 14: feedback button appended INTO entry.controls (toolbar)");
+assert(eT.element.querySelector(".bt-feedback-wrapper") === null, "AC-5 arm 14: no .bt-feedback-wrapper created when controls present");
+assert(eT.feedbackContainer !== null && eT.element.querySelector('[data-byok="feedback"]') === eT.feedbackContainer, "AC-5 arm 14: feedback container is a direct child of the exercise element");
+
 process.exit(failures > 0 ? 1 : 0);
 """
 

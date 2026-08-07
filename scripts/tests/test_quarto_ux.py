@@ -8,16 +8,20 @@ Verifies the 7-clause predicate from AC-8:
      setEditorContent(payload.solution).
   3. check button absent when no checks — exercises with empty checks array
      do not render a Check button.
-  4. Run disables ex-0 only — clicking Run on exercise 0 disables only
-     exercise 0's Run button (per-exercise, not singleton).
+  4. per-exercise button disable — runSubmission disables THIS exercise's
+     control buttons only (per-exercise, not singleton). Issue #182 removes
+     the Run button (redundant with Check — Get feedback replaces its slot);
+     the disable/enable mechanism survives on the entry-scoped Check/Solution
+     button refs.
   5. cursor=not-allowed — disabled buttons have cursor: not-allowed in CSS.
   6. data-status closed set — the status element's data-status is a closed
      enum: idle, running, pass, fail.
-  7. buttons re-enabled on pass — after a run completes (pass), the Run button
-     is re-enabled.
+  7. buttons re-enabled on pass — after a run completes (pass), the control
+     buttons are re-enabled.
 
-Negative: Run disables all exercises (singleton leak). Solution button for
-empty exercise (no solution — button must not appear).
+Negative: disables all exercises (singleton leak). Solution button for
+empty exercise (no solution — button must not appear). Run button must NOT
+be created (issue #182).
 
 Usage: python3 scripts/tests/test_quarto_ux.py
 """
@@ -194,37 +198,38 @@ def check_check_button_conditional(src: str) -> None:
 
 
 def check_run_disable_per_exercise(src: str) -> None:
-    """Clause 4: Run disables ex-0 only (per-exercise, not singleton).
+    """Clause 4: per-exercise button disable (issue #182: Run button removed).
 
-    The runtime must disable the Run button per-exercise (entry-level), not
-    via a module-level singleton. The negative case is "Run disables all
-    exercises" — a singleton leak.
+    Issue #182 removes the Run button (redundant with Check — Get feedback
+    takes its toolbar slot). The disable/enable mechanism must remain
+    per-exercise (entry-level), not via a module-level singleton. The
+    negative case is "disables all exercises" — a singleton leak.
     """
     code = _strip_comments(src)
-    # Must NOT use a module-level runButton variable (singleton)
-    # The per-exercise pattern uses entry.runBtn or similar
-    if "runBtn" in code or "run-btn" in code or "runButton" in code:
-        ok("per-exercise Run button reference found")
+    # Negative: the runtime must NOT create a .bt-run-btn anymore.
+    if "bt-run-btn" in code or "runBtn" in code or "runButton" in code:
+        ko("no .bt-run-btn — Run button removed (issue #182)")
     else:
-        ko("per-exercise Run button reference missing")
+        ok("no .bt-run-btn — Run button removed (issue #182)")
 
-    # Must disable the button via entry (per-exercise), not module-level
-    if "disabled" in code or "data-disabled" in code:
-        ok("button disable/enable mechanism present")
+    # Per-exercise disable mechanism: entry-scoped button refs toggled inside
+    # runSubmission (the old module-level runButton singleton is gone).
+    if "entry.checkBtn" in code and "disabled" in code:
+        ok("per-exercise button disable via entry-scoped refs")
     else:
-        ko("button disable/enable mechanism missing")
+        ko("per-exercise button disable via entry-scoped refs — entry.checkBtn/disabled missing")
 
-    # Must NOT use document.getElementById for the run button (singleton)
+    # Must NOT use document.getElementById for any control button (singleton)
     if 'getElementById("run")' in code or "getElementById('run')" in code:
         ko("singleton getElementById('run') found — not per-exercise")
     else:
-        ok("no singleton getElementById('run') — per-exercise Run button")
+        ok("no singleton getElementById('run') — per-exercise buttons")
 
 
 def check_buttons_reenabled(src: str) -> None:
     """Clause 7: buttons re-enabled on pass.
 
-    After a run completes (pass), the Run button must be re-enabled.
+    After a run completes (pass), the control buttons must be re-enabled.
     The runtime must set the button back to enabled in the finally block
     or after the run completes.
     """
@@ -843,7 +848,7 @@ def main() -> int:
     print("\n-- Clause 3: check button absent when no checks --")
     check_check_button_conditional(src)
 
-    print("\n-- Clause 4: Run disables ex-0 only (per-exercise) --")
+    print("\n-- Clause 4: per-exercise button disable (issue #182: no Run button) --")
     check_run_disable_per_exercise(src)
 
     print("\n-- Clause 5: cursor=not-allowed --")

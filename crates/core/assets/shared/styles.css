@@ -763,7 +763,7 @@ button[disabled] {
  * The Quarto fork renders per-exercise feedback into a .bt-feedback container
  * (exercise-feedback.js mountFeedback) — the #feedback rules above serve the
  * crates site shell and are NOT matched by the new code. This section styles
- * the per-exercise container, the INLINE key form (issue #186), and the
+ * the per-exercise container, the INLINE key form (issue 186), and the
  * KEY PAGE form.
  *
  * Scoping notes (scripts/sync-quarto-assets.sh):
@@ -772,7 +772,7 @@ button[disabled] {
  *    UNscoped. The key page (.blendtutor-key) sits OUTSIDE any .bt-exercise
  *    wrapper, so its form rules MUST use :global(...) — a scoped rule would
  *    never match the key page ("bizarre page" bug, issue 182).
- *  - The INLINE key form (issue #186) renders INSIDE .bt-feedback inside
+ *  - The INLINE key form (issue 186) renders INSIDE .bt-feedback inside
  *    .bt-exercise — scoped. The flatten override below cancels the :global
  *    card styling so there is no card-in-card.
  */
@@ -787,7 +787,7 @@ button[disabled] {
   font-family: var(--bt-font-family-ui);
 }
 
-/* Inline key form inside the feedback container (issue #186): the key-page
+/* Inline key form inside the feedback container (issue 186): the key-page
  * form rules are :global passthrough (card styling for the standalone key
  * page). When the form mounts INLINE inside the .bt-feedback card, flatten
  * the card-in-card — the container already supplies border/background/padding.

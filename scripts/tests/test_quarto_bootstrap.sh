@@ -531,6 +531,18 @@ if [ -f "$MIXED_HTML" ]; then
     ko "mountAllFeedback after start(, before .catch( — order start=$LINE_START mount=$LINE_MOUNT catch=$LINE_CATCH"
   fi
 
+  # C11 (issue #182): mountKeyPage( runs BEFORE start( — a start() rejection
+  # (or a synchronously-thrown adapter factory) must never skip the key-page
+  # mount. Pins the decoupling claim from issue #182: the key page is mounted
+  # unconditionally before the boot promise chain starts.
+  LINE_KEYPAGE=$(printf '%s\n' "$MIXED_BOOTSTRAP" | grep -n 'mountKeyPage(document.querySelector(".blendtutor-key"))' | head -1 | cut -d: -f1 || true)
+  if [ -n "$LINE_KEYPAGE" ] && [ -n "$LINE_START" ] \
+    && [ "$LINE_KEYPAGE" -lt "$LINE_START" ]; then
+    ok "mountKeyPage before start( (line order $LINE_KEYPAGE < $LINE_START)"
+  else
+    ko "mountKeyPage before start( — order keypage=$LINE_KEYPAGE start=$LINE_START"
+  fi
+
   # C11: .then( and .catch( both present.
   if has_token "$MIXED_BOOTSTRAP" '.then(' && has_token "$MIXED_BOOTSTRAP" '.catch('; then
     ok ".then( and .catch( both present"

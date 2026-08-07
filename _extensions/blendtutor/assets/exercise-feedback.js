@@ -25,9 +25,9 @@
 //
 // Per-exercise scoping (clause 2):
 //   Each exercise gets its own feedback button + container inside its
-//   div.bt-exercise. No singleton #feedback. The verdict, pending, error, and
-//   model-picker UI render into the per-exercise container, so two exercises
-//   never overwrite each other's feedback.
+//   div.bt-exercise. No singleton #feedback. The verdict, pending, and error
+//   UI render into the per-exercise container, so two exercises never
+//   overwrite each other's feedback.
 //
 // Concurrent guard (clause 8):
 //   Per-exercise _feedbackRunning flag. A second submit on the SAME exercise
@@ -62,7 +62,7 @@ export const PROVIDERS = {
     label: "Fireworks",
     keySlot: "fireworks_api_key",
     baseUrl: "https://api.fireworks.ai/inference/v1",
-    fallbackModel: "accounts/fireworks/models/deepseek-v4-flash",
+    fallbackModel: "accounts/fireworks/models/deepseek-v4-flash-0731",
     factory: byokFireworks,
   },
   anthropic: {
@@ -90,7 +90,10 @@ const PROVIDER_DISCLOSURES = {
 
 const TOOL_NAME = "respond_with_feedback";
 const MODEL = "claude-opus-4-8";
-const FIREWORKS_MODEL = "accounts/fireworks/models/deepseek-v4-flash";
+// Pinned learner-facing model (AC-5): the model picker is collapsed, so the
+// Fireworks request body always carries this exact id. Static-asserted at
+// both uses (this const + PROVIDERS.fireworks.fallbackModel).
+const FIREWORKS_MODEL = "accounts/fireworks/models/deepseek-v4-flash-0731";
 
 // --- prompt assembly (pure, ported from feedback.js) -----------------------------
 
@@ -194,7 +197,7 @@ export function providerBaseUrl(providerId) {
   return provider ? provider.baseUrl : PROVIDERS.anthropic.baseUrl;
 }
 
-// --- model discovery (the picker source seam, ported from feedback.js) ----------
+// --- model discovery (pure roster helpers, ported from feedback.js) ---------
 
 // Pure: extract the model-id list from a /v1/models response. Both Anthropic
 // and Fireworks return {data:[{id}]} — extracted once, provider-agnostic (§1.1).
@@ -205,34 +208,13 @@ export function parseModels(json) {
     .filter((id) => typeof id === "string");
 }
 
-// Pure: the roster the picker renders — the live list when it has any models,
-// else a roster of just the provider-specific fallback (§5.1).
+// Pure: the roster for a live model list — the list itself when non-empty,
+// else a roster of just the provider-specific pinned model (§5.1). Retained
+// as part of the exported pure layer (Node-tested); the learner-facing
+// picker that rendered this roster is gone (AC-5 pins the model).
 export function modelRoster(models, provider) {
   const fallback = provider === "fireworks" ? FIREWORKS_MODEL : MODEL;
   return models.length ? models : [fallback];
-}
-
-// Effectful: fetch the models this key can reach, through the SAME host-gated
-// base URL as messages. Returns [] on any failure; the pure modelRoster turns
-// [] into a usable roster, so a models outage is never a dead end.
-async function listModels({ baseUrl, apiKey, provider }) {
-  try {
-    const headers = provider === "fireworks"
-      ? { "Authorization": "Bearer " + apiKey }
-      : {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        };
-    const modelsPath = provider === "fireworks" ? "/models" : "/v1/models";
-    const response = await fetch(`${baseUrl}${modelsPath}`, { headers });
-    if (!response.ok) {
-      return [];
-    }
-    return parseModels(await response.json());
-  } catch (_error) {
-    return [];
-  }
 }
 
 // --- the byok-anthropic backend (ported from feedback.js) ------------------------
@@ -521,60 +503,21 @@ function renderLimitReached(container) {
   container.replaceChildren(note);
 }
 
-// Render the model picker into the per-exercise feedback container.
-async function renderModelPicker(container, source) {
-  const loading = document.createElement("p");
-  loading.dataset.byok = "models-loading";
-  loading.textContent = "Loading models…";
-  container.replaceChildren(loading);
-
-  const { baseUrl, apiKey, provider } = source;
-  const roster = modelRoster(await listModels({ baseUrl, apiKey, provider }), provider);
-
-  const picker = document.createElement("div");
-  picker.dataset.byok = "model-picker";
-
-  const fallbackModel = provider === "fireworks" ? FIREWORKS_MODEL : MODEL;
-  const label = document.createElement("label");
-  label.textContent = "Feedback model: ";
-  const select = document.createElement("select");
-  select.dataset.byok = "model";
-  for (const id of roster) {
-    const option = document.createElement("option");
-    option.value = id;
-    option.textContent = id;
-    select.append(option);
-  }
-  select.value = roster.includes(fallbackModel) ? fallbackModel : roster[0];
-  label.append(select);
-
-  const hint = document.createElement("p");
-  hint.textContent = "Pick a model, then Submit for feedback.";
-
-  picker.append(label, hint);
-  container.replaceChildren(picker);
-}
-
-// Whether the picker is already showing — the gate between the two submit phases.
-function modelPickerPresent(container) {
-  return Boolean(container.querySelector('[data-byok="model-picker"]'));
-}
-
-// The model the learner has chosen — read from the picker at submit time.
-function selectedModel(container, providerId) {
-  const select = container.querySelector('[data-byok="model"]');
-  return select ? select.value : PROVIDERS[providerId].fallbackModel;
-}
-
-// Orchestrate one submit for a single exercise, in four named states:
-//   no key           → render the no-key link to the key page (AC-4);
-//   key + no picker  → render the model picker from the live roster;
-//   picker shown     → build the prompt and send feedback through the chosen
-//                      provider's backend, using the chosen model.
+// Orchestrate one submit for a single exercise, in three named states:
+//   no key            → render the no-key link to the key page (AC-4);
+//   rate-limited      → render the limit-reached message (no fetch);
+//   key present       → build the prompt (task + student code + captured
+//                        .bt-output + checks) and send feedback through the
+//                        provider's backend with the pinned model (AC-5).
 //
 // The provider + key are read from SHARED localStorage (entered once, reused).
 // The submission is read from the per-exercise registry entry. The verdict
 // renders into the per-exercise container (no cross-exercise bleed).
+//
+// Model is pinned per provider (AC-5): the learner-facing model picker is
+// collapsed, so there is no second click phase between the key check and the
+// rate-limit check — one click goes straight to the fetch with the pinned
+// model (handleSubmitForExercise is a single path, §5).
 //
 // Concurrent guard (clause 8): entry._feedbackRunning prevents overlapping
 // requests on the SAME exercise. Different exercises have independent guards.
@@ -597,23 +540,16 @@ async function handleSubmitForExercise(entry) {
     renderKeyPrompt(container);
     return;
   }
-  const baseUrl = providerBaseUrl(providerId);
-  if (!modelPickerPresent(container)) {
-    entry._feedbackRunning = true;
-    try {
-      await renderModelPicker(container, { baseUrl, apiKey, provider: providerId });
-    } finally {
-      entry._feedbackRunning = false;
-    }
-    return;
-  }
+  // Rate-limit check BEFORE the fetch — a capped learner never fires a
+  // request (arm 9 ordering).
   if (rateLimitReached()) {
     renderLimitReached(container);
     return;
   }
   entry._feedbackRunning = true;
   try {
-    const model = selectedModel(container, providerId);
+    const baseUrl = providerBaseUrl(providerId);
+    const model = PROVIDERS[providerId].fallbackModel;
     const submission = currentSubmissionForExercise(entry);
     const prompt = buildPrompt(submission);
     const backend = PROVIDERS[providerId].factory({ baseUrl, apiKey });

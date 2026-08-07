@@ -1,0 +1,43 @@
+=== Issue #166 — AC-5 regression + wiring suites (CI-equivalent) ===
+
+=== uv run python scripts/tests/test_quarto_feedback.py (CI: ci.yml:82) ===
+62 passed, 0 failed (see run.log for full output)
+  - AC-5 static: pinned model literal x2, zero innerHTML, picker symbols absent,
+    submit single-path (key -> rate-limit -> fetch), rateLimitReached before
+    getFeedback, exercise-runtime.js zero exercise-feedback refs, fixture config
+  - AC-5 Node fetch-spy wiring suite (drives REAL handleSubmitForExercise via
+    mountFeedback clicks): arms 1,2,3,4,5,6,7,8,9,10,11,12,13
+  - keyPageUrl standalone node:test suite: 8/8
+
+=== bash scripts/tests/test_quarto_distribution.sh (CI: ci.yml:191) ===
+89 passed, 0 failed
+
+=== bash scripts/tests/test_quarto_render.sh (CI: ci.yml:62) ===
+12 passed, 0 failed
+
+=== bash scripts/tests/test_sync_assets.sh (CI: ci.yml:157) ===
+12 passed, 0 failed  (asset parity intact — run AFTER asset commit per agent-note)
+
+=== uv run pytest -q (pytest-collected: scripts/tests/test_quarto_key_page.py) ===
+8 passed
+
+=== quarto render quarto-fixture/feedback.qmd (real fixture render) ===
+Output created: feedback.html (rc 0)
+  maxFeedbackPerSession occurrences in rendered HTML: 2 (config + comment)
+  "model-picker" occurrences in rendered HTML: 0 (picker never rendered)
+  "Get feedback" in static HTML: 0 (button is runtime DOM-created by mountFeedback — proven by Node wiring suite)
+
+=== Environment note: test_quarto_ux.py (CI: ci.yml:97) ===
+NOT part of this run's pass signal. Its 60s subprocess timeout for quarto render
+ux.qmd is a PRE-EXISTING local-machine flake: render takes ~56-59s on this
+machine on BOTH main and this branch (stash-verified: main 58.8s, branch 56.4s).
+No regression from this slice; CI runners historically pass.
+
+=== Demo-book mirror (done-condition) ===
+cmp _extensions/blendtutor/assets/exercise-feedback.js \
+    demo-book/_extensions/mcmullarkey/blendtutor/assets/exercise-feedback.js
+=> BYTE-IDENTICAL
+
+=== styles.css / other crates-synced assets ===
+UNCHANGED — picker collapse is DOM removal (no CSS delta needed).
+sync-quarto-assets.sh parity: 3/3 ok (codemirror.js, styles.css, coi-serviceworker.js)

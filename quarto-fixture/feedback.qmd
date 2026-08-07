@@ -34,6 +34,13 @@ stopifnot(add(1, 2) == 3)
 :::
 
 <script type="module">
+  // AC-5 fixture config: cap feedback requests per browser so the rate-limit
+  // path (arms 9/11) is reachable. Absent, rateLimitReached() reads
+  // maxFeedbackPerSession || 0 → count >= 0 is always true → feedback is
+  // silently disabled. C22 merge pattern — never a bare window.__btConfig =
+  // {...} clobber (the lua head script sets keyPageUrl on the same object).
+  window.__btConfig = window.__btConfig || {};
+  window.__btConfig.maxFeedbackPerSession = 3;
   import { scanExercises, buildRegistry, start } from "../_extensions/blendtutor/assets/exercise-runtime.js";
   import { mountAllFeedback } from "../_extensions/blendtutor/assets/exercise-feedback.js";
   import { createWebRAdapter } from "../_extensions/blendtutor/assets/webr-adapter.js";
@@ -46,7 +53,7 @@ stopifnot(add(1, 2) == 3)
   start(registry, { r: adapter }).then(() => {
     // Mount per-exercise feedback AFTER the runtime boots — each exercise
     // gets its own feedback button + container. The key is shared via
-    // sessionStorage: entered once on exercise 1, reused on exercise 2.
+    // localStorage: entered once on exercise 1, reused on exercise 2.
     mountAllFeedback(registry);
   });
 </script>

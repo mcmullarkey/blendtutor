@@ -50,6 +50,13 @@ jobs:
       - name: Model alignment
         run: ./scripts/check-model-alignment.sh
 
+      # Issue #196 — smevals runner (run.sh) + deterministic polarity checker
+      # (check_polarity.sh): env→argv wiring, verdict header contract,
+      # transient-only retry with per-call timeout, fail-closed checker.
+      # Stub-based shell BDD; needs only bash + jq + GNU timeout (ubuntu).
+      - name: smevals runner test
+        run: bash scripts/tests/test_smevals_runner.sh
+
   quarto-render:
     name: quarto render
     runs-on: ubuntu-latest

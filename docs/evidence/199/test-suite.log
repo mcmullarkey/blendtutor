@@ -1,0 +1,78 @@
+== Phase 1: structural pins (docs.yml build job) ==
+  PASS: quarto setup in build job (quarto-dev/quarto-actions/setup@v2)
+  PASS: build job renders demo-book (quarto render demo-book --to html)
+  PASS: build job renders demo-standalone (quarto render demo-standalone --to html)
+  PASS: COI post-process present (scripts/fix-demo-coi-scope.sh demo-standalone)
+  PASS: demo-book DOT-COPY literal (cp -R demo-book/_output/. — no _output/ layer)
+  PASS: selective demo copy (index.html + index_files/ + coi-serviceworker.js → /demo/)
+  PASS: .nojekyll step at artifact root (touch docs/book/book/.nojekyll)
+  PASS: ordering: setup → renders → fix-coi → copies → evals guard → .nojekyll all BEFORE upload (clauses 4, 8)
+  PASS: no '|| true' on build steps
+  PASS: no 'continue-on-error: true' on build steps
+  PASS: evals guard present (if [ -d docs/evals ])
+  PASS: no '&&' shorthand guard (if/then/fi only — CI green before AC-5)
+  PASS: evals step order: guard < rm < mkdir < dot-copy (clause 2, mkdir inside guard)
+  PASS: no '|| true' on evals step
+  PASS: no render/copy steps in deploy job block
+== Phase 1: structural pins (ci.yml quarto-render job) ==
+  PASS: CI quarto-render job runs test_docs_pages_artifact.sh
+== Phase 1: structural pins (check-docs.sh mirror contract) ==
+  PASS: check-docs.sh mirrors the build steps incl. guarded evals assemble (11/11 commands found)
+== Phase 2: local render + assemble + assert (check-docs.sh) ==
+docs: building API reference (rustdoc, -D warnings) …
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.16s
+   Generated /Users/carbonite/Documents/coding/portfolio/worktree-issue-199/target/doc/blendtutor/index.html and 1 other file
+docs: building narrative site (mdBook) …
+ INFO Book building has started
+ INFO Running the html backend
+ INFO HTML book written to `/Users/carbonite/Documents/coding/portfolio/worktree-issue-199/docs/book/book`
+docs: assembling merged site (docs/book/book + /api) …
+docs: building example sites (webr + pyodide) …
+    Finished `release` profile [optimized] target(s) in 0.14s
+     Running `target/release/blendtutor build examples/write-less-code-r --target webr -o docs/book/book/examples/r`
+built 5 lesson(s) for webr into docs/book/book/examples/r
+    Finished `release` profile [optimized] target(s) in 0.09s
+     Running `target/release/blendtutor build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python`
+built 5 lesson(s) for pyodide into docs/book/book/examples/python
+docs: rendering demos (quarto) and assembling /demo-book/ + /demo/ …
+[1m[34m[1/4] index.qmd[39m[22m
+[1m[34m[2/4] api-key.qmd[39m[22m
+[1m[34m[3/4] r-exercises.qmd[39m[22m
+[1m[34m[4/4] python-exercises.qmd[39m[22m
+
+Output created: _output/index.html
+
+[1mpandoc [22m
+  to: html
+  output-file: index.html
+  standalone: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: Blendtutor Interactive Demo
+  coi: true
+  
+Output created: index.html
+
+fixed COI scope for demo-standalone: src -> ./coi-serviceworker.js, shim -> demo-standalone/coi-serviceworker.js
+docs: verifying failure propagation (missing course path) …
+docs: OK — merged site at docs/book/book (book at /, API at /api, examples at /examples/{r,python}, demos at /demo-book/ + /demo/, evals at /evals/)
+  PASS: check-docs.sh renders + assembles + asserts the artifact layout (clauses 9-10)
+== Phase 3: functional evals fixture sub-phase ==
+  PASS: fixture HTML lands at <scratch>/evals/evals-fixture/index.html, byte-identical (dot-copy)
+  PASS: committed lesson nests alongside fixture (<scratch>/evals/committed-lesson/report.html)
+  PASS: no double-nest — <scratch>/evals/evals absent
+  PASS: guard exits 0 with docs/evals absent; no evals/ nest created (CI green pre-AC-5)
+  PASS: committed docs/evals preserved byte-identical after fixture sub-phase
+
+=========================================
+  Results: 23 passed, 0 failed
+=========================================
+All tests passed.

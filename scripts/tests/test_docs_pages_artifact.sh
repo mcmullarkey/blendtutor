@@ -28,6 +28,22 @@
 #      rm -rf docs/book/book/* clobber (asserted by check-docs.sh Phase 2)
 #  11. ci.yml quarto-render job runs this test (awk job-block pin, not file-wide)
 #
+# AC-6 of smevals-eval-report (#199) adds a 12th concern — evals publishing:
+#  12. build job gains a guarded evals assemble step: if/then/fi guard with the
+#      literal `if [ -d docs/evals ]` AND the `&&` shorthand `[ -d docs/evals ]
+#      &&` ABSENT anywhere in the workflow (Actions runs steps under
+#      bash -eo pipefail — a trailing && chain exits 1 when the dir is missing,
+#      reddening CI before AC-5 commits any report)
+#  13. within the step, line order is guard < `rm -rf docs/book/book/evals` <
+#      `mkdir -p docs/book/book/evals` < literal DOT-COPY `cp -R docs/evals/.
+#      docs/book/book/evals/` (trailing /. — a bare cp double-nests to
+#      /evals/evals/<lesson>/ → 404); mkdir INSIDE the guard (no empty /evals/
+#      nest published pre-AC-5); step before .nojekyll and before upload
+#  14. deploy job block free of `evals`/`docs/evals` needles (deploy has no
+#      checkout); check-docs.sh mirrors the guarded assemble + double-nest
+#      assert against $book_out; fixture sub-phase (Phase 3) proves the cp
+#      semantics (no double-nest) + the guard exits 0 when docs/evals absent
+#
 # Negative cases (from the spec):
 #   - quarto setup step missing → render fails on clean runner → clause 1
 #   - || true / continue-on-error: true → silent-failure deploy of a broken
@@ -103,6 +119,10 @@ L_COPY_BOOK="$(block_line "$BUILD_BLOCK" 'demo-book/_output/.')"
 L_COPY_DEMO="$(block_line "$BUILD_BLOCK" 'cp demo-standalone/index.html')"
 L_NOJEKYLL="$(block_line "$BUILD_BLOCK" 'docs/book/book/.nojekyll')"
 L_UPLOAD="$(block_line "$BUILD_BLOCK" 'actions/upload-pages-artifact@v5')"
+L_EVALS_GUARD="$(block_line "$BUILD_BLOCK" 'if [ -d docs/evals ]')"
+L_EVALS_RM="$(block_line "$BUILD_BLOCK" 'rm -rf docs/book/book/evals')"
+L_EVALS_MKDIR="$(block_line "$BUILD_BLOCK" 'mkdir -p docs/book/book/evals')"
+L_EVALS_CP="$(block_line "$BUILD_BLOCK" 'cp -R docs/evals/. docs/book/book/evals/')"
 
 # Clause 1 — quarto setup in the build job block (absent today: a clean
 # runner has no quarto and the render steps would fail).
@@ -166,7 +186,7 @@ fi
 # fix-coi → dot-copy demo-book → selective demo copy → .nojekyll → upload.
 ORDER_OK=1
 for ln in "$L_SETUP" "$L_RENDER_BOOK" "$L_RENDER_SA" "$L_FIX" "$L_COPY_BOOK" \
-          "$L_COPY_DEMO" "$L_NOJEKYLL" "$L_UPLOAD"; do
+          "$L_COPY_DEMO" "$L_EVALS_GUARD" "$L_NOJEKYLL" "$L_UPLOAD"; do
   [ -n "$ln" ] || ORDER_OK=0
 done
 if [ "$ORDER_OK" -eq 1 ] \
@@ -175,11 +195,12 @@ if [ "$ORDER_OK" -eq 1 ] \
     && [ "$L_RENDER_SA" -lt "$L_FIX" ] \
     && [ "$L_FIX" -lt "$L_COPY_BOOK" ] \
     && [ "$L_COPY_BOOK" -lt "$L_COPY_DEMO" ] \
-    && [ "$L_COPY_DEMO" -lt "$L_NOJEKYLL" ] \
+    && [ "$L_COPY_DEMO" -lt "$L_EVALS_GUARD" ] \
+    && [ "$L_EVALS_GUARD" -lt "$L_NOJEKYLL" ] \
     && [ "$L_NOJEKYLL" -lt "$L_UPLOAD" ]; then
-  ok "ordering: setup → renders → fix-coi → copies → .nojekyll all BEFORE upload (clauses 4, 8)"
+  ok "ordering: setup → renders → fix-coi → copies → evals guard → .nojekyll all BEFORE upload (clauses 4, 8)"
 else
-  ko "ordering: all new steps BEFORE upload with fix-coi after render, before copy — setup=$L_SETUP render_book=$L_RENDER_BOOK render_sa=$L_RENDER_SA fix=$L_FIX copy_book=$L_COPY_BOOK copy_demo=$L_COPY_DEMO nojekyll=$L_NOJEKYLL upload=$L_UPLOAD"
+  ko "ordering: all new steps BEFORE upload with fix-coi after render, before copy — setup=$L_SETUP render_book=$L_RENDER_BOOK render_sa=$L_RENDER_SA fix=$L_FIX copy_book=$L_COPY_BOOK copy_demo=$L_COPY_DEMO evals=$L_EVALS_GUARD nojekyll=$L_NOJEKYLL upload=$L_UPLOAD"
 fi
 
 # Clause 8 — refusal arms: no || true, no continue-on-error on any step.
@@ -195,9 +216,51 @@ else
   ok "no 'continue-on-error: true' on build steps"
 fi
 
+# AC-6 (#199) — clause 1: evals guard present in if/then/fi form, and the
+# `[ -d docs/evals ] &&` shorthand ABSENT anywhere in the workflow. Actions
+# runs steps under `bash -eo pipefail`, so a trailing && chain would exit 1
+# (and redden CI) whenever docs/evals does not exist — before AC-5 has
+# committed any report. Grep the whole file, not just the build block.
+if [ -n "$L_EVALS_GUARD" ]; then
+  ok "evals guard present (if [ -d docs/evals ])"
+else
+  ko "evals guard present (if [ -d docs/evals ]) — missing"
+fi
+
+if grep -qF '[ -d docs/evals ] &&' "$DOCS_FILE"; then
+  ko "no '&&' shorthand guard (trailing && exits 1 under bash -eo pipefail when docs/evals missing)"
+else
+  ok "no '&&' shorthand guard (if/then/fi only — CI green before AC-5)"
+fi
+
+# AC-6 (#199) — clause 2: within-step line order guard < rm < mkdir < dot-copy.
+# mkdir INSIDE the guard: no empty /evals/ nest published pre-AC-5. The
+# trailing /. on the copy is the double-nest trap (bare cp → /evals/evals/).
+EVALS_ORDER_OK=1
+for ln in "$L_EVALS_GUARD" "$L_EVALS_RM" "$L_EVALS_MKDIR" "$L_EVALS_CP"; do
+  [ -n "$ln" ] || EVALS_ORDER_OK=0
+done
+if [ "$EVALS_ORDER_OK" -eq 1 ] \
+    && [ "$L_EVALS_GUARD" -lt "$L_EVALS_RM" ] \
+    && [ "$L_EVALS_RM" -lt "$L_EVALS_MKDIR" ] \
+    && [ "$L_EVALS_MKDIR" -lt "$L_EVALS_CP" ]; then
+  ok "evals step order: guard < rm < mkdir < dot-copy (clause 2, mkdir inside guard)"
+else
+  ko "evals step order: guard < rm < mkdir < dot-copy — guard=$L_EVALS_GUARD rm=$L_EVALS_RM mkdir=$L_EVALS_MKDIR cp=$L_EVALS_CP"
+fi
+
+# AC-6 (#199) — clause 4: no || true on the evals step.
+if [ -z "$L_EVALS_GUARD" ] || [ -z "$L_EVALS_CP" ]; then
+  ko "no '|| true' on evals step — evals step missing (clause 1 already fails)"
+elif grep -qE '\|\|\s*true' <<< "$(sed -n "$L_EVALS_GUARD,$((L_EVALS_CP + 2))p" <<< "$BUILD_BLOCK")"; then
+  ko "no '|| true' on evals step (silent-failure trap)"
+else
+  ok "no '|| true' on evals step"
+fi
+
 # Clause 8 — build-job-block scoping: no render/copy steps leak into deploy.
 DEPLOY_LEAK=""
-for needle in 'quarto render' 'fix-demo-coi-scope' 'demo-book' 'demo-standalone' '.nojekyll'; do
+for needle in 'quarto render' 'fix-demo-coi-scope' 'demo-book' 'demo-standalone' '.nojekyll' 'evals'; do
   if grep -qF "$needle" <<< "$DEPLOY_BLOCK"; then
     DEPLOY_LEAK="$DEPLOY_LEAK $needle"
   fi
@@ -221,7 +284,8 @@ fi
 echo "== Phase 1: structural pins (check-docs.sh mirror contract) =="
 
 # Clause 9 (structural half) — check-docs.sh mirrors the new build steps so
-# the local mirror cannot silently diverge from CI.
+# the local mirror cannot silently diverge from CI. AC-6 (#199) adds the three
+# evals needles (guard, dot-copy, double-nest assert) → 8 → 11.
 MIRROR_OK=0
 for needle in \
   'quarto render demo-book' \
@@ -231,13 +295,16 @@ for needle in \
   'cp demo-standalone/index.html' \
   'cp -R demo-standalone/index_files' \
   'cp demo-standalone/coi-serviceworker.js' \
-  '.nojekyll'; do
+  '.nojekyll' \
+  'if [ -d docs/evals ]' \
+  'cp -R docs/evals/. "$book_out/evals/"' \
+  '"$book_out/evals/evals"'; do
   grep -qF "$needle" "$CHECK_DOCS" && MIRROR_OK=$((MIRROR_OK + 1))
 done
-if [ "$MIRROR_OK" -eq 8 ]; then
-  ok "check-docs.sh mirrors the new build steps (8/8 commands found)"
+if [ "$MIRROR_OK" -eq 11 ]; then
+  ok "check-docs.sh mirrors the build steps incl. guarded evals assemble (11/11 commands found)"
 else
-  ko "check-docs.sh mirrors the new build steps — only $MIRROR_OK/8 commands found"
+  ko "check-docs.sh mirrors the build steps — only $MIRROR_OK/11 commands found"
 fi
 
 # ---------------------------------------------------------------------------
@@ -262,6 +329,145 @@ else
     ok "check-docs.sh renders + assembles + asserts the artifact layout (clauses 9-10)"
   else
     ko "check-docs.sh renders + assembles + asserts the artifact layout (clauses 9-10)"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Phase 3 — functional evals fixture sub-phase (AC-6, #199, clause 8)
+# ---------------------------------------------------------------------------
+
+echo "== Phase 3: functional evals fixture sub-phase =="
+
+# Once AC-5 (#198) lands, docs/evals/ is COMMITTED SOURCE — this sub-phase must
+# never destroy it (a `rm -rf docs/evals` cleanup would delete real reports
+# from the working tree). If docs/evals pre-exists, its content is snapshotted
+# and moved aside; the fixture sub-phase then runs against a fresh fixture tree
+# and the pre-existing content is restored + verified byte-identical. If it does
+# not pre-exist, a simulated committed report tree is created so the same
+# safety path is always exercised (and cleaned up on exit).
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/bt-evals-scratch.XXXXXX")"
+EVALS_PREEXISTING=0
+EVALS_BACKUP=""
+FIXTURE_DIR="docs/evals/evals-fixture"
+cleanup_evals() {
+  # Restore pre-existing (committed) docs/evals if it was moved aside.
+  if [ -n "$EVALS_BACKUP" ] && [ -d "$EVALS_BACKUP" ]; then
+    rm -rf docs/evals
+    mv "$EVALS_BACKUP" docs/evals
+  fi
+  # Temp fixture — inside the restored real tree (pre-existing case) OR the
+  # simulated tree (non-pre-existing) — must not linger in either case.
+  rm -rf "$FIXTURE_DIR"
+  # Simulated committed tree (created by this sub-phase) must not linger.
+  if [ "$EVALS_PREEXISTING" -eq 0 ]; then
+    rm -rf docs/evals
+  fi
+  rm -rf "$SCRATCH"
+}
+trap cleanup_evals EXIT
+
+if [ -d docs/evals ]; then
+  EVALS_PREEXISTING=1
+else
+  # Simulate the post-AC-5 committed tree so the backup/restore path is always
+  # exercised and the preservation pin is live even before AC-5 lands.
+  mkdir -p docs/evals/committed-lesson
+  printf '<!doctype html><html><body>committed report</body></html>\n' \
+    > docs/evals/committed-lesson/report.html
+fi
+
+# The committed content file (real pre-existing or simulated), relative to the
+# repo root — used to assert it nests alongside the fixture in clause 8a
+# without hardcoding the simulated dir name (real AC-5 lessons vary).
+COMMITTED_FILE="$(find docs/evals -type f | head -1 || true)"
+COMMITTED_NESTED="${COMMITTED_FILE#docs/evals/}"
+
+# Snapshot the committed tree's content BEFORE the temp fixture is added, so
+# the preservation pin proves the committed content survived the sub-phase
+# independent of the fixture (byte-identical compare, fixture excluded).
+find docs/evals -type f -exec cksum {} \; | sort > "$SCRATCH/docs-evals-before.cksum"
+
+# Temp fixture — simulates a report tree inside the (real or simulated)
+# committed docs/evals, exactly the post-AC-5 shape (lessons + new report).
+mkdir -p "$FIXTURE_DIR"
+printf '<!doctype html><html><body>evals-fixture</body></html>\n' \
+  > "$FIXTURE_DIR/index.html"
+
+# The guarded assemble snippet — the docs.yml step body with docs/book/book
+# replaced by the scratch dir, run under bash -euo pipefail.
+evals_assemble() {
+  bash -euo pipefail -c '
+    if [ -d docs/evals ]; then
+      rm -rf "$1/evals"
+      mkdir -p "$1/evals"
+      cp -R docs/evals/. "$1/evals/"
+    fi
+  ' _ "$SCRATCH"
+}
+
+# Clause 8a — fixture present: HTML lands at <scratch>/evals/evals-fixture/
+# index.html byte-identical, committed lesson also nests, and no double-nest
+# (<scratch>/evals/evals absent).
+if evals_assemble; then
+  if [ -f "$SCRATCH/evals/evals-fixture/index.html" ] \
+      && cmp -s "$FIXTURE_DIR/index.html" "$SCRATCH/evals/evals-fixture/index.html"; then
+    ok "fixture HTML lands at <scratch>/evals/evals-fixture/index.html, byte-identical (dot-copy)"
+  else
+    ko "fixture HTML not byte-identical at <scratch>/evals/evals-fixture/index.html"
+  fi
+  if [ -n "$COMMITTED_NESTED" ] && [ -f "$SCRATCH/evals/$COMMITTED_NESTED" ]; then
+    ok "committed lesson nests alongside fixture (<scratch>/evals/$COMMITTED_NESTED)"
+  else
+    ko "committed lesson missing from assembled evals nest (expected <scratch>/evals/$COMMITTED_NESTED)"
+  fi
+  if [ ! -e "$SCRATCH/evals/evals" ]; then
+    ok "no double-nest — <scratch>/evals/evals absent"
+  else
+    ko "double-nest — <scratch>/evals/evals present (bare cp, not dot-copy)"
+  fi
+else
+  ko "guarded assemble exits non-zero with fixture present"
+fi
+
+# Clause 8b — docs/evals absent (as pre-AC-5): same snippet under bash -e
+# exits 0 and creates no evals/ dir (CI stays green). The committed tree is
+# moved aside first (restored below); scratch evals/ from 8a is cleared so
+# "creates no evals dir" is a true negative.
+mv docs/evals "$SCRATCH/docs-evals-real"
+EVALS_BACKUP="$SCRATCH/docs-evals-real"
+rm -rf "$SCRATCH/evals"
+if bash -e -c '
+  if [ -d docs/evals ]; then
+    rm -rf "$1/evals"
+    mkdir -p "$1/evals"
+    cp -R docs/evals/. "$1/evals/"
+  fi
+' _ "$SCRATCH"; then
+  if [ ! -e "$SCRATCH/evals" ]; then
+    ok "guard exits 0 with docs/evals absent; no evals/ nest created (CI green pre-AC-5)"
+  else
+    ko "evals/ nest created despite docs/evals absent (mkdir outside guard)"
+  fi
+else
+  ko "guard exits non-zero with docs/evals absent (would redden CI pre-AC-5)"
+fi
+
+# Restore the (real or simulated) committed tree and pin byte-identical
+# preservation — a regression here deletes committed AC-5 reports. The temp
+# fixture (which travelled inside docs/evals to the backup) is removed from the
+# restored tree; the before-snapshot never contained it, so the pin compares
+# committed content only. Guarded: if 8b never moved docs/evals aside (hard
+# failure before it), there is nothing to restore.
+if [ -n "$EVALS_BACKUP" ] && [ -d "$EVALS_BACKUP" ]; then
+  rm -rf docs/evals
+  mv "$EVALS_BACKUP" docs/evals
+  EVALS_BACKUP=""
+  rm -rf "$FIXTURE_DIR"
+  if find docs/evals -type f -exec cksum {} \; | sort \
+      | diff -q "$SCRATCH/docs-evals-before.cksum" - >/dev/null; then
+    ok "committed docs/evals preserved byte-identical after fixture sub-phase"
+  else
+    ko "committed docs/evals NOT preserved (content changed or deleted)"
   fi
 fi
 

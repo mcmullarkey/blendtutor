@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Build the combined documentation site locally and assert it satisfies the
-# docs slice (#3) and the example-sites slice (#76): mdBook narrative + rustdoc
-# API + example course sites (webr + pyodide) merged into one Pages artifact.
+# docs slice (#3), the example-sites slice (#76), and the evals-pages slice
+# (#199): mdBook narrative + rustdoc API + example course sites (webr + pyodide)
+# + committed docs/evals/ (when present) merged into one Pages artifact.
 #
 # This is the slice's executable spec — the same predicates CI enforces,
 # runnable by hand:
@@ -82,6 +83,22 @@ mkdir -p "$book_out/demo"
 cp demo-standalone/index.html "$book_out/demo/"
 cp -R demo-standalone/index_files "$book_out/demo/"
 cp demo-standalone/coi-serviceworker.js "$book_out/demo/"
+
+# AC-6 (#199) — assemble committed docs/evals/ into the artifact at /evals/,
+# mirroring the /api + /examples/{r,python} + /demo-book/ + /demo/ nesting.
+# Guarded: before AC-5 (#198) lands there is no docs/evals/, and the if/then/fi
+# guard keeps the local check (and CI, via docs.yml's identical guard) green.
+# mkdir INSIDE the guard: no empty /evals/ nest pre-AC-5. rm before mkdir (api
+# precedent): docs/evals is committed source; cp-only never removes stale
+# reports. DOT-COPY (trailing /.): a bare cp would double-nest to
+# /evals/evals/<lesson>/ → 404 — asserted inside the guard.
+if [ -d docs/evals ]; then
+  rm -rf "$book_out/evals"
+  mkdir -p "$book_out/evals"
+  cp -R docs/evals/. "$book_out/evals/"
+  ! [ -e "$book_out/evals/evals" ] \
+    || { echo "docs: evals double-nested ($book_out/evals/evals — bare cp, not dot-copy)" >&2; exit 1; }
+fi
 touch "$book_out/.nojekyll"
 
 # AC-2 — assert the assembled layout (clause 9):
@@ -218,4 +235,4 @@ grep -q 'examples/r/' "$book_out/examples.html" \
 grep -q 'examples/python/' "$book_out/examples.html" \
   || { echo "docs: built mdBook examples.html missing rendered link to examples/python/" >&2; exit 1; }
 
-echo "docs: OK — merged site at $book_out (book at /, API at /api, examples at /examples/{r,python}, demos at /demo-book/ + /demo/)"
+echo "docs: OK — merged site at $book_out (book at /, API at /api, examples at /examples/{r,python}, demos at /demo-book/ + /demo/, evals at /evals/)"

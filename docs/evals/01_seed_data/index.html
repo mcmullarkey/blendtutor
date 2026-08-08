@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>smevals</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0;
+         background: #f6f7f9; color: #1c1e21; }
+  header { background: #1c2b3a; color: #fff; padding: 10px 20px;
+           display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  header h1 a { color: #fff; text-decoration: none; }
+  nav#evals { display: flex; flex-wrap: wrap; gap: 2px 14px; flex: 1; min-width: 0; }
+  nav#evals a { color: #9fc3e8; text-decoration: none; white-space: nowrap;
+                font-size: 14px; }
+  nav#evals a.active { color: #fff; font-weight: 600;
+                       border-bottom: 2px solid #6db3f2; }
+  #status { font-size: 12px; color: #8fa3b5; white-space: nowrap; }
+  main { padding: 16px 20px; max-width: 1200px; margin: 0 auto; }
+  .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+  .grid > div { min-width: 0; }
+  @media (max-width: 920px) { .grid { grid-template-columns: 1fr; } }
+  .full { grid-column: 1 / -1; }
+  section { background: #fff; border: 1px solid #e0e4e8; border-radius: 8px;
+            padding: 14px 16px; margin-bottom: 16px; }
+  section h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase;
+               letter-spacing: 0.05em; color: #5a6b7b; }
+  h2.file-h { text-transform: none; letter-spacing: 0;
+              font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  section p.desc { margin: 0 0 10px; font-size: 14px; line-height: 1.5;
+                   color: #34404c; max-width: 75ch; }
+  .facts { display: flex; gap: 22px; font-size: 13px; color: #5a6b7b;
+           flex-wrap: wrap; align-items: baseline; }
+  .facts b { color: #1c2b3a; font-weight: 600; }
+  a { color: #2c6cb0; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+           gap: 16px; }
+  .card { background: #fff; border: 1px solid #e0e4e8; border-radius: 8px;
+          padding: 14px 16px; display: block; text-decoration: none;
+          color: inherit; }
+  .card:hover { border-color: #6db3f2; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .card p { margin: 0 0 10px; font-size: 13px; color: #5a6b7b; line-height: 1.45; }
+  .card .best { font-size: 13px; }
+  .lb-row { display: flex; align-items: center; gap: 10px; padding: 5px 0;
+            border-bottom: 1px solid #f0f2f4; font-size: 14px;
+            color: inherit; text-decoration: none; }
+  .lb-row:hover { background: #f8fafc; }
+  .lb-row .rank { width: 26px; color: #8a97a5; text-align: right;
+                  flex-shrink: 0; }
+  .lb-row .mid { flex: 1; min-width: 0; }
+  .lb-row .name { font-weight: 500; white-space: nowrap; overflow: hidden;
+                  text-overflow: ellipsis; }
+  .lb-row .sub { color: #8a97a5; font-size: 12px; }
+  .bar { height: 6px; background: #e8ecf0; border-radius: 3px; margin-top: 3px; }
+  .bar > div { height: 100%; background: #4a90d9; border-radius: 3px; }
+  .lb-row .score { width: 70px; text-align: right;
+                   font-variant-numeric: tabular-nums; font-weight: 600;
+                   flex-shrink: 0; }
+  .feed-item { display: flex; gap: 8px; font-size: 13px; padding: 4px 0;
+               border-bottom: 1px solid #f0f2f4; align-items: baseline;
+               font-variant-numeric: tabular-nums; color: inherit;
+               text-decoration: none; }
+  .feed-item:hover { background: #f8fafc; }
+  .feed-item .when { color: #8a97a5; width: 70px; flex-shrink: 0; }
+  .feed-item .when-wide { color: #8a97a5; width: 130px; flex-shrink: 0;
+                          font-variant-numeric: tabular-nums; }
+  .feed-item .what { flex: 1; overflow: hidden; text-overflow: ellipsis;
+                     white-space: nowrap; }
+  .ok { color: #2e7d32; font-weight: 600; }
+  .fail { color: #c62828; font-weight: 600; }
+  .fresh { animation: flash 2s; }
+  @keyframes flash { from { background: #fff9c4; } to { background: none; } }
+  .tag-row { display: flex; gap: 8px; font-size: 13px; padding: 3px 0;
+             align-items: baseline; font-variant-numeric: tabular-nums;
+             color: inherit; text-decoration: none; }
+  a.tag-row:hover { background: #f8fafc; }
+  a.tag-row .tag-name { color: #2c6cb0; text-decoration: underline; }
+  .tag-row .share { width: 90px; color: #5a6b7b; flex-shrink: 0;
+                    text-align: right; }
+  .tag { background: #eef3f8; border-radius: 4px; padding: 1px 7px;
+         font-size: 12px; color: #2c5175; display: inline-block; margin: 1px; }
+  .picker { display: inline-flex; gap: 4px; }
+  .picker a { background: #eef3f8; border-radius: 4px; padding: 1px 9px;
+              font-size: 12px; color: #2c5175; text-decoration: none;
+              border: 1px solid transparent; }
+  .picker a.on { background: #1c2b3a; color: #fff; font-weight: 600; }
+  .check { border-left: 3px solid #d6dde4; padding: 6px 12px; margin: 8px 0;
+           font-size: 13px; }
+  .check.required { border-left-color: #4a90d9; }
+  .check .head { font-weight: 600; }
+  .check .conf { color: #5a6b7b; white-space: pre-wrap; margin-top: 3px;
+                 overflow-wrap: anywhere; }
+  .task-item { padding: 7px 0; border-bottom: 1px solid #f0f2f4;
+               font-size: 13px; }
+  .task-item b { font-size: 14px; }
+  .task-item .prompt { color: #5a6b7b; margin-top: 2px; white-space: pre-wrap; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+             gap: 14px; }
+  .shot { display: block; text-decoration: none; color: inherit;
+          border: 1px solid #e0e4e8; border-radius: 8px; overflow: hidden;
+          background: #fff; }
+  .shot img { width: 100%; display: block; background: #fff;
+              aspect-ratio: 4/3; object-fit: contain; }
+  .shot .cap { padding: 6px 10px; font-size: 12px; display: flex;
+               justify-content: space-between; gap: 6px; }
+  .shot .cap .m { overflow: hidden; text-overflow: ellipsis;
+                  white-space: nowrap; }
+  pre.output { background: #f4f6f8; border: 1px solid #e0e4e8;
+               border-radius: 6px; padding: 10px 12px; font-size: 12px;
+               overflow-x: auto; max-height: 480px; }
+  pre.output.tall { max-height: none; }
+  .kv { font-size: 13px; }
+  .kv div { padding: 3px 0; display: flex; gap: 10px; }
+  .kv dt { color: #5a6b7b; width: 110px; flex-shrink: 0; }
+  .artifact-img { max-width: 100%; border: 1px solid #e0e4e8;
+                  border-radius: 6px; background: #fff; margin: 0 0 6px; }
+  .img-cap { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+             font-size: 12px; color: #5a6b7b; margin: 10px 0 4px; }
+  .empty { color: #8a97a5; font-size: 13px; font-style: italic; }
+  .crumb { font-size: 13px; color: #5a6b7b; margin-bottom: 12px; }
+  .metric-row { display: flex; gap: 8px; font-size: 13px; padding: 3px 0;
+                font-variant-numeric: tabular-nums; }
+  .metric-row .k { width: 160px; color: #5a6b7b; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1><a href="#/">smevals</a></h1>
+  <nav id="evals"></nav>
+  <span id="status"></span>
+</header>
+<main id="view"></main>
+<script>
+"use strict";
+const state = { site: null, data: {}, fingerprint: {} };
+
+const esc = s => String(s ?? "").replace(/[&<>"]/g,
+  c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const enc = encodeURIComponent;
+
+function ago(iso) {
+  if (!iso) return "";
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 60) return Math.floor(s) + "s ago";
+  if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago";
+  return Math.floor(s / 86400) + "d ago";
+}
+
+const IMAGE = /\.(png|svg|jpe?g|gif|webp)$/i;
+const runURL = (slug, run, file) => `evals/${slug}/runs/${run}/${file}`;
+const gradeURL = (slug, run, grader, file) =>
+  `evals/${slug}/runs/${run}/grades/${grader}/${file}`;
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+function currentGrader(slug) {
+  // The URL is the source of truth: #/eval-slug?grader=judge
+  const requested = currentRoute().params.get("grader");
+  const graders = state.data[slug]?.eval.graders || {};
+  if (requested && requested in graders) return requested;
+  return state.data[slug]?.eval.default_grader;
+}
+
+function graderQuery(slug) {
+  "Query suffix that carries a non-default grader choice between pages";
+  const grader = currentGrader(slug);
+  return grader && grader !== state.data[slug]?.eval.default_grader
+    ? `?grader=${enc(grader)}` : "";
+}
+
+function gradeOf(row, grader) {
+  return (row.grades || {})[grader] || {};
+}
+
+async function fetchJSON(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(url + ": " + response.status);
+  return response.json();
+}
+
+async function loadSite() {
+  state.site = await fetchJSON("index.json");
+  const nav = document.getElementById("evals");
+  nav.innerHTML = state.site.evals.map(e =>
+    `<a href="#/${enc(e.slug)}" data-slug="${esc(e.slug)}">${esc(e.name)}</a>`
+  ).join("");
+}
+
+async function loadEval(slug) {
+  state.data[slug] = await fetchJSON(`evals/${slug}/eval.json`);
+  state.fingerprint[slug] = fingerprint(state.data[slug]);
+  return state.data[slug];
+}
+
+function groupRows(rows, grader) {
+  const groups = {};
+  for (const r of rows) {
+    const key = r.config + " " + r.model;
+    (groups[key] ||= { config: r.config, model: r.model, rows: [] })
+      .rows.push(r);
+  }
+  return Object.values(groups).map(g => {
+    const scores = g.rows.map(r => gradeOf(r, grader).score)
+      .filter(s => s != null);
+    return {
+      ...g,
+      fails: g.rows.filter(r => gradeOf(r, grader).outcome === "fail").length,
+      mean: scores.length
+        ? scores.reduce((a, b) => a + b) / scores.length : null,
+    };
+  }).sort((a, b) => (b.mean ?? -1) - (a.mean ?? -1));
+}
+
+// --- views --------------------------------------------------------------
+
+function renderHome() {
+  const site = state.site;
+  document.getElementById("view").innerHTML = `
+    <div class="cards">` + site.evals.map(e => `
+      <a class="card" href="#/${enc(e.slug)}">
+        <h3>${esc(e.name)}</h3>
+        <p>${esc(e.description)}</p>
+        <div class="best">${e.best
+          ? `best: <b>${esc(e.best.model)}</b> (${esc(e.best.config)}) — ` +
+            `<b>${e.best.score.toFixed(2)}</b>`
+          : `<span class="empty">no scores yet</span>`}</div>
+        <div class="facts" style="margin-top:6px">
+          <span><b>${e.runs}</b> runs</span>
+          <span><b>${e.graded}</b> graded</span>
+          ${e.fails ? `<span><b>${e.fails}</b> fails</span>` : ""}
+          ${(e.graders || []).length > 1
+            ? `<span><b>${e.graders.length}</b> graders</span>` : ""}
+        </div>
+      </a>`).join("") + `</div>`;
+}
+
+function graderPickerHTML(slug) {
+  const data = state.data[slug];
+  const names = Object.keys(data.eval.graders || {});
+  const current = currentGrader(slug);
+  if (names.length < 2) {
+    return `<span>grader: <b>${esc(current ?? "(none)")}</b></span>`;
+  }
+  // Plain links: the grader choice lives in the URL, so it survives
+  // reloads, deep links and the back button
+  const path = location.hash.replace(/^#/, "").split("?")[0];
+  return `<span>grader: <span class="picker">${names.map(n =>
+    `<a href="#${path}${n === data.eval.default_grader
+        ? "" : `?grader=${enc(n)}`}"
+        class="${n === current ? "on" : ""}">${esc(n)}</a>`).join("")}
+    </span></span>`;
+}
+
+function leaderboardHTML(slug, groups) {
+  if (!groups.length) return `<div class="empty">No runs yet.</div>`;
+  return groups.map((g, i) => `
+    <a class="lb-row"
+       href="#/${enc(slug)}/model/${enc(g.config)}/${enc(g.model)}${graderQuery(slug)}">
+      <div class="rank">${i + 1}</div>
+      <div class="mid">
+        <div class="name">${esc(g.model)} <span class="sub">(${esc(g.config)})</span></div>
+        <div class="sub">${plural(g.rows.length, "run")}${
+          g.fails ? `, ${plural(g.fails, "fail")}` : ""}</div>
+        <div class="bar"><div style="width:${(g.mean ?? 0) * 100}%"></div></div>
+      </div>
+      <div class="score">${g.mean == null ? "–" : g.mean.toFixed(3)}</div>
+    </a>`).join("");
+}
+
+function tagsHTML(slug, rows, grader) {
+  const counts = {};
+  let graded = 0;
+  for (const r of rows) {
+    const grade = gradeOf(r, grader);
+    if (grade.graded) graded++;
+    for (const t of (grade.tags || [])) counts[t] = (counts[t] || 0) + 1;
+  }
+  const entries = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  if (!entries.length) return "";
+  return `<section><h2>Tags</h2>` + entries.map(([tag, n]) => `
+    <a class="tag-row" href="#/${enc(slug)}/tag/${enc(tag)}${graderQuery(slug)}">
+      <span class="share">${n}/${graded} (${Math.round(n / graded * 100)}%)</span>
+      <span class="tag-name">${esc(tag)}</span>
+    </a>`).join("") + `</section>`;
+}
+
+function checksHTML(grader) {
+  if (!grader) return `<div class="empty">No grader configured.</div>`;
+  const steps = (grader.checks || []).map(check => {
+    const conf = Object.entries(check)
+      .filter(([k]) => !["checker", "required"].includes(k))
+      .map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
+      .join("\n");
+    return `<div class="check${check.required ? " required" : ""}">
+      <div class="head">${esc(check.checker)}${
+        check.required ? " · required" : ""}</div>
+      ${conf ? `<div class="conf">${esc(conf)}</div>` : ""}
+    </div>`;
+  }).join("");
+  const threshold = grader.scoring?.pass_threshold;
+  return steps + (threshold != null
+    ? `<div class="kv"><div><dt>pass threshold</dt><dd>${threshold}</dd></div></div>`
+    : "");
+}
+
+function feedsHTML(slug, rows, grader) {
+  const runItem = r => `
+    <a class="feed-item" href="#/${enc(slug)}/run/${r.run}">
+      <span class="when">${ago(r.started)}</span>
+      <span class="what">${esc(r.task)} · ${esc(r.model)}</span>
+      <span class="${r.exit_code === 0 ? "ok" : "fail"}">${
+        r.exit_code === 0 ? "ok" : "failed"}</span>
+    </a>`;
+  const gradeItem = r => {
+    const grade = gradeOf(r, grader);
+    return `
+    <a class="feed-item" href="#/${enc(slug)}/run/${r.run}">
+      <span class="when">${ago(grade.graded)}</span>
+      <span class="what">${esc(r.task)} · ${esc(r.model)}</span>
+      <span class="${grade.outcome === "pass" ? "ok" : "fail"}">${
+        grade.score != null ? grade.score.toFixed(2) : esc(grade.outcome ?? "")}</span>
+    </a>`;
+  };
+  const recentRuns = rows.filter(r => r.started)
+    .sort((a, b) => b.started.localeCompare(a.started)).slice(0, 12);
+  const recentGrades = rows.filter(r => gradeOf(r, grader).graded)
+    .sort((a, b) => gradeOf(b, grader).graded
+      .localeCompare(gradeOf(a, grader).graded)).slice(0, 12);
+  return `
+    <section><h2>Recent runs</h2>${
+      recentRuns.map(runItem).join("") ||
+      `<div class="empty">No runs yet.</div>`}</section>
+    <section><h2>Recent grades</h2>${
+      recentGrades.map(gradeItem).join("") ||
+      `<div class="empty">No grades yet.</div>`}</section>`;
+}
+
+function galleryHTML(slug, rows, grader, limit) {
+  const shots = [];
+  for (const r of rows) {
+    const grade = gradeOf(r, grader);
+    for (const f of (grade.files || [])) {
+      if (IMAGE.test(f)) {
+        shots.push({ row: r, grade, file: f });
+        break;
+      }
+    }
+  }
+  if (!shots.length) return "";
+  shots.sort((a, b) => (b.grade.score ?? -1) - (a.grade.score ?? -1));
+  const shown = limit ? shots.slice(0, limit) : shots;
+  return `<section class="full"><h2>Gallery</h2><div class="gallery">` +
+    shown.map(({ row, grade, file }) => `
+      <a class="shot" href="#/${enc(slug)}/run/${row.run}">
+        <img loading="lazy" src="${gradeURL(slug, row.run, grader, file)}">
+        <div class="cap">
+          <span class="m">${esc(row.model)} · ${esc(row.task)}</span>
+          <b>${grade.score != null ? grade.score.toFixed(2) : "–"}</b>
+        </div>
+      </a>`).join("") + `</div>${limit && shots.length > limit
+        ? `<p><a href="#/${enc(slug)}/gallery${graderQuery(slug)}">All ${shots.length} images →</a></p>`
+        : ""}</section>`;
+}
+
+function renderEval(slug) {
+  const data = state.data[slug];
+  const info = data.eval;
+  const rows = data.rows;
+  const grader = currentGrader(slug);
+  const groups = groupRows(rows, grader);
+  const models = new Set(rows.map(r => r.model));
+  const graded = rows.filter(r => gradeOf(r, grader).graded).length;
+  document.getElementById("view").innerHTML = `
+    <section class="full">
+      <h2>${esc(info.name)}</h2>
+      <p class="desc">${esc(info.description)}</p>
+      <div class="facts">
+        <span><b>${info.tasks.length}</b> ${info.tasks.length === 1 ? "task" : "tasks"}</span>
+        <span><b>${info.configs.length}</b> ${info.configs.length === 1 ? "config" : "configs"}</span>
+        <span><b>${models.size}</b> ${models.size === 1 ? "model" : "models"}</span>
+        <span><b>${rows.length}</b> runs</span>
+        <span><b>${graded}</b> graded</span>
+        ${graderPickerHTML(slug)}
+      </div>
+    </section>
+    <div class="grid">
+      <div>
+        <section><h2>Leaderboard</h2>${leaderboardHTML(slug, groups)}</section>
+        ${tagsHTML(slug, rows, grader)}
+        <section><h2>What was tested</h2>${
+          info.tasks.map(t => `
+            <div class="task-item"><b>${esc(t.name)}</b>${t.prompt
+              ? `<div class="prompt">${esc(t.prompt)}</div>`
+              : `<div class="prompt">${esc(Object.entries(t)
+                   .filter(([k]) => k !== "name")
+                   .map(([k, v]) => `${k}: ${v}`).join(", "))}</div>`}
+            </div>`).join("") || `<div class="empty">No tasks.</div>`}
+        </section>
+        <section><h2>How it was graded (${esc(grader ?? "no grader")})</h2>${
+          checksHTML(info.graders?.[grader])}</section>
+      </div>
+      <div>${feedsHTML(slug, rows, grader)}</div>
+    </div>
+    ${galleryHTML(slug, rows, grader, 8)}`;
+}
+
+function renderTag(slug, tag) {
+  const data = state.data[slug];
+  const grader = currentGrader(slug);
+  const graded = data.rows.filter(r => gradeOf(r, grader).graded);
+  const matches = graded.filter(r =>
+    (gradeOf(r, grader).tags || []).includes(tag));
+  matches.sort((a, b) =>
+    (gradeOf(b, grader).score ?? -1) - (gradeOf(a, grader).score ?? -1));
+  const item = r => {
+    const grade = gradeOf(r, grader);
+    return `
+    <a class="feed-item" href="#/${enc(slug)}/run/${r.run}">
+      <span class="when">${ago(grade.graded)}</span>
+      <span class="what">${esc(r.task)} · ${esc(r.model)} (${esc(r.config)})</span>
+      <span class="${grade.outcome === "pass" ? "ok" : "fail"}">${
+        grade.score != null ? grade.score.toFixed(2) : esc(grade.outcome ?? "")}</span>
+    </a>`;
+  };
+  document.getElementById("view").innerHTML = `
+    <div class="crumb"><a href="#/${enc(slug)}${graderQuery(slug)}">← ${esc(data.eval.name)}</a>
+      / tag: ${esc(tag)}</div>
+    <section>
+      <h2>${esc(tag)}</h2>
+      <div class="facts" style="margin-bottom:10px">
+        <span><b>${matches.length}</b> of <b>${graded.length}</b>
+          graded runs</span>
+        <span>grader: <b>${esc(grader)}</b></span>
+      </div>
+      ${matches.map(item).join("") ||
+        `<div class="empty">No graded runs carry this tag.</div>`}
+    </section>
+    ${galleryHTML(slug, matches, grader, 0)}`;
+}
+
+function renderGallery(slug) {
+  const data = state.data[slug];
+  const grader = currentGrader(slug);
+  document.getElementById("view").innerHTML = `
+    <div class="crumb"><a href="#/${enc(slug)}${graderQuery(slug)}">← ${esc(data.eval.name)}</a></div>
+    ${galleryHTML(slug, data.rows, grader, 0) ||
+      `<section><div class="empty">No images.</div></section>`}`;
+}
+
+function renderModel(slug, config, model) {
+  const data = state.data[slug];
+  const grader = currentGrader(slug);
+  const rows = data.rows.filter(r => r.config === config && r.model === model);
+  const scores = rows.map(r => gradeOf(r, grader).score).filter(s => s != null);
+  const mean = scores.length
+    ? (scores.reduce((a, b) => a + b) / scores.length) : null;
+  const tasks = {};
+  for (const r of rows) (tasks[r.task] ||= []).push(r);
+  const metrics = {};
+  for (const r of rows) {
+    for (const c of (gradeOf(r, grader).checks || [])) {
+      for (const [k, v] of Object.entries(c.metrics || {})) {
+        (metrics[k] ||= []).push(v);
+      }
+    }
+  }
+  document.getElementById("view").innerHTML = `
+    <div class="crumb"><a href="#/${enc(slug)}${graderQuery(slug)}">← ${esc(data.eval.name)}</a></div>
+    <section>
+      <h2>${esc(model)} (${esc(config)})</h2>
+      <div class="facts">
+        <span>score: <b>${mean == null ? "–" : mean.toFixed(3)}</b></span>
+        <span><b>${plural(rows.length, "run")}</b></span>
+        <span>${plural(rows.filter(r =>
+          gradeOf(r, grader).outcome === "fail").length, "fail")}</span>
+        ${graderPickerHTML(slug)}
+      </div>
+      ${Object.entries(metrics).map(([k, vs]) => {
+        const nums = vs.map(v => typeof v === "boolean" ? (v ? 1 : 0) : v);
+        const m = nums.reduce((a, b) => a + b, 0) / nums.length;
+        const isBool = vs.every(v => typeof v === "boolean");
+        return `<div class="metric-row"><span class="k">${esc(k)}</span>
+          <b>${isBool ? Math.round(m * 100) + "%" : m.toFixed(3)}</b></div>`;
+      }).join("")}
+    </section>
+    <section><h2>Runs by task</h2>${Object.entries(tasks).map(([task, trs]) => `
+      <div class="task-item"><b>${esc(task)}</b>${trs
+        .slice().sort((a, b) => (a.started ?? "").localeCompare(b.started ?? ""))
+        .map(r => {
+          const grade = gradeOf(r, grader);
+          const failed = grade.outcome === "fail" || r.exit_code !== 0;
+          const label = grade.score != null ? grade.score.toFixed(2)
+            : (grade.outcome ?? (r.exit_code === 0 ? "ungraded" : "run failed"));
+          return `<a class="feed-item" href="#/${enc(slug)}/run/${r.run}">
+            <span class="when-wide">${esc((r.started ?? "")
+              .slice(0, 16).replace("T", " ") || "?")}</span>
+            <span class="what">${ago(r.started)}</span>
+            <span class="${failed ? "fail" : (grade.outcome === "pass" ? "ok" : "")}">${
+              esc(String(label))}</span>
+          </a>`;
+        }).join("")}</div>`).join("")}
+    </section>`;
+}
+
+function taskDetailHTML(task) {
+  if (!task) return `<div class="empty">Task definition not found.</div>`;
+  const fields = Object.entries(task).filter(([k]) => k !== "name");
+  if (!fields.length) return `<div class="empty">No task fields.</div>`;
+  return fields.map(([key, value]) =>
+    `<div class="img-cap">${esc(key)}</div>` +
+    `<pre class="output">${esc(typeof value === "string"
+      ? value : JSON.stringify(value, null, 2))}</pre>`).join("");
+}
+
+function gradeSectionHTML(slug, row, name, grade) {
+  const outcome = grade.outcome
+    ? ` · <span class="${grade.outcome === "pass" ? "ok" : "fail"}">${
+        esc(grade.outcome)}${grade.score != null
+          ? " " + grade.score.toFixed(2) : ""}</span>`
+    : "";
+  return `<section><h2>Grade: ${esc(name)}${outcome}</h2>
+    ${(grade.checks || []).map(check => `
+      <div class="check${check.skipped ? "" : (check.ok ? " required" : "")}">
+        <div class="head">${esc(check.checker)} ·
+          ${check.skipped ? "skipped"
+            : `<span class="${check.ok ? "ok" : "fail"}">${check.ok ? "ok" : "failed"}</span>`}
+          ${check.score != null ? ` · ${check.score}` : ""}</div>
+        ${check.notes ? `<div class="conf">${esc(check.notes)}</div>` : ""}
+        ${Object.entries(check.metrics || {}).map(([k, v]) =>
+          `<div class="conf">${esc(k)}: ${esc(String(v))}</div>`).join("")}
+        ${(check.tags || []).map(t =>
+          `<a class="tag" href="#/${enc(slug)}/tag/${enc(t)}">${esc(t)}</a>`).join("")}
+      </div>`).join("") || `<div class="empty">No checks recorded.</div>`}
+  </section>`;
+}
+
+async function renderRun(slug, runPath) {
+  const data = state.data[slug];
+  const row = data.rows.find(r => r.run === runPath);
+  if (!row) {
+    document.getElementById("view").innerHTML =
+      `<section><div class="empty">Run not found: ${esc(runPath)}</div></section>`;
+    return;
+  }
+  const gradeNames = Object.keys(row.grades || {});
+  const images = [
+    ...(row.files || []).filter(f => IMAGE.test(f))
+      .map(f => ({ label: f, src: runURL(slug, row.run, f) })),
+    ...gradeNames.flatMap(name =>
+      (row.grades[name].files || []).filter(f => IMAGE.test(f))
+        .map(f => ({ label: `grades/${name}/${f}`,
+                     src: gradeURL(slug, row.run, name, f) }))),
+  ];
+  const fileChip = (href, label) =>
+    `<a class="tag" href="${href}">${esc(label)}</a>`;
+  document.getElementById("view").innerHTML = `
+    <div class="crumb">
+      <a href="#/${enc(slug)}">← ${esc(data.eval.name)}</a> /
+      <a href="#/${enc(slug)}/model/${enc(row.config)}/${enc(row.model)}">${esc(row.model)}</a> /
+      ${esc(row.task)}
+    </div>
+    <div class="grid">
+    <div>
+    <section>
+      <h2>Run</h2>
+      <div class="kv">
+        <div><dt>task</dt><dd>${esc(row.task)}</dd></div>
+        <div><dt>model</dt><dd>${esc(row.model)}</dd></div>
+        <div><dt>config</dt><dd>${esc(row.config)}</dd></div>
+        <div><dt>started</dt><dd>${esc(row.started ?? "?")} (${ago(row.started)})</dd></div>
+        <div><dt>duration</dt><dd>${row.duration != null ? row.duration + "s" : "?"}</dd></div>
+        <div><dt>exit code</dt><dd class="${row.exit_code === 0 ? "ok" : "fail"}">${row.exit_code}</dd></div>
+        ${row.imported_from ? `<div><dt>imported from</dt><dd>${esc(row.imported_from)}</dd></div>` : ""}
+      </div>
+    </section>
+    <section><h2>Task: ${esc(row.task)}</h2>${taskDetailHTML(
+      data.eval.tasks.find(t => t.name === row.task))}</section>
+    ${images.map(img => `<div class="img-cap">${esc(img.label)}</div>` +
+      `<img class="artifact-img" src="${img.src}">`).join("")}
+    <section><h2>Output</h2><pre class="output" id="run-output">loading…</pre></section>
+    <section><h2>Files</h2>
+      ${(row.files || []).map(f => fileChip(
+        `#/${enc(slug)}/run/${row.run}/file/${f}`, f)).join(" ")}
+      ${gradeNames.flatMap(name =>
+        (row.grades[name].files || []).map(f => fileChip(
+          `#/${enc(slug)}/run/${row.run}/file/grades/${name}/${f}`,
+          `grades/${name}/${f}`))).join(" ")}
+    </section>
+    </div>
+    <div>
+      ${gradeNames.map(name =>
+        gradeSectionHTML(slug, row, name, row.grades[name])).join("") ||
+        `<section><div class="empty">Not graded.</div></section>`}
+    </div>
+    </div>`;
+  try {
+    const response = await fetch(runURL(slug, row.run, "output.txt"));
+    const text = await response.text();
+    const el = document.getElementById("run-output");
+    if (el) el.textContent = text.slice(0, 20000) || "(empty)";
+  } catch (e) { /* leave placeholder */ }
+}
+
+async function renderFile(slug, runPath, filePath) {
+  const data = state.data[slug];
+  const row = data.rows.find(r => r.run === runPath);
+  const raw = runURL(slug, runPath, filePath);
+  const isImage = IMAGE.test(filePath);
+  document.getElementById("view").innerHTML = `
+    <div class="crumb">
+      <a href="#/${enc(slug)}">← ${esc(data.eval.name)}</a> /
+      <a href="#/${enc(slug)}/run/${runPath}">${
+        esc(row ? `${row.task} · ${row.model}` : runPath)}</a> /
+      ${esc(filePath)}
+    </div>
+    <section>
+      <h2 class="file-h">${esc(filePath)} ·
+        <a href="${raw}" target="_blank">open raw ↗</a></h2>
+      ${isImage ? `<img class="artifact-img" src="${raw}">`
+                : `<pre class="output tall" id="file-content">loading…</pre>`}
+    </section>`;
+  if (!isImage) {
+    const el = document.getElementById("file-content");
+    try {
+      const response = await fetch(raw);
+      if (!response.ok) throw new Error(response.status);
+      let text = await response.text();
+      if (filePath.endsWith(".json")) {
+        try { text = JSON.stringify(JSON.parse(text), null, 2); } catch (e) {}
+      }
+      const MAX = 200000;
+      if (el) el.textContent = text.length > MAX
+        ? text.slice(0, MAX) + `\n… truncated (${text.length} bytes total)`
+        : (text || "(empty file)");
+    } catch (e) {
+      if (el) el.textContent = "Could not load file: " + e.message;
+    }
+  }
+}
+
+// --- routing + polling --------------------------------------------------
+
+function currentRoute() {
+  const [path, query] = location.hash.replace(/^#\/?/, "").split("?");
+  const parts = path.split("/");
+  return {
+    slug: decodeURIComponent(parts[0] || ""),
+    section: parts[1] || "",
+    rest: parts.slice(2),
+    params: new URLSearchParams(query || ""),
+  };
+}
+
+async function route() {
+  const { slug, section, rest } = currentRoute();
+  document.querySelectorAll("#evals a").forEach(a =>
+    a.classList.toggle("active", a.dataset.slug === slug));
+  if (!slug) return renderHome();
+  if (!state.data[slug]) await loadEval(slug);
+  if (section === "run") {
+    // .../run/<run path>/file/<file path> opens the file viewer
+    const marker = rest.lastIndexOf("file");
+    if (marker !== -1) {
+      return renderFile(slug, rest.slice(0, marker).join("/"),
+                        rest.slice(marker + 1).join("/"));
+    }
+    return renderRun(slug, rest.join("/"));
+  }
+  if (section === "model") {
+    return renderModel(slug, decodeURIComponent(rest[0] ?? ""),
+                       decodeURIComponent(rest[1] ?? ""));
+  }
+  if (section === "gallery") return renderGallery(slug);
+  if (section === "tag") {
+    return renderTag(slug, decodeURIComponent(rest[0] ?? ""));
+  }
+  return renderEval(slug);
+}
+
+function fingerprint(data) {
+  const stamps = [];
+  for (const row of data.rows) {
+    for (const grade of Object.values(row.grades || {})) {
+      if (grade.graded) stamps.push(grade.graded);
+    }
+  }
+  stamps.sort();
+  return [data.rows.length, stamps.length, stamps.at(-1) ?? ""].join("|");
+}
+
+async function poll() {
+  if (!state.site?.live) return;
+  const { slug } = currentRoute();
+  try {
+    if (!slug) {
+      await loadSite();
+      renderHome();
+    } else {
+      const fresh = await fetchJSON(`evals/${slug}/eval.json`);
+      const print = fingerprint(fresh);
+      if (state.fingerprint[slug] !== print) {
+        state.fingerprint[slug] = print;
+        state.data[slug] = fresh;
+        await route();
+      } else {
+        state.data[slug] = fresh;
+      }
+    }
+    document.getElementById("status").textContent =
+      "live · updated " + new Date().toLocaleTimeString();
+  } catch (e) { /* server briefly unavailable; retry next tick */ }
+}
+
+window.addEventListener("hashchange", route);
+(async () => {
+  await loadSite();
+  await route();
+  if (state.site.live) setInterval(poll, 3000);
+  else document.getElementById("status").textContent =
+    "static build · " + (state.site.generated || "").slice(0, 10);
+})();
+</script>
+</body>
+</html>

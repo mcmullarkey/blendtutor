@@ -1,0 +1,2 @@
+verdict: correct
+Correct! The `survey_data` data frame contains 5 respondents with `respondent_id` and `stress_1` through `stress_6` columns, all with integer values on a 1-5 scale. Both automated checks pass: the data frame has the correct dimensions (5 rows, 7 columns) and the `stress_6` column contains the expected values.

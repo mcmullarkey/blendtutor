@@ -1,0 +1,2 @@
+verdict: incorrect
+The submission is incorrect. The exercise requires creating a data frame `survey_data` with 5 rows and 7 columns: `respondent_id` and `stress_1` through `stress_6` (integer values on a 1-5 scale). Your code only creates an empty data frame (`survey_data <- data.frame()`), so the required dimensions and columns are missing. Please populate the data frame with 5 respondents and the six stress ratings.

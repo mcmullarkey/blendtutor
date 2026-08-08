@@ -1,0 +1,30 @@
+# E2E smoke: generated eval dir runs under real smevals 0.2.0
+
+## 1. Generated eval dir (write_eval_dir from course root, rel script paths)
+/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/smevals-e2e-76934/repo/examples/write-less-code-r/.smevals/configs/default.yaml
+/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/smevals-e2e-76934/repo/examples/write-less-code-r/.smevals/eval.yaml
+/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/smevals-e2e-76934/repo/examples/write-less-code-r/.smevals/graders/default.yaml
+/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/smevals-e2e-76934/repo/examples/write-less-code-r/.smevals/tasks/case-1.yaml
+/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/smevals-e2e-76934/repo/examples/write-less-code-r/.smevals/tasks/case-2.yaml
+/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/smevals-e2e-76934/repo/examples/write-less-code-r/.smevals/tasks/case-3.yaml
+
+## 2. uvx smevals==0.2.0 run -g (stub runner/checker — AC-3 scripts land later)
+case-1 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.1s) -> /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/smevals-e2e-76934/repo/examples/write-less-code-r/.smevals/runs/case-1/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T05-44-28Z
+    grade: pass score=1.0
+case-2 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.0s) -> /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/smevals-e2e-76934/repo/examples/write-less-code-r/.smevals/runs/case-2/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T05-44-28Z
+    grade: pass score=1.0
+case-3 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.0s) -> /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/smevals-e2e-76934/repo/examples/write-less-code-r/.smevals/runs/case-3/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T05-44-28Z
+    grade: pass score=1.0
+run exit: 0
+
+## 3. case-1 run artifact output.txt
+verdict: correct
+E2E stub feedback for case 1 of lesson demo_lesson
+
+## 4. uvx smevals==0.2.0 build (static report)
+demo_lesson: 3 runs -> /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/smevals-e2e-76934/repo/examples/write-less-code-r/.smevals/../../smevals-report/evals/demo_lesson
+Site: /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/smevals-e2e-76934/repo/examples/write-less-code-r/.smevals/../../smevals-report/index.html
+build exit: 0
+evals
+index.html
+index.json

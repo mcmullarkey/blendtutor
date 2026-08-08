@@ -1,0 +1,15 @@
+# gitignore interplay probe
+# exit 0 = ignored, non-zero = NOT ignored (committed)
+
+-- examples/write-less-code-r/.smevals/ (generated, must be ignored)
+examples/write-less-code-r/.smevals/
+exit: 0
+
+-- docs/evals/ (committed build output, must NOT be ignored)
+exit: 1
+
+-- crates/core/tests/fixtures/evals/ (committed fixtures, must NOT be ignored)
+exit: 1
+
+-- docs/evidence/ (committed evidence, must NOT be ignored)
+exit: 1

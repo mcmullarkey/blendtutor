@@ -201,8 +201,7 @@ async fn eval_case_selection_scores_only_the_requested_case() {
         "case 2 is the beta case with its verbatim feedback message"
     );
     assert_eq!(
-        cases[0]["matched"],
-        true,
+        cases[0]["matched"], true,
         "beta expects incorrect and is graded incorrect, so it matches"
     );
 
@@ -281,7 +280,7 @@ async fn eval_case_out_of_range_exits_1_naming_the_suite_size() {
 /// quality, it is not a pass/fail gate, so a low accuracy is not an error
 /// (negative f). Case 3 (gamma) expects correct but is graded incorrect.
 #[tokio::test]
-async fn eval_case_mismatch_exits_0() {
+async fn eval_case_mismatch_exit0() {
     if rscript_absent() {
         return;
     }
@@ -299,8 +298,7 @@ async fn eval_case_mismatch_exits_0() {
     let doc: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stdout should be exactly one JSON document");
     assert_eq!(
-        doc["cases"][0]["matched"],
-        false,
+        doc["cases"][0]["matched"], false,
         "gamma expects correct but is graded incorrect"
     );
 }
@@ -323,5 +321,9 @@ async fn eval_case_non_numeric_is_a_parse_error_exit_2() {
         .received_requests()
         .await
         .expect("the mock server should record requests");
-    assert_eq!(requests.len(), 0, "a parse failure makes no provider request");
+    assert_eq!(
+        requests.len(),
+        0,
+        "a parse failure makes no provider request"
+    );
 }

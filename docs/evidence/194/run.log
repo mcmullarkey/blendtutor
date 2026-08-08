@@ -1,0 +1,52 @@
+# blendtutor eval — E2E run log (issue #194)
+# provider: local mock server (mock_provider.py), key: FIREWORKS_API_KEY=test-key
+# lesson: crates/core/tests/fixtures/eval_command/demo_lesson.yaml (3-case suite)
+
+=== $ /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/target/debug/blendtutor eval /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/crates/core/tests/fixtures/eval_command/demo_lesson.yaml --format json ===
+{"cases":[{"expected":"correct","actual":"correct","matched":true,"feedback_message":"alpha looks right"},{"expected":"incorrect","actual":"incorrect","matched":true,"feedback_message":"beta is off"},{"expected":"correct","actual":"incorrect","matched":false,"feedback_message":"gamma is off"}],"accuracy":0.6666666666666666}
+--- exit code: 0 ---
+
+=== $ /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/target/debug/blendtutor eval /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/crates/core/tests/fixtures/eval_command/demo_lesson.yaml --format json --case 1 ===
+{"cases":[{"expected":"correct","actual":"correct","matched":true,"feedback_message":"alpha looks right"}],"accuracy":1.0}
+--- exit code: 0 ---
+
+=== $ /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/target/debug/blendtutor eval /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/crates/core/tests/fixtures/eval_command/demo_lesson.yaml --format json --case 2 ===
+{"cases":[{"expected":"incorrect","actual":"incorrect","matched":true,"feedback_message":"beta is off"}],"accuracy":1.0}
+--- exit code: 0 ---
+
+=== $ /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/target/debug/blendtutor eval /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/crates/core/tests/fixtures/eval_command/demo_lesson.yaml --format json --case 3 ===
+{"cases":[{"expected":"correct","actual":"incorrect","matched":false,"feedback_message":"gamma is off"}],"accuracy":0.0}
+--- exit code: 0 ---
+
+=== $ /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/target/debug/blendtutor eval /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/crates/core/tests/fixtures/eval_command/demo_lesson.yaml --case 2 ===
+Accuracy: 1/1 (100.0%)
+
+case 1: expected incorrect, got incorrect [match]
+--- exit code: 0 ---
+
+=== $ /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/target/debug/blendtutor eval /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/crates/core/tests/fixtures/eval_command/demo_lesson.yaml --format json --case 0 ===
+--- exit code: 1 ---
+--- stderr ---
+Error: eval case 0 is out of range: the suite has 3 case(s)
+
+=== $ /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/target/debug/blendtutor eval /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/crates/core/tests/fixtures/eval_command/demo_lesson.yaml --format json --case 4 ===
+--- exit code: 1 ---
+--- stderr ---
+Error: eval case 4 is out of range: the suite has 3 case(s)
+
+=== $ /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/target/debug/blendtutor eval /Users/carbonite/Documents/coding/portfolio/worktree-issue-194/crates/core/tests/fixtures/eval_command/demo_lesson.yaml --format json --case abc ===
+--- exit code: 2 ---
+--- stderr ---
+error: invalid value 'abc' for '--case <CASE>': invalid digit found in string
+
+For more information, try '--help'.
+
+=== mock provider request log (one request per scored case) ===
+mock provider listening on 127.0.0.1:18492
+request 1: token='alpha' -> 'alpha looks right'
+request 2: token='beta' -> 'beta is off'
+request 3: token='gamma' -> 'gamma is off'
+request 4: token='alpha' -> 'alpha looks right'
+request 5: token='beta' -> 'beta is off'
+request 6: token='gamma' -> 'gamma is off'
+request 7: token='beta' -> 'beta is off'

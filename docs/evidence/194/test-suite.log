@@ -1,0 +1,54 @@
+# Issue #194 — probe test runs (cargo test, nextest filters; nextest not installed locally, CI runs it)
+# commands: the spec probe filters, run via cargo test (same test-name matching)
+
+## cargo test -p blendtutor-core --lib eval_feedback_message
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running unittests src/lib.rs (target/debug/deps/blendtutor_core-173cbe489141f8dc)
+
+running 2 tests
+test eval::tests::eval_feedback_message_carries_the_verdict_message_verbatim ... ok
+test eval::tests::eval_feedback_message_serializes_per_case_never_null_or_omitted ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 181 filtered out; finished in 0.00s
+
+
+## cargo test -p blendtutor-core --lib eval_no_skip_serializing_if
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running unittests src/lib.rs (target/debug/deps/blendtutor_core-173cbe489141f8dc)
+
+running 1 test
+test eval::tests::eval_no_skip_serializing_if_keeps_the_empty_message_key ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 182 filtered out; finished in 0.00s
+
+
+## cargo test -p blendtutor-cli --test eval eval_case_selection -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running tests/eval.rs (target/debug/deps/eval-93ad8e799f24424c)
+
+running 2 tests
+test eval_case_selection_scores_only_the_requested_case ... ok
+test eval_case_selection_is_one_based ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.44s
+
+
+## cargo test -p blendtutor-cli --test eval eval_case_out_of_range -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running tests/eval.rs (target/debug/deps/eval-93ad8e799f24424c)
+
+running 1 test
+test eval_case_out_of_range_exits_1_naming_the_suite_size ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.34s
+
+
+## cargo test -p blendtutor-cli --test eval eval_case_mismatch_exit0 -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running tests/eval.rs (target/debug/deps/eval-93ad8e799f24424c)
+
+running 1 test
+test eval_case_mismatch_exit0 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.42s
+

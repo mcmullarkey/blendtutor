@@ -7,7 +7,7 @@ quarto-render job (ci.yml:140 runs `bash scripts/tests/test_docs_pages_artifact.
 ## Artifacts
 
 - `test-suite.log` — full probe output: `bash scripts/tests/test_docs_pages_artifact.sh`
-  → **21 passed, 0 failed** (exit 0).
+  → **23 passed, 0 failed** (exit 0).
 - `check-docs-secondary.log` — secondary probe: `bash scripts/check-docs.sh`
   (local mirror) → exit 0, "docs: OK — merged site … evals at /evals/".
 
@@ -31,13 +31,17 @@ Phase 1 (structural pins on `.github/workflows/docs.yml` build block):
   double-nest assert)
 
 Phase 3 (functional fixture sub-phase, clause 8):
-- temp fixture `docs/evals/evals-fixture/index.html`; guarded assemble snippet
-  under `bash -euo pipefail` against scratch book_out → fixture HTML lands at
-  `<scratch>/evals/evals-fixture/index.html` byte-identical, and
-  `! [ -e <scratch>/evals/evals ]` (no double-nest — bare cp would nest to
-  `/evals/evals/<lesson>/` → 404)
-- fixture removed → same snippet under `bash -e` exits 0 and creates no `evals/`
-  dir (CI stays green pre-AC-5); fixture + scratch cleaned up via trap
+- temp fixture `docs/evals/evals-fixture/index.html` inside the (real or
+  simulated) committed docs/evals; guarded assemble snippet under
+  `bash -euo pipefail` against scratch book_out → fixture HTML lands at
+  `<scratch>/evals/evals-fixture/index.html` byte-identical, committed lesson
+  nests alongside, and `! [ -e <scratch>/evals/evals ]` (no double-nest — bare
+  cp would nest to `/evals/evals/<lesson>/` → 404)
+- docs/evals absent → same snippet under `bash -e` exits 0 and creates no
+  `evals/` dir (CI stays green pre-AC-5); fixture + scratch cleaned up via trap
+- **committed docs/evals preservation pin**: the sub-phase moves pre-existing
+  docs/evals aside (post-AC-5 it is committed source) and restores it
+  byte-identical — a `rm -rf docs/evals` cleanup would delete real reports
 
 ## Negative cases exercised
 

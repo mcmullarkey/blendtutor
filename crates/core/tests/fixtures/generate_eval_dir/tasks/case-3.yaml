@@ -1,5 +1,5 @@
 name: case-3
-lesson: demo_lesson
+lesson: lessons/demo_lesson.yaml
 case: 3
 prompt: "cat(\"gamma\\n\")"
 expected: correct

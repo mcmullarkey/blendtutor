@@ -66,6 +66,13 @@ fn emitted_map(files: &[(PathBuf, String)]) -> HashMap<PathBuf, String> {
     files.iter().cloned().collect()
 }
 
+/// The lesson path the generator emits into every task's `lesson:` key — the
+/// value AC-3's runner forwards verbatim to `blendtutor eval <path>`. Fixed per
+/// test so determinism and the committed golden stay machine-independent; the
+/// CLI canonicalizes the real lesson file to an absolute path before calling
+/// the generator, which treats the path as opaque data.
+const TEST_LESSON_PATH: &str = "lessons/demo_lesson.yaml";
+
 /// Every eval-suite fixture that is valid generator input (parses today): the
 /// ported vitals ground truth, the demo lesson's suite, and both example
 /// courses' five suites each. The `_bad_verdict` fixture is deliberately
@@ -189,6 +196,7 @@ fn emits_exactly_the_four_kinds_for_three_cases() {
         &lesson("eval_command", "demo_lesson.yaml"),
         &suite,
         "demo_lesson",
+        Path::new(TEST_LESSON_PATH),
     )
     .expect("a valid suite and slug generate");
 
@@ -214,13 +222,51 @@ fn emits_exactly_the_four_kinds_for_three_cases() {
 // Predicate 2 — happy-path round-trip fidelity
 // ---------------------------------------------------------------------------
 
+/// The task yaml's `lesson:` key must carry the lesson file PATH — the value
+/// AC-3's runner forwards verbatim to `blendtutor eval <path>` — never the
+/// lesson id slug (a slug fails `read_lesson_file` on every case). The eval's
+/// `name:` stays the slug, which names the report dir and URL.
+#[test]
+fn task_yaml_lesson_carries_the_path_not_the_slug() {
+    let lesson = lesson("eval_command", "demo_lesson.yaml");
+    let suite = suite_at(&["tests/fixtures/eval_command", "eval_demo_lesson.yaml"]);
+    let files = generate_eval_dir(
+        &lesson,
+        &suite,
+        "demo_lesson",
+        Path::new("lessons/01_seed_data.yaml"),
+    )
+    .expect("valid inputs generate");
+    let map = emitted_map(&files);
+    let task = map
+        .get(Path::new("tasks/case-1.yaml"))
+        .expect("case 1 emitted");
+    assert!(
+        task.contains("lesson: lessons/01_seed_data.yaml\n"),
+        "task must emit the lesson file path, got: {task}"
+    );
+    let parsed: TaskYaml =
+        serde_saphyr::from_str(task).unwrap_or_else(|e| panic!("case-1.yaml must re-parse: {e}"));
+    assert_eq!(
+        parsed.lesson, "lessons/01_seed_data.yaml",
+        "the parsed lesson value is the path"
+    );
+    let eval = map.get(Path::new("eval.yaml")).expect("eval emitted");
+    let eval_parsed: EvalYaml =
+        serde_saphyr::from_str(eval).unwrap_or_else(|e| panic!("eval.yaml must re-parse: {e}"));
+    assert_eq!(
+        eval_parsed.name, "demo_lesson",
+        "the eval name stays the lesson id slug"
+    );
+}
+
 #[test]
 fn every_emitted_file_reparses_for_every_suite_fixture() {
     let lesson = lesson("eval_command", "demo_lesson.yaml");
     for parts in SUITE_FIXTURES {
         let name = parts[1];
         let suite = suite_at(parts);
-        let files = generate_eval_dir(&lesson, &suite, "demo_lesson")
+        let files = generate_eval_dir(&lesson, &suite, "demo_lesson", Path::new(TEST_LESSON_PATH))
             .unwrap_or_else(|e| panic!("{name}: generation must succeed: {e}"));
         for (path, contents) in &files {
             let path_str = path.to_string_lossy();
@@ -293,7 +339,10 @@ fn every_emitted_file_reparses_for_every_suite_fixture() {
                     "{name}: task has a smevals name, got {}",
                     task.name
                 );
-                assert_eq!(task.lesson, "demo_lesson", "{name}: task names the lesson");
+                assert_eq!(
+                    task.lesson, TEST_LESSON_PATH,
+                    "{name}: task lesson carries the lesson file path, not the slug"
+                );
                 assert!(task.case >= 1, "{name}: task case is 1-based");
             } else {
                 panic!("{name}: unexpected emitted path {path_str}");
@@ -320,6 +369,7 @@ fn adversarial_submission_round_trips_byte_identical() {
         &lesson("eval_command", "demo_lesson.yaml"),
         &suite,
         "demo_lesson",
+        Path::new(TEST_LESSON_PATH),
     )
     .expect("the injection suite generates");
     let map = emitted_map(&files);
@@ -361,7 +411,7 @@ fn non_slug_lesson_ids_are_refused_and_never_reach_a_path() {
     let suite = suite_at(&["tests/fixtures/eval_command", "eval_demo_lesson.yaml"]);
     let lesson = lesson("eval_command", "demo_lesson.yaml");
     for id in ["", "/", "a/b", "..", "a b", "a..b", "a b/c", "a#b", "a\\b"] {
-        match generate_eval_dir(&lesson, &suite, id) {
+        match generate_eval_dir(&lesson, &suite, id, Path::new(TEST_LESSON_PATH)) {
             Err(GenError::InvalidLessonId { .. }) => {}
             other => panic!("lesson_id {id:?} must be refused, got: {other:?}"),
         }
@@ -372,8 +422,13 @@ fn non_slug_lesson_ids_are_refused_and_never_reach_a_path() {
 fn slug_lesson_ids_are_accepted() {
     let suite = suite_at(&["tests/fixtures/eval_command", "eval_demo_lesson.yaml"]);
     for id in ["demo_lesson", "lesson-1", "a_b-c2"] {
-        generate_eval_dir(&lesson("eval_command", "demo_lesson.yaml"), &suite, id)
-            .unwrap_or_else(|e| panic!("slug {id:?} must generate: {e}"));
+        generate_eval_dir(
+            &lesson("eval_command", "demo_lesson.yaml"),
+            &suite,
+            id,
+            Path::new(TEST_LESSON_PATH),
+        )
+        .unwrap_or_else(|e| panic!("slug {id:?} must generate: {e}"));
     }
 }
 
@@ -385,8 +440,10 @@ fn slug_lesson_ids_are_accepted() {
 fn identical_inputs_produce_byte_identical_output() {
     let lesson = lesson("eval_command", "demo_lesson.yaml");
     let suite = suite_at(&["tests/fixtures/eval_command", "eval_demo_lesson.yaml"]);
-    let a = generate_eval_dir(&lesson, &suite, "demo_lesson").expect("first call");
-    let b = generate_eval_dir(&lesson, &suite, "demo_lesson").expect("second call");
+    let a = generate_eval_dir(&lesson, &suite, "demo_lesson", Path::new(TEST_LESSON_PATH))
+        .expect("first call");
+    let b = generate_eval_dir(&lesson, &suite, "demo_lesson", Path::new(TEST_LESSON_PATH))
+        .expect("second call");
     assert_eq!(
         a, b,
         "generation must be deterministic — no timestamps, no HashMap order"
@@ -404,6 +461,7 @@ fn empty_suite_is_refused_without_emitting_tasks() {
         &lesson("eval_command", "demo_lesson.yaml"),
         &suite,
         "demo_lesson",
+        Path::new(TEST_LESSON_PATH),
     )
     .expect_err("an empty suite is a vacuous pass and must be refused");
     assert!(
@@ -442,6 +500,7 @@ fn tasks_follow_the_suite_case_order() {
         &lesson("eval_command", "demo_lesson.yaml"),
         &suite,
         "demo_lesson",
+        Path::new(TEST_LESSON_PATH),
     )
     .expect("a three-case suite generates");
     let map = emitted_map(&files);
@@ -471,6 +530,7 @@ fn configs_model_is_single_sourced_from_the_provider_default() {
         &lesson("eval_command", "demo_lesson.yaml"),
         &suite,
         "demo_lesson",
+        Path::new(TEST_LESSON_PATH),
     )
     .expect("a valid suite generates");
     let map = emitted_map(&files);
@@ -555,7 +615,8 @@ fn generated_dir_is_gitignored_but_committed_output_is_not() {
 fn golden_dir_is_byte_identical() {
     let lesson = lesson("eval_command", "demo_lesson.yaml");
     let suite = suite_at(&["tests/fixtures/eval_command", "eval_demo_lesson.yaml"]);
-    let files = generate_eval_dir(&lesson, &suite, "demo_lesson").expect("golden input generates");
+    let files = generate_eval_dir(&lesson, &suite, "demo_lesson", Path::new(TEST_LESSON_PATH))
+        .expect("golden input generates");
 
     assert_eq!(files.len(), 6, "golden fixture has six files");
     for (path, contents) in &files {

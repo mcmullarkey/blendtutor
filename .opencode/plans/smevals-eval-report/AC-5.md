@@ -64,6 +64,11 @@ script. Grade-fail is evidence, not a gate.
   verified) — but committed-report deliverable BLOCKED by AC-2/AC-3 lesson
   id-vs-path gap (all 4 cases fail read_lesson_file; docs/evals/ NOT
   committed). See Surprises & Discoveries + report to Director.
+- [x] 2026-08-08 — AC-2/AC-3 gap FIXED: lesson_path threaded through the
+  generator (emit_task_yaml emits `lesson: <path>`); CLI canonicalizes the
+  lesson path to absolute before write_eval_dir; golden task fixtures
+  re-baselined; new test task_yaml_lesson_carries_the_path_not_the_slug +
+  CLI absolute-path assertion; full suite green (fmt/clippy clean)
 - [ ] push + PR
 - [ ] committed docs/evals/01_seed_data/ report (after AC-2/AC-3 gap fix)
 
@@ -82,6 +87,15 @@ script. Grade-fail is evidence, not a gate.
 - **Shared helpers:** `lesson_id_from_path` + `course_root_for` from core
   (single source); `sibling_suite_path` moved to commands/mod.rs so eval and
   eval-report derive it identically.
+- **Task yaml carries the lesson PATH, not the slug:** `emit_task_yaml` emits
+  `lesson: <lesson path>` (the runner forwards it verbatim to `blendtutor eval
+  <path>`, which reads a file); the CLI canonicalizes the path to absolute so
+  a relative invocation still works (run.sh's CWD is the eval dir). The now
+  unused `lesson_id` param was dropped from the private `emit_task_yaml`; the
+  slug still names the eval (`eval.yaml` name:) + `docs/evals/<id>/` +
+  `/evals/<id>/` URL via `lesson_id_from_path`. `.smevals/` is gitignored and
+  regenerated per machine, so an absolute path is ephemeral, not portable
+  content.
 
 ### Surprises & Discoveries
 - macOS `/var` vs `/private/var`: the shim-logged absolute paths differ from

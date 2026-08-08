@@ -77,7 +77,17 @@ pub fn run(lesson_path: &Path) -> anyhow::Result<ExitCode> {
     // Stale runs are false evidence: a previous report's runs/ would be built
     // into the next report, so clean before regenerating.
     clean_stale(&gen_dir).with_context(|| format!("{STAGE_GENERATE}: cleaning stale eval dir"))?;
-    write_eval_dir(&course_root, &lesson, &suite, lesson_id)
+    // The task yamls emit `lesson: <absolute path>` — the runner forwards it
+    // verbatim to `blendtutor eval`, whose CWD is the eval dir, so a relative
+    // lesson path would fail read_lesson_file on every case. Canonicalize here
+    // regardless of how the user invoked the command.
+    let lesson_path_abs = lesson_path.canonicalize().with_context(|| {
+        format!(
+            "{STAGE_GENERATE}: resolving {} to an absolute path",
+            lesson_path.display()
+        )
+    })?;
+    write_eval_dir(&course_root, &lesson, &suite, lesson_id, &lesson_path_abs)
         .with_context(|| format!("{STAGE_GENERATE}: writing eval dir"))?;
 
     // ---- run stage: grade every case through the pinned smevals ---------

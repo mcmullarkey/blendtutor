@@ -118,12 +118,18 @@ impl Error for GenError {
 /// `lesson_id` must be a slug (see [`GenError::InvalidLessonId`]); the suite
 /// must be non-empty (see [`GenError::EmptySuite`]). `lesson` supplies the
 /// eval's name-space context (its exercise prompt becomes the eval description).
+/// `lesson_path` is data: each task's `lesson:` key carries it (as the file the
+/// runner grades — AC-3 forwards it verbatim to `blendtutor eval <path>`), and
+/// the generator never touches the filesystem it names. The CLI canonicalizes
+/// the real lesson file to an absolute path before calling this; the pure
+/// function emits whatever path it is given.
 pub fn generate_eval_dir(
     lesson: &Lesson,
     suite: &EvalSuite,
     lesson_id: &str,
+    lesson_path: &Path,
 ) -> Result<Vec<(PathBuf, String)>, GenError> {
-    generate_eval_dir_with(lesson, suite, lesson_id, DEFAULT_SCRIPTS_REL)
+    generate_eval_dir_with(lesson, suite, lesson_id, lesson_path, DEFAULT_SCRIPTS_REL)
 }
 
 /// [`generate_eval_dir`] with an explicit script-path prefix, so the effectful
@@ -132,6 +138,7 @@ fn generate_eval_dir_with(
     lesson: &Lesson,
     suite: &EvalSuite,
     lesson_id: &str,
+    lesson_path: &Path,
     scripts_rel: &str,
 ) -> Result<Vec<(PathBuf, String)>, GenError> {
     if !is_valid_lesson_id(lesson_id) {
@@ -160,7 +167,7 @@ fn generate_eval_dir_with(
     for (index, case) in suite.cases.iter().enumerate() {
         files.push((
             PathBuf::from(format!("tasks/case-{}.yaml", index + 1)),
-            emit_task_yaml(lesson_id, index + 1, case),
+            emit_task_yaml(lesson_path, index + 1, case),
         ));
     }
     Ok(files)
@@ -195,10 +202,17 @@ fn emit_eval_yaml(lesson: &Lesson, lesson_id: &str) -> String {
 /// One task: the submission (as `prompt`, so the runner sees `SMEVALS_PROMPT`)
 /// plus the scalar keys that become `SMEVALS_TASK_LESSON`/`SMEVALS_TASK_CASE`/
 /// `SMEVALS_TASK_EXPECTED` for the runner and polarity checker (AC-3 contract).
-fn emit_task_yaml(lesson_id: &str, case_index: usize, case: &EvalCase) -> String {
+///
+/// `lesson:` carries the lesson file's PATH — the value the runner forwards
+/// verbatim as `blendtutor eval <path>` (AC-1 reads a file, never a slug), so
+/// run.sh never has to resolve a lesson id against the course root. The caller
+/// canonicalizes the path to absolute before generation; the generator treats
+/// it as opaque data (§2.1), emitted through the same scalar discipline as
+/// every other value.
+fn emit_task_yaml(lesson_path: &Path, case_index: usize, case: &EvalCase) -> String {
     format!(
         "name: case-{case_index}\nlesson: {}\ncase: {case_index}\nprompt: {}\nexpected: {}\n",
-        emit_inline_scalar(lesson_id),
+        emit_inline_scalar(&lesson_path.to_string_lossy()),
         escape_yaml_double_quoted(&case.submission),
         emit_inline_scalar(case.expected.token()),
     )
@@ -331,6 +345,10 @@ fn escape_yaml_double_quoted(content: &str) -> String {
 ///
 /// Shared with AC-5's report command — the single source for "lesson_id = file
 /// stem", so the generator and the report command cannot derive it differently.
+/// The id names the eval (`eval.yaml`'s `name:`), the report directory
+/// (`docs/evals/<id>/`), and the `/evals/<id>/` URL — it is NOT what a task
+/// yaml's `lesson:` key carries, which is the lesson file's PATH (the value the
+/// runner forwards to `blendtutor eval`, which reads a file).
 pub fn lesson_id_from_path(lesson_path: &Path) -> Option<&str> {
     lesson_path.file_stem().and_then(|stem| stem.to_str())
 }
@@ -358,18 +376,28 @@ pub fn course_root_for(lesson_path: &Path) -> Option<PathBuf> {
 /// the script-path prefix that reaches the repo's `scripts/smevals/` from the
 /// generated `configs/`, delegates the pure generation, and writes each file
 /// (creating directories as needed). The pure [`generate_eval_dir`] never
-/// touches the filesystem; this function never emits bytes.
+/// touches the filesystem; this function never emits bytes. `lesson_path` is
+/// threaded into every task's `lesson:` key (the file the runner grades); the
+/// CLI canonicalizes it to absolute before calling, since a relative value
+/// would break `blendtutor eval` for a runner whose CWD is the eval dir.
 pub fn write_eval_dir(
     dir: &Path,
     lesson: &Lesson,
     suite: &EvalSuite,
     lesson_id: &str,
+    lesson_path: &Path,
 ) -> Result<(), GenError> {
     let dir = dir.canonicalize().map_err(|source| GenError::Write {
         path: dir.to_path_buf(),
         source,
     })?;
-    let files = generate_eval_dir_with(lesson, suite, lesson_id, &scripts_rel_from(&dir))?;
+    let files = generate_eval_dir_with(
+        lesson,
+        suite,
+        lesson_id,
+        lesson_path,
+        &scripts_rel_from(&dir),
+    )?;
     for (path, contents) in &files {
         let target = dir.join(".smevals").join(path);
         if let Some(parent) = target.parent() {
@@ -550,7 +578,14 @@ mod tests {
                 expected: ExpectedVerdict::Correct,
             }],
         };
-        write_eval_dir(&course, &lesson, &suite, "my-lesson").unwrap();
+        write_eval_dir(
+            &course,
+            &lesson,
+            &suite,
+            "my-lesson",
+            Path::new("/lessons/my-lesson.yaml"),
+        )
+        .unwrap();
 
         let eval_dir = course.join(".smevals");
         assert!(eval_dir.join("eval.yaml").is_file());
@@ -563,6 +598,13 @@ mod tests {
             config.contains("../../../scripts/smevals/run.sh"),
             "config must reference the runner relative to the course, got: {config}"
         );
+        // The task's `lesson:` key carries the lesson file path (not the slug):
+        // the runner forwards it verbatim to `blendtutor eval <path>`.
+        let task = std::fs::read_to_string(eval_dir.join("tasks/case-1.yaml")).unwrap();
+        assert!(
+            task.contains("lesson: /lessons/my-lesson.yaml\n"),
+            "task must carry the lesson path the runner grades, got: {task}"
+        );
     }
 
     #[test]
@@ -572,8 +614,13 @@ mod tests {
              llm_evaluation_prompt: grade {student_code}\n",
         )
         .unwrap();
-        let err = generate_eval_dir(&lesson, &EvalSuite { cases: vec![] }, "x")
-            .expect_err("an empty suite must be refused");
+        let err = generate_eval_dir(
+            &lesson,
+            &EvalSuite { cases: vec![] },
+            "x",
+            Path::new("lessons/x.yaml"),
+        )
+        .expect_err("an empty suite must be refused");
         assert!(matches!(err, GenError::EmptySuite));
     }
 

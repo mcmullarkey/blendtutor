@@ -285,6 +285,16 @@ fn success_path_invokes_uvx_twice_with_pin_and_absolute_paths() {
         harness.docs_dir().join("index.html").is_file(),
         "the report must exist at docs/evals/<lesson>/index.html"
     );
+    // The generated task yaml carries the canonical absolute lesson PATH, not a
+    // slug: AC-3's runner forwards `lesson:` verbatim to `blendtutor eval
+    // <path>`, whose CWD is the eval dir — a relative or slug value would fail
+    // read_lesson_file on every case.
+    let task_yaml =
+        fs::read_to_string(harness.gen_dir().join("tasks/case-1.yaml")).expect("task yaml written");
+    assert!(
+        task_yaml.contains(&format!("lesson: {}", harness.lesson_path().display())),
+        "task yaml must carry the canonical absolute lesson path, got: {task_yaml}"
+    );
 }
 
 // ── Generator failure (negative a) ─────────────────────────────────────────

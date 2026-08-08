@@ -209,17 +209,58 @@ fn every_emitted_file_reparses_for_every_suite_fixture() {
         for (path, contents) in &files {
             let path_str = path.to_string_lossy();
             if path_str == "eval.yaml" {
-                serde_saphyr::from_str::<EvalYaml>(contents)
+                let eval: EvalYaml = serde_saphyr::from_str(contents)
                     .unwrap_or_else(|e| panic!("{name}: {path_str} must re-parse: {e}"));
+                assert_eq!(
+                    eval.name, "demo_lesson",
+                    "{name}: eval name is the lesson id"
+                );
+                assert!(
+                    !eval.description.is_empty(),
+                    "{name}: eval description is non-empty"
+                );
             } else if path_str == "configs/default.yaml" {
-                serde_saphyr::from_str::<ConfigYaml>(contents)
+                let config: ConfigYaml = serde_saphyr::from_str(contents)
                     .unwrap_or_else(|e| panic!("{name}: {path_str} must re-parse: {e}"));
+                assert_eq!(config.name, "default", "{name}: config is the default");
+                assert!(
+                    config.runner.ends_with("run.sh"),
+                    "{name}: config names the runner, got {}",
+                    config.runner
+                );
+                assert_eq!(
+                    config.model,
+                    ProviderChoice::Fireworks.default_model(),
+                    "{name}: config model single-sources the provider default"
+                );
             } else if path_str == "graders/default.yaml" {
-                serde_saphyr::from_str::<GraderYaml>(contents)
+                let grader: GraderYaml = serde_saphyr::from_str(contents)
                     .unwrap_or_else(|e| panic!("{name}: {path_str} must re-parse: {e}"));
+                assert_eq!(grader.name, "default", "{name}: grader is the default");
+                assert_eq!(grader.checks.len(), 1, "{name}: one polarity check for now");
+                assert!(
+                    grader.checks[0].checker.ends_with("check_polarity.sh"),
+                    "{name}: grader names the polarity checker, got {}",
+                    grader.checks[0].checker
+                );
+                assert!(
+                    grader.checks[0].required,
+                    "{name}: polarity check is required"
+                );
+                assert_eq!(
+                    grader.scoring.pass_threshold, 0.8,
+                    "{name}: pass threshold is 0.8 (AC-4 wires the judge against it)"
+                );
             } else if path_str.starts_with("tasks/") {
-                serde_saphyr::from_str::<TaskYaml>(contents)
+                let task: TaskYaml = serde_saphyr::from_str(contents)
                     .unwrap_or_else(|e| panic!("{name}: {path_str} must re-parse: {e}"));
+                assert!(
+                    task.name.starts_with("case-"),
+                    "{name}: task has a smevals name, got {}",
+                    task.name
+                );
+                assert_eq!(task.lesson, "demo_lesson", "{name}: task names the lesson");
+                assert!(task.case >= 1, "{name}: task case is 1-based");
             } else {
                 panic!("{name}: unexpected emitted path {path_str}");
             }

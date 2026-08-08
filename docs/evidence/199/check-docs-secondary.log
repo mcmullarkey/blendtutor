@@ -1,0 +1,45 @@
+docs: building API reference (rustdoc, -D warnings) …
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.38s
+   Generated /Users/carbonite/Documents/coding/portfolio/worktree-issue-199/target/doc/blendtutor/index.html and 1 other file
+docs: building narrative site (mdBook) …
+ INFO Book building has started
+ INFO Running the html backend
+ INFO HTML book written to `/Users/carbonite/Documents/coding/portfolio/worktree-issue-199/docs/book/book`
+docs: assembling merged site (docs/book/book + /api) …
+docs: building example sites (webr + pyodide) …
+    Finished `release` profile [optimized] target(s) in 0.27s
+     Running `target/release/blendtutor build examples/write-less-code-r --target webr -o docs/book/book/examples/r`
+built 5 lesson(s) for webr into docs/book/book/examples/r
+    Finished `release` profile [optimized] target(s) in 0.17s
+     Running `target/release/blendtutor build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python`
+built 5 lesson(s) for pyodide into docs/book/book/examples/python
+docs: rendering demos (quarto) and assembling /demo-book/ + /demo/ …
+[1m[34m[1/4] index.qmd[39m[22m
+[1m[34m[2/4] api-key.qmd[39m[22m
+[1m[34m[3/4] r-exercises.qmd[39m[22m
+[1m[34m[4/4] python-exercises.qmd[39m[22m
+
+Output created: _output/index.html
+
+[1mpandoc [22m
+  to: html
+  output-file: index.html
+  standalone: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: Blendtutor Interactive Demo
+  coi: true
+  
+Output created: index.html
+
+fixed COI scope for demo-standalone: src -> ./coi-serviceworker.js, shim -> demo-standalone/coi-serviceworker.js
+docs: verifying failure propagation (missing course path) …
+docs: OK — merged site at docs/book/book (book at /, API at /api, examples at /examples/{r,python}, demos at /demo-book/ + /demo/, evals at /evals/)

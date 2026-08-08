@@ -47,13 +47,15 @@ impl ProviderChoice {
 
     /// The default model id for this provider.
     ///
-    /// Fireworks mirrors the browser BYOK fallback (`deepseek-v4-flash` in
-    /// `assets/shared/feedback.js`); Anthropic uses a current Claude model. Model
-    /// selection is not yet configurable — a later slice can lift these to a
-    /// setting.
+    /// Fireworks matches the browser BYOK fallback (`deepseek-v4-flash-0731` in
+    /// `assets/shared/feedback.js` / ADR-0016); Anthropic uses a current Claude
+    /// model. Model selection is not yet configurable — a later slice can lift
+    /// these to a setting. This value is the single source for the smevals
+    /// config template (`smevals_gen`), so the runtime model and the generated
+    /// eval config cannot drift.
     pub fn default_model(self) -> &'static str {
         match self {
-            ProviderChoice::Fireworks => "accounts/fireworks/models/deepseek-v4-flash",
+            ProviderChoice::Fireworks => "accounts/fireworks/models/deepseek-v4-flash-0731",
             ProviderChoice::Anthropic => "claude-sonnet-4-5",
         }
     }
@@ -104,13 +106,25 @@ mod tests {
         // (`claude-opus-4-8`); only the Claude family is invariant across both.
         assert_eq!(
             ProviderChoice::Fireworks.default_model(),
-            "accounts/fireworks/models/deepseek-v4-flash",
+            "accounts/fireworks/models/deepseek-v4-flash-0731",
             "the Fireworks default model id must match the browser BYOK fallback",
         );
         assert!(
             ProviderChoice::Anthropic.default_model().contains("claude"),
             "the Anthropic model id is a Claude model, got {}",
             ProviderChoice::Anthropic.default_model()
+        );
+    }
+
+    #[test]
+    fn provider_default_model_is_pinned_to_0731() {
+        // The user pin: the Rust provider default must match the browser BYOK
+        // pin (ADR-0016) and the user's instruction to use the 0731 checkpoint.
+        // Asserted separately from the recognizability test so a stale bump
+        // fails by name even when the exact-equality message scrolls past.
+        assert_eq!(
+            ProviderChoice::Fireworks.default_model(),
+            "accounts/fireworks/models/deepseek-v4-flash-0731"
         );
     }
 }

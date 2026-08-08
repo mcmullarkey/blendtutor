@@ -1,0 +1,83 @@
+# Real-tool E2E probe: uvx smevals==0.2.0 run -g consuming scripts/smevals/run.sh + check_polarity.sh
+# (AC-2-generated eval dir + real smevals 0.2.0; only the blendtutor LLM call is stubbed)
+
+## Generated templates (AC-2, consumed as-is)
+
+### configs/default.yaml
+name: default
+runner: ../../../../scripts/smevals/run.sh
+model: accounts/fireworks/models/deepseek-v4-flash-0731
+
+### graders/default.yaml
+name: default
+checks:
+  - checker: ../../../../scripts/smevals/check_polarity.sh
+    required: true
+scoring:
+  pass_threshold: 0.8
+
+### tasks (env contract source)
+--- case-1.yaml ---
+name: case-1
+lesson: demo_lesson
+case: 1
+prompt: "cat(\"alpha\\n\")"
+expected: correct
+--- case-2.yaml ---
+name: case-2
+lesson: demo_lesson
+case: 2
+prompt: "cat(\"beta\\n\")"
+expected: incorrect
+--- case-3.yaml ---
+name: case-3
+lesson: demo_lesson
+case: 3
+prompt: "cat(\"gamma\\n\")"
+expected: correct
+
+## Run A: stub emits actual == SMEVALS_TASK_EXPECTED (all match)
+case-1 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.0s) -> examples/write-less-code-r/.smevals/runs/case-1/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T06-31-42Z
+    grade: pass score=1.0
+case-2 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.0s) -> examples/write-less-code-r/.smevals/runs/case-2/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T06-31-42Z
+    grade: pass score=1.0
+case-3 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.0s) -> examples/write-less-code-r/.smevals/runs/case-3/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T06-31-42Z
+    grade: pass score=1.0
+run-exit: 0
+
+## Run B: stub emits the OPPOSITE polarity (all mismatch)
+case-1 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.0s) -> examples/write-less-code-r/.smevals/runs/case-1/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T06-31-42Z
+    grade: fail score=0.0
+case-2 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.0s) -> examples/write-less-code-r/.smevals/runs/case-2/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T06-31-42Z
+    grade: fail score=0.0
+case-3 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.0s) -> examples/write-less-code-r/.smevals/runs/case-3/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T06-31-42Z
+    grade: fail score=0.0
+Error: 3 run(s) graded as fail
+run-exit: 1
+
+## Run B case-1 artifacts
+### output.txt (run.sh stdout captured by smevals)
+verdict: incorrect
+probe: deliberate mismatch
+
+### grades/default/grade.yaml (check_polarity.sh verdict)
+grader: default
+graded: '2026-08-08T06:31:42.756460+00:00'
+outcome: fail
+score: 0.0
+tags: []
+checks:
+- checker: ../../../../scripts/smevals/check_polarity.sh
+  ok: false
+  score: 0.0
+  notes: polarity mismatch
+
+## blendtutor argv observed by the stub (both runs)
+### Run A
+blendtutor eval demo_lesson --case 1 --format json
+blendtutor eval demo_lesson --case 2 --format json
+blendtutor eval demo_lesson --case 3 --format json
+### Run B
+blendtutor eval demo_lesson --case 1 --format json
+blendtutor eval demo_lesson --case 2 --format json
+blendtutor eval demo_lesson --case 3 --format json

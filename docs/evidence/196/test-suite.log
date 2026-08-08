@@ -1,0 +1,69 @@
+== Predicate 1 + 3: env→argv wiring + header contract ==
+  PASS: runner exits 0 (got: 0)
+  PASS: stub invoked exactly once (got: 1)
+  PASS: argv = eval <lesson> --case N --format json (got: eval lessons/alpha.yaml --case 2 --format json)
+  PASS: line 1 = verdict: correct (got: verdict: correct)
+  PASS: message byte-exact, multi-line preserved (got: all good
+second line)
+== Predicate 2: no cargo run ==
+  PASS: grep -c 'cargo run' scripts/smevals/*.sh == 0 (got: 0)
+== Predicate 4 + negative: .actual source of truth, fail-closed ==
+  PASS: runner exits 0 on well-formed JSON (got: 0)
+  PASS: verdict from .actual (incorrect), not .matched (got: verdict: incorrect)
+  PASS: negative: checker fails closed on inconsistent-JSON output
+== Predicate 5: four polarity combinations ==
+  PASS: correct×correct → exit 0 (got: 0)
+  PASS: incorrect×incorrect → exit 0 (got: 0)
+  PASS: correct×incorrect → non-zero
+  PASS: incorrect×correct → non-zero
+== Predicate 6: line-1-only parsing ==
+  PASS: line 1 wins over body mention (got: 0)
+  PASS: body-only verdict: ignored (a grep scanner would pass here)
+== Predicate 7: fail-closed on malformed headers ==
+  PASS: malformed (p7-maybe) fails closed
+  PASS: malformed (p7-empty) fails closed
+  PASS: malformed (p7-nospace) fails closed
+  PASS: malformed (p7-zero) fails closed
+== Predicate 8: case-sensitive token ==
+  PASS: verdict: Correct fails closed
+== Predicate 9 + 10: bounded transient-only retry + backoff ==
+  PASS: fail: exactly 3 attempts (max) (got: 3)
+  PASS: fail: runner exits non-zero after retries
+  PASS: fail: backoff wall-time >= 4s (4s)
+  PASS: empty: exactly 3 attempts (max) (got: 3)
+  PASS: empty: runner exits non-zero after retries
+  PASS: empty: backoff wall-time >= 4s (4s)
+  PASS: garbage: exactly 3 attempts (max) (got: 3)
+  PASS: garbage: runner exits non-zero after retries
+  PASS: garbage: backoff wall-time >= 4s (4s)
+  PASS: well-formed mismatch: exit 0 (got: 0)
+  PASS: well-formed mismatch: exactly 1 call (no retry) (got: 1)
+== Predicate 11: per-call timeout ==
+  PASS: timeout (124) treated as transient → 3 attempts (got: 3)
+  PASS: runner exits non-zero after timeout retries
+  PASS: timeout actually killed the sleeps (10s < 15s)
+== Predicate 12: missing env naming the variable ==
+  PASS: missing SMEVALS_TASK_LESSON named on stderr
+  PASS: missing SMEVALS_TASK_CASE named on stderr
+== Predicate 13: FIREWORKS_API_KEY propagation ==
+  PASS: stub saw the key → runner exit 0 (no env scrubbing) (got: 0)
+== Predicate 14: empty feedback_message ==
+  PASS: runner exits 0 (got: 0)
+  PASS: header line emitted (got: verdict: correct)
+  PASS: zero following lines (got: 1)
+== Predicate 15: jq absent → non-zero naming jq ==
+  PASS: jq guard names jq
+== Predicate 16: set -euo pipefail hygiene ==
+  PASS: run.sh starts with set -euo pipefail (got: set -euo pipefail)
+  PASS: check_polarity.sh starts with set -euo pipefail (got: set -euo pipefail)
+== Predicate 17: generator template path == actual script path ==
+  PASS: generator records scripts/smevals/run.sh
+  PASS: runner exists at pinned path
+  PASS: generator records scripts/smevals/check_polarity.sh
+  PASS: checker exists at pinned path
+  PASS: graders template pins required: true
+
+=========================================
+  Results: 48 passed, 0 failed
+=========================================
+All tests passed.

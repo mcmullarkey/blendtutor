@@ -348,13 +348,17 @@ echo "== Phase 3: functional evals fixture sub-phase =="
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/bt-evals-scratch.XXXXXX")"
 EVALS_PREEXISTING=0
 EVALS_BACKUP=""
+FIXTURE_DIR="docs/evals/evals-fixture"
 cleanup_evals() {
   # Restore pre-existing (committed) docs/evals if it was moved aside.
   if [ -n "$EVALS_BACKUP" ] && [ -d "$EVALS_BACKUP" ]; then
     rm -rf docs/evals
     mv "$EVALS_BACKUP" docs/evals
   fi
-  # Simulated fixture tree (created by this sub-phase) must not linger.
+  # Temp fixture — inside the restored real tree (pre-existing case) OR the
+  # simulated tree (non-pre-existing) — must not linger in either case.
+  rm -rf "$FIXTURE_DIR"
+  # Simulated committed tree (created by this sub-phase) must not linger.
   if [ "$EVALS_PREEXISTING" -eq 0 ]; then
     rm -rf docs/evals
   fi
@@ -385,7 +389,6 @@ find docs/evals -type f -exec cksum {} \; | sort > "$SCRATCH/docs-evals-before.c
 
 # Temp fixture — simulates a report tree inside the (real or simulated)
 # committed docs/evals, exactly the post-AC-5 shape (lessons + new report).
-FIXTURE_DIR="docs/evals/evals-fixture"
 mkdir -p "$FIXTURE_DIR"
 printf '<!doctype html><html><body>evals-fixture</body></html>\n' \
   > "$FIXTURE_DIR/index.html"
@@ -453,16 +456,19 @@ fi
 # preservation — a regression here deletes committed AC-5 reports. The temp
 # fixture (which travelled inside docs/evals to the backup) is removed from the
 # restored tree; the before-snapshot never contained it, so the pin compares
-# committed content only.
-rm -rf docs/evals
-mv "$EVALS_BACKUP" docs/evals
-EVALS_BACKUP=""
-rm -rf "$FIXTURE_DIR"
-if find docs/evals -type f -exec cksum {} \; | sort \
-    | diff -q "$SCRATCH/docs-evals-before.cksum" - >/dev/null; then
-  ok "committed docs/evals preserved byte-identical after fixture sub-phase"
-else
-  ko "committed docs/evals NOT preserved (content changed or deleted)"
+# committed content only. Guarded: if 8b never moved docs/evals aside (hard
+# failure before it), there is nothing to restore.
+if [ -n "$EVALS_BACKUP" ] && [ -d "$EVALS_BACKUP" ]; then
+  rm -rf docs/evals
+  mv "$EVALS_BACKUP" docs/evals
+  EVALS_BACKUP=""
+  rm -rf "$FIXTURE_DIR"
+  if find docs/evals -type f -exec cksum {} \; | sort \
+      | diff -q "$SCRATCH/docs-evals-before.cksum" - >/dev/null; then
+    ok "committed docs/evals preserved byte-identical after fixture sub-phase"
+  else
+    ko "committed docs/evals NOT preserved (content changed or deleted)"
+  fi
 fi
 
 # ---------------------------------------------------------------------------

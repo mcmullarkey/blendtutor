@@ -5,9 +5,13 @@
 //! 1-based), `configs/default.yaml`, `graders/default.yaml` — with the Fireworks
 //! default model single-sourced from `ProviderChoice::Fireworks.default_model()`
 //! and submissions emitted through an injection-proof YAML scalar discipline.
-//! The file set is exact, output is deterministic, non-slug lesson ids and empty
-//! suites are refused at the boundary, and the generated `<course>/.smevals/`
-//! dir is gitignored without touching committed build output under `docs/evals/`.
+//! AC4: `graders/default.yaml` carries the polarity check first (`required:
+//! true`) and the LLM judge second (model scalar single-sourced to the provider
+//! default), with `scoring.pass_threshold == 0.8` applied by smevals to the
+//! judge's score. The file set is exact, output is deterministic, non-slug
+//! lesson ids and empty suites are refused at the boundary, and the generated
+//! `<course>/.smevals/` dir is gitignored without touching committed build
+//! output under `docs/evals/`.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -156,7 +160,13 @@ struct GraderYaml {
 #[allow(dead_code)] // fields parsed for round-trip assertion, not read
 struct CheckYaml {
     checker: String,
+    /// Only the polarity check carries `required: true`; the judge does not.
+    #[serde(default)]
     required: bool,
+    /// The judge check carries the provider-default model scalar (becomes
+    /// SMEVALS_CHECK_MODEL); absent on the polarity check.
+    #[serde(default)]
+    model: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -243,19 +253,37 @@ fn every_emitted_file_reparses_for_every_suite_fixture() {
                 let grader: GraderYaml = serde_saphyr::from_str(contents)
                     .unwrap_or_else(|e| panic!("{name}: {path_str} must re-parse: {e}"));
                 assert_eq!(grader.name, "default", "{name}: grader is the default");
-                assert_eq!(grader.checks.len(), 1, "{name}: one polarity check for now");
+                assert_eq!(
+                    grader.checks.len(),
+                    2,
+                    "{name}: polarity check first, LLM judge second"
+                );
                 assert!(
                     grader.checks[0].checker.ends_with("check_polarity.sh"),
-                    "{name}: grader names the polarity checker, got {}",
+                    "{name}: grader names the polarity checker first, got {}",
                     grader.checks[0].checker
                 );
                 assert!(
                     grader.checks[0].required,
                     "{name}: polarity check is required"
                 );
+                assert!(
+                    grader.checks[1].checker.ends_with("judge_feedback.py"),
+                    "{name}: judge check second, got {}",
+                    grader.checks[1].checker
+                );
+                assert!(
+                    !grader.checks[1].required,
+                    "{name}: judge check is not required (its nonzero exit fails the grade anyway)"
+                );
+                assert_eq!(
+                    grader.checks[1].model.as_deref(),
+                    Some(ProviderChoice::Fireworks.default_model()),
+                    "{name}: judge check single-sources the provider default model"
+                );
                 assert_eq!(
                     grader.scoring.pass_threshold, 0.8,
-                    "{name}: pass threshold is 0.8 (AC-4 wires the judge against it)"
+                    "{name}: pass threshold is 0.8 (applied by smevals to the judge's score)"
                 );
             } else if path_str.starts_with("tasks/") {
                 let task: TaskYaml = serde_saphyr::from_str(contents)

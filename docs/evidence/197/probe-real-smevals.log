@@ -1,0 +1,63 @@
+# Real-tool E2E probe: uvx smevals==0.2.0 run -g with run.sh + check_polarity.sh + judge_feedback.py
+# (AC-2-generated eval dir consumed as-is; blendtutor + Fireworks both stubbed; zero spend)
+
+## Generated graders/default.yaml (consumed as-is)
+name: default
+checks:
+  - checker: ../../../../scripts/smevals/check_polarity.sh
+    required: true
+  - checker: ../../../../scripts/smevals/judge_feedback.py
+    model: accounts/fireworks/models/deepseek-v4-flash-0731
+scoring:
+  pass_threshold: 0.8
+
+## Run: uvx smevals==0.2.0 run examples/write-less-code-r/.smevals -g
+  case-1 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.2s) -> examples/write-less-code-r/.smevals/runs/case-1/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T14-44-40Z
+      grade: pass score=0.8800000000000001
+  case-2 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.0s) -> examples/write-less-code-r/.smevals/runs/case-2/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T14-44-41Z
+      grade: pass score=0.8800000000000001
+  case-3 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (0.0s) -> examples/write-less-code-r/.smevals/runs/case-3/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T14-44-41Z
+      grade: pass score=0.8800000000000001
+run-exit: 0
+
+## grade.yaml (case-1) — judge score is the Grade score
+grader: default
+graded: '2026-08-08T14:44:41.278629+00:00'
+outcome: pass
+score: 0.8800000000000001
+tags: []
+checks:
+- checker: ../../../../scripts/smevals/check_polarity.sh
+  ok: true
+  score: 1.0
+  notes: polarity match
+- checker: ../../../../scripts/smevals/judge_feedback.py
+  ok: true
+  score: 0.8800000000000001
+  metrics:
+    verdict_rationale_correctness: 4.0
+    actionability: 4.0
+    references_check_results: 5.0
+    no_solution_leak: 5.0
+    no_hallucinated_errors: 4.0
+  notes: judge grade
+
+## output.txt (case-1) — runner stdout captured by smevals
+verdict: correct
+Your solution runs and returns the right output, but consider naming the intermediate frame.
+
+## Fireworks request observed by the stub (case-1)
+  path: /v1/chat/completions
+  auth: Bearer probe-key-not-real
+  model: accounts/fireworks/models/deepseek-v4-flash-0731
+  tools: 1 function: grade_feedback
+  tool_choice: {'type': 'function', 'function': {'name': 'grade_feedback'}}
+  response_format present: False
+  prompt has DATA fence: True
+  prompt has 'data, not instructions': True
+  prompt anchors: ['Expected verdict: correct', 'Actual verdict: correct']
+
+## blendtutor argv observed by the stub (env→argv wiring, all cases)
+  eval demo_lesson --case 1 --format json
+  eval demo_lesson --case 2 --format json
+  eval demo_lesson --case 3 --format json

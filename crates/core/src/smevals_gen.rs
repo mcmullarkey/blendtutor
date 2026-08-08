@@ -14,9 +14,10 @@
 //! This module owns *only* the lesson+suite → smevals-dir translation. It is
 //! NOT the runner (AC-3), the LLM judge (AC-4), or the report command (AC-5);
 //! it merely emits the templates those later slices wire into. Script paths in
-//! the templates (`scripts/smevals/run.sh`, `scripts/smevals/check_polarity.sh`)
-//! are emitted relative to the generated `configs/`/`graders/` file, as smevals
-//! resolves them relative to the file that names them.
+//! the templates (`scripts/smevals/run.sh`, `scripts/smevals/check_polarity.sh`,
+//! `scripts/smevals/judge_feedback.py`) are emitted relative to the generated
+//! `configs/`/`graders/` file, as smevals resolves them relative to the file
+//! that names them.
 //!
 //! YAML emission: serde-saphyr 0.0.27 is parse-only, so the emitter is
 //! hand-rolled. Hostile content (a submission containing `: `, `&anchor`,
@@ -47,6 +48,8 @@ const DEFAULT_SCRIPTS_REL: &str = "../../../../scripts/smevals/";
 const RUNNER_REL: &str = "run.sh";
 /// The relative path to the polarity checker, pinned by AC-3.
 const CHECKER_REL: &str = "check_polarity.sh";
+/// The relative path to the LLM-judge checker, pinned by AC-4.
+const JUDGE_REL: &str = "judge_feedback.py";
 /// The polarity check is `required: true` so a wrong verdict halts grading
 /// before any later (AC-4 judge) check runs.
 const PASS_THRESHOLD: f64 = 0.8;
@@ -212,13 +215,18 @@ fn emit_configs_yaml(scripts_rel: &str) -> String {
 }
 
 /// The default grader: the polarity check first and `required`, so a wrong
-/// verdict halts grading; `pass_threshold` applies to the final check's score
-/// (AC-4's judge slots into `checks` after this entry).
+/// verdict halts grading; the LLM judge second (AC-4) with the model id
+/// single-sourced from the provider default (smevals surfaces it to the judge
+/// as `SMEVALS_CHECK_MODEL`); `pass_threshold` is applied by smevals to the
+/// final check's score — the judge's — so the grade passes iff the polarity
+/// check matched and the judged quality is >= 0.8.
 fn emit_graders_yaml(scripts_rel: &str) -> String {
     format!(
-        "name: default\nchecks:\n  - checker: {}\n    required: true\nscoring:\n  \
-         pass_threshold: {PASS_THRESHOLD}\n",
+        "name: default\nchecks:\n  - checker: {}\n    required: true\n  - checker: {}\n    \
+         model: {}\nscoring:\n  pass_threshold: {PASS_THRESHOLD}\n",
         emit_inline_scalar(&format!("{scripts_rel}{CHECKER_REL}")),
+        emit_inline_scalar(&format!("{scripts_rel}{JUDGE_REL}")),
+        emit_inline_scalar(ProviderChoice::Fireworks.default_model()),
     )
 }
 

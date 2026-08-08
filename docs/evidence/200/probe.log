@@ -1,0 +1,21 @@
+=== Issue #200 probe chain (docs/evidence/200/probe.log) ===
+=== 2026-08-08T22:05:29Z branch 200-eval-report-docs @ b2012ed ===
+
+--- leg 1: bash scripts/check-docs.sh (structural probe) ---
+check-docs.sh: PASS (exit 0)
+
+--- legs 2-10: content greps ---
+P1 header '## Step 9 — Generate the eval report' present: PASS
+P2 header '## Step 10 — Build a browser site' present: PASS
+P3 exactly one '^## Step 9' (count=1): PASS
+P4 no eval-report.json in Step 9 section: PASS
+P5 README has 'blendtutor eval-report': PASS
+P6 README workflow regex 'eval.*eval-report.*build': PASS
+P7 eval.md has AC-1 tag: PASS
+P8 eval.md has '^acs:' frontmatter: PASS
+
+--- leg 11: readme spec test (crate package is blendtutor-cli; the probe's '-p blendtutor' is a package-name typo for '-p blendtutor-cli') ---
+test readme_documents_the_cli_install_and_workflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

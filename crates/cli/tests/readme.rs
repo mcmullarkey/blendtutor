@@ -2,13 +2,14 @@
 //!
 //! The repo's top-level README is the "what this is" surface (§4.1). After the
 //! R-package → Rust-CLI cutover it must document the binary install and the full
-//! `init → new → validate → run → eval → build` authoring/run/eval/deploy
-//! workflow, including the GitHub Pages + COOP/COEP cross-origin-isolation note a
-//! built webR/Pyodide site needs (see `docs/agent-notes/site-build.md`). This
-//! pins each required token so a README that drops a command, the install
-//! section, or the deploy note fails the build — the same set the issue's AC1
-//! probe greps, anchored here so CI (nextest) gates it. It does not judge prose
-//! quality; that is a manual readability skim.
+//! `init → new → validate → run → eval → eval-report → build`
+//! authoring/run/eval/deploy workflow, including the GitHub Pages + COOP/COEP
+//! cross-origin-isolation note a built webR/Pyodide site needs (see
+//! `docs/agent-notes/site-build.md`). This pins each required token so a README
+//! that drops a command, the install section, or the deploy note fails the
+//! build — the same set the issue's AC1 probe greps, anchored here so CI
+//! (nextest) gates it. It does not judge prose quality; that is a manual
+//! readability skim.
 
 use std::path::Path;
 
@@ -36,6 +37,11 @@ fn readme_documents_the_cli_install_and_workflow() {
         ("validate command", "blendtutor validate"),
         ("run command", "blendtutor run"),
         ("eval command", "blendtutor eval"),
+        // Substring gotcha: `"blendtutor eval"` (the eval pin above) is a
+        // substring of `"blendtutor eval-report"`, so the eval pin cannot
+        // detect a README that drops the eval-report command — an explicit
+        // tuple is required (issue #200).
+        ("eval-report command", "blendtutor eval-report"),
         ("build command", "blendtutor build"),
         ("GitHub Pages deploy", "github pages"),
     ];

@@ -18,7 +18,9 @@ evaluation prompt. `blendtutor` handles the rest:
 
 - **Instructors** scaffold a course, add lessons, validate them, dry-run the
   grading against sample submissions, score the grading prompt against known
-  cases, and build a deployable browser site.
+  cases, generate an eval report with `blendtutor eval-report` (committed to
+  `docs/evals/<lesson>/` and published to `/evals/<lesson>/` on Pages), and
+  build a deployable browser site.
 - **Learners** run a lesson, submit code, and get an AI verdict — in the
   terminal locally, or in a browser via [webR](https://docs.r-wasm.org/webr/) /
   [Pyodide](https://pyodide.org/) with no install.
@@ -53,7 +55,7 @@ and `eval` call the provider.
 
 ## Authoring workflow
 
-The instructor loop is **`init → new → validate → run → eval → build`**.
+The instructor loop is **`init → new → validate → run → eval → eval-report → build`**.
 
 ### `blendtutor init` — scaffold a course
 

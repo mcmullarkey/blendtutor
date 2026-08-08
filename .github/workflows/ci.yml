@@ -57,6 +57,15 @@ jobs:
       - name: smevals runner test
         run: bash scripts/tests/test_smevals_runner.sh
 
+      # Issue #197 — LLM-judge checker (judge_feedback.py): grades feedback
+      # message quality via a Fireworks tool-call (model from
+      # SMEVALS_CHECK_MODEL/SMEVALS_MODEL), normalized [0,1] score, fail-closed
+      # on all error arms, no retry. 15-arm BDD over a stdlib-only local HTTP
+      # stub — zero network, zero Fireworks spend (~90s wall: the 30s-delay
+      # and 60s-timeout arms use real wall-clock).
+      - name: smevals judge test
+        run: python3 scripts/tests/test_judge_feedback.py
+
   quarto-render:
     name: quarto render
     runs-on: ubuntu-latest

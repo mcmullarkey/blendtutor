@@ -567,4 +567,106 @@ mod tests {
             format!("{:?}", ExpectedVerdict::INCORRECT_TOKEN)
         );
     }
+
+    #[test]
+    fn eval_feedback_message_carries_the_verdict_message_verbatim() {
+        // The per-case `feedback_message` is the runtime verdict's message,
+        // captured for BOTH polarities — a message captured only for Incorrect
+        // verdicts (negative h) or a constant across cases (negative a) cannot
+        // pass.
+        let correct = CaseResult::score(ExpectedVerdict::Correct, &correct());
+        assert_eq!(correct.feedback_message(), "well done");
+        let incorrect = CaseResult::score(ExpectedVerdict::Incorrect, &incorrect());
+        assert_eq!(incorrect.feedback_message(), "try again");
+    }
+
+    #[test]
+    fn eval_feedback_message_serializes_per_case_never_null_or_omitted() {
+        // The JSON artifact must carry a String `feedback_message` on every case
+        // — never null, never omitted, verbatim. An `Option<String>` field or a
+        // `skip_serializing_if` would break this contract.
+        let report = EvalReport::new(vec![
+            CaseResult::score(ExpectedVerdict::Correct, &correct()),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect()),
+        ]);
+        let json = serde_json::to_value(&report).expect("an EvalReport serializes infallibly");
+        let cases = json["cases"].as_array().expect("cases is an array");
+        assert_eq!(cases.len(), 2);
+        for case in cases {
+            assert!(
+                case["feedback_message"].is_string(),
+                "feedback_message must be a non-null string: {case}"
+            );
+        }
+        assert_eq!(cases[0]["feedback_message"], "well done");
+        assert_eq!(cases[1]["feedback_message"], "try again");
+    }
+
+    #[test]
+    fn eval_no_skip_serializing_if_keeps_the_empty_message_key() {
+        // An empty message must still serialize the `feedback_message` key:
+        // `skip_serializing_if` would drop it and break the never-omitted
+        // contract (predicate 2).
+        let result = CaseResult::score(
+            ExpectedVerdict::Correct,
+            &Verdict::Correct {
+                message: String::new(),
+            },
+        );
+        let json = serde_json::to_string(&result).expect("a CaseResult serializes infallibly");
+        assert!(
+            json.contains("\"feedback_message\":\"\""),
+            "an empty feedback_message must serialize as a present key: {json}"
+        );
+    }
+
+    #[test]
+    fn case_selection_maps_one_based_requests_to_zero_based_indices() {
+        // `--case N` is 1-based: the alpha (first) case is 1, beta is 2, gamma
+        // is 3. A 0-based or clamped-to-first implementation cannot pass.
+        assert_eq!(select_case_index(3, 1), Ok(0));
+        assert_eq!(select_case_index(3, 2), Ok(1));
+        assert_eq!(select_case_index(3, 3), Ok(2));
+    }
+
+    #[test]
+    fn case_selection_rejects_zero_and_past_the_end_naming_the_suite_size() {
+        // Out-of-range requests are rejected (never clamped) and the error
+        // carries both the requested number and the suite size (negative d/e).
+        assert!(matches!(
+            select_case_index(3, 0),
+            Err(EvalRunError::CaseOutOfRange {
+                requested: 0,
+                suite_size: 3
+            })
+        ));
+        assert!(matches!(
+            select_case_index(3, 4),
+            Err(EvalRunError::CaseOutOfRange {
+                requested: 4,
+                suite_size: 3
+            })
+        ));
+    }
+
+    #[test]
+    fn case_out_of_range_error_names_requested_case_and_suite_size() {
+        let err = EvalRunError::CaseOutOfRange {
+            requested: 4,
+            suite_size: 3,
+        };
+        let message = err.to_string();
+        assert!(
+            message.contains("4"),
+            "should name the requested case: {message}"
+        );
+        assert!(
+            message.contains("3"),
+            "should name the suite size: {message}"
+        );
+        assert!(
+            std::error::Error::source(&err).is_none(),
+            "a range error has no underlying pipeline failure to chain"
+        );
+    }
 }

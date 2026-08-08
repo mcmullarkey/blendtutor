@@ -60,8 +60,12 @@ script. Grade-fail is evidence, not a gate.
   (pin-break → test fails); full suite 123 pass; clippy+fmt clean
 - [x] 2026-08-08 — evidence docs/evidence/198/ (test-suite.log, manual shim
   run: stdout + uvx log + report tree)
-- [ ] 2026-08-08 — manual real-key smoke, commit docs/evals/01_seed_data/
+- [x] 2026-08-08 — manual real-key smoke RAN (exit 0, external contract
+  verified) — but committed-report deliverable BLOCKED by AC-2/AC-3 lesson
+  id-vs-path gap (all 4 cases fail read_lesson_file; docs/evals/ NOT
+  committed). See Surprises & Discoveries + report to Director.
 - [ ] push + PR
+- [ ] committed docs/evals/01_seed_data/ report (after AC-2/AC-3 gap fix)
 
 ### Decision Log
 - **build-into-temp + atomic rename** (`-o docs/evals/.<lesson>.tmp` → on
@@ -95,3 +99,22 @@ script. Grade-fail is evidence, not a gate.
 - macOS has no `timeout` (GNU coreutils) — AC-3's run.sh depends on it, so the
   real-key smoke needs a PATH-injected `exec "$@"` timeout shim locally; smoke
   still exercises the full uvx → smevals → run.sh → blendtutor eval round-trip.
+- **AC-2/AC-3 lesson id-vs-path contract gap (BLOCKER for the committed
+  report):** AC-2's `emit_task_yaml` emits `lesson: <lesson_id>` (slug, e.g.
+  `01_seed_data`), AC-3's run.sh passes `$SMEVALS_TASK_LESSON` verbatim to
+  `blendtutor eval <lesson>`, which requires a FILE PATH — `read_lesson_file`
+  fails NotFound on every case (3 retries × 2s each = the ~4s/case observed).
+  The real-key smoke is the FIRST end-to-end wiring of the real blendtutor
+  binary through smevals — AC-3/AC-4 CI used stub blendtutor (argv shape
+  asserted, never resolved), so no suite caught it. All generated task.yaml
+  files carry the slug; run.sh cannot map slug → path (it lacks the course
+  root). Fix belongs to AC-2 (emit a resolvable lesson reference) or AC-3
+  (runner resolves the id against a course env) — NOT AC-5 logic, which
+  correctly generates + drives + publishes. Docs/evals/01_seed_data left
+  UNCOMMITTED (an all-fail report would embed misleading 0.0 evidence into
+  the Pages artifact).
+- Spec's smoke command path `examples/write-less-code-r/lessons/01_seed_data.yaml`
+  is wrong — the repo layout has lessons at the course root
+  (`examples/write-less-code-r/01_seed_data.yaml`). The `lessons/` subdir does
+  not exist; the first smoke attempt failed with a clean stage-named
+  "generate: reading lesson" error (which itself demonstrated the error path).

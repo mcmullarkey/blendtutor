@@ -1,0 +1,14 @@
+case-1 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... FAILED (exit 1) (4.1s) -> examples/write-less-code-r/.smevals/runs/case-1/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T17-21-28Z
+    grade: fail score=0.0
+case-2 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... FAILED (exit 1) (4.0s) -> examples/write-less-code-r/.smevals/runs/case-2/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T17-21-32Z
+    grade: fail score=0.0
+case-3 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... FAILED (exit 1) (4.0s) -> examples/write-less-code-r/.smevals/runs/case-3/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T17-21-36Z
+    grade: fail score=0.0
+case-4 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... FAILED (exit 1) (4.0s) -> examples/write-less-code-r/.smevals/runs/case-4/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T17-21-40Z
+    grade: fail score=0.0
+Error: 4 run(s) failed, 4 run(s) graded as fail
+smevals run exited exit status: 1 after recording runs — treating the grade as evidence and building the report
+01_seed_data: 4 runs -> /Users/carbonite/Documents/coding/portfolio/worktree-issue-198/docs/evals/.01_seed_data.tmp/evals/01_seed_data
+Site: /Users/carbonite/Documents/coding/portfolio/worktree-issue-198/docs/evals/.01_seed_data.tmp/index.html
+smevals build: ok
+eval report: /Users/carbonite/Documents/coding/portfolio/worktree-issue-198/docs/evals/01_seed_data

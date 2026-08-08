@@ -1,0 +1,95 @@
+   Compiling blendtutor-core v0.1.0 (/Users/carbonite/Documents/coding/portfolio/worktree-issue-195/crates/core)
+warning: fields `name` and `lesson` are never read
+  --> crates/core/tests/generate_eval_dir.rs:93:5
+   |
+92 | struct TaskYaml {
+   |        -------- fields in this struct
+93 |     name: String,
+   |     ^^^^
+94 |     lesson: String,
+   |     ^^^^^^
+   |
+   = note: `TaskYaml` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `name` and `description` are never read
+   --> crates/core/tests/generate_eval_dir.rs:103:5
+    |
+102 | struct EvalYaml {
+    |        -------- fields in this struct
+103 |     name: String,
+    |     ^^^^
+104 |     description: String,
+    |     ^^^^^^^^^^^
+    |
+    = note: `EvalYaml` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: fields `name` and `runner` are never read
+   --> crates/core/tests/generate_eval_dir.rs:110:5
+    |
+109 | struct ConfigYaml {
+    |        ---------- fields in this struct
+110 |     name: String,
+    |     ^^^^
+111 |     runner: String,
+    |     ^^^^^^
+    |
+    = note: `ConfigYaml` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: fields `name`, `checks`, and `scoring` are never read
+   --> crates/core/tests/generate_eval_dir.rs:118:5
+    |
+117 | struct GraderYaml {
+    |        ---------- fields in this struct
+118 |     name: String,
+    |     ^^^^
+119 |     checks: Vec<CheckYaml>,
+    |     ^^^^^^
+120 |     scoring: ScoringYaml,
+    |     ^^^^^^^
+    |
+    = note: `GraderYaml` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: fields `checker` and `required` are never read
+   --> crates/core/tests/generate_eval_dir.rs:126:5
+    |
+125 | struct CheckYaml {
+    |        --------- fields in this struct
+126 |     checker: String,
+    |     ^^^^^^^
+127 |     required: bool,
+    |     ^^^^^^^^
+    |
+    = note: `CheckYaml` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: field `pass_threshold` is never read
+   --> crates/core/tests/generate_eval_dir.rs:133:5
+    |
+132 | struct ScoringYaml {
+    |        ----------- field in this struct
+133 |     pass_threshold: f64,
+    |     ^^^^^^^^^^^^^^
+    |
+    = note: `ScoringYaml` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: `blendtutor-core` (test "generate_eval_dir") generated 6 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.82s
+     Running tests/generate_eval_dir.rs (target/debug/deps/generate_eval_dir-a79d84c98eb020ac)
+
+running 11 tests
+test empty_suite_is_refused_without_emitting_tasks ... ok
+test non_slug_lesson_ids_are_refused_and_never_reach_a_path ... ok
+test adversarial_submission_round_trips_byte_identical ... ok
+test emits_exactly_the_four_kinds_for_three_cases ... ok
+test identical_inputs_produce_byte_identical_output ... ok
+test configs_model_is_single_sourced_from_the_provider_default ... ok
+test tasks_follow_the_suite_case_order ... ok
+test slug_lesson_ids_are_accepted ... ok
+test golden_dir_is_byte_identical ... ok
+test every_emitted_file_reparses_for_every_suite_fixture ... ok
+examples/write-less-code-r/.smevals/
+examples/write-less-code-r/.smevals/configs/default.yaml
+test generated_dir_is_gitignored_but_committed_output_is_not ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+

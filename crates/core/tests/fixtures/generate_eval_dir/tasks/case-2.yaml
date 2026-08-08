@@ -1,0 +1,5 @@
+name: case-2
+lesson: demo_lesson
+case: 2
+prompt: "cat(\"beta\\n\")"
+expected: incorrect

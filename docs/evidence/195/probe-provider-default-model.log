@@ -1,0 +1,39 @@
+   Compiling blendtutor-core v0.1.0 (/Users/carbonite/Documents/coding/portfolio/worktree-issue-195/crates/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.05s
+     Running unittests src/lib.rs (target/debug/deps/blendtutor_core-173cbe489141f8dc)
+
+running 1 test
+test llm::provider::tests::provider_default_model_is_pinned_to_0731 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 185 filtered out; finished in 0.00s
+
+     Running tests/eval.rs (target/debug/deps/eval-10ff08b6d2e82ae3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/generate_eval_dir.rs (target/debug/deps/generate_eval_dir-a79d84c98eb020ac)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests/grade.rs (target/debug/deps/grade-8f16e5c87d9faaa5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/llm.rs (target/debug/deps/llm-34f11720ec1156b7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests/runner.rs (target/debug/deps/runner-31a092ef6addb9a1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+

@@ -2,6 +2,7 @@
 topic: eval
 created: 2026-06-07
 slices: [12, 13]
+acs: [1, 2, 3, 5]
 ---
 
 The eval-case model (`core::eval`): the typed shape the `eval` command will later
@@ -90,3 +91,56 @@ ADR-0007 for the verdict-representation decision.
   (`commands::eval::sibling_suite_path`, prefix the whole file name with
   `eval_`). core::eval still never touches the filesystem (§2.1); the path
   derivation + read live at the cli edge.
+- 2026-08-08 (#AC-1): **`CaseResult` gained `feedback_message: String`**,
+  captured in `CaseResult::score` — the only constructor — so the message can
+  never be inconsistent with the verdict it came from; both `Verdict` variants
+  carry `message` (there is NO public `message()` accessor; read inline via
+  exhaustive match, feedback.rs untouched). Serialize-only derive: additive
+  JSON field, `eval-course.sh`'s jq (`.cases` selects) unaffected. `--case N`
+  single-case selection is **1-based** (human-report numbering), and the
+  ORIGINAL suite index is threaded through the filter so
+  `EvalRunError::CaseOutOfRange { requested, suite_size }` reports the user's
+  number, never a post-filter index; the range check lives inside `run_eval`
+  (pure core), clap exits 2 for parse errors and 1 only for out-of-range.
+- 2026-08-08 (#AC-2): **The smevals eval-dir generator is pure Rust in
+  `core::smevals_gen`** — `generate_eval_dir(&Lesson, &EvalSuite, lesson_id)
+  -> Vec<(PathBuf, String)>`, the FIRST YAML *emitter* in the codebase
+  (serde-saphyr is parse-only). Generated dir is `<course>/.smevals/`
+  (dotdir, `**/.smevals/` rule — provably no collision with committed
+  `docs/evals/`); an empty suite is an Err, not a vacuous pass. Two
+  implementation deviations from plan: (1) emission uses double-quoted
+  scalars with full control-char escaping, NOT block scalars — serde-saphyr
+  0.0.27 `|+`/`|-` chomping cannot round-trip arbitrary strings byte-exact
+  (the injection round-trip test pins byte-identity regardless); (2)
+  `runner:`/`checker:` paths resolve relative to the config/grader FILE, so
+  the effectful `write_eval_dir` recomputes the relative prefix by walking to
+  the repo root — the pure fn cannot know course depth. Provider default
+  bumped to `accounts/fireworks/models/deepseek-v4-flash-0731` (matches the
+  browser BYOK pin).
+- 2026-08-08 (#AC-3): **smevals runner (run.sh) + deterministic polarity
+  checker (check_polarity.sh)** — the runner reads `SMEVALS_TASK_*` env,
+  shells `blendtutor eval <lesson> --case N --format json` under
+  `timeout ${SMEVALS_TIMEOUT:-120}` (env-overridable, so the stub test
+  exercises the timeout path in ~2s), and exposes the verdict via a
+  **line-1 stdout header** (`verdict: <polarity>` — fail-closed: a missing or
+  malformed header is a transient failure). Retry is transient-only
+  (exit-1/empty-stdout/malformed-JSON/timeout-124 — never on a mismatch
+  verdict), 3 attempts, sleep-2 backoff. `check_polarity.sh` treats `.actual`
+  as the source of truth (`matched` derives from `score_case`, never set
+  independently) and compares exact equality — no substring slack. No
+  `env -i`: `FIREWORKS_API_KEY` must reach the `blendtutor` subprocess.
+- 2026-08-08 (#AC-5): **`blendtutor eval-report <lesson>` is a thin
+  orchestration shell** (subcommand, not a script): generate `.smevals/` via
+  AC-2's generator → `uvx smevals==0.2.0 run -g` → `uvx smevals==0.2.0 build
+  -o docs/evals/.<lesson>.tmp/` → atomic rename into `docs/evals/<lesson>/`.
+  **Grade-fail is evidence, not a gate:** a `run` exiting non-zero *with*
+  recorded `runs/` still proceeds to build and exits 0 (a low accuracy is a
+  result); only a run that exited non-zero with NO runs fails the command,
+  naming the `run` stage. A build failure always fails naming `build` and
+  discards the temp, so a prior committed report survives — build-into-temp +
+  rename, NOT docs.yml's rm -rf precedent (local re-runs don't lose data).
+  `.smevals/` is cleaned before each generate (stale runs are false
+  evidence); lesson id = file stem via the shared course-root helper; a
+  missing `uvx` is a clean stage-named error with an install hint, never a
+  panic. The committed `docs/evals/01_seed_data/` report doubles as the
+  real-key smoke evidence.

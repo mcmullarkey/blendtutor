@@ -322,7 +322,44 @@ Add `--format json` for machine-readable output:
 blendtutor eval lessons/seed-data.yaml --format json
 ```
 
-## Step 9 — Build a browser site
+## Step 9 — Generate the eval report
+
+Turn-key eval evidence: generate a static report that grades your grading
+prompt — verdict polarity *and* feedback-message quality — on every case, then
+commit it where your deployed site publishes it:
+
+```bash
+blendtutor eval-report lessons/seed-data.yaml
+```
+
+The command drives the pinned [`smevals`](https://pypi.org/project/smevals/)
+package via `uvx`, so [`uv`](https://docs.astral.sh/uv/) must be on your PATH.
+It grades each case with a real paid LLM-judge call and produces two outputs:
+
+- **`<course>/.smevals/`** — an ephemeral working dir (gitignored): the
+  generated eval tasks, LLM judge outputs, and recorded runs. Never commit it.
+- **`docs/evals/<lesson>/`** — the committed static report (`index.html` +
+  `index.json`), published to GitHub Pages at `/evals/<lesson>/` on push.
+
+A completed-but-low-quality grade is evidence, not a failure: the command
+exits 0 as long as the run recorded its cases, even when most verdicts missed
+— the report shows the real accuracy. It fails only when a stage produced
+nothing usable.
+
+The report is generated **locally** and shipped by committing it, so your
+docs site can publish it:
+
+```bash
+git add docs/evals
+git commit -m "eval report: lessons/seed-data.yaml"
+```
+
+`blendtutor eval-report` needs the same `FIREWORKS_API_KEY` as `run` and
+`eval` — each case is a real paid provider call, so watch your spend. Run
+reports against the same provider your deployed site will use, and regenerate
+only when the grading prompt or eval cases change.
+
+## Step 10 — Build a browser site
 
 Once lessons validate and the eval suite passes, build a static browser site.
 Learners edit code in the browser, submit, and get instant AI feedback with no

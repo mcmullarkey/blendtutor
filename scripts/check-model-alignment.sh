@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Assert the Fireworks default model id is identical across the two consumers
 # that hardcode it — the Rust CLI (`provider.rs`) and the browser BYOK path
-# (`feedback.js`) — and that the retired model id (`qwen3-vl-30b-a3b-instruct`)
+# (`_extensions/blendtutor/assets/exercise-feedback.js` per ADR-0016; the legacy
+# crates path `crates/core/assets/shared/feedback.js` is known drift, excluded
+# until it migrates) — and that the retired model id (`qwen3-vl-30b-a3b-instruct`)
 # leaves no dead-code ghost anywhere in `crates/core/src/`.
 #
 # This is the executable spec for issue #71's cross-file alignment AC. The same
@@ -13,9 +15,9 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-model="accounts/fireworks/models/deepseek-v4-flash"
+model="accounts/fireworks/models/deepseek-v4-flash-0731"
 rust_src="crates/core/src/llm/provider.rs"
-js_src="crates/core/assets/shared/feedback.js"
+js_src="_extensions/blendtutor/assets/exercise-feedback.js"
 retired="qwen3-vl-30b-a3b-instruct"
 
 # AC1 — exact model id present in the Rust provider (the CLI default).

@@ -31,7 +31,8 @@ lesson + sibling eval suite, plus the Fireworks provider default bump to
 | File | Proves |
 |------|--------|
 | `probe-generate-eval-dir.log` | 11/11 integration tests: file set, round-trip over all 12 fixtures, adversarial injection byte-identity, path safety, determinism, empty-suite refusal, ordering, model provenance, gitignore interplay, golden-dir byte equivalence |
-| `probe-provider-default-model.log` | `provider_default_model_is_pinned_to_0731` + updated recognizability test |
+| `probe-provider-default-model.log` | `provider_default_model_is_pinned_to_0731` + updated recognizability test (zero dead_code warnings) |
+| `alignment-check.log` | `scripts/check-model-alignment.sh` exits 0 against the real browser BYOK pin (`_extensions/blendtutor/assets/exercise-feedback.js` per ADR-0016), plus negative control: legacy crates JS (known drift) fails the gate — no longer vacuous |
 | `probe-gitignore.log` | `git check-ignore` exits 0 for `.smevals/`, non-zero for `docs/evals/`, `tests/fixtures/evals/`, `docs/evidence/` |
 | `e2e-smevals-smoke.log` | **Real-tool round trip**: the generated dir was consumed by `uvx smevals==0.2.0 run -g` (3/3 cases, `grade: pass score=1.0` — proving the emitted runner/checker relative paths resolve and are executable, the `SMEVALS_TASK_*` env wiring works, and the model id from `configs/default.yaml` was read) then `uvx smevals==0.2.0 build` (static report `index.html` produced) |
 

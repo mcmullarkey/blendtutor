@@ -1,0 +1,12 @@
+$ bash scripts/check-model-alignment.sh
+model-align: OK — Rust and JS agree on 'accounts/fireworks/models/deepseek-v4-flash-0731', 'qwen3-vl-30b-a3b-instruct' absent
+exit 0
+
+# Negative control (proves the gate is not vacuous after the -0731 bump):
+# pointing js_src at the legacy crates path crates/core/assets/shared/feedback.js
+# (known drift per ADR-0016, still emits the old pin) must FAIL — the old gate
+# passed this divergence vacuously because the un-suffixed literal was a
+# substring of the new id:
+$ bash scripts/check-model-alignment.sh
+model-align: crates/core/assets/shared/feedback.js missing model id 'accounts/fireworks/models/deepseek-v4-flash-0731'
+exit 1

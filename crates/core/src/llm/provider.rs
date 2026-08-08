@@ -48,8 +48,10 @@ impl ProviderChoice {
     /// The default model id for this provider.
     ///
     /// Fireworks matches the browser BYOK fallback (`deepseek-v4-flash-0731` in
-    /// `assets/shared/feedback.js` / ADR-0016); Anthropic uses a current Claude
-    /// model. Model selection is not yet configurable — a later slice can lift
+    /// `_extensions/blendtutor/assets/exercise-feedback.js` / ADR-0016); the
+    /// legacy crates path (`assets/shared/feedback.js`) is known drift, migrated
+    /// separately. Anthropic uses a current Claude model. Model selection is not
+    /// yet configurable — a later slice can lift
     /// these to a setting. This value is the single source for the smevals
     /// config template (`smevals_gen`), so the runtime model and the generated
     /// eval config cannot drift.

@@ -107,8 +107,14 @@ impl Harness {
         Harness { root }
     }
 
+    /// The tempfile root, canonicalized so it matches the absolute paths the
+    /// command logs (macOS resolves `/var` → `/private/var`).
+    fn root_canonical(&self) -> PathBuf {
+        self.root.path().canonicalize().unwrap()
+    }
+
     fn course_root(&self) -> PathBuf {
-        self.root.path().join("examples").join("demo-course")
+        self.root_canonical().join("examples").join("demo-course")
     }
 
     fn lesson_path(&self) -> PathBuf {
@@ -123,32 +129,31 @@ impl Harness {
 
     /// The published report location: `<repo>/docs/evals/<lesson>`.
     fn docs_dir(&self) -> PathBuf {
-        self.root
-            .path()
+        self.root_canonical()
             .join("docs")
             .join("evals")
             .join("demo_lesson")
     }
 
-    /// The build-into-temp sibling of the report dir.
+    /// The build-into-temp sibling of the report dir — what `-o` actually
+    /// receives; the command renames it into `docs_dir()` on success.
     fn temp_dir(&self) -> PathBuf {
-        self.root
-            .path()
+        self.root_canonical()
             .join("docs")
             .join("evals")
             .join(".demo_lesson.tmp")
     }
 
     fn bin_dir(&self) -> PathBuf {
-        self.root.path().join("bin")
+        self.root_canonical().join("bin")
     }
 
     fn log_path(&self) -> PathBuf {
-        self.root.path().join("uvx.log")
+        self.root_canonical().join("uvx.log")
     }
 
     fn count_path(&self) -> PathBuf {
-        self.root.path().join("uvx.count")
+        self.root_canonical().join("uvx.count")
     }
 
     fn uvx_log(&self) -> String {
@@ -227,7 +232,6 @@ fn success_path_invokes_uvx_twice_with_pin_and_absolute_paths() {
     let calls = parse_log(&harness.uvx_log());
     assert_eq!(calls.len(), 2, "exactly two uvx calls, got {calls:?}");
     let gen_dir = harness.gen_dir().canonicalize().unwrap();
-    let docs_dir = harness.docs_dir().canonicalize().unwrap();
     assert_eq!(
         calls[0],
         vec![
@@ -245,14 +249,18 @@ fn success_path_invokes_uvx_twice_with_pin_and_absolute_paths() {
             "build".to_string(),
             gen_dir.display().to_string(),
             "-o".to_string(),
-            docs_dir.display().to_string(),
+            harness.temp_dir().display().to_string(),
         ],
-        "build call must publish into docs/evals/<lesson>"
+        "build must write into the docs/evals temp dir, then rename it into \
+         docs/evals/<lesson> atomically"
     );
     // Every logged path is absolute: a CWD-relative gen_dir would build a
     // report from the wrong directory for a relative lesson path.
     for logged in [&calls[0][2], &calls[1][2], &calls[1][4]] {
-        assert!(Path::new(logged).is_absolute(), "logged path {logged:?} must be absolute");
+        assert!(
+            Path::new(logged).is_absolute(),
+            "logged path {logged:?} must be absolute"
+        );
     }
     // No --runs-dir: stranding runs outside the eval dir would let `build`
     // assemble an empty/stale report.
@@ -263,7 +271,10 @@ fn success_path_invokes_uvx_twice_with_pin_and_absolute_paths() {
 
     // The stale pre-seed is gone (cleaned before regenerating) and the fresh
     // eval dir was written back into the course root.
-    assert!(!stale.exists(), "stale .smevals content must be cleaned before generate");
+    assert!(
+        !stale.exists(),
+        "stale .smevals content must be cleaned before generate"
+    );
     assert!(
         harness.gen_dir().join("eval.yaml").is_file(),
         "the eval dir must be regenerated"
@@ -284,9 +295,15 @@ fn missing_sibling_suite_fails_naming_generate_without_invoking_uvx() {
     fs::remove_file(harness.course_root().join("eval_demo_lesson.yaml")).unwrap();
 
     let output = eval_report_output(&harness, &harness.lesson_path(), None, None, false);
-    assert!(!output.status.success(), "a missing suite must fail the command");
+    assert!(
+        !output.status.success(),
+        "a missing suite must fail the command"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("generate:"), "error must name the generate stage, got: {stderr}");
+    assert!(
+        stderr.contains("generate:"),
+        "error must name the generate stage, got: {stderr}"
+    );
     assert!(
         parse_log(&harness.uvx_log()).is_empty(),
         "uvx must never be invoked when generation fails"
@@ -307,9 +324,15 @@ fn bad_slug_fails_naming_generate_without_invoking_uvx() {
     .unwrap();
 
     let output = eval_report_output(&harness, &bad, None, None, false);
-    assert!(!output.status.success(), "a bad lesson slug must fail the command");
+    assert!(
+        !output.status.success(),
+        "a bad lesson slug must fail the command"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("generate:"), "error must name the generate stage, got: {stderr}");
+    assert!(
+        stderr.contains("generate:"),
+        "error must name the generate stage, got: {stderr}"
+    );
     assert!(
         parse_log(&harness.uvx_log()).is_empty(),
         "uvx must never be invoked when generation fails"
@@ -330,7 +353,11 @@ fn run_failure_with_runs_is_evidence_and_proceeds_to_build() {
         String::from_utf8_lossy(&output.stderr)
     );
     let calls = parse_log(&harness.uvx_log());
-    assert_eq!(calls.len(), 2, "build must still be invoked after a run grade-fail");
+    assert_eq!(
+        calls.len(),
+        2,
+        "build must still be invoked after a run grade-fail"
+    );
     assert!(
         harness.docs_dir().join("index.html").is_file(),
         "the report must be built from the grade-fail runs"
@@ -343,11 +370,21 @@ fn run_failure_without_runs_fails_naming_run_and_skips_build() {
     // run exits 1 with no usable artifacts → a harness failure, not a grade:
     // the command fails naming the run stage and never invokes build.
     let output = eval_report_output(&harness, &harness.lesson_path(), Some(1), None, false);
-    assert!(!output.status.success(), "run failure with empty runs/ must fail the command");
+    assert!(
+        !output.status.success(),
+        "run failure with empty runs/ must fail the command"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("run:"), "error must name the run stage, got: {stderr}");
+    assert!(
+        stderr.contains("run:"),
+        "error must name the run stage, got: {stderr}"
+    );
     let calls = parse_log(&harness.uvx_log());
-    assert_eq!(calls.len(), 1, "build must not run without usable artifacts, got {calls:?}");
+    assert_eq!(
+        calls.len(),
+        1,
+        "build must not run without usable artifacts, got {calls:?}"
+    );
     assert!(
         !harness.docs_dir().join("index.html").exists(),
         "no report may be published without runs"
@@ -365,9 +402,15 @@ fn build_failure_names_build_and_preserves_prior_committed_report() {
     fs::write(&keep, "committed report marker\n").unwrap();
 
     let output = eval_report_output(&harness, &harness.lesson_path(), None, Some(1), false);
-    assert!(!output.status.success(), "a failed build must fail the command");
+    assert!(
+        !output.status.success(),
+        "a failed build must fail the command"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("build:"), "error must name the build stage, got: {stderr}");
+    assert!(
+        stderr.contains("build:"),
+        "error must name the build stage, got: {stderr}"
+    );
     assert!(
         keep.exists(),
         "a prior committed report must survive a failed rebuild"
@@ -384,9 +427,15 @@ fn run_and_build_both_fail_naming_build_with_run_exit_in_context() {
     // Both stages fail: the command fails naming build, with the run stage's
     // exit code in the error context so the two failures aren't conflated.
     let output = eval_report_output(&harness, &harness.lesson_path(), Some(1), Some(1), true);
-    assert!(!output.status.success(), "run+build failure must fail the command");
+    assert!(
+        !output.status.success(),
+        "run+build failure must fail the command"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("build:"), "error must name the build stage, got: {stderr}");
+    assert!(
+        stderr.contains("build:"),
+        "error must name the build stage, got: {stderr}"
+    );
     assert!(
         stderr.contains("run stage"),
         "build error must surface the run stage's exit code, got: {stderr}"
@@ -409,7 +458,10 @@ fn missing_uvx_is_a_clean_stage_named_error_not_a_panic() {
         .env("PATH", empty)
         .output()
         .expect("running `blendtutor eval-report` should produce output");
-    assert!(!output.status.success(), "a missing uvx must fail the command");
+    assert!(
+        !output.status.success(),
+        "a missing uvx must fail the command"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("uvx"),

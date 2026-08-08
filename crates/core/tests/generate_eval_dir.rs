@@ -116,6 +116,7 @@ const SUITE_FIXTURES: &[&[&str]] = &[
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(dead_code)] // fields parsed for round-trip assertion, not read
 struct TaskYaml {
     name: String,
     lesson: String,
@@ -126,6 +127,7 @@ struct TaskYaml {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(dead_code)] // fields parsed for round-trip assertion, not read
 struct EvalYaml {
     name: String,
     description: String,
@@ -133,6 +135,7 @@ struct EvalYaml {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(dead_code)] // fields parsed for round-trip assertion, not read
 struct ConfigYaml {
     name: String,
     runner: String,
@@ -141,6 +144,7 @@ struct ConfigYaml {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(dead_code)] // fields parsed for round-trip assertion, not read
 struct GraderYaml {
     name: String,
     checks: Vec<CheckYaml>,
@@ -149,6 +153,7 @@ struct GraderYaml {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(dead_code)] // fields parsed for round-trip assertion, not read
 struct CheckYaml {
     checker: String,
     required: bool,
@@ -156,6 +161,7 @@ struct CheckYaml {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(dead_code)] // fields parsed for round-trip assertion, not read
 struct ScoringYaml {
     pass_threshold: f64,
 }

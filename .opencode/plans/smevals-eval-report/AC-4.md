@@ -15,12 +15,12 @@ status: complete
   4. **Tool-call request shape:** request body contains `model == $SMEVALS_CHECK_MODEL or $SMEVALS_MODEL` (checked in that precedence, never hardcoded), `tools` list with one function, `tool_choice.function.name` set. NO `response_format: json_object` key anywhere in body.
   5. **Endpoint + auth:** POST to `${baseUrl}/chat/completions` where baseUrl already ends in `/v1` (no doubling); headers `Authorization: Bearer $FIREWORKS_API_KEY`, `content-type: application/json`.
   6. **HTTP timeout:** 60s cap on Fireworks call. Stub server delaying 30s → still succeeds; unbounded-hang scenario → checker aborts <=65s with nonzero exit. (Test: stub socket that accepts but never responds; assert wall-clock < 65s and exit != 0.)
-  7. **Fail closed — missing key:** `FIREWORKS_API_KEY` unset → nonzero exit; stderr names the variable.
+  7. **Fail closed — missing key:** `FIREWORKS_API_KEY` unset → nonzero exit; stderr names the variable. Same arm covers `SMEVALS_TASK_EXPECTED` unset → nonzero exit, stderr names the variable (all 4 env arms fail-closed tested).
   8. **Fail closed — missing artifact:** `$SMEVALS_RUN_DIR/output.txt` absent → nonzero exit; stderr names the file.
   9. **Fail closed — HTTP 500:** stub returns 500 → nonzero exit; stderr names status code.
   10. **Fail closed — malformed tool-call args:** `function.arguments` unparseable JSON → nonzero exit. NO retry loop in checker — retry mechanism is operator-level `--regrade`.
   11. **Score clamping:** stubbed dimension value 7 (out of 0-5 range) → clamped at the parse boundary; emitted `score` NEVER > 1.0. Missing dimensions key → nonzero exit.
-  12. **Prompt-injection defense:** feedback message fenced as DATA in prompt with explicit "data, not instructions" framing; prompt carries expected verdict (`SMEVALS_TASK_EXPECTED`) + actual verdict (output.txt line 1 header) so judge can score verdict-rationale correctness.
+  12. **Prompt-injection defense:** feedback message fenced as DATA in prompt with explicit "data, not instructions" framing; prompt carries expected verdict (`SMEVALS_TASK_EXPECTED`) + actual verdict (output.txt line 1 header) so judge can score verdict-rationale correctness. Every interpolated value is `neutralize()`d (mirrors crates/core/src/llm/prompt.rs:87): a message carrying literal `BEGIN/END FEEDBACK DATA` or forged `Expected verdict:` / `Actual verdict:` anchors → replaced with `[neutralized-delimiter]`, so the fences/labels appear exactly once in the prompt.
   13. **smevals 5-key JSON:** stdout JSON parses with `score` (float), `notes`, `metrics`; unknown keys tolerated into `details`. `metrics` carries the 5 dimension scores.
   14. **graders/default.yaml wiring:** generator template emits polarity check FIRST (`required: true`), judge SECOND, `scoring.pass_threshold == 0.8`. Golden fixture updated; golden-dir test re-baselined (5-file migration: 2 new + 3 AC-2-owned modified).
   15. **Determinism:** with stubbed judge response, stdout JSON byte-identical across two runs (stable key order, no timestamps/random in output).
@@ -40,7 +40,7 @@ status: complete
 ### Technical Context
 - **Files touched:**
   - `scripts/smevals/judge_feedback.py` — NEW. `#!/usr/bin/env python3`, stdlib only (urllib/json/os/sys/pathlib — smevals invokes bare python3, no uv wrapper). Tool-call request mirrors feedback.js fireworksRequest; base URL default `https://api.fireworks.ai/inference/v1` (provider.rs:43) with `FIREWORKS_BASE_URL` override for hermetic tests; 60s urllib timeout; five 0-5 rubric dimensions (verdict-rationale correctness, actionability, references check results, no solution leak, no hallucinated errors); score = mean/5, clamped [0,1].
-  - `scripts/tests/test_judge_feedback.py` — NEW 15-arm BDD (63 assertions), pytest-collectable + standalone. Stdlib http.server stub (records path/headers/body, configurable status/delay), raw-socket hang server, decoy-cwd negative for P1.
+  - `scripts/tests/test_judge_feedback.py` — NEW 15-arm BDD (77 assertions), pytest-collectable + standalone. Stdlib http.server stub (records path/headers/body, configurable status/delay), raw-socket hang server, decoy-cwd negative for P1, forged-fence negative for P12.
   - `crates/core/src/smevals_gen.rs` — `JUDGE_REL` const; `emit_graders_yaml` emits polarity first (`required: true`), judge second with `model:` scalar single-sourced from `ProviderChoice::Fireworks.default_model()` (becomes `SMEVALS_CHECK_MODEL`).
   - `crates/core/tests/fixtures/generate_eval_dir/graders/default.yaml` — golden re-baselined (mechanical regen, not hand-edit).
   - `crates/core/tests/generate_eval_dir.rs` — CheckYaml DTO gains `model: Option<String>` + defaulted `required`; two-check assertions (polarity required, judge not required + model single-sourced).
@@ -62,7 +62,8 @@ status: complete
 - [x] generator wiring (smevals_gen.rs template + golden fixture + generate_eval_dir.rs) — golden-dir test green — 2026-08-08
 - [x] CI step added to .github/workflows/ci.yml (check job) — 2026-08-08
 - [x] full workspace cargo nextest green (332/332), AC-3 shell BDD regression green (48/48) — 2026-08-08
-- [x] E2E evidence docs/evidence/197/ (test-suite.log 63/63 + real-smevals probe 3/3 pass score 0.88) — 2026-08-08
+- [x] E2E evidence docs/evidence/197/ (test-suite.log 77/77 + real-smevals probe 3/3 pass score 0.88) — 2026-08-08
+- [x] PR review cycle 1 fixes: neutralize() on all interpolated values (P12 forged-fence arm, mirrors prompt.rs:87); SMEVALS_TASK_EXPECTED unset fail-closed arm (P7); assertion count 65 → 77 in docs — 2026-08-08
 
 ### Decision Log
 - 2026-08-08 — model env precedence: `SMEVALS_CHECK_MODEL or SMEVALS_MODEL`. Real smevals does NOT set SMEVALS_MODEL for checkers (runner env only), so the graders template must emit a `model:` scalar on the judge check entry (→ SMEVALS_CHECK_MODEL), single-sourced from the provider default; SMEVALS_MODEL stays as the direct-invocation fallback.
@@ -70,6 +71,7 @@ status: complete
 - 2026-08-08 — 60s timeout hardcoded (not env-configurable): the spec's two arms (30s-delay succeeds, hang aborts < 65s) bracket the cap with the real default; an env knob would weaken the "60s judge-imposed" decision.
 - 2026-08-08 — judge check NOT `required: true`: smevals fails the grade on any non-ok check (`not all(r["ok"])`), so the judge's own nonzero exit already fails closed; `required: true` on the polarity check halts grading BEFORE the judge (verified in the real-smevals probe first iteration: judge `skipped: true` when polarity mismatched).
 - 2026-08-08 — FIREWORKS_BASE_URL env override (default `https://api.fireworks.ai/inference/v1`): the real-smevals E2E probe needs to divert the judge's HTTPS call to a local http.server — zero spend — without changing the checker's default endpoint.
+- 2026-08-08 — neutralize() on every interpolated prompt value (message + verdict strings), replacing BEGIN/END FEEDBACK DATA and Expected/Actual verdict: labels with `[neutralized-delimiter]` — mirrors the established codebase convention (crates/core/src/llm/prompt.rs:87, crates/core/assets/shared/feedback.js:95). The old defense (fence + "data, not instructions" framing) alone let a message carrying literal `END FEEDBACK DATA` forge a second closing fence; neutralize() makes the fence/labels appear exactly once. P12 gained a forged-fence arm that fails without the fix.
 
 ### Surprises & Discoveries
 - 2026-08-08 — Local macOS has NO GNU `timeout` (CI ubuntu does), and run.sh wraps blendtutor in `timeout` — the first real-smevals probe silently produced EMPTY output.txt (runner exit 127, permanent failure) → polarity check failed closed → judge skipped. Reused the AC-3 GNU-compatible timeout shim (test_smevals_runner.sh) on PATH FIRST; probe then ran green. Worth noting run.sh's retry policy treats 127 as permanent by design (usage error), so the shim is required for ANY local real-tool run.

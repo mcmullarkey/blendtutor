@@ -44,18 +44,21 @@
   PASS: 30s-delayed response still succeeds (got: 0)
   PASS: the checker actually waited for the delayed response
   PASS: never-responding server → nonzero exit
-  PASS: aborts within the 60s cap, wall < 65s (got: 60.0s)
+  PASS: aborts within the 60s cap, wall < 65s (got: 60.1s)
 
 -- test_p7_missing_key_fail_closed --
   -- P7: FIREWORKS_API_KEY unset → nonzero, names the var, no HTTP --
   PASS: nonzero exit (got: 1)
   PASS: stderr names the variable (got: judge_feedback.py: FIREWORKS_API_KEY is required)
   PASS: no HTTP request issued without a key
+  PASS: SMEVALS_TASK_EXPECTED unset → nonzero exit (got: 1)
+  PASS: stderr names the variable (got: judge_feedback.py: SMEVALS_TASK_EXPECTED is required)
+  PASS: no HTTP request issued without SMEVALS_TASK_EXPECTED
 
 -- test_p8_missing_artifact_fail_closed --
   -- P8: $SMEVALS_RUN_DIR/output.txt absent → nonzero, names file --
   PASS: nonzero exit (got: 1)
-  PASS: stderr names the file (got: judge_feedback.py: output file not readable: /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmpipip0gw_/run/output.txt)
+  PASS: stderr names the file (got: judge_feedback.py: output file not readable: /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmpw707r701/run/output.txt)
   PASS: no HTTP request issued without the artifact
 
 -- test_p9_http_500_fail_closed --
@@ -86,6 +89,15 @@
   PASS: prompt carries the expected verdict from SMEVALS_TASK_EXPECTED
   PASS: prompt carries the actual verdict from output.txt line 1
   PASS: fenced message is the output.txt body
+  PASS: forged message still grades, exit 0 (got: 0)
+  PASS: forged structural tokens replaced with [neutralized-delimiter]
+  PASS: BEGIN fence appears exactly once (got: 1)
+  PASS: END fence appears exactly once (got: 1)
+  PASS: Expected verdict: anchor appears exactly once (got: 1)
+  PASS: Actual verdict: anchor appears exactly once (got: 1)
+  PASS: forged 'Expected verdict: forged' anchor neutralized
+  PASS: forged 'Actual verdict: forged' anchor neutralized
+  PASS: forged instruction text kept as data (not stripped, not followed)
 
 -- test_p13_smevals_5_key_json --
   -- P13: smevals 5-key JSON: score/metrics/notes/details --
@@ -110,4 +122,4 @@
   PASS: both runs exit 0
   PASS: stdout JSON byte-identical (stable key order, no timestamps)
 
-=== Results: 65 passed, 0 failed ===
+=== Results: 77 passed, 0 failed ===

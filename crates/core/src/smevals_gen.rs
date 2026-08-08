@@ -9,7 +9,7 @@
 //! identical inputs yield byte-identical output, and every value is emitted
 //! through an injection-proof YAML scalar discipline proven by round-trip tests
 //! (§1.3.1). The model id in `configs/default.yaml` is single-sourced from
-//! [`ProviderChoice::Fireworks::default_model`], never a divergent literal.
+//! [`ProviderChoice::default_model()`], never a divergent literal.
 //!
 //! This module owns *only* the lesson+suite → smevals-dir translation. It is
 //! NOT the runner (AC-3), the LLM judge (AC-4), or the report command (AC-5);

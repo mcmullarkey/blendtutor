@@ -110,6 +110,24 @@ jobs:
           cp -R demo-standalone/index_files docs/book/book/demo/
           cp demo-standalone/coi-serviceworker.js docs/book/book/demo/
 
+      # AC-6 (#199) — assemble committed docs/evals/ into the Pages artifact at
+      # /evals/, mirroring the /api + /examples/{r,python} + /demo-book/ +
+      # /demo/ nesting. Guarded: before AC-5 (#198) lands there is no
+      # docs/evals/, and the if/then/fi guard keeps the job green (Actions runs
+      # steps under `bash -eo pipefail` — an `&&` shorthand would exit 1 on a
+      # missing dir). mkdir INSIDE the guard: no empty /evals/ nest published
+      # pre-AC-5. rm before mkdir (api precedent docs.yml:67): docs/evals is
+      # committed source; lesson deletion is a committed deletion; cp-only never
+      # removes stale reports. DOT-COPY (trailing /.): a bare cp -R docs/evals
+      # would double-nest to /evals/evals/<lesson>/ → 404.
+      - name: Assemble evals into artifact (/evals/)
+        run: |
+          if [ -d docs/evals ]; then
+            rm -rf docs/book/book/evals
+            mkdir -p docs/book/book/evals
+            cp -R docs/evals/. docs/book/book/evals/
+          fi
+
       - name: Add .nojekyll at artifact root
         run: touch docs/book/book/.nojekyll
 

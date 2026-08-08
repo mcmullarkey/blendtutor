@@ -338,14 +338,54 @@ fi
 
 echo "== Phase 3: functional evals fixture sub-phase =="
 
-# Runtime temp fixture: docs/evals/ is the committed AC-5 source dir; the
-# fixture simulates a report tree so the assemble semantics (dot-copy, guard
-# exit-0-when-absent) are exercised against a scratch book_out.
-FIXTURE_DIR="docs/evals/evals-fixture"
+# Once AC-5 (#198) lands, docs/evals/ is COMMITTED SOURCE — this sub-phase must
+# never destroy it (a `rm -rf docs/evals` cleanup would delete real reports
+# from the working tree). If docs/evals pre-exists, its content is snapshotted
+# and moved aside; the fixture sub-phase then runs against a fresh fixture tree
+# and the pre-existing content is restored + verified byte-identical. If it does
+# not pre-exist, a simulated committed report tree is created so the same
+# safety path is always exercised (and cleaned up on exit).
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/bt-evals-scratch.XXXXXX")"
-cleanup_evals() { rm -rf docs/evals "$SCRATCH"; }
+EVALS_PREEXISTING=0
+EVALS_BACKUP=""
+cleanup_evals() {
+  # Restore pre-existing (committed) docs/evals if it was moved aside.
+  if [ -n "$EVALS_BACKUP" ] && [ -d "$EVALS_BACKUP" ]; then
+    rm -rf docs/evals
+    mv "$EVALS_BACKUP" docs/evals
+  fi
+  # Simulated fixture tree (created by this sub-phase) must not linger.
+  if [ "$EVALS_PREEXISTING" -eq 0 ]; then
+    rm -rf docs/evals
+  fi
+  rm -rf "$SCRATCH"
+}
 trap cleanup_evals EXIT
 
+if [ -d docs/evals ]; then
+  EVALS_PREEXISTING=1
+else
+  # Simulate the post-AC-5 committed tree so the backup/restore path is always
+  # exercised and the preservation pin is live even before AC-5 lands.
+  mkdir -p docs/evals/committed-lesson
+  printf '<!doctype html><html><body>committed report</body></html>\n' \
+    > docs/evals/committed-lesson/report.html
+fi
+
+# The committed content file (real pre-existing or simulated), relative to the
+# repo root — used to assert it nests alongside the fixture in clause 8a
+# without hardcoding the simulated dir name (real AC-5 lessons vary).
+COMMITTED_FILE="$(find docs/evals -type f | head -1 || true)"
+COMMITTED_NESTED="${COMMITTED_FILE#docs/evals/}"
+
+# Snapshot the committed tree's content BEFORE the temp fixture is added, so
+# the preservation pin proves the committed content survived the sub-phase
+# independent of the fixture (byte-identical compare, fixture excluded).
+find docs/evals -type f -exec cksum {} \; | sort > "$SCRATCH/docs-evals-before.cksum"
+
+# Temp fixture — simulates a report tree inside the (real or simulated)
+# committed docs/evals, exactly the post-AC-5 shape (lessons + new report).
+FIXTURE_DIR="docs/evals/evals-fixture"
 mkdir -p "$FIXTURE_DIR"
 printf '<!doctype html><html><body>evals-fixture</body></html>\n' \
   > "$FIXTURE_DIR/index.html"
@@ -363,13 +403,19 @@ evals_assemble() {
 }
 
 # Clause 8a — fixture present: HTML lands at <scratch>/evals/evals-fixture/
-# index.html byte-identical, and no double-nest (<scratch>/evals/evals absent).
+# index.html byte-identical, committed lesson also nests, and no double-nest
+# (<scratch>/evals/evals absent).
 if evals_assemble; then
   if [ -f "$SCRATCH/evals/evals-fixture/index.html" ] \
       && cmp -s "$FIXTURE_DIR/index.html" "$SCRATCH/evals/evals-fixture/index.html"; then
     ok "fixture HTML lands at <scratch>/evals/evals-fixture/index.html, byte-identical (dot-copy)"
   else
     ko "fixture HTML not byte-identical at <scratch>/evals/evals-fixture/index.html"
+  fi
+  if [ -n "$COMMITTED_NESTED" ] && [ -f "$SCRATCH/evals/$COMMITTED_NESTED" ]; then
+    ok "committed lesson nests alongside fixture (<scratch>/evals/$COMMITTED_NESTED)"
+  else
+    ko "committed lesson missing from assembled evals nest (expected <scratch>/evals/$COMMITTED_NESTED)"
   fi
   if [ ! -e "$SCRATCH/evals/evals" ]; then
     ok "no double-nest — <scratch>/evals/evals absent"
@@ -380,11 +426,13 @@ else
   ko "guarded assemble exits non-zero with fixture present"
 fi
 
-# Clause 8b — fixture removed (docs/evals entirely absent, as pre-AC-5): same
-# snippet under bash -e exits 0 and creates no evals/ dir (CI stays green).
-# Scratch evals/ from 8a is cleared first so "creates no evals dir" is a true
-# negative.
-rm -rf docs/evals "$SCRATCH/evals"
+# Clause 8b — docs/evals absent (as pre-AC-5): same snippet under bash -e
+# exits 0 and creates no evals/ dir (CI stays green). The committed tree is
+# moved aside first (restored below); scratch evals/ from 8a is cleared so
+# "creates no evals dir" is a true negative.
+mv docs/evals "$SCRATCH/docs-evals-real"
+EVALS_BACKUP="$SCRATCH/docs-evals-real"
+rm -rf "$SCRATCH/evals"
 if bash -e -c '
   if [ -d docs/evals ]; then
     rm -rf "$1/evals"
@@ -399,6 +447,22 @@ if bash -e -c '
   fi
 else
   ko "guard exits non-zero with docs/evals absent (would redden CI pre-AC-5)"
+fi
+
+# Restore the (real or simulated) committed tree and pin byte-identical
+# preservation — a regression here deletes committed AC-5 reports. The temp
+# fixture (which travelled inside docs/evals to the backup) is removed from the
+# restored tree; the before-snapshot never contained it, so the pin compares
+# committed content only.
+rm -rf docs/evals
+mv "$EVALS_BACKUP" docs/evals
+EVALS_BACKUP=""
+rm -rf "$FIXTURE_DIR"
+if find docs/evals -type f -exec cksum {} \; | sort \
+    | diff -q "$SCRATCH/docs-evals-before.cksum" - >/dev/null; then
+  ok "committed docs/evals preserved byte-identical after fixture sub-phase"
+else
+  ko "committed docs/evals NOT preserved (content changed or deleted)"
 fi
 
 # ---------------------------------------------------------------------------

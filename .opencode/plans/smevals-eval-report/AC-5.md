@@ -69,8 +69,17 @@ script. Grade-fail is evidence, not a gate.
   lesson path to absolute before write_eval_dir; golden task fixtures
   re-baselined; new test task_yaml_lesson_carries_the_path_not_the_slug +
   CLI absolute-path assertion; full suite green (fmt/clippy clean)
+- [x] 2026-08-08 — AC-4 judge transport FIXED (found by re-run smoke):
+  urllib's default `Python-urllib/3.x` UA is Cloudflare-blocked by Fireworks
+  (HTTP 403 error 1010) — every judge call failed while identical curl
+  succeeded. Judge now sends explicit `User-Agent:
+  blendtutor-smevals-judge/0.1`; P5 test pins it. Re-run smoke: 3 pass
+  (0.84/0.8/0.92), 1 fail (0.76 — genuine quality grade on the near-miss),
+  report published
 - [ ] push + PR
-- [ ] committed docs/evals/01_seed_data/ report (after AC-2/AC-3 gap fix)
+- [x] 2026-08-08 — committed docs/evals/01_seed_data/ report (real-key
+  smoke, genuine grades) — real-key-smoke-fixed.log + refreshed test-suite.log
+  at docs/evidence/198/
 
 ### Decision Log
 - **build-into-temp + atomic rename** (`-o docs/evals/.<lesson>.tmp` → on
@@ -132,3 +141,15 @@ script. Grade-fail is evidence, not a gate.
   (`examples/write-less-code-r/01_seed_data.yaml`). The `lessons/` subdir does
   not exist; the first smoke attempt failed with a clean stage-named
   "generate: reading lesson" error (which itself demonstrated the error path).
+- **urllib's default UA is Cloudflare-blocked by Fireworks (HTTP 403, error
+  1010):** after the lesson-path fix, the re-run smoke showed every case
+  running `ok` with polarity 1.0 — but all grading as fail with
+  `judge_feedback.py: provider returned HTTP 403`. Reproduced in isolation
+  (curl with `-A Python-urllib/3.13` → 403; default curl UA → 200). Root
+  cause: judge_feedback.py's urllib request carried the default
+  `Python-urllib/3.x` UA, which Fireworks' Cloudflare edge bans. The
+  openai-compatible SDK UA convention passes; the honest tool UA
+  `blendtutor-smevals-judge/0.1` verified HTTP 200. Fixed by sending an
+  explicit UA header + P5 test pinning it. The final smoke: 3 pass
+  (0.84/0.8/0.92), 1 fail (0.76 — a genuine quality grade on the near-miss
+  case, evidence not a bug).

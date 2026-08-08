@@ -460,6 +460,15 @@ def test_p5_endpoint_and_auth() -> None:
             record["headers"].get("Content-Type") == "application/json",
             "content-type: application/json",
         )
+        # urllib's default UA ("Python-urllib/3.x") is Cloudflare-blocked by
+        # Fireworks (HTTP 403, error 1010) — the AC-5 real-key smoke showed
+        # every judge call failing while the identical curl succeeded. The
+        # request must carry the explicit tool UA, never the default.
+        check(
+            record["headers"].get("User-Agent") == "blendtutor-smevals-judge/0.1",
+            "User-Agent is the explicit tool UA, not urllib's default "
+            f"(got: {record['headers'].get('User-Agent')!r})",
+        )
     finally:
         stub.stop()
 

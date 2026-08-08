@@ -230,30 +230,38 @@ pub fn aggregate(cases: &[CaseResult]) -> f64 {
 }
 
 /// One scored eval case: the expected polarity, the polarity the grader actually
-/// returned, and whether they matched.
+/// returned, whether they matched, and the grader's verbatim feedback message.
 ///
 /// `matched` is derived at construction from the two polarities ([`score_case`]),
 /// never set independently (§1.1): a result cannot claim a match its polarities
-/// contradict. The serialized shape — `expected`, `actual`, `matched` — is the
-/// per-case artifact a built site embeds without re-scoring.
+/// contradict. The serialized shape — `expected`, `actual`, `matched`,
+/// `feedback_message` — is the per-case artifact a built site embeds without
+/// re-scoring; `feedback_message` is a plain `String` (never `Option`), so the
+/// key is always present on the wire (§1.1).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CaseResult {
     expected: ExpectedVerdict,
     actual: ExpectedVerdict,
     matched: bool,
+    feedback_message: String,
 }
 
 impl CaseResult {
-    /// Score a case: reduce the runtime `actual` verdict to its polarity and
-    /// derive `matched` from it and `expected`. The only constructor, so a
-    /// `matched` flag inconsistent with the polarities is unrepresentable.
+    /// Score a case: reduce the runtime `actual` verdict to its polarity, derive
+    /// `matched` from it and `expected`, and capture the verdict's verbatim
+    /// learner-facing message. The only constructor, so a `matched` flag
+    /// inconsistent with the polarities is unrepresentable.
     pub fn score(expected: ExpectedVerdict, actual: &Verdict) -> Self {
+        let feedback_message = match actual {
+            Verdict::Correct { message } | Verdict::Incorrect { message } => message.clone(),
+        };
         let actual = ExpectedVerdict::from(actual);
         let matched = score_case(&expected, &actual);
         Self {
             expected,
             actual,
             matched,
+            feedback_message,
         }
     }
 
@@ -270,6 +278,11 @@ impl CaseResult {
     /// Whether the actual polarity matched the expected one.
     pub fn matched(&self) -> bool {
         self.matched
+    }
+
+    /// The learner-facing feedback the grader produced for this case, verbatim.
+    pub fn feedback_message(&self) -> &str {
+        &self.feedback_message
     }
 }
 
@@ -304,66 +317,129 @@ impl EvalReport {
     }
 }
 
-/// Why scoring an eval suite failed: a case's submission could not be run through
-/// the pipeline — the interpreter failed to launch or the provider call failed.
+/// Why scoring an eval suite failed.
 ///
-/// Names the offending case so an instructor can find it; a scoring run is
-/// all-or-nothing, since a missing verdict cannot be scored as either polarity.
+/// Either a case's submission could not be run through the pipeline — the
+/// interpreter failed to launch or the provider call failed — or a `--case N`
+/// selection was out of range. A scoring run is all-or-nothing, since a missing
+/// verdict cannot be scored as either polarity; the run failure names the
+/// offending case so an instructor can find it.
 #[derive(Debug)]
-pub struct EvalRunError {
-    /// The zero-based index of the case whose run failed, in suite order.
-    pub index: usize,
-    /// The underlying pipeline failure.
-    pub source: RunError,
+pub enum EvalRunError {
+    /// A case's submission failed to run through the pipeline.
+    Run {
+        /// The zero-based index of the case whose run failed, in suite order.
+        index: usize,
+        /// The underlying pipeline failure.
+        source: RunError,
+    },
+    /// A `--case N` selection named a case outside the suite.
+    ///
+    /// Carries the user's requested number and the suite size; the CLI maps this
+    /// to exit 1 with a stderr message naming `suite_size`.
+    CaseOutOfRange {
+        /// The user's requested case number (1-based).
+        requested: usize,
+        /// The number of cases in the suite.
+        suite_size: usize,
+    },
 }
 
 impl fmt::Display for EvalRunError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // One-based for the instructor, matching the report's `case N` rows; the
-        // field stays a zero-based index. (Slice-12's `EvalParseError` reports the
-        // zero-based logical index instead — a parse-time developer concern, its
-        // tested contract left untouched here.)
-        write!(
-            f,
-            "eval case {} failed to run: {}",
-            self.index + 1,
-            self.source
-        )
+        match self {
+            EvalRunError::Run { index, source } => {
+                // One-based for the instructor, matching the report's `case N`
+                // rows; the field stays a zero-based index. (Slice-12's
+                // `EvalParseError` reports the zero-based logical index instead —
+                // a parse-time developer concern, its tested contract left
+                // untouched here.)
+                write!(f, "eval case {} failed to run: {}", index + 1, source)
+            }
+            EvalRunError::CaseOutOfRange {
+                requested,
+                suite_size,
+            } => write!(
+                f,
+                "eval case {requested} is out of range: the suite has {suite_size} case(s)"
+            ),
+        }
     }
 }
 
 impl Error for EvalRunError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.source)
+        match self {
+            EvalRunError::Run { source, .. } => Some(source),
+            // A range error is self-contained: the request was rejected before
+            // any pipeline run, so there is no underlying failure to chain.
+            EvalRunError::CaseOutOfRange { .. } => None,
+        }
     }
 }
 
 /// Run every case in `suite` through the same pipeline `run` uses and score each
-/// verdict against its expected polarity.
+/// verdict against its expected polarity — or, when `case` is `Some(n)`, only
+/// the one 1-based case `n`.
 ///
 /// The thin effectful shell over the pure scorer (§2.4): for each case it runs
 /// the submission through [`run_lesson`] — execute, grade, ask `provider` for a
 /// verdict — then pairs the verdict's polarity with the expected one as a
 /// [`CaseResult`]. Driving the *same* `run_lesson` is what keeps the evaluated
-/// feedback identical to the shipped feedback (§3.2). A run failure stops scoring
-/// and names the offending case ([`EvalRunError`]); `base_url_override` points
-/// the provider at a stub in tests, exactly as `run` does, and is `None` in
+/// feedback identical to the shipped feedback (§3.2). An out-of-range `case`
+/// selection is rejected up front with [`EvalRunError::CaseOutOfRange`] — never
+/// clamped — before any case runs; a run failure stops scoring and names the
+/// offending case ([`EvalRunError::Run`]). `base_url_override` points the
+/// provider at a stub in tests, exactly as `run` does, and is `None` in
 /// production.
 pub async fn run_eval(
     lesson: &Lesson,
     suite: &EvalSuite,
     provider: ProviderChoice,
     base_url_override: Option<&str>,
+    case: Option<usize>,
 ) -> Result<EvalReport, EvalRunError> {
-    let mut cases = Vec::with_capacity(suite.cases.len());
-    for (index, case) in suite.cases.iter().enumerate() {
-        let submission = Submission::new(case.submission.clone());
+    let selected = case
+        .map(|requested| select_case_index(suite.cases.len(), requested))
+        .transpose()?;
+    let mut cases = Vec::with_capacity(if selected.is_some() {
+        1
+    } else {
+        suite.cases.len()
+    });
+    for (index, suite_case) in suite.cases.iter().enumerate() {
+        if let Some(selected_index) = selected
+            && index != selected_index
+        {
+            continue;
+        }
+        let submission = Submission::new(suite_case.submission.clone());
         let report = run_lesson(lesson, &submission, provider, base_url_override)
             .await
-            .map_err(|source| EvalRunError { index, source })?;
-        cases.push(CaseResult::score(case.expected.clone(), report.verdict()));
+            .map_err(|source| EvalRunError::Run { index, source })?;
+        cases.push(CaseResult::score(
+            suite_case.expected.clone(),
+            report.verdict(),
+        ));
     }
     Ok(EvalReport::new(cases))
+}
+
+/// Resolve a 1-based `--case N` request against the suite size to the zero-based
+/// index to select, or reject it as out of range.
+///
+/// The single validation point for case selection (§5): `0` and any value past
+/// the last case are rejected (never clamped) with an error carrying both the
+/// user's requested number and the suite size, so the CLI can exit 1 naming the
+/// size. Pure and total, so it is unit-testable in `core` without a CLI harness.
+fn select_case_index(suite_size: usize, requested: usize) -> Result<usize, EvalRunError> {
+    if requested == 0 || requested > suite_size {
+        return Err(EvalRunError::CaseOutOfRange {
+            requested,
+            suite_size,
+        });
+    }
+    Ok(requested - 1)
 }
 
 #[cfg(test)]
@@ -530,7 +606,7 @@ mod tests {
         use crate::llm::FeedbackError;
         use crate::run::RunError;
 
-        let err = EvalRunError {
+        let err = EvalRunError::Run {
             index: 2,
             source: RunError::Feedback(FeedbackError::MissingApiKey {
                 var: "FIREWORKS_API_KEY",
@@ -624,9 +700,9 @@ mod tests {
     fn case_selection_maps_one_based_requests_to_zero_based_indices() {
         // `--case N` is 1-based: the alpha (first) case is 1, beta is 2, gamma
         // is 3. A 0-based or clamped-to-first implementation cannot pass.
-        assert_eq!(select_case_index(3, 1), Ok(0));
-        assert_eq!(select_case_index(3, 2), Ok(1));
-        assert_eq!(select_case_index(3, 3), Ok(2));
+        assert!(matches!(select_case_index(3, 1), Ok(0)));
+        assert!(matches!(select_case_index(3, 2), Ok(1)));
+        assert!(matches!(select_case_index(3, 3), Ok(2)));
     }
 
     #[test]

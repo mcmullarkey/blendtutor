@@ -75,6 +75,9 @@ enum Commands {
         /// Output format: `human` (default) or `json`.
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
+        /// Score only the 1-based case `N` instead of the whole suite.
+        #[arg(long)]
+        case: Option<usize>,
     },
     /// Build a browser-deployable lesson site from a course.
     Build {
@@ -130,7 +133,11 @@ fn main() -> anyhow::Result<ExitCode> {
             code,
             format,
         } => commands::run::run(&lesson, code.as_deref(), format),
-        Commands::Eval { lesson, format } => commands::eval::run(&lesson, format),
+        Commands::Eval {
+            lesson,
+            format,
+            case,
+        } => commands::eval::run(&lesson, format, case),
         Commands::New { target } => match target {
             NewTarget::Lesson { lang, id } => commands::new::run(lang, &id),
         },

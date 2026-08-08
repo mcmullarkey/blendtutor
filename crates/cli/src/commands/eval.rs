@@ -18,16 +18,23 @@ use blendtutor_core::llm::ProviderChoice;
 use crate::commands::PROVIDER_URL_VAR;
 use crate::output::{self, OutputFormat};
 
-/// Load the lesson and its sibling eval suite, score every case through the run
-/// pipeline, and render the report.
+/// Load the lesson and its sibling eval suite, score every case — or, with
+/// `case`, only the one 1-based case — through the run pipeline, and render the
+/// report.
 ///
 /// A lesson read/parse failure, a missing or malformed suite, or a pipeline
-/// failure on any case propagates as an error (→ exit 1). The command itself
-/// always succeeds (exit 0) when it produces a report: `eval` measures feedback
-/// quality, it is not a pass/fail gate, so a low accuracy is still a successful
-/// run. The provider is driven on a current-thread runtime (the binary owns its
-/// async runtime; `core` stays a library).
-pub fn run(lesson_path: &Path, format: OutputFormat) -> anyhow::Result<ExitCode> {
+/// failure on any case propagates as an error (→ exit 1). An out-of-range
+/// `case` selection also propagates (→ exit 1, naming the suite size); a
+/// non-numeric `--case` is rejected by clap at parse time (→ exit 2). The
+/// command itself always succeeds (exit 0) when it produces a report: `eval`
+/// measures feedback quality, it is not a pass/fail gate, so a low accuracy is
+/// still a successful run. The provider is driven on a current-thread runtime
+/// (the binary owns its async runtime; `core` stays a library).
+pub fn run(
+    lesson_path: &Path,
+    format: OutputFormat,
+    case: Option<usize>,
+) -> anyhow::Result<ExitCode> {
     let lesson = read_lesson_file(lesson_path)?;
     let suite_path = sibling_suite_path(lesson_path);
     let suite_yaml = std::fs::read_to_string(&suite_path)
@@ -43,6 +50,7 @@ pub fn run(lesson_path: &Path, format: OutputFormat) -> anyhow::Result<ExitCode>
         &suite,
         ProviderChoice::default(),
         base_url.as_deref(),
+        case,
     ))?;
 
     output::emit_eval(&report, format)?;

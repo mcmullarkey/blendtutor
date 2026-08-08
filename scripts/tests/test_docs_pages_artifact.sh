@@ -28,6 +28,22 @@
 #      rm -rf docs/book/book/* clobber (asserted by check-docs.sh Phase 2)
 #  11. ci.yml quarto-render job runs this test (awk job-block pin, not file-wide)
 #
+# AC-6 of smevals-eval-report (#199) adds a 12th concern — evals publishing:
+#  12. build job gains a guarded evals assemble step: if/then/fi guard with the
+#      literal `if [ -d docs/evals ]` AND the `&&` shorthand `[ -d docs/evals ]
+#      &&` ABSENT anywhere in the workflow (Actions runs steps under
+#      bash -eo pipefail — a trailing && chain exits 1 when the dir is missing,
+#      reddening CI before AC-5 commits any report)
+#  13. within the step, line order is guard < `rm -rf docs/book/book/evals` <
+#      `mkdir -p docs/book/book/evals` < literal DOT-COPY `cp -R docs/evals/.
+#      docs/book/book/evals/` (trailing /. — a bare cp double-nests to
+#      /evals/evals/<lesson>/ → 404); mkdir INSIDE the guard (no empty /evals/
+#      nest published pre-AC-5); step before .nojekyll and before upload
+#  14. deploy job block free of `evals`/`docs/evals` needles (deploy has no
+#      checkout); check-docs.sh mirrors the guarded assemble + double-nest
+#      assert against $book_out; fixture sub-phase (Phase 3) proves the cp
+#      semantics (no double-nest) + the guard exits 0 when docs/evals absent
+#
 # Negative cases (from the spec):
 #   - quarto setup step missing → render fails on clean runner → clause 1
 #   - || true / continue-on-error: true → silent-failure deploy of a broken
@@ -103,6 +119,10 @@ L_COPY_BOOK="$(block_line "$BUILD_BLOCK" 'demo-book/_output/.')"
 L_COPY_DEMO="$(block_line "$BUILD_BLOCK" 'cp demo-standalone/index.html')"
 L_NOJEKYLL="$(block_line "$BUILD_BLOCK" 'docs/book/book/.nojekyll')"
 L_UPLOAD="$(block_line "$BUILD_BLOCK" 'actions/upload-pages-artifact@v5')"
+L_EVALS_GUARD="$(block_line "$BUILD_BLOCK" 'if [ -d docs/evals ]')"
+L_EVALS_RM="$(block_line "$BUILD_BLOCK" 'rm -rf docs/book/book/evals')"
+L_EVALS_MKDIR="$(block_line "$BUILD_BLOCK" 'mkdir -p docs/book/book/evals')"
+L_EVALS_CP="$(block_line "$BUILD_BLOCK" 'cp -R docs/evals/. docs/book/book/evals/')"
 
 # Clause 1 — quarto setup in the build job block (absent today: a clean
 # runner has no quarto and the render steps would fail).
@@ -166,7 +186,7 @@ fi
 # fix-coi → dot-copy demo-book → selective demo copy → .nojekyll → upload.
 ORDER_OK=1
 for ln in "$L_SETUP" "$L_RENDER_BOOK" "$L_RENDER_SA" "$L_FIX" "$L_COPY_BOOK" \
-          "$L_COPY_DEMO" "$L_NOJEKYLL" "$L_UPLOAD"; do
+          "$L_COPY_DEMO" "$L_EVALS_GUARD" "$L_NOJEKYLL" "$L_UPLOAD"; do
   [ -n "$ln" ] || ORDER_OK=0
 done
 if [ "$ORDER_OK" -eq 1 ] \
@@ -175,11 +195,12 @@ if [ "$ORDER_OK" -eq 1 ] \
     && [ "$L_RENDER_SA" -lt "$L_FIX" ] \
     && [ "$L_FIX" -lt "$L_COPY_BOOK" ] \
     && [ "$L_COPY_BOOK" -lt "$L_COPY_DEMO" ] \
-    && [ "$L_COPY_DEMO" -lt "$L_NOJEKYLL" ] \
+    && [ "$L_COPY_DEMO" -lt "$L_EVALS_GUARD" ] \
+    && [ "$L_EVALS_GUARD" -lt "$L_NOJEKYLL" ] \
     && [ "$L_NOJEKYLL" -lt "$L_UPLOAD" ]; then
-  ok "ordering: setup → renders → fix-coi → copies → .nojekyll all BEFORE upload (clauses 4, 8)"
+  ok "ordering: setup → renders → fix-coi → copies → evals guard → .nojekyll all BEFORE upload (clauses 4, 8)"
 else
-  ko "ordering: all new steps BEFORE upload with fix-coi after render, before copy — setup=$L_SETUP render_book=$L_RENDER_BOOK render_sa=$L_RENDER_SA fix=$L_FIX copy_book=$L_COPY_BOOK copy_demo=$L_COPY_DEMO nojekyll=$L_NOJEKYLL upload=$L_UPLOAD"
+  ko "ordering: all new steps BEFORE upload with fix-coi after render, before copy — setup=$L_SETUP render_book=$L_RENDER_BOOK render_sa=$L_RENDER_SA fix=$L_FIX copy_book=$L_COPY_BOOK copy_demo=$L_COPY_DEMO evals=$L_EVALS_GUARD nojekyll=$L_NOJEKYLL upload=$L_UPLOAD"
 fi
 
 # Clause 8 — refusal arms: no || true, no continue-on-error on any step.
@@ -195,9 +216,51 @@ else
   ok "no 'continue-on-error: true' on build steps"
 fi
 
+# AC-6 (#199) — clause 1: evals guard present in if/then/fi form, and the
+# `[ -d docs/evals ] &&` shorthand ABSENT anywhere in the workflow. Actions
+# runs steps under `bash -eo pipefail`, so a trailing && chain would exit 1
+# (and redden CI) whenever docs/evals does not exist — before AC-5 has
+# committed any report. Grep the whole file, not just the build block.
+if [ -n "$L_EVALS_GUARD" ]; then
+  ok "evals guard present (if [ -d docs/evals ])"
+else
+  ko "evals guard present (if [ -d docs/evals ]) — missing"
+fi
+
+if grep -qF '[ -d docs/evals ] &&' "$DOCS_FILE"; then
+  ko "no '&&' shorthand guard (trailing && exits 1 under bash -eo pipefail when docs/evals missing)"
+else
+  ok "no '&&' shorthand guard (if/then/fi only — CI green before AC-5)"
+fi
+
+# AC-6 (#199) — clause 2: within-step line order guard < rm < mkdir < dot-copy.
+# mkdir INSIDE the guard: no empty /evals/ nest published pre-AC-5. The
+# trailing /. on the copy is the double-nest trap (bare cp → /evals/evals/).
+EVALS_ORDER_OK=1
+for ln in "$L_EVALS_GUARD" "$L_EVALS_RM" "$L_EVALS_MKDIR" "$L_EVALS_CP"; do
+  [ -n "$ln" ] || EVALS_ORDER_OK=0
+done
+if [ "$EVALS_ORDER_OK" -eq 1 ] \
+    && [ "$L_EVALS_GUARD" -lt "$L_EVALS_RM" ] \
+    && [ "$L_EVALS_RM" -lt "$L_EVALS_MKDIR" ] \
+    && [ "$L_EVALS_MKDIR" -lt "$L_EVALS_CP" ]; then
+  ok "evals step order: guard < rm < mkdir < dot-copy (clause 2, mkdir inside guard)"
+else
+  ko "evals step order: guard < rm < mkdir < dot-copy — guard=$L_EVALS_GUARD rm=$L_EVALS_RM mkdir=$L_EVALS_MKDIR cp=$L_EVALS_CP"
+fi
+
+# AC-6 (#199) — clause 4: no || true on the evals step.
+if [ -z "$L_EVALS_GUARD" ] || [ -z "$L_EVALS_CP" ]; then
+  ko "no '|| true' on evals step — evals step missing (clause 1 already fails)"
+elif grep -qE '\|\|\s*true' <<< "$(sed -n "$L_EVALS_GUARD,$((L_EVALS_CP + 2))p" <<< "$BUILD_BLOCK")"; then
+  ko "no '|| true' on evals step (silent-failure trap)"
+else
+  ok "no '|| true' on evals step"
+fi
+
 # Clause 8 — build-job-block scoping: no render/copy steps leak into deploy.
 DEPLOY_LEAK=""
-for needle in 'quarto render' 'fix-demo-coi-scope' 'demo-book' 'demo-standalone' '.nojekyll'; do
+for needle in 'quarto render' 'fix-demo-coi-scope' 'demo-book' 'demo-standalone' '.nojekyll' 'evals'; do
   if grep -qF "$needle" <<< "$DEPLOY_BLOCK"; then
     DEPLOY_LEAK="$DEPLOY_LEAK $needle"
   fi
@@ -221,7 +284,8 @@ fi
 echo "== Phase 1: structural pins (check-docs.sh mirror contract) =="
 
 # Clause 9 (structural half) — check-docs.sh mirrors the new build steps so
-# the local mirror cannot silently diverge from CI.
+# the local mirror cannot silently diverge from CI. AC-6 (#199) adds the three
+# evals needles (guard, dot-copy, double-nest assert) → 8 → 11.
 MIRROR_OK=0
 for needle in \
   'quarto render demo-book' \
@@ -231,13 +295,16 @@ for needle in \
   'cp demo-standalone/index.html' \
   'cp -R demo-standalone/index_files' \
   'cp demo-standalone/coi-serviceworker.js' \
-  '.nojekyll'; do
+  '.nojekyll' \
+  'if [ -d docs/evals ]' \
+  'cp -R docs/evals/. "$book_out/evals/"' \
+  '"$book_out/evals/evals"'; do
   grep -qF "$needle" "$CHECK_DOCS" && MIRROR_OK=$((MIRROR_OK + 1))
 done
-if [ "$MIRROR_OK" -eq 8 ]; then
-  ok "check-docs.sh mirrors the new build steps (8/8 commands found)"
+if [ "$MIRROR_OK" -eq 11 ]; then
+  ok "check-docs.sh mirrors the build steps incl. guarded evals assemble (11/11 commands found)"
 else
-  ko "check-docs.sh mirrors the new build steps — only $MIRROR_OK/8 commands found"
+  ko "check-docs.sh mirrors the build steps — only $MIRROR_OK/11 commands found"
 fi
 
 # ---------------------------------------------------------------------------
@@ -263,6 +330,75 @@ else
   else
     ko "check-docs.sh renders + assembles + asserts the artifact layout (clauses 9-10)"
   fi
+fi
+
+# ---------------------------------------------------------------------------
+# Phase 3 — functional evals fixture sub-phase (AC-6, #199, clause 8)
+# ---------------------------------------------------------------------------
+
+echo "== Phase 3: functional evals fixture sub-phase =="
+
+# Runtime temp fixture: docs/evals/ is the committed AC-5 source dir; the
+# fixture simulates a report tree so the assemble semantics (dot-copy, guard
+# exit-0-when-absent) are exercised against a scratch book_out.
+FIXTURE_DIR="docs/evals/evals-fixture"
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/bt-evals-scratch.XXXXXX")"
+cleanup_evals() { rm -rf docs/evals "$SCRATCH"; }
+trap cleanup_evals EXIT
+
+mkdir -p "$FIXTURE_DIR"
+printf '<!doctype html><html><body>evals-fixture</body></html>\n' \
+  > "$FIXTURE_DIR/index.html"
+
+# The guarded assemble snippet — the docs.yml step body with docs/book/book
+# replaced by the scratch dir, run under bash -euo pipefail.
+evals_assemble() {
+  bash -euo pipefail -c '
+    if [ -d docs/evals ]; then
+      rm -rf "$1/evals"
+      mkdir -p "$1/evals"
+      cp -R docs/evals/. "$1/evals/"
+    fi
+  ' _ "$SCRATCH"
+}
+
+# Clause 8a — fixture present: HTML lands at <scratch>/evals/evals-fixture/
+# index.html byte-identical, and no double-nest (<scratch>/evals/evals absent).
+if evals_assemble; then
+  if [ -f "$SCRATCH/evals/evals-fixture/index.html" ] \
+      && cmp -s "$FIXTURE_DIR/index.html" "$SCRATCH/evals/evals-fixture/index.html"; then
+    ok "fixture HTML lands at <scratch>/evals/evals-fixture/index.html, byte-identical (dot-copy)"
+  else
+    ko "fixture HTML not byte-identical at <scratch>/evals/evals-fixture/index.html"
+  fi
+  if [ ! -e "$SCRATCH/evals/evals" ]; then
+    ok "no double-nest — <scratch>/evals/evals absent"
+  else
+    ko "double-nest — <scratch>/evals/evals present (bare cp, not dot-copy)"
+  fi
+else
+  ko "guarded assemble exits non-zero with fixture present"
+fi
+
+# Clause 8b — fixture removed (docs/evals entirely absent, as pre-AC-5): same
+# snippet under bash -e exits 0 and creates no evals/ dir (CI stays green).
+# Scratch evals/ from 8a is cleared first so "creates no evals dir" is a true
+# negative.
+rm -rf docs/evals "$SCRATCH/evals"
+if bash -e -c '
+  if [ -d docs/evals ]; then
+    rm -rf "$1/evals"
+    mkdir -p "$1/evals"
+    cp -R docs/evals/. "$1/evals/"
+  fi
+' _ "$SCRATCH"; then
+  if [ ! -e "$SCRATCH/evals" ]; then
+    ok "guard exits 0 with docs/evals absent; no evals/ nest created (CI green pre-AC-5)"
+  else
+    ko "evals/ nest created despite docs/evals absent (mkdir outside guard)"
+  fi
+else
+  ko "guard exits non-zero with docs/evals absent (would redden CI pre-AC-5)"
 fi
 
 # ---------------------------------------------------------------------------

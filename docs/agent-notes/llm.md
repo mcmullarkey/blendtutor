@@ -73,3 +73,11 @@ See ADR-0006 for the decision record.
   stringified `arguments`) differs from the OpenAI envelope `mount_tool_call`
   builds, so it needs its own fixture. Grep `TODO(anthropic-happy-path)` in
   `feedback.rs` when picking this up.
+- 2026-08-08 (#198): **urllib's default User-Agent is Cloudflare-blocked by
+  Fireworks (HTTP 403, error 1010).** judge_feedback.py's urllib POST carried
+  `User-Agent: Python-urllib/3.x`, and every judge call failed with
+  `provider returned HTTP 403` while the identical request via curl (default
+  UA) returned 200. Root-caused by curl `-A Python-urllib/3.13` → 403. Fix:
+  send an explicit honest tool UA (`blendtutor-smevals-judge/0.1`, verified
+  200); any stdlib-urllib caller to Fireworks must set a UA explicitly. Pinned
+  in test_judge_feedback.py P5.

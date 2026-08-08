@@ -25,6 +25,7 @@ pub mod run;
 pub mod runner;
 pub mod scaffold;
 pub mod site;
+pub mod smevals_gen;
 
 use std::error::Error;
 use std::fmt;

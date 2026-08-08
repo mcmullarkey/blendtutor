@@ -1,0 +1,5 @@
+name: case-1
+lesson: demo_lesson
+case: 1
+prompt: "cat(\"alpha\\n\")"
+expected: correct

@@ -3,6 +3,11 @@
 # The top-level R evals working dir only — anchored so it does not also ignore
 # Rust eval fixtures under crates/*/tests/fixtures/evals/.
 /evals/
+# Generated smevals eval dirs (blendtutor eval-report). Unanchored so a course
+# anywhere in the tree is covered; provably does NOT match committed build
+# output under docs/evals/ (deliberately committed) nor Rust eval fixtures
+# under crates/*/tests/fixtures/evals/.
+**/.smevals/
 .claude/
 rv/library/
 

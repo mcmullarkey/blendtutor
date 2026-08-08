@@ -1,0 +1,113 @@
+=== AC-4 LLM-judge checker — test_judge_feedback.py ===
+
+-- test_p1_env_not_argv_absolute_run_dir --
+  -- P1: zero argv; output.txt via absolute SMEVALS_RUN_DIR path --
+  PASS: exit 0 (got: 0)
+  PASS: decoy cwd output.txt never graded
+  PASS: run-dir output.txt graded via absolute env path
+
+-- test_p2_score_normalization --
+  -- P2: score == mean_of_5_dimensions / 5 (4.4/5 → 0.88) --
+  PASS: exit 0 (got: 0)
+  PASS: score is a float (got: float)
+  PASS: score == 0.88 (got: 0.8800000000000001)
+
+-- test_p3_exit_code_threshold_separation --
+  -- P3: low score 0.4/5 → exit 0 with score 0.08 (no threshold) --
+  PASS: low score still exits 0 (got: 0)
+  PASS: score == 0.08 (got: 0.08)
+
+-- test_p4_tool_call_shape_and_model_precedence --
+  -- P4: tool-call shape; model from CHECK_MODEL then MODEL --
+  PASS: exit 0 (got: 0)
+  PASS: SMEVALS_CHECK_MODEL wins precedence (got: check-model-pin)
+  PASS: tools == one function (got: 1 tools)
+  PASS: tool type == function
+  PASS: function name == grade_feedback
+  PASS: tool_choice.function.name forces the judge tool
+  PASS: parameters type == object
+  PASS: parameters carry the 5 rubric dimensions
+  PASS: all 5 dimensions required
+  PASS: NO response_format key in request body
+  PASS: fallback arm exits 0
+  PASS: SMEVALS_MODEL fallback (got: fallback-model)
+
+-- test_p5_endpoint_and_auth --
+  -- P5: ${baseUrl}/chat/completions (no /v1 doubling) + auth --
+  PASS: exit 0 (got: 0)
+  PASS: POST to /v1/chat/completions, no doubling (got: /v1/chat/completions)
+  PASS: Authorization: Bearer $FIREWORKS_API_KEY
+  PASS: content-type: application/json
+
+-- test_p6_http_timeout --
+  -- P6: 60s cap — 30s delay succeeds; hang aborts < 65s nonzero --
+  PASS: 30s-delayed response still succeeds (got: 0)
+  PASS: the checker actually waited for the delayed response
+  PASS: never-responding server → nonzero exit
+  PASS: aborts within the 60s cap, wall < 65s (got: 60.0s)
+
+-- test_p7_missing_key_fail_closed --
+  -- P7: FIREWORKS_API_KEY unset → nonzero, names the var, no HTTP --
+  PASS: nonzero exit (got: 1)
+  PASS: stderr names the variable (got: judge_feedback.py: FIREWORKS_API_KEY is required)
+  PASS: no HTTP request issued without a key
+
+-- test_p8_missing_artifact_fail_closed --
+  -- P8: $SMEVALS_RUN_DIR/output.txt absent → nonzero, names file --
+  PASS: nonzero exit (got: 1)
+  PASS: stderr names the file (got: judge_feedback.py: output file not readable: /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmpipip0gw_/run/output.txt)
+  PASS: no HTTP request issued without the artifact
+
+-- test_p9_http_500_fail_closed --
+  -- P9: HTTP 500 → nonzero, stderr names status code --
+  PASS: nonzero exit (got: 1)
+  PASS: stderr names status code (got: judge_feedback.py: provider returned HTTP 500)
+
+-- test_p10_malformed_tool_call_args_no_retry --
+  -- P10: unparseable arguments → nonzero, exactly ONE request --
+  PASS: nonzero exit (got: 1)
+  PASS: no retry loop — exactly one HTTP call (got: 1)
+  PASS: non-JSON response body → nonzero exit
+  PASS: non-JSON response body → no retry either
+
+-- test_p11_clamping_and_missing_dimensions --
+  -- P11: dimension 7 clamped, score never > 1.0; missing → nonzero --
+  PASS: out-of-range dimension clamped, exit 0 (got: 0)
+  PASS: emitted score never > 1.0 (got: 0.9199999999999999)
+  PASS: 7 clamped to 5 → dims [5,4,5,5,4] → mean 4.6 → score 0.92 (got: 0.9199999999999999)
+  PASS: metrics carry the clamped value (got: 5.0)
+  PASS: missing dimensions key → nonzero exit
+
+-- test_p12_prompt_injection_defense --
+  -- P12: DATA fence + 'data, not instructions' + verdict anchors --
+  PASS: exit 0 (got: 0)
+  PASS: feedback message fenced by DATA delimiters
+  PASS: explicit 'data, not instructions' framing
+  PASS: prompt carries the expected verdict from SMEVALS_TASK_EXPECTED
+  PASS: prompt carries the actual verdict from output.txt line 1
+  PASS: fenced message is the output.txt body
+
+-- test_p13_smevals_5_key_json --
+  -- P13: smevals 5-key JSON: score/metrics/notes/details --
+  PASS: exit 0 (got: 0)
+  PASS: score present and numeric
+  PASS: metrics carries the 5 dimension scores
+  PASS: notes present
+  PASS: details present (unknown keys tolerated)
+
+-- test_p14_generator_wiring_golden --
+  -- P14: graders/default.yaml — polarity first, judge second, 0.8 --
+  PASS: golden graders/default.yaml exists
+  PASS: template names both checkers
+  PASS: polarity check FIRST, judge SECOND
+  PASS: polarity check is required: true
+  PASS: judge check carries the provider-default model scalar (SMEVALS_CHECK_MODEL)
+  PASS: scoring.pass_threshold == 0.8
+  PASS: judge path present in golden template
+
+-- test_p15_determinism --
+  -- P15: stdout byte-identical across two runs --
+  PASS: both runs exit 0
+  PASS: stdout JSON byte-identical (stable key order, no timestamps)
+
+=== Results: 65 passed, 0 failed ===

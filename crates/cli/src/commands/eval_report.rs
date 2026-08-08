@@ -46,17 +46,31 @@ const STAGE_BUILD: &str = "build";
 /// run phase names `run` (only when it produced no runs), and the build phase
 /// names `build`. A successful report exits 0.
 pub fn run(lesson_path: &Path) -> anyhow::Result<ExitCode> {
+    // Canonicalize the lesson path FIRST — regardless of how the user invoked
+    // the command. Everything downstream depends on it being absolute: the
+    // course-root walk (`course_root_for`) climbs absolute ancestors (a bare
+    // filename's parent chain bottoms out at the empty path, which cannot be
+    // canonicalized), and the task yamls emit `lesson: <absolute path>` — the
+    // runner forwards it verbatim to `blendtutor eval`, whose CWD is the eval
+    // dir, so a relative value would fail read_lesson_file on every case.
+    let lesson_path = lesson_path.canonicalize().with_context(|| {
+        format!(
+            "{STAGE_GENERATE}: resolving {} to an absolute path",
+            lesson_path.display()
+        )
+    })?;
+
     // ---- generate stage: lesson → suite → eval dir ---------------------
-    let lesson = read_lesson_file(lesson_path)
+    let lesson = read_lesson_file(&lesson_path)
         .with_context(|| format!("{STAGE_GENERATE}: reading lesson"))?;
-    let lesson_id = lesson_id_from_path(lesson_path).ok_or_else(|| {
+    let lesson_id = lesson_id_from_path(&lesson_path).ok_or_else(|| {
         anyhow!(
             "{STAGE_GENERATE}: cannot derive a lesson id from {}",
             lesson_path.display()
         )
     })?;
     let suite_yaml =
-        std::fs::read_to_string(sibling_suite_path(lesson_path)).with_context(|| {
+        std::fs::read_to_string(sibling_suite_path(&lesson_path)).with_context(|| {
             format!(
                 "{STAGE_GENERATE}: reading eval suite for {}",
                 lesson_path.display()
@@ -64,7 +78,7 @@ pub fn run(lesson_path: &Path) -> anyhow::Result<ExitCode> {
         })?;
     let suite = parse_eval_suite(&suite_yaml)
         .with_context(|| format!("{STAGE_GENERATE}: parsing eval suite"))?;
-    let course_root = course_root_for(lesson_path)
+    let course_root = course_root_for(&lesson_path)
         .ok_or_else(|| {
             anyhow!(
                 "{STAGE_GENERATE}: no blendtutor.toml course root found above {}",
@@ -77,17 +91,7 @@ pub fn run(lesson_path: &Path) -> anyhow::Result<ExitCode> {
     // Stale runs are false evidence: a previous report's runs/ would be built
     // into the next report, so clean before regenerating.
     clean_stale(&gen_dir).with_context(|| format!("{STAGE_GENERATE}: cleaning stale eval dir"))?;
-    // The task yamls emit `lesson: <absolute path>` — the runner forwards it
-    // verbatim to `blendtutor eval`, whose CWD is the eval dir, so a relative
-    // lesson path would fail read_lesson_file on every case. Canonicalize here
-    // regardless of how the user invoked the command.
-    let lesson_path_abs = lesson_path.canonicalize().with_context(|| {
-        format!(
-            "{STAGE_GENERATE}: resolving {} to an absolute path",
-            lesson_path.display()
-        )
-    })?;
-    write_eval_dir(&course_root, &lesson, &suite, lesson_id, &lesson_path_abs)
+    write_eval_dir(&course_root, &lesson, &suite, lesson_id, &lesson_path)
         .with_context(|| format!("{STAGE_GENERATE}: writing eval dir"))?;
 
     // ---- run stage: grade every case through the pinned smevals ---------

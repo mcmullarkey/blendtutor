@@ -177,6 +177,21 @@ fn parse_log(text: &str) -> Vec<Vec<String>> {
     calls
 }
 
+/// A `blendtutor eval-report` command with the fake-uvx shim env wired in —
+/// shared by the full-command helper and the tests that need a custom CWD.
+fn eval_report_cmd(harness: &Harness) -> Command {
+    let mut cmd = Command::cargo_bin("blendtutor").expect("binary `blendtutor` should be built");
+    let path = format!(
+        "{}:{}",
+        harness.bin_dir().display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    cmd.env("PATH", path)
+        .env("FAKE_UVX_LOG", harness.log_path())
+        .env("FAKE_UVX_COUNT", harness.count_path());
+    cmd
+}
+
 /// Run `blendtutor eval-report <lesson>` with the fake-uvx shim on PATH and
 /// scripted per-call exits, returning the child's output.
 fn eval_report_output(
@@ -186,17 +201,8 @@ fn eval_report_output(
     exit_2: Option<u32>,
     make_runs: bool,
 ) -> Output {
-    let mut cmd = Command::cargo_bin("blendtutor").expect("binary `blendtutor` should be built");
-    let path = format!(
-        "{}:{}",
-        harness.bin_dir().display(),
-        std::env::var("PATH").unwrap_or_default()
-    );
-    cmd.arg("eval-report")
-        .arg(lesson)
-        .env("PATH", path)
-        .env("FAKE_UVX_LOG", harness.log_path())
-        .env("FAKE_UVX_COUNT", harness.count_path());
+    let mut cmd = eval_report_cmd(harness);
+    cmd.arg("eval-report").arg(lesson);
     if let Some(code) = exit_1 {
         cmd.env("FAKE_UVX_EXIT_1", code.to_string());
     }
@@ -294,6 +300,72 @@ fn success_path_invokes_uvx_twice_with_pin_and_absolute_paths() {
     assert!(
         task_yaml.contains(&format!("lesson: {}", harness.lesson_path().display())),
         "task yaml must carry the canonical absolute lesson path, got: {task_yaml}"
+    );
+}
+
+// ── Relative lesson path (canonicalization) ────────────────────────────────
+
+#[test]
+fn relative_lesson_path_from_course_root_carries_canonical_absolute_path_in_task_yaml() {
+    let harness = Harness::new();
+    // Invoke with a bare filename from the course root, as a user standing in
+    // their course would. The generated task yaml must still carry the
+    // CANONICAL ABSOLUTE lesson path — the runner forwards `lesson:` verbatim
+    // to `blendtutor eval` from the eval dir, where a relative value would
+    // resolve against the wrong CWD and fail read_lesson_file on every case.
+    let output = eval_report_cmd(&harness)
+        .current_dir(harness.course_root())
+        .arg("eval-report")
+        .arg("demo_lesson.yaml")
+        .output()
+        .expect("running `blendtutor eval-report` should produce output");
+    assert!(
+        output.status.success(),
+        "a relative lesson path from the course root must succeed; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let calls = parse_log(&harness.uvx_log());
+    assert_eq!(calls.len(), 2, "exactly two uvx calls, got {calls:?}");
+    let task_yaml =
+        fs::read_to_string(harness.gen_dir().join("tasks/case-1.yaml")).expect("task yaml written");
+    let canonical = format!("lesson: {}", harness.lesson_path().display());
+    assert!(
+        task_yaml.contains(&canonical),
+        "task yaml must carry the canonical absolute lesson path ({canonical}), got: {task_yaml}"
+    );
+    assert!(
+        !task_yaml.contains("lesson: demo_lesson.yaml"),
+        "the relative invocation must not leak a relative lesson path into the task yaml, got: {task_yaml}"
+    );
+}
+
+#[test]
+fn nonexistent_relative_lesson_path_fails_naming_generate_without_panicking() {
+    let harness = Harness::new();
+    // A relative path that doesn't exist (its parent does): the lesson read
+    // fails cleanly, naming the generate stage — never a panic.
+    let output = eval_report_cmd(&harness)
+        .current_dir(harness.course_root())
+        .arg("eval-report")
+        .arg("no_such_lesson.yaml")
+        .output()
+        .expect("running `blendtutor eval-report` should produce output");
+    assert!(
+        !output.status.success(),
+        "a nonexistent lesson path must fail the command"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("generate:"),
+        "error must name the generate stage, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "a nonexistent lesson path must never panic, got: {stderr}"
+    );
+    assert!(
+        parse_log(&harness.uvx_log()).is_empty(),
+        "uvx must never be invoked when the lesson cannot be read"
     );
 }
 

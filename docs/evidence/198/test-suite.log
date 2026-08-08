@@ -1,54 +1,53 @@
-   Compiling blendtutor-cli v0.1.0 (/Users/carbonite/Documents/coding/portfolio/worktree-issue-198/crates/cli)
-   Compiling blendtutor-core v0.1.0 (/Users/carbonite/Documents/coding/portfolio/worktree-issue-198/crates/core)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.64s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.36s
      Running unittests src/main.rs (target/debug/deps/blendtutor-c88dd8a7396462e7)
 
 running 14 tests
-test commands::tests::sibling_suite_keeps_a_bare_file_name_in_the_current_directory ... ok
-test commands::tests::sibling_suite_of_a_path_without_a_file_name_is_the_prefix_alone ... ok
 test commands::tests::sibling_suite_prefixes_the_lesson_file_name_with_eval ... ok
+test commands::tests::sibling_suite_of_a_path_without_a_file_name_is_the_prefix_alone ... ok
+test commands::tests::sibling_suite_keeps_a_bare_file_name_in_the_current_directory ... ok
 test output::tests::list_renders_an_empty_course_in_both_formats ... ok
-test commands::eval_report::tests::clean_stale_removes_or_ignores_an_absent_tree ... ok
 test output::tests::list_json_separates_found_rows_from_failed_rows ... ok
-test commands::eval_report::tests::has_runs_is_true_only_for_a_non_empty_runs_dir ... ok
-test commands::eval_report::tests::repo_root_is_the_nearest_ancestor_with_a_git_dir ... ok
 test commands::eval_report::tests::replace_dir_publishes_into_a_fresh_location ... ok
+test commands::eval_report::tests::clean_stale_removes_or_ignores_an_absent_tree ... ok
+test commands::eval_report::tests::repo_root_is_the_nearest_ancestor_with_a_git_dir ... ok
+test commands::eval_report::tests::has_runs_is_true_only_for_a_non_empty_runs_dir ... ok
 test commands::eval_report::tests::replace_dir_swaps_a_prior_report_for_the_new_one ... ok
-test output::tests::list_human_matches_snapshot ... ok
 test output::tests::validate_human_invalid_matches_snapshot ... ok
+test output::tests::list_human_matches_snapshot ... ok
 test output::tests::eval_human_matches_snapshot ... ok
 test output::tests::validate_human_matches_snapshot ... ok
 
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running tests/build.rs (target/debug/deps/build-5e581d7c94c9eab0)
 
 running 22 tests
 test build_refuses_a_language_target_mismatch_before_writing_anything ... ok
-test build_emits_lesson_json_with_packages_array ... ok
 test build_emits_empty_packages_array_when_lesson_has_no_packages ... ok
-test build_webr_ships_the_byok_fireworks_feedback_seam ... ok
+test build_emits_lesson_json_with_packages_array ... ok
 test build_webr_ships_the_byok_anthropic_feedback_seam ... ok
 test build_webr_ships_the_multi_provider_feedback_seam ... ok
-test build_pyodide_emits_a_deployable_python_lesson_site ... ok
+test build_webr_ships_the_byok_fireworks_feedback_seam ... ok
 test corrupt_eval_report_fails_the_build_loudly ... ok
+test build_pyodide_emits_a_deployable_python_lesson_site ... ok
 test build_webr_emits_a_deployable_r_lesson_site ... ok
 test build_pyodide_ships_the_same_shared_feedback_seam ... ok
-test build_dark_mode_token_overrides ... ok
 test embed_key_without_password_is_a_hard_error ... ok
 test embed_key_provider_prefix_mismatch_is_a_hard_error ... ok
 test build_webr_styles_byok_feedback_panel ... ok
-test missing_report_builds_with_not_validated_page ... ok
+test build_dark_mode_token_overrides ... ok
 test eval_report_page_reflects_actual_accuracy ... ok
+test missing_report_builds_with_not_validated_page ... ok
+test embed_key_with_password_succeeds_and_no_plaintext_key_ships ... ok
 test embed_key_emits_cli_warnings_to_stderr ... ok
 test embed_key_feedback_js_has_apply_embedded_key ... ok
-test embed_key_with_password_succeeds_and_no_plaintext_key_ships ... ok
 test embed_key_decrypt_shell_handles_embedded_key_payload ... ok
-test embed_key_cross_target_byte_identity ... ok
+test embed_key_cross_target_byte_identity has been running for over 60 seconds
 test embed_key_existing_negative_scans_still_pass has been running for over 60 seconds
+test embed_key_cross_target_byte_identity ... ok
 test embed_key_existing_negative_scans_still_pass ... ok
 
-test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 61.94s
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 91.73s
 
      Running tests/cli.rs (target/debug/deps/cli-70897b8827b4f1a4)
 
@@ -56,7 +55,7 @@ running 2 tests
 test version_prints_crate_version ... ok
 test help_lists_subcommands ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
      Running tests/cutover.rs (target/debug/deps/cutover-16cc2c968c0f7e60)
 
@@ -71,46 +70,48 @@ test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 7 tests
 test eval_case_non_numeric_is_a_parse_error_exit_2 ... ok
 test eval_case_out_of_range_exits_1_naming_the_suite_size ... ok
-test eval_case_mismatch_exit0 ... ok
-test eval_case_selection_is_one_based ... ok
 test eval_case_selection_scores_only_the_requested_case ... ok
-test eval_reports_aggregate_accuracy_and_per_case_results ... ok
+test eval_case_selection_is_one_based ... ok
+test eval_case_mismatch_exit0 ... ok
 test eval_json_emits_per_case_verdicts_and_aggregate ... ok
+test eval_reports_aggregate_accuracy_and_per_case_results ... ok
 
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
 
      Running tests/eval_report_cli.rs (target/debug/deps/eval_report_cli-d9fc5640b98d1110)
 
-running 8 tests
+running 10 tests
+test nonexistent_relative_lesson_path_fails_naming_generate_without_panicking ... ok
 test missing_sibling_suite_fails_naming_generate_without_invoking_uvx ... ok
 test bad_slug_fails_naming_generate_without_invoking_uvx ... ok
 test missing_uvx_is_a_clean_stage_named_error_not_a_panic ... ok
 test run_and_build_both_fail_naming_build_with_run_exit_in_context ... ok
-test success_path_invokes_uvx_twice_with_pin_and_absolute_paths ... ok
+test relative_lesson_path_from_course_root_carries_canonical_absolute_path_in_task_yaml ... ok
+test run_failure_without_runs_fails_naming_run_and_skips_build ... ok
 test run_failure_with_runs_is_evidence_and_proceeds_to_build ... ok
 test build_failure_names_build_and_preserves_prior_committed_report ... ok
-test run_failure_without_runs_fails_naming_run_and_skips_build ... ok
+test success_path_invokes_uvx_twice_with_pin_and_absolute_paths ... ok
 
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
 
      Running tests/export_quarto.rs (target/debug/deps/export_quarto-a6fccf4a07ba9534)
 
 running 17 tests
-test clause_1b_python_lesson_uses_python_language_attribute ... ok
 test clause_16_prompt_with_div_marker_doesnt_break_structure ... ok
-test clause_10_no_yaml_keys_leak ... ok
-test clause_2_prompt_renders_as_prose ... ok
-test clause_15_backtick_in_template_yields_valid_fence ... ok
 test clause_12_packages_omitted ... ok
 test clause_11_no_empty_blocks_for_absent_fields ... ok
+test clause_15_backtick_in_template_yields_valid_fence ... ok
+test clause_2_prompt_renders_as_prose ... ok
+test clause_1b_python_lesson_uses_python_language_attribute ... ok
 test clause_1_opens_with_blendtutor_div_and_language_attribute ... ok
-test clause_8_llm_evaluation_prompt_absent ... ok
-test clause_3_code_template_renders_as_first_code_block ... ok
-test clause_5_solution_renders_in_solution_block ... ok
+test clause_10_no_yaml_keys_leak ... ok
 test clause_4_checks_render_in_checks_block ... ok
 test clause_7_closes_with_div_marker ... ok
-test clause_6_hints_render_in_hints_div ... ok
+test clause_5_solution_renders_in_solution_block ... ok
 test clause_9_gotchas_absent ... ok
+test clause_8_llm_evaluation_prompt_absent ... ok
+test clause_6_hints_render_in_hints_div ... ok
+test clause_3_code_template_renders_as_first_code_block ... ok
 test clause_14_exit_code_zero_on_valid_nonzero_on_invalid ... ok
 test clause_13_cross_fixture_uniqueness ... ok
 
@@ -119,16 +120,16 @@ test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
      Running tests/hints_content.rs (target/debug/deps/hints_content-1c3d220053610adc)
 
 running 8 tests
-test python_lesson_2_prompt_retains_stress_6 ... ok
 test r_lesson_2_prompt_retains_stress_6 ... ok
+test python_lesson_2_prompt_retains_stress_6 ... ok
 test r_hints_and_gotchas_satisfy_all_invariants ... ok
 test python_hints_and_gotchas_satisfy_all_invariants ... ok
-test build_r_course_emits_non_null_hints_and_gotchas ... ok
 test build_python_course_emits_non_null_hints_and_gotchas ... ok
+test build_r_course_emits_non_null_hints_and_gotchas ... ok
 test python_validate_each_lesson_exits_zero ... ok
 test r_validate_each_lesson_exits_zero ... ok
 
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
      Running tests/init.rs (target/debug/deps/init-cbb9fbe627aebdd2)
 
@@ -151,8 +152,8 @@ test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 running 3 tests
 test new_lesson_refuses_a_duplicate_id_without_clobbering ... ok
-test new_lesson_python_creates_a_lesson_that_validates_and_lists ... ok
 test new_lesson_r_creates_a_lesson_that_validates_and_lists ... ok
+test new_lesson_python_creates_a_lesson_that_validates_and_lists ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
@@ -167,20 +168,20 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 running 7 tests
 test run_missing_code_exits_one ... ok
-test run_format_json_emits_one_typed_report ... ok
-test run_correct_code_reports_correct_and_exit_zero ... ok
-test run_human_format_is_not_json ... ok
-test run_format_json_stays_clean_under_logging ... ok
 test run_provider_error_exits_one ... ok
+test run_format_json_stays_clean_under_logging ... ok
+test run_correct_code_reports_correct_and_exit_zero ... ok
+test run_format_json_emits_one_typed_report ... ok
 test run_incorrect_submission_exits_two_with_feedback ... ok
+test run_human_format_is_not_json ... ok
 
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
 
      Running tests/validate.rs (target/debug/deps/validate-6648f1f9cd598591)
 
 running 4 tests
-test validate_invalid_lesson_exits_nonzero_naming_problem ... ok
 test validate_lesson_without_student_code_placeholder_exits_nonzero_naming_the_rule ... ok
+test validate_invalid_lesson_exits_nonzero_naming_problem ... ok
 test validate_valid_lesson_reports_ok_and_exit_zero ... ok
 test validate_json_emits_documented_object_with_exit_code_parity ... ok
 
@@ -191,16 +192,16 @@ test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 10 tests
 test lesson_2_prompt_contains_literal_stress_6 ... ok
 test lesson_4_solution_uses_explicit_for_loop_not_list_comprehension ... ok
-test eval_suites_have_correct_case_distribution ... ok
-test checks_non_empty_and_specific ... ok
 test each_lesson_is_valid_python_with_student_code_and_textbook ... ok
+test eval_suites_have_correct_case_distribution ... ok
 test packages_bidirectional_pandas_iff_used ... ok
+test checks_non_empty_and_specific ... ok
 test list_returns_five_python_lessons ... ok
 test validate_each_lesson_exits_zero ... ok
 test eval_suites_have_near_miss_that_runs_cleanly ... ok
 test run_solution_exits_zero_with_correct ... ok
 
-test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.39s
 
      Running tests/write_less_code_r.rs (target/debug/deps/write_less_code_r-766d68e75166e3de)
 
@@ -214,146 +215,146 @@ test layer1_validate_exits_zero_for_all_lessons ... ok
 test negative_lesson4_solution_uses_purrr_dplyr ... ok
 test layer9_run_exits_zero_with_correct_verdict ... ok
 test layer6_each_lesson_has_genuine_near_miss ... ok
-test negative_checks_fail_against_wrong_submissions ... ok
 test layer3_solutions_execute_cleanly ... ok
+test negative_checks_fail_against_wrong_submissions ... ok
 test near_miss_submissions_fail_at_least_one_check ... ok
 test layer4_checks_pass_against_reference_solution ... ok
 
-test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.95s
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.94s
 
      Running unittests src/lib.rs (target/debug/deps/blendtutor_core-759906215d82f0b3)
 
 running 192 tests
-test course::tests::feedback_rate_limit_manifest_parses_max_from_site_section ... ok
 test course::tests::manifest_error_display_and_source_distinguish_each_variant ... ok
 test course::tests::feedback_rate_limit_manifest_defaults_to_20_without_site_section ... ok
 test course::tests::manifest_parse_reads_each_entrys_id_and_path ... ok
-test course::tests::feedback_rate_limit_manifest_rejects_negative_max ... ok
-test course::tests::manifest_parse_rejects_unknown_key_so_author_typos_surface ... ok
-test course::tests::open_missing_manifest_is_a_read_error_not_a_parse_error ... ok
+test course::tests::feedback_rate_limit_manifest_parses_max_from_site_section ... ok
 test course::tests::manifest_parse_rejects_a_path_escaping_the_course_directory ... ok
+test course::tests::open_missing_manifest_is_a_read_error_not_a_parse_error ... ok
 test course::tests::site_config_returns_none_when_no_site_section ... ok
-test crypto::tests::crypto_error_display_contains_expected_text ... ok
+test course::tests::manifest_parse_rejects_unknown_key_so_author_typos_surface ... ok
+test course::tests::feedback_rate_limit_manifest_rejects_negative_max ... ok
 test course::tests::site_config_returns_the_manifests_site_section_when_present ... ok
+test crypto::tests::crypto_error_display_contains_expected_text ... ok
 test crypto::tests::from_base64_rejects_short_input ... ok
 test crypto::tests::from_base64_accepts_payload_with_exactly_salt_plus_nonce_length ... ok
-test course::tests::load_lessons_returns_every_lesson_in_full_and_in_author_order ... ok
 test course::tests::discover_summarizes_each_lesson_with_its_slug_language_and_title ... ok
-test course::tests::discover_reports_a_malformed_lesson_as_an_error_row_keeping_the_good_ones ... ok
+test course::tests::load_lessons_returns_every_lesson_in_full_and_in_author_order ... ok
 test course::tests::load_lessons_fails_on_the_first_broken_lesson_rather_than_dropping_it ... ok
+test course::tests::discovery_error_display_and_source_surface_the_underlying_load_failure ... ok
 test eval::tests::aggregate_is_matched_over_total_and_zero_for_an_empty_suite ... ok
 test eval::tests::case_out_of_range_error_names_requested_case_and_suite_size ... ok
-test eval::tests::case_result_derives_matched_from_score_case ... ok
 test eval::tests::case_selection_maps_one_based_requests_to_zero_based_indices ... ok
 test eval::tests::case_selection_rejects_zero_and_past_the_end_naming_the_suite_size ... ok
 test eval::tests::eval_feedback_message_carries_the_verdict_message_verbatim ... ok
-test course::tests::discovery_error_display_and_source_surface_the_underlying_load_failure ... ok
 test eval::tests::eval_feedback_message_serializes_per_case_never_null_or_omitted ... ok
+test course::tests::discover_reports_a_malformed_lesson_as_an_error_row_keeping_the_good_ones ... ok
+test eval::tests::case_result_derives_matched_from_score_case ... ok
 test eval::tests::eval_no_skip_serializing_if_keeps_the_empty_message_key ... ok
 test eval::tests::eval_run_error_names_the_one_based_case_and_chains_its_source ... ok
 test eval::tests::expected_verdict_serializes_to_its_canonical_token ... ok
 test eval::tests::from_token_maps_the_two_polarity_words_and_rejects_others ... ok
-test eval::tests::score_case_matches_same_polarity_and_rejects_the_opposite ... ok
-test eval::tests::scores_two_of_three_and_aggregates ... ok
 test eval::tests::parse_eval_suite_surfaces_unknown_verdict_with_its_case_index_and_token ... ok
+test eval::tests::score_case_matches_same_polarity_and_rejects_the_opposite ... ok
 test eval::tests::structural_error_surfaces_the_underlying_parser_message ... ok
 test eval::tests::unknown_verdict_error_names_the_case_index_and_quotes_the_token ... ok
 test eval::tests::verdict_polarity_drops_the_feedback_message ... ok
 test eval::tests::parse_rejects_unknown_key_so_author_typos_surface ... ok
-test grade::tests::a_submission_whose_interpreter_cannot_launch_makes_checks_notrun ... ok
-test grade::tests::a_submission_that_exits_nonzero_makes_every_check_notrun ... ok
 test grade::tests::a_check_whose_interpreter_cannot_launch_is_a_fail ... ok
+test eval::tests::scores_two_of_three_and_aggregates ... ok
+test grade::tests::a_submission_that_exits_nonzero_makes_every_check_notrun ... ok
+test grade::tests::a_submission_whose_interpreter_cannot_launch_makes_checks_notrun ... ok
 test grade::tests::checks_are_classified_element_wise_in_order ... ok
+test grade::tests::no_checks_runs_nothing_and_returns_empty ... ok
 test grade::tests::select_runner_dispatches_a_python_lesson_to_the_python_runner ... ok
 test grade::tests::select_runner_dispatches_an_r_lesson_to_the_r_runner ... ok
-test grade::tests::no_checks_runs_nothing_and_returns_empty ... ok
 test grade::tests::select_runner_threads_packages_to_python_runner ... ok
 test lesson::tests::lesson_id_displays_its_value ... ok
-test lesson::tests::lesson_json_roundtrip_preserves_value ... ok
 test lesson::tests::load_error_display_and_source_surface_the_cause ... ok
-test lesson::tests::parse_accepts_empty_gotchas ... ok
+test lesson::tests::lesson_json_roundtrip_preserves_value ... ok
 test lesson::tests::parse_accepts_empty_hints ... ok
+test lesson::tests::parse_accepts_empty_gotchas ... ok
 test lesson::tests::parse_accepts_gotchas_with_star_bullets ... ok
 test lesson::tests::parse_accepts_hints_with_star_bullets ... ok
 test lesson::tests::parse_accepts_none_gotchas ... ok
-test lesson::tests::parse_accepts_valid_lesson ... ok
 test lesson::tests::parse_defaults_checks_to_empty_when_absent ... ok
+test lesson::tests::parse_accepts_valid_lesson ... ok
+test lesson::tests::parse_defaults_packages_to_empty_when_absent ... ok
 test lesson::tests::parse_defaults_gotchas_to_none_when_absent ... ok
 test lesson::tests::parse_defaults_hints_to_none_when_absent ... ok
-test lesson::tests::parse_defaults_packages_to_empty_when_absent ... ok
 test lesson::tests::parse_defaults_solution_to_none_when_absent ... ok
-test lesson::tests::parse_reads_an_optional_gotchas_field ... ok
 test lesson::tests::parse_reads_an_optional_hints_field ... ok
+test lesson::tests::parse_reads_an_optional_gotchas_field ... ok
 test lesson::tests::parse_reads_an_optional_reference_solution ... ok
-test lesson::tests::parse_reads_checks_as_ordered_code_strings ... ok
 test lesson::tests::parse_reads_packages_as_ordered_strings ... ok
-test lesson::tests::parse_rejects_gotchas_with_non_bullet_lines ... ok
+test lesson::tests::parse_reads_checks_as_ordered_code_strings ... ok
 test lesson::tests::parse_rejects_hints_with_non_bullet_lines ... ok
+test lesson::tests::parse_rejects_gotchas_with_non_bullet_lines ... ok
 test lesson::tests::parse_rejects_prompt_missing_student_code_placeholder ... ok
 test lesson::tests::parse_rejects_missing_required_field_naming_it ... ok
-test lesson::tests::parse_rejects_unknown_exercise_type ... ok
 test lesson::tests::parse_rejects_unknown_language ... ok
 test lesson::tests::parse_rejects_unknown_field_so_author_typos_surface ... ok
+test lesson::tests::parse_rejects_unknown_exercise_type ... ok
 test lesson::tests::parse_validates_hints_as_bullets_via_fixture ... ok
 test lesson::tests::read_lesson_file_missing_path_is_a_read_error_not_a_validation_error ... ok
 test llm::feedback::tests::completion_errors_map_to_the_completion_kind ... ok
 test llm::feedback::tests::extraction_failures_map_to_the_extraction_kind ... ok
-test lesson::tests::read_lesson_file_invalid_contents_is_a_validation_error ... ok
 test llm::feedback::tests::feedback_maps_to_the_matching_verdict_variant ... ok
 test llm::prompt::tests::neutralize_marker_introduces_no_structural_token ... ok
+test llm::prompt::tests::neutralize_rewrites_every_structural_token ... ok
 test lesson::tests::read_lesson_file_loads_and_parses_the_ported_fixture ... ok
 test llm::prompt::tests::render_check_distinguishes_the_three_outcomes ... ok
-test llm::prompt::tests::neutralize_rewrites_every_structural_token ... ok
+test lesson::tests::read_lesson_file_invalid_contents_is_a_validation_error ... ok
 test llm::prompt::tests::render_check_neutralizes_a_token_in_the_outcome_detail ... ok
 test llm::prompt::tests::render_checks_labels_each_outcome_with_its_check_in_order ... ok
 test llm::prompt::tests::render_checks_never_drops_a_verdict_when_outcomes_exceed_checks ... ok
 test llm::provider::tests::each_provider_has_a_recognizable_default_model ... ok
 test llm::provider::tests::each_provider_names_its_own_key_var ... ok
+test llm::prompt::tests::render_checks_renders_no_line_for_a_check_without_an_outcome ... ok
 test llm::provider::tests::each_provider_targets_its_own_api_host ... ok
 test llm::provider::tests::fireworks_is_the_default_provider ... ok
 test llm::provider::tests::provider_default_model_is_pinned_to_0731 ... ok
-test llm::prompt::tests::render_checks_renders_no_line_for_a_check_without_an_outcome ... ok
 test quarto_export::tests::export_backtick_in_template_uses_longer_fence ... ok
-test quarto_export::tests::export_closes_with_div_marker ... ok
-test quarto_export::tests::export_different_lessons_produce_different_output ... ok
 test quarto_export::tests::export_excludes_gotchas ... ok
-test quarto_export::tests::export_excludes_llm_evaluation_prompt ... ok
+test quarto_export::tests::export_different_lessons_produce_different_output ... ok
+test quarto_export::tests::export_closes_with_div_marker ... ok
 test quarto_export::tests::export_no_empty_blocks_for_absent_fields ... ok
 test quarto_export::tests::export_omits_packages ... ok
-test quarto_export::tests::export_python_uses_python_language_tag ... ok
-test quarto_export::tests::export_opens_with_blendtutor_div_and_language ... ok
+test quarto_export::tests::export_excludes_llm_evaluation_prompt ... ok
 test quarto_export::tests::fence_for_four_backticks_returns_five ... ok
 test quarto_export::tests::fence_for_no_backticks_returns_three ... ok
 test quarto_export::tests::fence_for_single_backtick_returns_three ... ok
+test quarto_export::tests::export_python_uses_python_language_tag ... ok
 test quarto_export::tests::fence_for_triple_backtick_returns_four ... ok
+test quarto_export::tests::export_opens_with_blendtutor_div_and_language ... ok
 test quarto_export::tests::longest_backtick_run_detects_runs ... ok
-test run::tests::json_tags_an_incorrect_verdict_distinctly ... ok
 test run::tests::json_splits_the_verdict_into_a_string_tag_and_feedback ... ok
 test run::tests::run_error_labels_each_stage_and_exposes_its_source ... ok
+test run::tests::json_tags_an_incorrect_verdict_distinctly ... ok
 test runner::python::tests::interpreter_includes_with_flags_for_packages ... ok
 test run::tests::run_report_json_roundtrip_preserves_value ... ok
-test runner::python::tests::interpreter_omits_with_flags_when_packages_empty ... ok
 test runner::tests::from_capture_keeps_streams_distinct_and_passes_exit_through ... ok
+test runner::python::tests::interpreter_omits_with_flags_when_packages_empty ... ok
 test runner::tests::runner_error_displays_its_stage_and_exposes_the_io_source ... ok
 test scaffold::tests::add_lesson_error_display_and_source_distinguish_each_variant ... ok
 test scaffold::tests::add_lesson_refuses_a_non_course_directory_without_leaving_an_orphan ... ok
-test scaffold::tests::add_lesson_refuses_a_duplicate_without_clobbering_or_double_registering ... ok
 test scaffold::tests::add_lesson_refuses_an_unsafe_id_before_writing_anything ... ok
-test scaffold::tests::is_empty_target_surfaces_a_non_notfound_error_rather_than_reading_it_as_empty ... ok
-test scaffold::tests::add_lesson_writes_the_file_and_registers_it_so_the_course_lists_it ... ok
+test scaffold::tests::add_lesson_refuses_a_duplicate_without_clobbering_or_double_registering ... ok
 test scaffold::tests::is_valid_slug_accepts_word_chars_hyphens_and_underscores_but_nothing_else ... ok
+test scaffold::tests::is_empty_target_surfaces_a_non_notfound_error_rather_than_reading_it_as_empty ... ok
 test scaffold::tests::lesson_template_produces_a_valid_python_lesson ... ok
-test scaffold::tests::lesson_template_produces_a_valid_r_lesson ... ok
 test scaffold::tests::plan_lists_the_starter_files_as_pure_data ... ok
-test scaffold::tests::scaffold_course_accepts_an_existing_empty_directory ... ok
+test scaffold::tests::lesson_template_produces_a_valid_r_lesson ... ok
+test scaffold::tests::add_lesson_writes_the_file_and_registers_it_so_the_course_lists_it ... ok
 test scaffold::tests::scaffold_course_refuses_a_broken_symlink_target_instead_of_a_cryptic_write_error ... ok
+test scaffold::tests::scaffold_course_accepts_an_existing_empty_directory ... ok
 test scaffold::tests::scaffold_course_refuses_a_nonempty_target_before_writing_anything ... ok
-test scaffold::tests::scaffold_course_creates_the_target_directory_when_absent ... ok
 test scaffold::tests::scaffold_error_display_and_source_distinguish_each_variant ... ok
-test scaffold::tests::scaffold_course_writes_every_planned_file_verbatim ... ok
+test scaffold::tests::scaffold_course_creates_the_target_directory_when_absent ... ok
 test site::tests::build_target_display_names_each_runtime ... ok
 test site::tests::build_target_language_maps_each_runtime_to_its_language ... ok
 test scaffold::tests::the_scaffolded_lesson_eval_and_manifest_parse_with_production_parsers ... ok
+test scaffold::tests::scaffold_course_writes_every_planned_file_verbatim ... ok
 test site::tests::eval_report_error_displays_each_variant_and_chains_its_source ... ok
 test site::tests::eval_results_html_not_validated_renders_an_explicit_marker ... ok
 test site::tests::eval_results_html_validated_renders_the_accuracy_and_validated_marker ... ok
@@ -408,17 +409,18 @@ test smevals_gen::tests::scripts_rel_reaches_repo_scripts_from_a_nested_course .
 test smevals_gen::tests::write_eval_dir_persists_the_generated_tree ... ok
 test tests::display_names_the_command_and_the_unimplemented_state ... ok
 test crypto::tests::nonce_is_twelve_bytes_not_all_zeros ... ok
-test crypto::tests::base64_roundtrip_preserves_payload ... ok
 test crypto::tests::wrong_password_fails_decryption ... ok
 test crypto::tests::two_encryptions_yield_different_salts ... ok
-test crypto::tests::roundtrip_encrypt_decrypt_recovers_plaintext ... ok
 test crypto::tests::two_encryptions_yield_different_nonces ... ok
+test crypto::tests::roundtrip_encrypt_decrypt_recovers_plaintext ... ok
+test crypto::tests::base64_roundtrip_preserves_payload ... ok
 test crypto::tests::per_file_salt_prevents_cross_file_decryption ... ok
-test site::tests::encrypt_site_files_embeds_key_only_in_index_html ... ok
+test site::tests::encrypt_site_files_embeds_key_only_in_index_html has been running for over 60 seconds
 test site::tests::encrypt_site_files_password_protects_all_content_files has been running for over 60 seconds
+test site::tests::encrypt_site_files_embeds_key_only_in_index_html ... ok
 test site::tests::encrypt_site_files_password_protects_all_content_files ... ok
 
-test result: ok. 192 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 117.13s
+test result: ok. 192 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 136.53s
 
      Running tests/eval.rs (target/debug/deps/eval-8785df571720f2af)
 
@@ -431,14 +433,14 @@ test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
      Running tests/generate_eval_dir.rs (target/debug/deps/generate_eval_dir-ee1d7fc1086e8c70)
 
 running 12 tests
-test empty_suite_is_refused_without_emitting_tasks ... ok
 test non_slug_lesson_ids_are_refused_and_never_reach_a_path ... ok
-test identical_inputs_produce_byte_identical_output ... ok
+test empty_suite_is_refused_without_emitting_tasks ... ok
 test emits_exactly_the_four_kinds_for_three_cases ... ok
 test slug_lesson_ids_are_accepted ... ok
+test configs_model_is_single_sourced_from_the_provider_default ... ok
+test identical_inputs_produce_byte_identical_output ... ok
 test adversarial_submission_round_trips_byte_identical ... ok
 test task_yaml_lesson_carries_the_path_not_the_slug ... ok
-test configs_model_is_single_sourced_from_the_provider_default ... ok
 test tasks_follow_the_suite_case_order ... ok
 test golden_dir_is_byte_identical ... ok
 test every_emitted_file_reparses_for_every_suite_fixture ... ok
@@ -446,7 +448,7 @@ examples/write-less-code-r/.smevals/
 examples/write-less-code-r/.smevals/configs/default.yaml
 test generated_dir_is_gitignored_but_committed_output_is_not ... ok
 
-test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
      Running tests/grade.rs (target/debug/deps/grade-daed4d3dc60f9ad5)
 
@@ -455,22 +457,22 @@ test python_lesson_selects_python_runner ... ok
 test submission_error_is_notrun_not_fail ... ok
 test r_runner_reports_per_check_pass_fail ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
 
      Running tests/llm.rs (target/debug/deps/llm-d7b1ff08c50d7812)
 
 running 9 tests
 test build_prompt_neutralizes_injected_delimiter ... ok
 test build_prompt_is_deterministic_offline ... ok
-test fireworks_empty_key_errs_before_request ... ok
 test build_prompt_renders_delimited_code_and_labeled_sections ... ok
-test fireworks_present_key_reaches_server ... ok
-test request_feedback_correct_verdict ... ok
 test request_feedback_incorrect_verdict_and_missing_field_errors ... ok
-test anthropic_missing_key_errs_before_request ... ok
+test request_feedback_correct_verdict ... ok
+test fireworks_present_key_reaches_server ... ok
+test fireworks_empty_key_errs_before_request ... ok
 test fireworks_missing_key_errs_before_request ... ok
+test anthropic_missing_key_errs_before_request ... ok
 
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
 
      Running tests/runner.rs (target/debug/deps/runner-b2c7394cd4692e03)
 

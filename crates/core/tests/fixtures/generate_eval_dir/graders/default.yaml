@@ -2,5 +2,7 @@ name: default
 checks:
   - checker: ../../../../scripts/smevals/check_polarity.sh
     required: true
+  - checker: ../../../../scripts/smevals/judge_feedback.py
+    model: accounts/fireworks/models/deepseek-v4-flash-0731
 scoring:
   pass_threshold: 0.8

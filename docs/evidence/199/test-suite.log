@@ -20,7 +20,7 @@
   PASS: check-docs.sh mirrors the build steps incl. guarded evals assemble (11/11 commands found)
 == Phase 2: local render + assemble + assert (check-docs.sh) ==
 docs: building API reference (rustdoc, -D warnings) …
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.38s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.16s
    Generated /Users/carbonite/Documents/coding/portfolio/worktree-issue-199/target/doc/blendtutor/index.html and 1 other file
 docs: building narrative site (mdBook) …
  INFO Book building has started
@@ -28,10 +28,10 @@ docs: building narrative site (mdBook) …
  INFO HTML book written to `/Users/carbonite/Documents/coding/portfolio/worktree-issue-199/docs/book/book`
 docs: assembling merged site (docs/book/book + /api) …
 docs: building example sites (webr + pyodide) …
-    Finished `release` profile [optimized] target(s) in 0.21s
+    Finished `release` profile [optimized] target(s) in 0.14s
      Running `target/release/blendtutor build examples/write-less-code-r --target webr -o docs/book/book/examples/r`
 built 5 lesson(s) for webr into docs/book/book/examples/r
-    Finished `release` profile [optimized] target(s) in 0.14s
+    Finished `release` profile [optimized] target(s) in 0.09s
      Running `target/release/blendtutor build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python`
 built 5 lesson(s) for pyodide into docs/book/book/examples/python
 docs: rendering demos (quarto) and assembling /demo-book/ + /demo/ …

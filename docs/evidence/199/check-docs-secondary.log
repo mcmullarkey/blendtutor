@@ -1,5 +1,5 @@
 docs: building API reference (rustdoc, -D warnings) …
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.22s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
    Generated /Users/carbonite/Documents/coding/portfolio/worktree-issue-199/target/doc/blendtutor/index.html and 1 other file
 docs: building narrative site (mdBook) …
  INFO Book building has started
@@ -7,10 +7,10 @@ docs: building narrative site (mdBook) …
  INFO HTML book written to `/Users/carbonite/Documents/coding/portfolio/worktree-issue-199/docs/book/book`
 docs: assembling merged site (docs/book/book + /api) …
 docs: building example sites (webr + pyodide) …
-    Finished `release` profile [optimized] target(s) in 0.14s
+    Finished `release` profile [optimized] target(s) in 0.09s
      Running `target/release/blendtutor build examples/write-less-code-r --target webr -o docs/book/book/examples/r`
 built 5 lesson(s) for webr into docs/book/book/examples/r
-    Finished `release` profile [optimized] target(s) in 0.13s
+    Finished `release` profile [optimized] target(s) in 0.08s
      Running `target/release/blendtutor build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python`
 built 5 lesson(s) for pyodide into docs/book/book/examples/python
 docs: rendering demos (quarto) and assembling /demo-book/ + /demo/ …

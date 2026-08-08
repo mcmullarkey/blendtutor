@@ -1,0 +1,13 @@
+call: 1
+arg: smevals==0.2.0
+arg: run
+arg: /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.sCnyOcYaIi/examples/demo-course/.smevals
+arg: -g
+end-call
+call: 2
+arg: smevals==0.2.0
+arg: build
+arg: /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.sCnyOcYaIi/examples/demo-course/.smevals
+arg: -o
+arg: /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.sCnyOcYaIi/docs/evals/.demo_lesson.tmp
+end-call

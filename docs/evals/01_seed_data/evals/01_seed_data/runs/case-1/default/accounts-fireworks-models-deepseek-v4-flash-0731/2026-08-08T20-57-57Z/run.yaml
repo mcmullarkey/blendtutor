@@ -1,0 +1,16 @@
+task:
+  name: case-1
+  lesson: /Users/carbonite/Documents/coding/portfolio/worktree-issue-198/examples/write-less-code-r/01_seed_data.yaml
+  case: 1
+  prompt: "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4,\
+    \ 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n\
+    \  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 =\
+    \ c(1, 2, 3, 4, 5)\n)"
+  expected: correct
+config:
+  name: default
+  runner: /Users/carbonite/Documents/coding/portfolio/worktree-issue-198/scripts/smevals/run.sh
+  model: accounts/fireworks/models/deepseek-v4-flash-0731
+started: '2026-08-08T20:57:57.865938+00:00'
+duration_seconds: 2.74
+exit_code: 0

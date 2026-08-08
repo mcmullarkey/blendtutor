@@ -1,0 +1,2 @@
+verdict: incorrect
+The submission is missing the `stress_6` column. The task requires a data frame with `respondent_id` and `stress_1` through `stress_6`, giving a total of 7 columns. Your data frame only has 6 columns (respondent_id and stress_1 through stress_5). Add the `stress_6` column with values on the 1-5 integer scale (e.g., c(1, 2, 3, 4, 5)) to satisfy the requirements.

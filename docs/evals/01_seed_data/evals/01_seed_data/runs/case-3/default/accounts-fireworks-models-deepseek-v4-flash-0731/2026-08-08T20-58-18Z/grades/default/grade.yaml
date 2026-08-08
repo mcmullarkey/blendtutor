@@ -1,0 +1,20 @@
+grader: default
+graded: '2026-08-08T20:58:29.775912+00:00'
+outcome: fail
+score: 0.76
+tags: []
+checks:
+- checker: ../../../../scripts/smevals/check_polarity.sh
+  ok: true
+  score: 1.0
+  notes: polarity match
+- checker: ../../../../scripts/smevals/judge_feedback.py
+  ok: true
+  score: 0.76
+  metrics:
+    verdict_rationale_correctness: 5.0
+    actionability: 4.0
+    references_check_results: 5.0
+    no_solution_leak: 1.0
+    no_hallucinated_errors: 4.0
+  notes: judge grade

@@ -69,6 +69,14 @@ DIMENSIONS = [
 # appends only /chat/completions, never a second /v1).
 BASE_URL_DEFAULT = "https://api.fireworks.ai/inference/v1"
 
+# urllib's default User-Agent ("Python-urllib/3.x") is blocked by Fireworks'
+# Cloudflare edge (HTTP 403, error 1010) — observed in the AC-5 real-key
+# smoke, where every judge call failed while the identical curl request
+# succeeded. Send an explicit, honest tool UA instead; the value is asserted
+# by the AC-4 test stub (test_judge_feedback.py) so the transport never
+# silently regresses to the default.
+USER_AGENT = "blendtutor-smevals-judge/0.1"
+
 # Judge-imposed cap on the Fireworks call (spec decision: 60s, urllib timeout).
 HTTP_TIMEOUT_SECONDS = 60
 
@@ -296,6 +304,9 @@ def main() -> int:
         headers={
             "content-type": "application/json",
             "Authorization": f"Bearer {api_key}",
+            # Never the urllib default ("Python-urllib/3.x") — Fireworks'
+            # Cloudflare edge 403s it (error 1010); see USER_AGENT.
+            "User-Agent": USER_AGENT,
         },
         method="POST",
     )

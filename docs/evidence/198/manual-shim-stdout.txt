@@ -1,0 +1,3 @@
+smevals run: ok (/private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.sCnyOcYaIi/examples/demo-course/.smevals)
+smevals build: ok
+eval report: /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.sCnyOcYaIi/docs/evals/demo_lesson

@@ -3,13 +3,14 @@
 use assert_cmd::Command;
 
 /// Subcommands the CLI is planned to expose; each is asserted individually in `--help`.
-const PLANNED_SUBCOMMANDS: [&str; 8] = [
+const PLANNED_SUBCOMMANDS: [&str; 9] = [
     "init",
     "new",
     "validate",
     "list",
     "run",
     "eval",
+    "eval-report",
     "build",
     "export-quarto",
 ];

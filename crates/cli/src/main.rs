@@ -79,6 +79,13 @@ enum Commands {
         #[arg(long)]
         case: Option<usize>,
     },
+    /// Generate a static smevals eval report for a lesson.
+    EvalReport {
+        /// Path to the lesson YAML file; its sibling `eval_<lesson>.yaml`
+        /// supplies the eval cases. The report is published to
+        /// `docs/evals/<lesson>/` under the repo root.
+        lesson: PathBuf,
+    },
     /// Build a browser-deployable lesson site from a course.
     Build {
         /// Path to the course directory (the one holding `blendtutor.toml`).
@@ -138,6 +145,7 @@ fn main() -> anyhow::Result<ExitCode> {
             format,
             case,
         } => commands::eval::run(&lesson, format, case),
+        Commands::EvalReport { lesson } => commands::eval_report::run(&lesson),
         Commands::New { target } => match target {
             NewTarget::Lesson { lang, id } => commands::new::run(lang, &id),
         },

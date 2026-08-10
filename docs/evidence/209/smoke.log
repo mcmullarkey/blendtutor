@@ -1,0 +1,62 @@
+# Issue #209 — real eval-report smoke run (lesson_hello)
+
+## Invocation
+
+Run from the worktree repo root (`/Users/carbonite/Documents/coding/portfolio/worktree-issue-209`),
+branch `209-wholegame-evidence`, after `cargo run -p blendtutor-cli -- init target/hello-course`.
+
+```bash
+# FIREWORKS_API_KEY from environment (real key, present)
+# PATH prefixed so run.sh can resolve both GNU `timeout` and the `blendtutor` binary
+# (neither is on the default macOS PATH):
+export PATH="$PWD/target/debug:/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
+FIREWORKS_API_KEY="$FIREWORKS_API_KEY" cargo run -p blendtutor-cli -- \
+  eval-report "$PWD/target/hello-course/lesson_hello.yaml"
+```
+
+Lesson path passed ABSOLUTE (canonicalized at top of eval-report::run — AC-5
+relative-arg ENOENT trap avoided). Report published by the command itself into
+`docs/evals/lesson_hello/` (the command's `repo_root_for` resolves the repo via
+the `.git` above the course and writes `<repo>/docs/evals/<lesson_id>/`).
+
+## Output (real run, 2026-08-10T20:06Z)
+
+```
+case-1 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (3.6s) -> target/hello-course/.smevals/runs/case-1/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-10T20-06-37Z
+    grade: pass score=0.96
+case-2 / default / accounts/fireworks/models/deepseek-v4-flash-0731 ... ok (1.9s) -> target/hello-course/.smevals/runs/case-2/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-10T20-06-46Z
+    grade: fail score=0.5599999999999999
+Error: 1 run(s) graded as fail
+smevals run exited exit status: 1 after recording runs — treating the grade as evidence and building the report
+lesson_hello: 2 runs -> /Users/carbonite/Documents/coding/portfolio/worktree-issue-209/docs/evals/.lesson_hello.tmp/evals/lesson_hello
+Site: /Users/carbonite/Documents/coding/portfolio/worktree-issue-209/docs/evals/.lesson_hello.tmp/index.html
+smevals build: ok
+eval report: /Users/carbonite/Documents/coding/portfolio/worktree-issue-209/docs/evals/lesson_hello
+```
+
+Exit code: 0. Grade-fail-is-evidence path exercised: `smevals run` exited 1
+(1 case graded fail — the trivial `cat("hello\n")` lesson scoring oddly was
+flagged as expected in the spec), runs recorded → report built and published.
+
+## Verdict lines (the runner contract — first line of each case output.txt)
+
+- `runs/case-1/.../output.txt` line 1: `verdict: correct`
+- `runs/case-2/.../output.txt` line 1: `verdict: incorrect`
+
+Both match `^verdict: (correct|incorrect)$`. case-1 prompt `cat("hello\n")` →
+expected `correct` (judge pass 0.96); case-2 prompt `cat("goodbye\n")` →
+expected `incorrect` (judge fail 0.56).
+
+## Environment notes (spec deviations — see summary.md)
+
+1. Temp course initialized at `target/hello-course/` (inside the repo, gitignored
+   via `/target`) instead of `/tmp/hello-course` — required by the implementation:
+   `eval_report::run` resolves the report output dir via `repo_root_for()` (walks
+   UP from the course for `.git`) and the runner script path via `scripts_rel_from()`
+   (same walk). A /tmp course finds no `.git` ancestor → report cannot be
+   published to `docs/evals/` and the runner path falls back to a broken
+   `../../../../scripts/smevals/run.sh`. Anti-leak guarantees hold unchanged:
+   `/target` + `**/.smevals/` gitignores + scoped `git add docs/evals/lesson_hello/`.
+2. `timeout` (GNU coreutils) missing on macOS → `brew install coreutils`; PATH
+   prefixed with `/opt/homebrew/opt/coreutils/libexec/gnubin`. No repo code changed.
+3. `blendtutor` not on default PATH → PATH prefixed with `$PWD/target/debug`.

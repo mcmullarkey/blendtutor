@@ -1,0 +1,2 @@
+verdict: incorrect
+The code prints "goodbye" instead of "hello". The task requires printing the word "hello" on its own line using cat(). Please change the string to "hello\n".

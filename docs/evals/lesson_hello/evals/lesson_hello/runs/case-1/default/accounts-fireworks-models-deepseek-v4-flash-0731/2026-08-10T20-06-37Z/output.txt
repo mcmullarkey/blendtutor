@@ -1,0 +1,2 @@
+verdict: correct
+Correct! The code uses cat() to print "hello" on its own line with the newline character.

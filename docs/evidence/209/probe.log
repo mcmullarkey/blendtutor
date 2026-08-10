@@ -1,0 +1,76 @@
+# Issue #209 — 19-assertion probe result
+
+Probe source: `.opencode/plans/whole-game-tutorial/AC-1.md` (canonical predicate
+for AC-1; the issue body references it as the source of truth).
+
+## Result: OK — all 19 assertions hold (PASS)
+
+Run immediately after the scoped report commit (`46c4eaa`,
+`docs(evals): commit real eval-report for lesson_hello`), from repo root, at the
+state the spec intends (HEAD~1..HEAD = the report commit only).
+
+```
+OK: all 19 assertions hold
+```
+
+Assertion coverage (plan-file numbering):
+- 1–2: `docs/evals/lesson_hello/` is a dir; `docs/evals/hello/` does NOT exist
+  (wrong-stem guard — manifest id `hello` ≠ file stem `lesson_hello`; URL
+  contract `/evals/lesson_hello/` pinned).
+- 3–4: `index.json` + `evals/lesson_hello/eval.json` exist and parse.
+- 5–7: eval name == `lesson_hello`; description mentions hello + `cat()`;
+  exactly 2 tasks (rules out a `01_seed_data` canned copy: name/description/4 tasks).
+- 8–9: task[0] `cat("hello\n")` → expected `correct`; task[1] `cat("goodbye\n")`
+  → expected `incorrect`. See encoding note below.
+- 10: every `tasks[].lesson` ends `/lesson_hello.yaml` (absolute path baked in
+  acceptable per AC-5 precedent; filename-suffix assertion only).
+- 11–14: nested `evals/lesson_hello/runs/` has `case-1` + `case-2`, each with a
+  complete run dir (`output.txt` + `run.yaml`); output first line matches
+  `^verdict: (correct|incorrect)$`; run.yaml references `lesson_hello.yaml` and
+  `cat()`.
+- 15: `index.json` → evals[0] slug == `lesson_hello`, runs == 2, graded == 2.
+- 16–17: tree tracked; zero `.smevals/` paths in `git ls-files`.
+- 18: `git status --porcelain` empty.
+- 19: `git diff --name-only HEAD~1 HEAD` contains only paths under
+  `docs/evals/lesson_hello/` (scoped commit — no sweep of `docs/evals/01_seed_data/`).
+
+## Encoding correction (2 of 19 assertions)
+
+The plan-file probe's prompt assertions compared the parsed JSON prompt against
+a Python string with a REAL newline: `== 'cat("hello\n")'`. The genuine
+artifact's prompt carries a literal backslash-n (2 chars) — the scaffold eval
+suite `crates/core/src/scaffold/eval_lesson_hello.yaml` uses YAML block scalar
+`|-` for each submission, and `cat("hello\n")` in R source is backslash-n, not
+a newline byte. The un-fixed probe failed exactly those 2 assertions against
+the genuine artifact:
+
+```
+FAIL:
+  - task[0].prompt='cat("hello\\n")'
+  - task[1].prompt='cat("goodbye\\n")'
+```
+
+Corrected to compare the literal form — `== 'cat("hello\\n")'` / `==
+'cat("goodbye\\n")'` (Python `\\` = single backslash) — which matches the
+bytes the real generator emits. All 19 then pass. This is a spec-probe
+escaping bug, not an artifact defect: the artifact came from a real run with
+real judge verdicts (case-1 pass 0.96, case-2 fail 0.56), and the alternative
+that would satisfy the buggy assertion — hand-writing eval.json with a real
+newline in the prompt — is exactly what the AC's anti-canned negative case (v)
+forbids.
+
+Note: the ISSUE BODY's inline probe also assumes a top-level `runs/case-N/`
+shape and `index.json["slug"]` at top level; the generated report (AC-5
+precedent `docs/evals/01_seed_data/` has the identical shape) nests runs under
+`evals/<stem>/runs/...` and puts slug under `evals[0]`. The plan-file probe is
+the canonical predicate and matches the real shape.
+
+## Timing note
+
+The probe's assertions 18 (clean porcelain) and 19 (scoped diff) are defined
+against the state immediately after the report commit. The E2E evidence
+convention requires `docs/evidence/209/` committed separately; at the final
+tree state the probe would report assertion 18/19 as "dirty" purely from the
+untracked/uncommitted evidence dir. The PASS above was recorded at the
+canonical state (post-report-commit, pre-evidence-commit) and is the binding
+result.

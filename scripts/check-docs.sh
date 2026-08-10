@@ -235,4 +235,18 @@ grep -q 'examples/r/' "$book_out/examples.html" \
 grep -q 'examples/python/' "$book_out/examples.html" \
   || { echo "docs: built mdBook examples.html missing rendered link to examples/python/" >&2; exit 1; }
 
+# AC-4 (#212) — whole-game discoverability pins. The SUMMARY entry (source) is
+# the book's table-of-contents link; the rest grep $book_out BUILT HTML, not
+# docs/book/src source, so a render failure that keeps source right but breaks
+# the built page fails here. Unguarded on purpose: these are mandatory content
+# (unlike the optional docs/evals assemble block above).
+grep -q 'whole-game' docs/book/src/SUMMARY.md \
+  || { echo "docs: SUMMARY.md missing whole-game chapter entry" >&2; exit 1; }
+test -f "$book_out/whole-game.html" \
+  || { echo "docs: built mdBook missing whole-game.html (page not in SUMMARY.md?)" >&2; exit 1; }
+grep -q 'evals/lesson_hello' "$book_out/whole-game.html" \
+  || { echo "docs: built whole-game.html missing evals/lesson_hello citation" >&2; exit 1; }
+grep -q 'export-quarto' "$book_out/creating-lessons.html" \
+  || { echo "docs: built creating-lessons.html missing export-quarto step" >&2; exit 1; }
+
 echo "docs: OK — merged site at $book_out (book at /, API at /api, examples at /examples/{r,python}, demos at /demo-book/ + /demo/, evals at /evals/)"

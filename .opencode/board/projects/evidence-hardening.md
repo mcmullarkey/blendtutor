@@ -10,4 +10,4 @@ owner: loop
 Make committed eval evidence portable + reproducible: scrub worktree-specific paths, fix generator fallback depth.
 
 ## Waves
-- Wave 1: #215 (path-scrub convention) + #216 (scripts_rel_from fallback) — 2 tasks, one wave.
+- Wave 1: #215 (path-scrub convention) + #216 (scripts_rel_from fallback) — 2 tasks, one wave. Spec phase complete 2026-08-10; both ACs resolved, plan snippets written. Awaiting user approval of impl schedule.

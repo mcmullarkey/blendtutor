@@ -389,6 +389,59 @@ webR needs `SharedArrayBuffer`, which requires cross-origin isolation
 the site works on GitHub Pages without header configuration. See the README for
 deployment details.
 
+## Step 11 — Export a lesson to Quarto
+
+Have a lesson you want to hand out as an interactive exercise? `blendtutor
+export-quarto` converts a single lesson YAML file (`.yaml` or `.yml`) into a
+Quarto `.qmd` fenced-div snippet on stdout — no course directory, no build:
+
+```bash
+blendtutor export-quarto lessons/lesson_hello.yaml > my-exercises.qmd
+```
+
+The command validates the lesson first and refuses to export an invalid one.
+The snippet carries the prompt and code template, plus any checks, solution, or
+hints, and omits author-only and out-of-scope fields. For the scaffold
+`lesson_hello.yaml`, it prints exactly:
+
+````markdown
+::: {.blendtutor language="r"}
+Write R code that prints the word "hello" on its own line, using cat().
+
+```r
+# Your code here
+cat("hello\n")
+```
+:::
+````
+
+Paste the snippet into any `.qmd` document and render the exercises with the
+blendtutor Quarto extension:
+
+```bash
+quarto add mcmullarkey/blendtutor
+```
+
+```yaml
+---
+title: "My exercises"
+filters: [mcmullarkey/blendtutor]
+---
+```
+
+```bash
+quarto render my-exercises.qmd
+```
+
+See the
+[README §Quarto Extension](https://github.com/mcmullarkey/blendtutor#quarto-extension)
+for installation and usage details.
+
+`export-quarto` prints a snippet for authoring — it does not build a site. To
+emit a full browser site with an in-browser runtime, use `blendtutor build`
+(Step 10) instead. For the end-to-end journey from lesson file to a deployed
+Quarto page, see the [whole-game tutorial](./whole-game.md#quarto-deploy).
+
 ## Complete example courses
 
 The two reference courses in the repository are the best way to see the full

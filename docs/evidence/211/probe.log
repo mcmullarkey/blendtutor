@@ -1,0 +1,50 @@
+=== Issue #211 probe chain (docs/evidence/211/probe.log) ===
+=== 2026-08-10 branch 211-export-quarto-step11 ===
+
+--- I1 renumbering integrity: Step 9/10 headings intact, Step 11 after Step 10 ---
+PASS
+
+--- I2 command signature: 'blendtutor export-quarto <file>.yaml' (not course dir) ---
+blendtutor export-quarto lessons/lesson_hello.yaml > my-exercises.qmd
+PASS
+
+--- I3 stdout guidance: redirect to .qmd ---
+Quarto `.qmd` fenced-div snippet on stdout — no course directory, no build:
+blendtutor export-quarto lessons/lesson_hello.yaml > my-exercises.qmd
+Paste the snippet into any `.qmd` document and render the exercises with the
+PASS
+
+--- I4 example opening line byte-identical to real R output ('::: {.blendtutor language="r"}' + ```r) ---
+PASS
+
+--- I5 no llm_evaluation_prompt / gotchas in example ---
+PASS
+
+--- I6 extension flow: quarto add mcmullarkey/blendtutor + filters: [mcmullarkey/blendtutor] + quarto render + README cross-link ---
+quarto render my-exercises.qmd
+PASS
+
+--- I7 anti-conflation: export-quarto NOT claimed to build browser/static site ---
+PASS
+
+--- I8 cross-link to whole-game chapter (./whole-game.md#quarto-deploy) ---
+PASS
+
+--- I9 mdbook build docs/book ---
+ INFO Book building has started
+ INFO Running the html backend
+ INFO HTML book written to `docs/book/book`
+mdbook build: PASS (exit 0)
+
+--- I10 built HTML full example (no nested-fence truncation) ---
+grep '::: {.blendtutor language="r"}' creating-lessons.html: PASS
+grep 'cat("hello' creating-lessons.html (code-template survived): PASS
+HTML <pre><code class="language-markdown"> carries contiguous:
+  ::: {.blendtutor language="r"} ... ```r # Your code here cat("hello\n") ``` :::
+PASS
+
+--- I11 real-binary check: cargo run -q -p blendtutor-cli -- export-quarto crates/core/src/scaffold/lesson_hello.yaml ---
+exit 0; stdout first line '::: {.blendtutor language="r"}' found in creating-lessons.md
+PASS
+
+AC-3 OK (all 11 assertions)

@@ -1,9 +1,10 @@
 # The whole game
 
 This chapter walks one course end to end: scaffold it, add a lesson, validate
-it, run it, grade it with the LLM judge, generate an eval report, and deploy it
-two ways — as a static browser site and as a Quarto document. Every command is
-copy-paste ready. For the field-by-field anatomy of a lesson file, see
+it, run it, score the grader's polarity, generate an eval report with the LLM
+judge, and deploy it two ways — as a static browser site and as a Quarto
+document. Every command is copy-paste ready. For the field-by-field anatomy of
+a lesson file, see
 [Creating Lessons](./creating-lessons.md); for the Quarto extension and site
 deployment details, see the [README](../../../README.md).
 
@@ -71,8 +72,8 @@ Use `--case N` for a single case, `--format json` for JSON output.
 ## Eval report — grade with the LLM judge
 
 `eval-report` drives the pinned smevals runner, which grades each case with
-polarity AND a real paid LLM-judge call, then aggregates the graded runs into a
-browsable report under `docs/evals/<lesson>/`, where `<lesson>` is the stem of
+polarity AND a real paid LLM-judge call, then publishes the smevals report into
+a browsable site under `docs/evals/<lesson>/`, where `<lesson>` is the stem of
 the lesson filename — `lesson_hello.yaml` reports to `docs/evals/lesson_hello/`:
 
 ```bash
@@ -87,8 +88,8 @@ The report is static files under `docs/evals/lesson_hello/` — no server
 required. The committed starter report shows the shape.
 
 `index.json` is the overview: the eval slug, run counts, `graded`, `fails`, and
-`best` — the aggregate accuracy across the suite's cases (0.76 for the
-starter).
+`best` — the best score across configs (for the starter's single `default`
+config, that's the aggregate accuracy across the suite's cases, 0.76).
 
 Each graded run has a `grade.yaml` under `.../runs/<case>/default/.../grades/`
 with an `outcome` (`pass` or `fail`), a `score`, and `checks`. The judge check

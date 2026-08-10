@@ -53,10 +53,12 @@ blendtutor run lesson_hello.yaml
 `run` executes the lesson and returns the LLM feedback a student would see.
 Pipe a submission in, or pass `--code <file>` to grade a submission file.
 
-## Eval — grade it with the LLM judge
+## Eval — score grading accuracy
 
-`eval` runs the lesson's cases through the LLM judge. This makes real paid LLM
-calls, so set the API key first and expect spend:
+`eval` replays each case through the run pipeline and reports how often the
+grader's verdict matches the expected one — polarity scoring. This still makes
+real paid LLM calls (the student feedback for each case), so set the API key
+first and expect spend:
 
 ```bash
 export FIREWORKS_API_KEY=fw_...
@@ -66,11 +68,12 @@ blendtutor eval lesson_hello.yaml
 The starter lesson ships two cases — a correct submission and an incorrect one.
 Use `--case N` for a single case, `--format json` for JSON output.
 
-## Eval report — generate the report
+## Eval report — grade with the LLM judge
 
-`eval-report` aggregates every graded run into a browsable report under
-`docs/evals/<lesson>/`, where `<lesson>` is the stem of the lesson filename —
-`lesson_hello.yaml` reports to `docs/evals/lesson_hello/`:
+`eval-report` drives the pinned smevals runner, which grades each case with
+polarity AND a real paid LLM-judge call, then aggregates the graded runs into a
+browsable report under `docs/evals/<lesson>/`, where `<lesson>` is the stem of
+the lesson filename — `lesson_hello.yaml` reports to `docs/evals/lesson_hello/`:
 
 ```bash
 blendtutor eval-report lesson_hello.yaml
@@ -84,7 +87,8 @@ The report is static files under `docs/evals/lesson_hello/` — no server
 required. The committed starter report shows the shape.
 
 `index.json` is the overview: the eval slug, run counts, `graded`, `fails`, and
-`best` — the best score across configs (0.76 for the starter).
+`best` — the aggregate accuracy across the suite's cases (0.76 for the
+starter).
 
 Each graded run has a `grade.yaml` under `.../runs/<case>/default/.../grades/`
 with an `outcome` (`pass` or `fail`), a `score`, and `checks`. The judge check
@@ -96,7 +100,8 @@ A case passes when its score is at least the 0.8 threshold. The starter report
 has one of each: case-1 passes at 0.96 with every metric at 4.0 or above, and
 case-2 fails at 0.56 — its `no_solution_leak` scored 0.0 because the feedback
 gave away the answer string. A failing grade is evidence the case needs
-rework, and the metrics say exactly where.
+rework, and the metrics say exactly where. `references_check_results` scored
+2.0, the only other metric below the 4.0 floor — both are rework targets.
 
 `output.txt` holds the judged feedback: line 1 is `verdict: correct` or
 `verdict: incorrect`, and the remaining lines are the feedback text the judge

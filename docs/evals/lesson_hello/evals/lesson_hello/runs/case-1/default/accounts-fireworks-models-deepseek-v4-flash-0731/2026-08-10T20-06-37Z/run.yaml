@@ -1,0 +1,13 @@
+task:
+  name: case-1
+  lesson: /Users/carbonite/Documents/coding/portfolio/worktree-issue-209/target/hello-course/lesson_hello.yaml
+  case: 1
+  prompt: cat("hello\n")
+  expected: correct
+config:
+  name: default
+  runner: /Users/carbonite/Documents/coding/portfolio/worktree-issue-209/scripts/smevals/run.sh
+  model: accounts/fireworks/models/deepseek-v4-flash-0731
+started: '2026-08-10T20:06:37.577917+00:00'
+duration_seconds: 3.55
+exit_code: 0

@@ -1,0 +1,19 @@
+A: OK
+B: OK
+C: OK
+D: OK
+E: OK
+F: OK
+G: OK
+H: OK
+I: OK
+J: OK
+K: OK
+L (22 fence lines): OK
+ INFO Book building has started
+ INFO Running the html backend
+ INFO HTML book written to `/Users/carbonite/Documents/coding/portfolio/worktree-issue-210/docs/book/book`
+M: OK
+N: OK
+O (intro pin): OK
+AC-2 merged probe: OK (38 clauses + intro pin)

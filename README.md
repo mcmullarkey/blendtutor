@@ -57,6 +57,9 @@ and `eval` call the provider.
 
 The instructor loop is **`init → new → validate → run → eval → eval-report → build`**.
 
+See [The whole game](https://mcmullarkey.github.io/blendtutor/whole-game.html)
+for the loop walked end-to-end with a real lesson.
+
 ### `blendtutor init` — scaffold a course
 
 ```bash

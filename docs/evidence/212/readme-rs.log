@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.25s
+     Running tests/readme.rs (target/debug/deps/readme-1fb788310adc8707)
+
+running 1 test
+test readme_documents_the_cli_install_and_workflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

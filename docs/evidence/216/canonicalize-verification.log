@@ -1,0 +1,23 @@
+Manual probe (scratch binary, source not committed — not reproducible from tree):
+  command: cargo run -p blendtutor-core --example verify_216
+  exercised scripts_rel_from at course depths 1/2/3 below a repo root, with and
+  without .git, canonicalizing each emitted scripts/smevals path; refusal paths
+  probed for no-marker/no-git and no-marker/git-only. The same assertions are
+  covered by committed unit tests (see probe.log: scripts_rel probes 1-4) and
+  the D=1/2/3 resolution results recorded below were observed on 2026-08-10.
+OK D1 (.git): configs/../../../scripts/smevals/run.sh -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/run.sh
+OK D1 (.git): graders/../../../scripts/smevals/check_polarity.sh -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/check_polarity.sh
+OK D1 (.git): graders/../../../scripts/smevals/judge_feedback.py -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/judge_feedback.py
+OK D2 (.git): configs/../../../../scripts/smevals/run.sh -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/run.sh
+OK D2 (.git): graders/../../../../scripts/smevals/check_polarity.sh -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/check_polarity.sh
+OK D2 (.git): graders/../../../../scripts/smevals/judge_feedback.py -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/judge_feedback.py
+OK D3 (.git): configs/../../../../../scripts/smevals/run.sh -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/run.sh
+OK D3 (.git): graders/../../../../../scripts/smevals/check_polarity.sh -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/check_polarity.sh
+OK D3 (.git): graders/../../../../../scripts/smevals/judge_feedback.py -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/judge_feedback.py
+OK D2 (no .git): configs/../../../../scripts/smevals/run.sh -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpOQhjI4/scripts/smevals/run.sh
+OK D2 (no .git): graders/../../../../scripts/smevals/check_polarity.sh -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpOQhjI4/scripts/smevals/check_polarity.sh
+OK D2 (no .git): graders/../../../../scripts/smevals/judge_feedback.py -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpOQhjI4/scripts/smevals/judge_feedback.py
+NEGATIVE-OK: old 4-hop default at D1 does not resolve (would ENOENT at run time) — fix replaces it with exact 3-hop
+REFUSED no-marker/no-git: no repo root (an ancestor containing scripts/smevals/) found above <course>
+REFUSED no-marker/git-only: no repo root (an ancestor containing scripts/smevals/) found above <course>
+ALL VERIFICATIONS PASSED

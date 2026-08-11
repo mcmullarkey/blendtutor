@@ -1,0 +1,11 @@
+=== re-baseline: regenerate golden via fixed generate_eval_dir ===
+regenerated /Users/carbonite/Documents/coding/portfolio/worktree-issue-216/crates/core/tests/fixtures/generate_eval_dir/eval.yaml
+regenerated /Users/carbonite/Documents/coding/portfolio/worktree-issue-216/crates/core/tests/fixtures/generate_eval_dir/configs/default.yaml
+regenerated /Users/carbonite/Documents/coding/portfolio/worktree-issue-216/crates/core/tests/fixtures/generate_eval_dir/graders/default.yaml
+regenerated /Users/carbonite/Documents/coding/portfolio/worktree-issue-216/crates/core/tests/fixtures/generate_eval_dir/tasks/case-1.yaml
+regenerated /Users/carbonite/Documents/coding/portfolio/worktree-issue-216/crates/core/tests/fixtures/generate_eval_dir/tasks/case-2.yaml
+regenerated /Users/carbonite/Documents/coding/portfolio/worktree-issue-216/crates/core/tests/fixtures/generate_eval_dir/tasks/case-3.yaml
+regenerated 6 files
+
+=== git diff --exit-code on golden fixtures ===
+GOLDEN BYTE-IDENTICAL: no diff (re-baseline = no content change)

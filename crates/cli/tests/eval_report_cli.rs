@@ -82,9 +82,12 @@ struct Harness {
 impl Harness {
     fn new() -> Self {
         let root = tempfile::tempdir().expect("a tempdir for the fake repo");
-        // The repo-root boundary: like the real repo, a `.git` dir marks it,
-        // and `docs/evals/` lives just below.
+        // The repo-root boundary: like the real repo, a `.git` dir marks it for
+        // eval-report's docs/evals placement, and a `scripts/smevals/` dir
+        // marks it for the generator's script-prefix walk-up (both are needed —
+        // a `.git`-only root now refuses generation).
         fs::create_dir_all(root.path().join(".git")).unwrap();
+        fs::create_dir_all(root.path().join("scripts").join("smevals")).unwrap();
         let course = root.path().join("examples").join("demo-course");
         fs::create_dir_all(&course).unwrap();
         fs::write(

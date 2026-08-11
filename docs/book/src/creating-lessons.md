@@ -357,8 +357,10 @@ fails any commit that leaks a `/Users/` path under `docs/evals/`:
 
 ```bash
 # strip the /Users/.../portfolio/<checkout>/ prefix from committed evidence
-perl -pi -e 's{/Users/[^/]*/portfolio/(?:worktree-|blendtutor-)[^/]*/}{}g' \
-  docs/evals/**/eval.json docs/evals/**/run.yaml
+# (find -exec: `docs/evals/**` needs bash globstar, absent on macOS bash 3.2 —
+# the glob would match nothing and the scrub would silently no-op)
+find docs/evals \( -name 'eval.json' -o -name 'run.yaml' \) -exec \
+  perl -pi -e 's{/Users/[^/]*/portfolio/(?:worktree-|blendtutor-)[^/]*/}{}g' {} +
 git add docs/evals
 git commit -m "eval report: lessons/seed-data.yaml"
 ```

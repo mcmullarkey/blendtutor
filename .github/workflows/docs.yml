@@ -120,9 +120,17 @@ jobs:
       # committed source; lesson deletion is a committed deletion; cp-only never
       # removes stale reports. DOT-COPY (trailing /.): a bare cp -R docs/evals
       # would double-nest to /evals/evals/<lesson>/ → 404.
+      # AC-215 (#215) — docs.yml never runs check-docs.sh, so this step must
+      # enforce the /Users/ leak pin itself: a polluted eval.json (dev-machine
+      # absolute paths) would otherwise commit, CI stays green, and the /Users/
+      # paths get served publicly at /evals/.
       - name: Assemble evals into artifact (/evals/)
         run: |
           if [ -d docs/evals ]; then
+            if rg -l '/Users/' docs/evals/ | grep -q .; then
+              echo "docs.yml: /Users/ leak in docs/evals/ (scrub per creating-lessons.md Step 9)" >&2
+              exit 1
+            fi
             rm -rf docs/book/book/evals
             mkdir -p docs/book/book/evals
             cp -R docs/evals/. docs/book/book/evals/

@@ -43,6 +43,11 @@
 #      checkout); check-docs.sh mirrors the guarded assemble + double-nest
 #      assert against $book_out; fixture sub-phase (Phase 3) proves the cp
 #      semantics (no double-nest) + the guard exits 0 when docs/evals absent
+#  15. AC-215 (#215): committed smevals evidence is portable — check-docs.sh
+#      fails closed on any /Users/ path under docs/evals/, and docs.yml's
+#      evals step enforces the same pin itself (docs.yml never runs
+#      check-docs.sh; without the workflow guard a polluted eval.json goes
+#      public with CI green). Both enforcement points are pinned structurally.
 #
 # Negative cases (from the spec):
 #   - quarto setup step missing → render fails on clean runner → clause 1
@@ -249,6 +254,16 @@ else
   ko "evals step order: guard < rm < mkdir < dot-copy — guard=$L_EVALS_GUARD rm=$L_EVALS_RM mkdir=$L_EVALS_MKDIR cp=$L_EVALS_CP"
 fi
 
+# AC-215 — docs.yml enforces the /Users/ pin itself. docs.yml never runs
+# check-docs.sh (mirrors it manually), so the workflow needs its own guard:
+# without it a polluted eval.json (dev-machine absolute paths) commits, CI
+# stays green, and the /Users/ paths get served publicly at /evals/.
+if [ -n "$(block_line "$BUILD_BLOCK" "rg -l '/Users/' docs/evals/")" ]; then
+  ok "docs.yml evals step guards /Users/ leak (rg -l '/Users/' docs/evals/ | grep -q .)"
+else
+  ko "docs.yml evals step guards /Users/ leak (rg -l '/Users/' docs/evals/) — missing"
+fi
+
 # AC-6 (#199) — clause 4: no || true on the evals step.
 if [ -z "$L_EVALS_GUARD" ] || [ -z "$L_EVALS_CP" ]; then
   ko "no '|| true' on evals step — evals step missing (clause 1 already fails)"
@@ -285,7 +300,11 @@ echo "== Phase 1: structural pins (check-docs.sh mirror contract) =="
 
 # Clause 9 (structural half) — check-docs.sh mirrors the new build steps so
 # the local mirror cannot silently diverge from CI. AC-6 (#199) adds the three
-# evals needles (guard, dot-copy, double-nest assert) → 8 → 11.
+# evals needles (guard, dot-copy, double-nest assert) → 8 → 11. AC-215 adds
+# the /Users/ leak pin needle → 11 → 12. Phase 2 below SKIPs in CI's
+# quarto-render job (command -v quarto guard), so this mirror-contract grep is
+# the ONLY thing CI validates about check-docs.sh — a reverting AC-215 pin
+# must trip this needle or it slips through silently.
 MIRROR_OK=0
 for needle in \
   'quarto render demo-book' \
@@ -298,13 +317,14 @@ for needle in \
   '.nojekyll' \
   'if [ -d docs/evals ]' \
   'cp -R docs/evals/. "$book_out/evals/"' \
-  '"$book_out/evals/evals"'; do
+  '"$book_out/evals/evals"' \
+  'rg -l '\''/Users/'\'' docs/evals/'; do
   grep -qF "$needle" "$CHECK_DOCS" && MIRROR_OK=$((MIRROR_OK + 1))
 done
-if [ "$MIRROR_OK" -eq 11 ]; then
-  ok "check-docs.sh mirrors the build steps incl. guarded evals assemble (11/11 commands found)"
+if [ "$MIRROR_OK" -eq 12 ]; then
+  ok "check-docs.sh mirrors the build steps incl. guarded evals assemble + /Users/ pin (12/12 commands found)"
 else
-  ko "check-docs.sh mirrors the build steps — only $MIRROR_OK/11 commands found"
+  ko "check-docs.sh mirrors the build steps — only $MIRROR_OK/12 commands found"
 fi
 
 # ---------------------------------------------------------------------------

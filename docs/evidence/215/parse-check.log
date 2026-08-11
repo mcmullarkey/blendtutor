@@ -1,0 +1,20 @@
+=== AC-215 evidence parse-check ===
+== 1. creating-lessons.md names the worktree-issue-N/ class ==
+351:worktree — a checkout named like `worktree-issue-N/` (or another
+
+== 2. zero /Users/ paths under docs/evals/ ==
+files with /Users/: 0
+PASS: zero /Users/ files
+
+== 3. already-relative run.sh preserved (lesson_hello eval.json) ==
+PASS: ../../../../scripts/smevals/run.sh present
+PASS: 01_seed_data eval.json also preserves it
+
+== 4. whole-game.md no longer claims absolute lesson path ==
+PASS: no 'holds the absolute path' in whole-game.md
+
+== 5. parse: every eval.json via json.load, every run.yaml via yaml.safe_load ==
+Using CPython 3.13.5
+Creating virtual environment at: .venv
+Installed 1 package in 4ms
+PASS: 2 eval.json parsed via json.load, 6 run.yaml via yaml.safe_load

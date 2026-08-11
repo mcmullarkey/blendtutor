@@ -1,0 +1,43 @@
+=== AC-215 pin destructive-proof ===
+== pin section (verbatim from scripts/check-docs.sh lines 103-113) ==
+# AC-215 — committed smevals evidence must be portable: no worktree-specific
+# absolute paths under docs/evals/. The creating-lessons.md Step 9 convention
+# strips the /Users/.../portfolio/<checkout>/ prefix (worktree-issue-N/,
+# worktree-*, blendtutor-*) from lesson/runner/checker fields before git add;
+# this pin fails closed on any /Users/ leak regardless of where it came from.
+if [ -d docs/evals ]; then
+  if rg -l '/Users/' docs/evals/ >/dev/null; then
+    echo "docs: /Users/ absolute path leaked into docs/evals/ (scrub per creating-lessons.md Step 9)" >&2
+    exit 1
+  fi
+fi
+== end section ==
+
+[1/4] Baseline: clean docs/evals -> pin must PASS (exit 0)
+baseline: pin PASS (exit 0)
+
+[2/4] Pollute: scratch eval.json under docs/evals/ with a /Users/ path
+polluted file:
+{"eval":{"name":"pollute","tasks":[{"name":"case-1","lesson":"/Users/carbonite/Documents/coding/portfolio/worktree-issue-999/target/foo/bar.yaml"}]}}
+rg -l '/Users/' docs/evals/ ->
+docs/evals/pollute-215/eval.json
+
+[3/4] Pin must FAIL closed (exit 1) with the AC-215 error
+docs: /Users/ absolute path leaked into docs/evals/ (scrub per creating-lessons.md Step 9)
+pin exit code: 1
+pin correctly failed closed (exit 1)
+
+[4/4] Revert pollution -> pin must PASS again; no residue
+post-revert: pin PASS (exit 0)
+rg -l '/Users/' docs/evals/ -> 0 matches
+git status --porcelain docs/evals/ (should list ONLY the 8 scrubbed files):
+ M docs/evals/01_seed_data/evals/01_seed_data/eval.json
+ M docs/evals/01_seed_data/evals/01_seed_data/runs/case-1/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T20-57-57Z/run.yaml
+ M docs/evals/01_seed_data/evals/01_seed_data/runs/case-2/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T20-58-03Z/run.yaml
+ M docs/evals/01_seed_data/evals/01_seed_data/runs/case-3/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T20-58-18Z/run.yaml
+ M docs/evals/01_seed_data/evals/01_seed_data/runs/case-4/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-08T20-58-29Z/run.yaml
+ M docs/evals/lesson_hello/evals/lesson_hello/eval.json
+ M docs/evals/lesson_hello/evals/lesson_hello/runs/case-1/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-10T20-06-37Z/run.yaml
+ M docs/evals/lesson_hello/evals/lesson_hello/runs/case-2/default/accounts-fireworks-models-deepseek-v4-flash-0731/2026-08-10T20-06-46Z/run.yaml
+
+=== destructive-proof PASS ===

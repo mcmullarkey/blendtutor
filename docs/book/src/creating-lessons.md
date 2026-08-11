@@ -347,9 +347,20 @@ exits 0 as long as the run recorded its cases, even when most verdicts missed
 nothing usable.
 
 The report is generated **locally** and shipped by committing it, so your
-docs site can publish it:
+docs site can publish it. If you recorded the run from a parallel git
+worktree — a checkout named like `worktree-issue-N/` (or another
+`worktree-*` / `blendtutor-*` prefix) — scrub the worktree-specific prefix
+from the committed evidence first: the `lesson`, `runner`, and `checker`
+fields of the committed `eval.json`/`run.yaml` must be repo-root-relative,
+not absolute `/Users/.../portfolio/<checkout>/` paths. `scripts/check-docs.sh`
+fails any commit that leaks a `/Users/` path under `docs/evals/`:
 
 ```bash
+# strip the /Users/.../portfolio/<checkout>/ prefix from committed evidence
+# (find -exec: `docs/evals/**` needs bash globstar, absent on macOS bash 3.2 —
+# the glob would match nothing and the scrub would silently no-op)
+find docs/evals \( -name 'eval.json' -o -name 'run.yaml' \) -exec \
+  perl -pi -e 's{/Users/[^/]*/portfolio/(?:worktree-|blendtutor-)[^/]*/}{}g' {} +
 git add docs/evals
 git commit -m "eval report: lessons/seed-data.yaml"
 ```

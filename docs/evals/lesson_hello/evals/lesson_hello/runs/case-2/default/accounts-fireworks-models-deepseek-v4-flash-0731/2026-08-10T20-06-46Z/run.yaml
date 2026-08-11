@@ -1,12 +1,12 @@
 task:
   name: case-2
-  lesson: /Users/carbonite/Documents/coding/portfolio/worktree-issue-209/target/hello-course/lesson_hello.yaml
+  lesson: target/hello-course/lesson_hello.yaml
   case: 2
   prompt: cat("goodbye\n")
   expected: incorrect
 config:
   name: default
-  runner: /Users/carbonite/Documents/coding/portfolio/worktree-issue-209/scripts/smevals/run.sh
+  runner: scripts/smevals/run.sh
   model: accounts/fireworks/models/deepseek-v4-flash-0731
 started: '2026-08-10T20:06:46.653457+00:00'
 duration_seconds: 1.95

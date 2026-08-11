@@ -116,9 +116,9 @@ the directory instead:
 cd docs/evals/lesson_hello && python3 -m http.server
 ```
 
-Second, the `lesson` field in `eval.json` holds the absolute path the eval ran
-against — treat the report as evidence of a run, not as a portable path
-reference.
+Second, the `lesson` field in `eval.json` is repo-relative from the checkout
+that recorded the run — treat the report as evidence of a run, not as a
+portable path reference.
 
 ## Build — a static browser site
 

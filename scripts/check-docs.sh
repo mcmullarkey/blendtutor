@@ -99,6 +99,18 @@ if [ -d docs/evals ]; then
   ! [ -e "$book_out/evals/evals" ] \
     || { echo "docs: evals double-nested ($book_out/evals/evals — bare cp, not dot-copy)" >&2; exit 1; }
 fi
+
+# AC-215 — committed smevals evidence must be portable: no worktree-specific
+# absolute paths under docs/evals/. The creating-lessons.md Step 9 convention
+# strips the /Users/.../portfolio/<checkout>/ prefix (worktree-issue-N/,
+# worktree-*, blendtutor-*) from lesson/runner/checker fields before git add;
+# this pin fails closed on any /Users/ leak regardless of where it came from.
+if [ -d docs/evals ]; then
+  if rg -l '/Users/' docs/evals/ >/dev/null; then
+    echo "docs: /Users/ absolute path leaked into docs/evals/ (scrub per creating-lessons.md Step 9)" >&2
+    exit 1
+  fi
+fi
 touch "$book_out/.nojekyll"
 
 # AC-2 — assert the assembled layout (clause 9):

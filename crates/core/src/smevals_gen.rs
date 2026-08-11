@@ -745,6 +745,11 @@ mod tests {
         std::fs::create_dir_all(repo.path().join(".git")).unwrap();
         std::fs::create_dir_all(repo.path().join("scripts/smevals")).unwrap();
         std::fs::write(repo.path().join("scripts/smevals/run.sh"), "#!/bin/sh\n").unwrap();
+        std::fs::write(
+            repo.path().join("scripts/smevals/check_polarity.sh"),
+            "#!/bin/sh\n",
+        )
+        .unwrap();
         let course = repo.path().join("a").join("b").join("my-course");
         std::fs::create_dir_all(&course).unwrap();
 
@@ -754,6 +759,7 @@ mod tests {
             "depth 3 needs 5 hops"
         );
         std::fs::create_dir_all(course.join(".smevals/configs")).unwrap();
+        std::fs::create_dir_all(course.join(".smevals/graders")).unwrap();
         let resolved = course
             .join(".smevals")
             .join("configs")
@@ -766,6 +772,20 @@ mod tests {
                 .canonicalize()
                 .unwrap()
         );
+        // Both consumers thread the same prefix — the graders checker must
+        // resolve exactly like the configs runner (dual-consumer drift guard).
+        let graders_resolved = course
+            .join(".smevals")
+            .join("graders")
+            .join(&rel)
+            .join("check_polarity.sh");
+        assert_eq!(
+            graders_resolved.canonicalize().unwrap(),
+            repo.path()
+                .join("scripts/smevals/check_polarity.sh")
+                .canonicalize()
+                .unwrap()
+        );
     }
 
     #[test]
@@ -775,12 +795,18 @@ mod tests {
         let repo = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(repo.path().join("scripts/smevals")).unwrap();
         std::fs::write(repo.path().join("scripts/smevals/run.sh"), "#!/bin/sh\n").unwrap();
+        std::fs::write(
+            repo.path().join("scripts/smevals/check_polarity.sh"),
+            "#!/bin/sh\n",
+        )
+        .unwrap();
         let course = repo.path().join("examples").join("tarball-course");
         std::fs::create_dir_all(&course).unwrap();
 
         let rel = scripts_rel_from(&course).unwrap();
         assert_eq!(rel, "../../../../scripts/smevals/", "depth 2 needs 4 hops");
         std::fs::create_dir_all(course.join(".smevals/configs")).unwrap();
+        std::fs::create_dir_all(course.join(".smevals/graders")).unwrap();
         let resolved = course
             .join(".smevals")
             .join("configs")
@@ -790,6 +816,20 @@ mod tests {
             resolved.canonicalize().unwrap(),
             repo.path()
                 .join("scripts/smevals/run.sh")
+                .canonicalize()
+                .unwrap()
+        );
+        // Both consumers thread the same prefix — the graders checker must
+        // resolve exactly like the configs runner (dual-consumer drift guard).
+        let graders_resolved = course
+            .join(".smevals")
+            .join("graders")
+            .join(&rel)
+            .join("check_polarity.sh");
+        assert_eq!(
+            graders_resolved.canonicalize().unwrap(),
+            repo.path()
+                .join("scripts/smevals/check_polarity.sh")
                 .canonicalize()
                 .unwrap()
         );

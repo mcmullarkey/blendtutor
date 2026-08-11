@@ -1,6 +1,10 @@
-   Compiling blendtutor-core v0.1.0 (/Users/carbonite/Documents/coding/portfolio/worktree-issue-216/crates/core)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.33s
-     Running `target/debug/examples/verify_216`
+Manual probe (scratch binary, source not committed — not reproducible from tree):
+  command: cargo run -p blendtutor-core --example verify_216
+  exercised scripts_rel_from at course depths 1/2/3 below a repo root, with and
+  without .git, canonicalizing each emitted scripts/smevals path; refusal paths
+  probed for no-marker/no-git and no-marker/git-only. The same assertions are
+  covered by committed unit tests (see probe.log: scripts_rel probes 1-4) and
+  the D=1/2/3 resolution results recorded below were observed on 2026-08-10.
 OK D1 (.git): configs/../../../scripts/smevals/run.sh -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/run.sh
 OK D1 (.git): graders/../../../scripts/smevals/check_polarity.sh -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/check_polarity.sh
 OK D1 (.git): graders/../../../scripts/smevals/judge_feedback.py -> /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/.tmpBvhKg9/scripts/smevals/judge_feedback.py

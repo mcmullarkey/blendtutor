@@ -1,0 +1,23 @@
+=== probe 1: cargo test -p blendtutor-core --lib scripts_rel ===
+running 4 tests
+test smevals_gen::tests::scripts_rel_resolves_without_git_when_marker_present ... ok
+test smevals_gen::tests::scripts_rel_reaches_repo_scripts_from_a_nested_course ... ok
+test smevals_gen::tests::scripts_rel_resolves_at_depth_3_below_repo_root ... ok
+test smevals_gen::tests::scripts_rel_resolves_at_depth_1_below_repo_root ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 192 filtered out; finished in 0.00s
+
+
+=== probe 2: cargo test -p blendtutor-core --lib golden_non_default ===
+running 1 test
+test smevals_gen::tests::golden_non_default_depth_emits_plain_3hop_prefix ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 195 filtered out; finished in 0.00s
+
+
+=== probe 3: cargo test -p blendtutor-core --test generate_eval_dir ===
+examples/write-less-code-r/.smevals/configs/default.yaml
+test generated_dir_is_gitignored_but_committed_output_is_not ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+

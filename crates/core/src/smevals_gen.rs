@@ -68,6 +68,15 @@ pub enum GenError {
     /// The suite has no cases. A vacuous "100% pass" is a sneaky pass, so an
     /// empty suite is refused rather than emitting `tasks/` with zero files.
     EmptySuite,
+    /// No ancestor of the course root contains `scripts/smevals/`, so the
+    /// script-path prefix cannot be computed exactly (and the old four-hop
+    /// guess is exactly the wrong-depth bug this refusal replaces). The
+    /// effectful shell refuses rather than emit a path that resolves
+    /// somewhere else (§1.1).
+    NoRepoRoot {
+        /// The canonicalized course root that was walked up from.
+        course_root: PathBuf,
+    },
     /// Writing a generated file failed (the effectful shell only — the pure
     /// generator never touches the filesystem).
     Write {
@@ -90,6 +99,11 @@ impl fmt::Display for GenError {
                 f,
                 "refusing to generate an eval dir for an empty eval suite: no cases \
                  to evaluate"
+            ),
+            GenError::NoRepoRoot { course_root } => write!(
+                f,
+                "no repo root (an ancestor containing scripts/smevals/) found above {}",
+                course_root.display()
             ),
             GenError::Write { path, source } => {
                 write!(f, "writing {} failed: {source}", path.display())
@@ -391,13 +405,14 @@ pub fn write_eval_dir(
         path: dir.to_path_buf(),
         source,
     })?;
-    let files = generate_eval_dir_with(
-        lesson,
-        suite,
-        lesson_id,
-        lesson_path,
-        &scripts_rel_from(&dir),
-    )?;
+    // Resolve the exact script-path prefix first — the only thing this shell
+    // knows and the pure generator doesn't. Refusal (rather than a wrong-depth
+    // fallback) happens here, before any `create_dir_all`/`fs::write`, so no
+    // partial tree is left behind (§1.1, §2.4).
+    let scripts_rel = scripts_rel_from(&dir).ok_or_else(|| GenError::NoRepoRoot {
+        course_root: dir.clone(),
+    })?;
+    let files = generate_eval_dir_with(lesson, suite, lesson_id, lesson_path, &scripts_rel)?;
     for (path, contents) in &files {
         let target = dir.join(".smevals").join(path);
         if let Some(parent) = target.parent() {
@@ -415,18 +430,21 @@ pub fn write_eval_dir(
 }
 
 /// The `scripts/smevals/` prefix (with trailing `/`) that, relative to the
-/// generated `configs/` (or `graders/`) directory, reaches the repo's scripts:
-/// walk up from the course root to the repo root (the nearest ancestor with a
-/// `.git`), then compute the relative descent. Falls back to
-/// [`DEFAULT_SCRIPTS_REL`] when no repo root is found (e.g. a course outside a
-/// git checkout), which smevals surfaces loudly at run time rather than this
-/// function guessing.
-fn scripts_rel_from(course_root: &Path) -> String {
+/// generated `configs/` (or `graders/`) directory, reaches the repo's scripts.
+///
+/// The repo root is the nearest ancestor containing a `scripts/smevals/`
+/// directory (the marker — the repo root always has it; `.git` alone does NOT
+/// count, since a course inside some other git project would otherwise get a
+/// wrong-depth guess). Returns `None` when no such ancestor exists; the
+/// effectful [`write_eval_dir`] then refuses with [`GenError::NoRepoRoot`]
+/// rather than emit a fallback prefix. The four-hop [`DEFAULT_SCRIPTS_REL`]
+/// default belongs to the pure layer only, which has no filesystem context.
+fn scripts_rel_from(course_root: &Path) -> Option<String> {
     let mut current = Some(course_root);
     let repo_root = loop {
         match current {
             Some(dir) => {
-                if dir.join(".git").exists() {
+                if dir.join("scripts").join("smevals").is_dir() {
                     break Some(dir);
                 }
                 current = dir.parent();
@@ -434,15 +452,10 @@ fn scripts_rel_from(course_root: &Path) -> String {
             None => break None,
         }
     };
-    let Some(repo_root) = repo_root else {
-        return DEFAULT_SCRIPTS_REL.to_string();
-    };
+    let repo_root = repo_root?;
     let configs_dir = course_root.join(".smevals").join("configs");
     let scripts_dir = repo_root.join("scripts").join("smevals");
-    match relative_path(&configs_dir, &scripts_dir) {
-        Some(rel) => format!("{}/", rel.to_string_lossy()),
-        None => DEFAULT_SCRIPTS_REL.to_string(),
-    }
+    relative_path(&configs_dir, &scripts_dir).map(|rel| format!("{}/", rel.to_string_lossy()))
 }
 
 /// The path from `from` to `to`, both absolute, as `../..` hops then descent.
@@ -533,7 +546,7 @@ mod tests {
         let course = repo.path().join("examples/write-less-code-r");
         std::fs::create_dir_all(&course).unwrap();
 
-        let rel = scripts_rel_from(&course);
+        let rel = scripts_rel_from(&course).unwrap();
         assert_eq!(rel, "../../../../scripts/smevals/");
         // The emitted runner path resolves to the real script (canonicalize
         // requires the leaf to exist, so create the placeholder script).
@@ -554,9 +567,69 @@ mod tests {
     }
 
     #[test]
-    fn scripts_rel_defaults_when_no_repo_root_exists() {
+    fn write_eval_dir_errors_when_no_scripts_ancestor() {
         let dir = tempfile::tempdir().unwrap();
-        assert_eq!(scripts_rel_from(dir.path()), DEFAULT_SCRIPTS_REL);
+        // No ancestor of the tempdir contains `scripts/smevals/` — with or
+        // without a `.git` present, the marker walk-up finds no repo root and
+        // the effectful shell must refuse rather than emit the wrong-depth
+        // four-hop default.
+        assert_eq!(
+            scripts_rel_from(dir.path()),
+            None,
+            "no scripts/smevals ancestor must resolve to None, not a default prefix"
+        );
+
+        let lesson = Lesson::parse(
+            "lesson_name: x\nlanguage: R\nexercise:\n  prompt: do it\n  \
+             llm_evaluation_prompt: grade {student_code}\n",
+        )
+        .unwrap();
+        let suite = EvalSuite {
+            cases: vec![EvalCase {
+                submission: "cat(\"hi\\n\")\n".to_string(),
+                expected: ExpectedVerdict::Correct,
+            }],
+        };
+        let err = write_eval_dir(
+            dir.path(),
+            &lesson,
+            &suite,
+            "my-lesson",
+            Path::new("/lessons/my-lesson.yaml"),
+        )
+        .expect_err("a course with no scripts/smevals ancestor must be refused");
+        match err {
+            GenError::NoRepoRoot { course_root } => assert_eq!(
+                course_root,
+                dir.path().canonicalize().unwrap(),
+                "the error names the canonicalized course root it refused"
+            ),
+            other => panic!("expected GenError::NoRepoRoot, got: {other}"),
+        }
+        assert!(
+            !dir.path().join(".smevals").exists(),
+            "refusal must happen before any directory is created — no partial tree"
+        );
+
+        // A `.git`-only ancestor does NOT count as a repo root either: a course
+        // inside a git project that is not this repo must refuse instead of
+        // guessing (behavior change, intentional — §1.1).
+        let git_only = dir.path().join("git-only-course");
+        std::fs::create_dir_all(git_only.join(".git")).unwrap();
+        assert_eq!(
+            scripts_rel_from(&git_only),
+            None,
+            "a .git ancestor without the scripts/smevals marker must not resolve"
+        );
+        let err = write_eval_dir(
+            &git_only,
+            &lesson,
+            &suite,
+            "my-lesson",
+            Path::new("/lessons/my-lesson.yaml"),
+        )
+        .expect_err("a .git-only ancestor must also be refused");
+        assert!(matches!(err, GenError::NoRepoRoot { .. }));
     }
 
     #[test]
@@ -564,6 +637,9 @@ mod tests {
         let repo = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(repo.path().join(".git")).unwrap();
         std::fs::create_dir_all(repo.path().join("scripts/smevals")).unwrap();
+        // canonicalize requires the leaf to exist, so create the placeholder
+        // runner before resolving the emitted path.
+        std::fs::write(repo.path().join("scripts/smevals/run.sh"), "#!/bin/sh\n").unwrap();
         let course = repo.path().join("my-course");
         std::fs::create_dir_all(&course).unwrap();
 
@@ -592,11 +668,19 @@ mod tests {
         assert!(eval_dir.join("configs/default.yaml").is_file());
         assert!(eval_dir.join("graders/default.yaml").is_file());
         assert!(eval_dir.join("tasks/case-1.yaml").is_file());
-        let config = std::fs::read_to_string(eval_dir.join("configs/default.yaml")).unwrap();
-        // Course is one level below the repo root here → 3 `..` hops.
-        assert!(
-            config.contains("../../../scripts/smevals/run.sh"),
-            "config must reference the runner relative to the course, got: {config}"
+        // Course is one level below the repo root here → 3 `..` hops; the
+        // emitted runner must canonicalize-resolve to the real script (not just
+        // contain the expected substring — the whole point of the fix).
+        let resolved_runner = eval_dir
+            .join("configs")
+            .join("../../../scripts/smevals/run.sh");
+        assert_eq!(
+            resolved_runner.canonicalize().unwrap(),
+            repo.path()
+                .join("scripts/smevals/run.sh")
+                .canonicalize()
+                .unwrap(),
+            "runner emitted into configs/default.yaml must resolve to the real script"
         );
         // The task's `lesson:` key carries the lesson file path (not the slug):
         // the runner forwards it verbatim to `blendtutor eval <path>`.
@@ -604,6 +688,156 @@ mod tests {
         assert!(
             task.contains("lesson: /lessons/my-lesson.yaml\n"),
             "task must carry the lesson path the runner grades, got: {task}"
+        );
+    }
+
+    #[test]
+    fn scripts_rel_resolves_at_depth_1_below_repo_root() {
+        let repo = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(repo.path().join(".git")).unwrap();
+        std::fs::create_dir_all(repo.path().join("scripts/smevals")).unwrap();
+        std::fs::write(repo.path().join("scripts/smevals/run.sh"), "#!/bin/sh\n").unwrap();
+        std::fs::write(
+            repo.path().join("scripts/smevals/check_polarity.sh"),
+            "#!/bin/sh\n",
+        )
+        .unwrap();
+        let course = repo.path().join("my-course");
+        std::fs::create_dir_all(&course).unwrap();
+
+        let rel = scripts_rel_from(&course).unwrap();
+        assert_eq!(rel, "../../../scripts/smevals/", "depth 1 needs 3 hops");
+        // Both consumers (configs runner + graders checker) thread the same
+        // prefix and must canonicalize-resolve to the real scripts dir.
+        // (canonicalize is physical, so the `.smevals` dirs must exist first —
+        // write_eval_dir creates them before any resolution happens.)
+        std::fs::create_dir_all(course.join(".smevals/configs")).unwrap();
+        std::fs::create_dir_all(course.join(".smevals/graders")).unwrap();
+        let configs_resolved = course
+            .join(".smevals")
+            .join("configs")
+            .join(&rel)
+            .join("run.sh");
+        assert_eq!(
+            configs_resolved.canonicalize().unwrap(),
+            repo.path()
+                .join("scripts/smevals/run.sh")
+                .canonicalize()
+                .unwrap()
+        );
+        let graders_resolved = course
+            .join(".smevals")
+            .join("graders")
+            .join(&rel)
+            .join("check_polarity.sh");
+        assert_eq!(
+            graders_resolved.canonicalize().unwrap(),
+            repo.path()
+                .join("scripts/smevals/check_polarity.sh")
+                .canonicalize()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn scripts_rel_resolves_at_depth_3_below_repo_root() {
+        let repo = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(repo.path().join(".git")).unwrap();
+        std::fs::create_dir_all(repo.path().join("scripts/smevals")).unwrap();
+        std::fs::write(repo.path().join("scripts/smevals/run.sh"), "#!/bin/sh\n").unwrap();
+        let course = repo.path().join("a").join("b").join("my-course");
+        std::fs::create_dir_all(&course).unwrap();
+
+        let rel = scripts_rel_from(&course).unwrap();
+        assert_eq!(
+            rel, "../../../../../scripts/smevals/",
+            "depth 3 needs 5 hops"
+        );
+        std::fs::create_dir_all(course.join(".smevals/configs")).unwrap();
+        let resolved = course
+            .join(".smevals")
+            .join("configs")
+            .join(&rel)
+            .join("run.sh");
+        assert_eq!(
+            resolved.canonicalize().unwrap(),
+            repo.path()
+                .join("scripts/smevals/run.sh")
+                .canonicalize()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn scripts_rel_resolves_without_git_when_marker_present() {
+        // Release tarballs / export-quarto'd courses have no `.git`; the marker
+        // alone must resolve (refusal here would be a false negative).
+        let repo = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(repo.path().join("scripts/smevals")).unwrap();
+        std::fs::write(repo.path().join("scripts/smevals/run.sh"), "#!/bin/sh\n").unwrap();
+        let course = repo.path().join("examples").join("tarball-course");
+        std::fs::create_dir_all(&course).unwrap();
+
+        let rel = scripts_rel_from(&course).unwrap();
+        assert_eq!(rel, "../../../../scripts/smevals/", "depth 2 needs 4 hops");
+        std::fs::create_dir_all(course.join(".smevals/configs")).unwrap();
+        let resolved = course
+            .join(".smevals")
+            .join("configs")
+            .join(&rel)
+            .join("run.sh");
+        assert_eq!(
+            resolved.canonicalize().unwrap(),
+            repo.path()
+                .join("scripts/smevals/run.sh")
+                .canonicalize()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn golden_non_default_depth_emits_plain_3hop_prefix() {
+        // P4: the fix is exercised in the pure layer — an explicit 3-hop prefix
+        // flows through BOTH consumers as plain, unquoted YAML scalars (the
+        // same charset as today's `emit_inline_scalar` output, no escaping).
+        let lesson = Lesson::parse(
+            "lesson_name: x\nlanguage: R\nexercise:\n  prompt: do it\n  \
+             llm_evaluation_prompt: grade {student_code}\n",
+        )
+        .unwrap();
+        let suite = EvalSuite {
+            cases: vec![EvalCase {
+                submission: "cat(\"hi\\n\")\n".to_string(),
+                expected: ExpectedVerdict::Correct,
+            }],
+        };
+        let files = generate_eval_dir_with(
+            &lesson,
+            &suite,
+            "x",
+            Path::new("lessons/x.yaml"),
+            "../../../scripts/smevals/",
+        )
+        .unwrap();
+        let contents: std::collections::HashMap<_, _> = files.into_iter().collect();
+
+        let configs = &contents[&PathBuf::from("configs/default.yaml")];
+        assert!(
+            configs.contains("runner: ../../../scripts/smevals/run.sh\n"),
+            "configs runner must be the plain 3-hop scalar, got: {configs}"
+        );
+        assert!(
+            !configs.contains("\"../../../scripts/smevals/"),
+            "configs runner must not be quoted, got: {configs}"
+        );
+        let graders = &contents[&PathBuf::from("graders/default.yaml")];
+        assert!(
+            graders.contains("checker: ../../../scripts/smevals/check_polarity.sh\n"),
+            "graders checker must be the plain 3-hop scalar, got: {graders}"
+        );
+        assert!(
+            !graders.contains("\"../../../scripts/smevals/"),
+            "graders checker must not be quoted, got: {graders}"
         );
     }
 

@@ -1,12 +1,12 @@
 task:
   name: case-4
-  lesson: /Users/carbonite/Documents/coding/portfolio/worktree-issue-198/examples/write-less-code-r/01_seed_data.yaml
+  lesson: examples/write-less-code-r/01_seed_data.yaml
   case: 4
   prompt: survey_data <- data.frame()
   expected: incorrect
 config:
   name: default
-  runner: /Users/carbonite/Documents/coding/portfolio/worktree-issue-198/scripts/smevals/run.sh
+  runner: scripts/smevals/run.sh
   model: accounts/fireworks/models/deepseek-v4-flash-0731
 started: '2026-08-08T20:58:29.777631+00:00'
 duration_seconds: 2.87

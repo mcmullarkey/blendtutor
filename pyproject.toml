@@ -1,0 +1,13 @@
+# Docs-tooling project marker (AC-215): gives `uv run python` a reproducible
+# parse-check environment (PyYAML) for validating committed docs/evals/
+# evidence (every eval.json via json.load, every run.yaml via yaml.safe_load).
+# The check-docs.sh /Users/ pin is the enforcement gate; this file only makes
+# the spec's `uv run python -c "import json,yaml,glob,..."` probe deterministic.
+# No application runtime — blendtutor is a Rust workspace; pyyaml is the sole
+# dependency and the venv it creates (.venv/) is gitignored.
+[project]
+name = "blendtutor-docs-tooling"
+version = "0.1.0"
+description = "Python tooling env for docs hygiene checks (docs/evals evidence parse-check)"
+requires-python = ">=3.10"
+dependencies = ["pyyaml>=6.0"]

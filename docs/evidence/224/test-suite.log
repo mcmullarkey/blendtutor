@@ -1,0 +1,70 @@
+== Phase 0: file presence ==
+  PASS: scripts/install.sh exists
+  PASS: wired into ci.yml (check job runs this test)
+== Predicate 1: happy path (linux x86_64, default install dir) ==
+  PASS: install.sh exits 0 (got: 0)
+  PASS: binary installed executable at $HOME/.local/bin/blendtutor
+  PASS: installed binary runs (bare member extracted) (got: blendtutor-stub-binary v0.1.0)
+  PASS: curl called exactly 3 times (api + tarball + sums) (got: 3)
+  PASS: fetched contract URLs: latest API + blendtutor-<tag>-<target>.tar.gz + blendtutor-<tag>-sha256sums.txt
+== Predicate 2: curl|sh (stdin-piped, $0=sh) ==
+  PASS: stdin-piped install.sh exits 0 (got: 0)
+  PASS: stdin-piped run installed the binary (no $0 assumptions, no stdin eating)
+== Predicate 3: checksum mismatch fails closed ==
+  PASS: corrupt tarball → nonzero exit
+  PASS: mismatch message names the checksum
+  PASS: nothing installed on checksum mismatch
+== Predicate 4: unsupported OS/arch ==
+  PASS: unsupported OS (Plan9) → nonzero + message
+  PASS: unsupported arch (sparc) → nonzero + message
+== Predicate 5: uname → target-triple mapping (4 targets) ==
+  PASS: mapping Linux/x86_64 → exit 0 (got: 0)
+  PASS: mapping Linux/x86_64 → x86_64-unknown-linux-gnu tarball fetched
+  PASS: mapping Linux/aarch64 → exit 0 (got: 0)
+  PASS: mapping Linux/aarch64 → aarch64-unknown-linux-gnu tarball fetched
+  PASS: mapping Darwin/x86_64 → exit 0 (got: 0)
+  PASS: mapping Darwin/x86_64 → x86_64-apple-darwin tarball fetched
+  PASS: mapping Darwin/arm64 → exit 0 (got: 0)
+  PASS: mapping Darwin/arm64 → aarch64-apple-darwin tarball fetched
+== Predicate 6: BLENDTUTOR_INSTALL_DIR override ==
+  PASS: override install exits 0 (got: 0)
+  PASS: binary installed at BLENDTUTOR_INSTALL_DIR
+== Predicate 7: fetch failures fail closed ==
+  PASS: api-fail → nonzero exit
+  PASS: api-fail → message on stderr
+  PASS: download-fail → nonzero exit
+  PASS: download-fail → message on stderr
+  PASS: sums-fail → nonzero exit
+  PASS: sums-fail → message on stderr
+== Predicate 8: tarball not in checksums file ==
+  PASS: unlisted tarball → nonzero exit
+  PASS: unlisted-tarball message names the verification failure
+== Predicate 9: PATH hint ==
+  PASS: hint scenario exits 0 (got: 0)
+  PASS: PATH hint printed when install dir not on PATH
+  PASS: on-PATH scenario exits 0 (got: 0)
+  PASS: no PATH hint when install dir IS on PATH
+  PASS: trailing-slash scenario exits 0 (got: 0)
+  PASS: trailing-slash install dir still installs the binary
+  PASS: no false PATH hint when trailing-slash install dir IS on PATH
+== Predicate 10: hygiene pins ==
+  PASS: shebang is #!/bin/sh (POSIX sh) (got: #!/bin/sh)
+  PASS: contains set -eu (fail-closed hygiene)
+  PASS: no $0 anywhere (curl|sh contract)
+  PASS: repo literal mcmullarkey/blendtutor present
+== Predicate 11: environment fail arms ==
+  PASS: HOME unset/empty → nonzero exit
+  PASS: HOME-unset/empty message names BLENDTUTOR_INSTALL_DIR
+  PASS: no sha256 tool → nonzero exit
+  PASS: no-sha256-tool message names the missing tool
+  PASS: nothing installed without a sha256 tool
+== Predicate 12: recovery arms ==
+  PASS: shasum-only PATH (no sha256sum) exits 0 (fallback) (got: 0)
+  PASS: binary installed via shasum fallback
+  PASS: HOME empty + BLENDTUTOR_INSTALL_DIR set exits 0 (got: 0)
+  PASS: binary installed to override dir despite empty HOME
+
+=========================================
+  Results: 52 passed, 0 failed
+=========================================
+All tests passed.

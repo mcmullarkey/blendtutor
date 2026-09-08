@@ -27,7 +27,17 @@ evaluation prompt. `blendtutor` handles the rest:
 
 ## Installation
 
-`blendtutor` is a Rust binary. Install it from a clone with Cargo:
+Install the latest release with one command (macOS and Linux):
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/mcmullarkey/blendtutor/main/scripts/install.sh | sh
+```
+
+The installer verifies the release tarball's SHA256 checksum before installing
+the `blendtutor` binary to `~/.local/bin` (override the location with
+`BLENDTUTOR_INSTALL_DIR`). The one-liner needs a release with binary assets —
+none are published yet, so until the next release, install from a clone with
+Cargo:
 
 ```bash
 git clone https://github.com/mcmullarkey/blendtutor.git

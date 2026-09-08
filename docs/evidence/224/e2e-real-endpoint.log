@@ -1,0 +1,14 @@
+# e2e-real-endpoint.log — REAL network run of scripts/install.sh
+# No stubs: real uname (Darwin arm64), real curl, real api.github.com.
+# Expected: API resolves latest release v0.1.0, tarball download 404s
+# (release v0.1.0 has no assets yet) -> install.sh fails CLOSED with a
+# message naming the failed download. Nothing installed.
+# Install dir pointed at a throwaway temp dir so the real HOME is untouched.
+
+$ env -i PATH=/usr/bin:/bin HOME=/Users/carbonite/Documents/coding/portfolio/worktree-issue-224/.e2e-home BLENDTUTOR_INSTALL_DIR=/Users/carbonite/Documents/coding/portfolio/worktree-issue-224/.e2e-dest sh scripts/install.sh
+# exit status: 1 (nonzero = fail-closed)
+# installed dir contents (must be empty):
+total 0
+drwxr-xr-x@  2 carbonite  staff   64 Sep  8 16:55 .
+drwxr-xr-x@ 30 carbonite  staff  960 Sep  8 16:55 ..
+# VERDICT: fail-closed against the real endpoint — PASS

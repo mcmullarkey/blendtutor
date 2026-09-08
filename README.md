@@ -1,43 +1,20 @@
 # blendtutor
 
 A single-binary CLI for building interactive coding lessons — in R or Python —
-with AI-powered feedback. Instructors author a course of exercises and grading
-prompts; learners practice in the terminal or in a static browser site, getting
-instant, personalized feedback on each submission.
+with AI-powered feedback. Instructors author exercises and grading prompts;
+learners practice in the terminal or in a browser site with instant,
+personalized feedback.
 
-Inspired by [swirl](https://swirlstats.com/) and [learnr](https://rstudio.github.io/learnr/),
-and originally designed to complement the
-[Just Enough Software Engineering](https://mcmullarkey.github.io/just-enough-software-engineering/)
-textbook.
+## Install
 
-## What is blendtutor?
-
-A course is a directory of lesson YAML files plus a `blendtutor.toml` manifest.
-Each lesson describes an exercise prompt, a code template, checks, and an LLM
-evaluation prompt. `blendtutor` handles the rest:
-
-- **Instructors** scaffold a course, add lessons, validate them, dry-run the
-  grading against sample submissions, score the grading prompt against known
-  cases, generate an eval report with `blendtutor eval-report` (committed to
-  `docs/evals/<lesson>/` and published to `/evals/<lesson>/` on Pages), and
-  build a deployable browser site.
-- **Learners** run a lesson, submit code, and get an AI verdict — in the
-  terminal locally, or in a browser via [webR](https://docs.r-wasm.org/webr/) /
-  [Pyodide](https://pyodide.org/) with no install.
-
-## Installation
-
-Install the latest release with one command (macOS and Linux):
+macOS and Linux, one command (verifies the tarball's SHA256 checksum; installs
+to `~/.local/bin`, override with `BLENDTUTOR_INSTALL_DIR`):
 
 ```bash
 curl -LsSf https://raw.githubusercontent.com/mcmullarkey/blendtutor/main/scripts/install.sh | sh
 ```
 
-The installer verifies the release tarball's SHA256 checksum before installing
-the `blendtutor` binary to `~/.local/bin` (override the location with
-`BLENDTUTOR_INSTALL_DIR`). The one-liner needs a release with binary assets —
-none are published yet, so until the next release, install from a clone with
-Cargo:
+No release assets are published yet — until the next release, install from a clone:
 
 ```bash
 git clone https://github.com/mcmullarkey/blendtutor.git
@@ -45,339 +22,128 @@ cd blendtutor
 cargo install --path crates/cli
 ```
 
-This puts a `blendtutor` executable on your `PATH` (`~/.cargo/bin`).
-
 ## API key
 
-AI feedback calls an LLM provider. Set one of these in your environment:
-
-- `FIREWORKS_API_KEY` — [Fireworks AI](https://fireworks.ai) (the default provider).
-- `ANTHROPIC_API_KEY` — [Anthropic](https://www.anthropic.com) (alternative
-  provider for CLI `run` and `eval`; the browser BYOK path is Fireworks-only —
-  see [BYOK](#byok-bring-your-own-key)).
+`run` and `eval` call an LLM provider; authoring commands need no key:
 
 ```bash
-export FIREWORKS_API_KEY=fw_...
+export FIREWORKS_API_KEY=fw_...   # or ANTHROPIC_API_KEY (CLI only; browser BYOK is Fireworks-only)
 ```
 
-Authoring commands (`init`, `new`, `validate`, `build`) need no key; only `run`
-and `eval` call the provider.
+## The whole game
 
-## Authoring workflow
-
-The instructor loop is **`init → new → validate → run → eval → eval-report → build`**.
-
-See [The whole game](https://mcmullarkey.github.io/blendtutor/whole-game.html)
-for the loop walked end-to-end with a real lesson.
-
-### `blendtutor init` — scaffold a course
+The instructor loop is **`init → new → validate → run → eval → eval-report →
+build`** — walked end to end in [The whole game](https://mcmullarkey.github.io/blendtutor/whole-game.html):
 
 ```bash
-blendtutor init my-course
+blendtutor init my-course                         # scaffold course + starter lesson + eval suite
+blendtutor new lesson --lang r greet              # add lessons/greet.yaml + eval_<name>.yaml sibling
+blendtutor validate lessons/greet.yaml            # check a lesson (nonzero exit drops into CI)
+blendtutor run lessons/greet.yaml --code sub.R    # execute the submission, get an LLM verdict
+blendtutor eval lessons/greet.yaml                # score grading-prompt accuracy on the eval cases
+blendtutor eval-report lessons/greet.yaml         # LLM-judged report → docs/evals/<lesson>/
+blendtutor build my-course --target webr -o site  # static browser site (--target webr|pyodide)
 ```
 
-Creates `my-course/` with a `blendtutor.toml` manifest, an example lesson under
-`lessons/`, a matching eval suite, and a `.gitignore`. The fresh course is
-immediately listable and runnable.
+## Deploy to GitHub Pages
 
-### `blendtutor new` — add a lesson
-
-```bash
-blendtutor new lesson --lang r greet         # add lessons/greet.yaml (R)
-blendtutor new lesson --lang python tally    # add lessons/tally.yaml (Python)
-```
-
-Writes a lesson YAML template plus a sibling `eval_<name>.yaml` for grading
-cases. `--lang` selects the runtime the lesson targets (`r` or `python`).
-
-### `blendtutor validate` — check a lesson
-
-```bash
-blendtutor validate lessons/greet.yaml
-blendtutor validate lessons/greet.yaml --format json   # machine-readable
-```
-
-Reports missing required fields and common authoring mistakes. Exit code is
-nonzero when a lesson is invalid, so it drops cleanly into CI.
-
-### `blendtutor run` — execute + get feedback
-
-```bash
-blendtutor run lessons/greet.yaml --code submission.R
-echo 'greet <- function(x) paste("hi", x)' | blendtutor run lessons/greet.yaml
-```
-
-Runs a submission through the real interpreter, then asks the LLM for a verdict.
-`--code <path>` reads a file; omit it to read the submission from stdin. Add
-`--format json` for a structured report. Exit code reflects the verdict
-(correct / incorrect / error).
-
-### `blendtutor eval` — score the grading prompt
-
-```bash
-blendtutor eval lessons/greet.yaml
-blendtutor eval lessons/greet.yaml --format json
-```
-
-Replays the lesson's `eval_<name>.yaml` cases through the full run pipeline and
-reports how often the grader's verdict matches the expected label — so you can
-measure (and regression-test) grading accuracy before shipping. Because evals
-score against whichever provider your API key selects, run them against the same
-provider your deployed site will use.
-
-### `blendtutor build` — assemble a browser site
-
-```bash
-blendtutor build my-course --target webr -o site      # R lessons → webR
-blendtutor build my-course --target pyodide -o site   # Python lessons → Pyodide
-```
-
-Emits a static site to `-o <dir>`: `index.html`, a per-lesson JSON index, the
-in-browser runtime, and (if the course carries an `eval-report.json`) an
-embedded eval-results page. `--target` picks the WASM runtime — `webr` for R
-lessons, `pyodide` for Python.
-
-## Deploying to GitHub Pages
-
-The built `site/` directory is fully static, so it deploys to **GitHub Pages**
-as-is (push it to a `gh-pages` branch or wire it into a Pages workflow).
-
-One caveat: webR needs `SharedArrayBuffer`, which browsers only enable under
-**cross-origin isolation** — i.e. `COOP`/`COEP` response headers that GitHub
-Pages cannot set. To work around this, the build ships a vendored
-[`coi-serviceworker`](https://github.com/gzuidhof/coi-serviceworker) shim that
-re-serves the page with the required COOP/COEP headers from a service worker, so
-the site is cross-origin isolated on Pages without any header configuration.
-(Pyodide-only sites boot on the main thread and do not require this, but the shim
-ships for both targets and is harmless when unused.)
-
-### Live example sites
-
-Two example courses — derived from the "Write Less Code" lesson arc — are built
-and deployed alongside the docs on GitHub Pages:
+The built `site/` is fully static — deploy to **GitHub Pages** as-is. webR
+needs cross-origin isolation (`COOP`/`COEP` headers Pages cannot set), so the
+build ships a vendored [`coi-serviceworker`](https://github.com/gzuidhof/coi-serviceworker)
+shim that re-serves the page with the required headers (Pyodide-only sites
+don't need it). Two example courses are deployed alongside the docs:
 
 - **[R example site (webR)](https://mcmullarkey.github.io/blendtutor/examples/r/)**
-  — five R lessons booting webR in the browser.
 - **[Python example site (Pyodide)](https://mcmullarkey.github.io/blendtutor/examples/python/)**
-  — five Python lessons booting Pyodide in the browser.
 
-Each site includes an
-[eval-results page](https://mcmullarkey.github.io/blendtutor/examples/r/eval-results.html)
-([Python](https://mcmullarkey.github.io/blendtutor/examples/python/eval-results.html))
-showing the grading-prompt accuracy recorded by `blendtutor eval`.
+## Quarto extension
 
-## Quarto Extension
-
-blendtutor also ships as a [Quarto](https://quarto.org) extension for authoring
-interactive coding exercises directly in `.qmd` documents. Learners get an
-in-browser code editor, instant check feedback, solution reveal, and AI-powered
-hints — all rendered as static HTML.
-
-### Requirements
-
-- **Quarto >= 1.4** (earlier versions lack the Lua filter APIs the extension uses)
-
-### Installation
-
-Install the extension (currently version 0.1.0) from the
-[`mcmullarkey/blendtutor`](https://github.com/mcmullarkey/blendtutor) GitHub
-repository into your project's `_extensions/mcmullarkey/blendtutor/` directory:
+blendtutor also ships as a [Quarto](https://quarto.org) extension for
+interactive coding exercises in `.qmd` documents — in-browser editor, instant
+checks, solution reveal, AI hints, all static HTML. Requires **Quarto >= 1.4**:
 
 ```bash
 quarto add mcmullarkey/blendtutor
 ```
 
-Asset resolution is install-path-independent: the extension's assets are
-deployed alongside the rendered HTML, so the extension works regardless of
-where `quarto add` installs it.
+Installs to `_extensions/mcmullarkey/blendtutor/` (version 0.1.0). Asset
+resolution is install-path-independent — assets deploy alongside the rendered
+HTML, so the extension works regardless of where `quarto add` installs it.
 
 #### Quick start (zero hand-written bootstrap)
 
-Author an exercise with the `.blendtutor` div, enable the filter by name, and
-render — the extension bootstraps the editor, checks, and solution UI
-automatically. No hand-written bootstrap is needed:
+A complete copy-paste document — zero hand-written bootstrap. Filter by name,
+`.blendtutor` div, render:
 
-```yaml
+````markdown
 ---
 title: "My exercises"
 filters: [mcmullarkey/blendtutor]
 ---
-```
 
-```markdown
 ::: {.blendtutor language="r"}
 Write a function `add(a, b)` that returns the sum.
 
 ```r
 add <- function(a, b) { ___ }
 ```
-
-```{.r .checks}
-stopifnot(add(1, 2) == 3)
-```
 :::
-```
+````
 
-Render the document and open the output in a browser — the exercises are
-interactive immediately.
+Render, open in a browser — interactive immediately. Grade submissions with a
+`{.r .checks}` block (`stopifnot(add(1, 2) == 3)`); Python: same div, `language="python"`.
 
 #### Auto-bootstrap opt-out
 
-The filter auto-bootstraps by default. To disable it and wire up the runtime
-yourself, set `bt-auto-bootstrap: false` in the YAML header:
-
-```yaml
----
-title: "My exercises"
-bt-auto-bootstrap: false
----
-```
-
-With the opt-out set, the filter leaves bootstrapping to you. To keep the
-auto-bootstrap but disable just the auto-mounted AI feedback, set
-`bt-feedback: false` instead — see [BYOK](#byok-bring-your-own-key).
-
-### Authoring syntax
-
-Exercises use Quarto fenced divs with the `.blendtutor` class. Each exercise
-specifies a `language` attribute (`"r"` or `"python"`) and contains a code
-template, optional checks, an optional solution, and optional hints.
-
-**R exercise:**
-
-```
-::: {.blendtutor language="r"}
-Write a function `add(a, b)` that returns the sum.
-
-```r
-add <- function(a, b) { ___ }
-```
-
-```{.r .checks}
-stopifnot(add(1, 2) == 3)
-```
-:::
-```
-
-**Python exercise:**
-
-```
-::: {.blendtutor language="python"}
-Write a function `square(n)` that returns `n * n`.
-
-```python
-def square(n):
-    ___
-```
-
-```{.python .checks}
-assert square(3) == 9
-```
-:::
-```
+The filter auto-bootstraps by default; to wire up the runtime yourself, set
+`bt-auto-bootstrap: false` in the YAML header. To keep it but disable the
+auto-mounted AI feedback, set `bt-feedback: false` — see
+[BYOK](#byok-bring-your-own-key).
 
 ### Cross-origin isolation (COI)
 
-webR requires `SharedArrayBuffer`, which needs cross-origin isolation
-(COOP/COEP headers). To opt in, add `coi: true` to a page's YAML header or
-`coi="true"` to any div:
-
-```yaml
----
-coi: true
----
-```
-
-The filter injects a vendored `coi-serviceworker.js` shim that re-serves the
-page with the required headers. Pyodide-only pages do not need COI.
+webR requires `SharedArrayBuffer` → cross-origin isolation (COOP/COEP). Opt in
+with `coi: true` (page YAML header) or `coi="true"` (any div); the filter
+injects the same service-worker shim. Pyodide-only pages do not need COI.
 
 > **Book-mode limitation:** COI does not function in Quarto `type: book`
-> projects. The shim re-serves the page's own scope, which cannot cover the
-> book's `_output/` directory where rendered pages are written. For
-> COI-enabled exercises, use a standalone document rather than a book. Live
-> demos of both project types — and what runs in each — are linked in the
-> Demo book section below; the runtime-scope mechanics are documented in
-> [ADR-0015](docs/adr/0015-opt-in-coi-cross-origin.md).
+> projects — the shim re-serves the page's own scope, which cannot cover the
+> book's `_output/` directory. Use a standalone document for COI-enabled
+> exercises (mechanics: [ADR-0015](docs/adr/0015-opt-in-coi-cross-origin.md)).
 
 ### Demo book
 
 A complete demo book with R and Python exercises lives in
-[`demo-book/`](demo-book/), and the rendered book is deployed live at
-<https://mcmullarkey.github.io/blendtutor/demo-book/>. To render it:
+[`demo-book/`](demo-book/), rendered live at
+<https://mcmullarkey.github.io/blendtutor/demo-book/> (rebuild locally with
+`cd demo-book && quarto render`). It is a Quarto `type: book` project, so
+COI does not take effect in the book render (limitation above).
+Python exercises are fully interactive (Pyodide needs no COI) and every page ships
+a static fallback. R exercises do not run in book mode — editors mount but
+execution is unavailable. For runnable R, use the CLI-built example sites
+([Live example sites](#live-example-sites)) —
+R exercises run interactively via webR there, under the shim's isolation.
+Serve the rendered book over HTTP — `file://` blocks the ES-module bootstrap
+(CORS), so editors never mount and you see static exercise content only:
 
 ```bash
-cd demo-book
-quarto render
+cd demo-book/_output && python3 -m http.server 8000
 ```
-
-This produces a multi-page HTML book in `demo-book/_output/` with exercises,
-checks, and solutions. The demo book's exercise pages set `coi: true`, but
-because it is a Quarto `type: book` project, COI does not take effect in the
-book render (see the COI book-mode limitation above) — use a standalone
-document for COI-enabled exercises.
-
-What runs in the book: Python exercises are fully interactive (Pyodide needs
-no COI), and every page ships a static fallback — the server-rendered title,
-prompt, code template, and hints display even before the runtime boots. R
-exercises do NOT run in book mode — their editors mount but execution is
-unavailable; use the standalone demo below for runnable R.
-
-#### Standalone demo
-
-The standalone demo renders the same exercises in a single-page Quarto
-project (`type: default`), where COI is active, deployed live at
-<https://mcmullarkey.github.io/blendtutor/demo/>.
-
-R exercises run interactively via webR — SharedArrayBuffer works because
-cross-origin isolation is active — and Python exercises run interactively
-via Pyodide (which needs no COI).
-
-#### Viewing the demo book
-
-Exercises require serving over HTTP — `open file://` blocks the ES-module
-bootstrap (browsers refuse `import` under `file://` for CORS reasons), so the
-interactive editors never mount. To view interactively:
-
-```bash
-cd demo-book/_output
-python3 -m http.server 8000
-# open http://localhost:8000/index.html
-```
-
-Note: `open demo-book/_output/index.html` (file://) shows static exercise content only — the server-rendered static fallback (title, prompt, code template, hints) — not the interactive editors. Serve over HTTP for the full experience.
-
-Note: R exercises in the book don't run under book mode (COI limitation,
-documented above) — their editors mount but execution is unavailable; use a
-standalone document — such as the Standalone demo above — for runnable R
-exercises.
 
 ## BYOK (Bring Your Own Key)
 
-AI-powered feedback in the browser uses the learner's own API key — no
-server-side key needed. Feedback is **auto-mounted**: the injected bootstrap
-imports `exercise-feedback.js` and calls `mountAllFeedback(registry)` after
-the runtime starts, so every exercise gets its feedback button and container
-automatically. The key is entered once on the API key page (the demo book
-ships one, see the [Demo book](#demo-book) section) and shared across
-exercises via `localStorage`.
-
-- **Provider:** Fireworks AI — browser BYOK uses the pinned model
-  `accounts/fireworks/models/deepseek-v4-flash-0731` and is Fireworks-only.
-  The extension no longer offers an Anthropic option in the browser; the CLI
-  still supports other providers (see [API key](#api-key)).
-- **Key storage:** the key is stored in your browser's `localStorage`. Any
-  JavaScript running on the page's origin can read it, so an XSS
-  vulnerability could steal it — do not reuse a critical key for BYOK. The
-  key is sent only in the `Authorization` header to `api.fireworks.ai`, never
-  to any other server.
-- **Serving:** serve the book over HTTP. Opening it via `file://` breaks
-  `localStorage` sharing across pages AND blocks ES modules (browsers refuse
-  `import` under `file://`), so feedback never mounts.
-- **CSP:** we recommend adding `connect-src https://api.fireworks.ai` to your
-  Content-Security-Policy for self-hosted deployments. GitHub Pages cannot
-  set CSP headers, and the `coi-serviceworker` shim covers only COOP/COEP —
-  it is not a CSP mechanism.
+Browser feedback uses the learner's own API key — no server-side key. Feedback
+is **auto-mounted**: the injected bootstrap imports `exercise-feedback.js` and
+calls `mountAllFeedback(registry)` after the runtime starts. The key is entered
+once on the API key page (the demo book ships one) and shared via `localStorage`
+— readable by any JavaScript on the page's origin, so never reuse a critical
+key; it is sent only to `api.fireworks.ai`. BYOK is Fireworks-only (pinned model
+`accounts/fireworks/models/deepseek-v4-flash-0731`); the CLI supports other
+providers (see [API key](#api-key)). Serve over HTTP — `file://` breaks
+`localStorage` sharing and blocks ES modules, so feedback never mounts.
+Self-hosted CSP: add `connect-src https://api.fireworks.ai` (Pages cannot set
+CSP headers; the shim covers only COOP/COEP).
 
 ## License
 
-MIT License — see the `LICENSE` file for details.
+MIT — see [`LICENSE`](LICENSE).

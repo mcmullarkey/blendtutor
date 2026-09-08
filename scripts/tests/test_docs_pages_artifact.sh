@@ -1,49 +1,56 @@
 #!/usr/bin/env bash
-# Executable spec for issue #152 — deploy demo-book + demo-standalone to the
-# GitHub Pages artifact (/demo-book/ + /demo/) with a root .nojekyll.
+# Executable spec for the GitHub Pages artifact contract — demo-book + evals
+# assembly with a root .nojekyll (originally issue #152; evals added by #199;
+# /Users/ pin by #215; demo-standalone + verify-live removed by #227).
 #
-# Verifies the 11-clause compound predicate from AC-2:
+# Verifies the compound predicate:
 #   1. build job block has quarto setup (quarto-dev/quarto-actions/setup@v2)
-#      — docs.yml has no quarto setup today, so a clean runner render fails
+#      — a clean runner has no quarto, so the render step would fail without it
 #   2. build job renders demo-book (quarto render demo-book --to html)
-#   3. build job renders demo-standalone (quarto render demo-standalone --to html)
-#   4. scripts/fix-demo-coi-scope.sh demo-standalone runs AFTER the standalone
-#      render step and BEFORE the artifact-copy steps + upload (line-order pin)
-#   5. demo-book assembled via DOT-COPY: cp -R demo-book/_output/. — a bare cp
+#   3. demo-standalone is FULLY ABSENT from docs.yml (#227): no
+#      demo-standalone render/assemble step, no fix-demo-coi-scope step, no
+#      verify-live job, no pages-live reference anywhere in the workflow
+#   4. demo-book assembled via DOT-COPY: cp -R demo-book/_output/. — a bare cp
 #      would create a demo-book/_output/ layer (demo-book/_quarto.yml:3 pins
 #      output-dir: _output) and /demo-book/ would 404
-#   6. demo-standalone assembled SELECTIVELY into /demo/: index.html +
-#      index_files/ + coi-serviceworker.js only — no .qmd / _quarto.yml /
-#      _extensions/ leak into the public artifact
-#   7. explicit workflow step creates docs/book/book/.nojekyll at artifact ROOT
+#   5. explicit workflow step creates docs/book/book/.nojekyll at artifact ROOT
 #      (must not rely on the local untracked file)
-#   8. ALL new steps appear BEFORE actions/upload-pages-artifact@v5; NO || true,
-#      NO continue-on-error: true; render/copy steps in the build job block
-#      only, NOT the deploy job block (deploy has no checkout/quarto)
-#   9. scripts/check-docs.sh mirrors the new steps (mirror contract) and its
+#   6. ordering: setup → demo-book render → dot-copy → evals guard → .nojekyll
+#      → upload; NO || true, NO continue-on-error: true; render/copy steps in
+#      the build job block only, NOT the deploy job block (deploy has no
+#      checkout/quarto)
+#   7. scripts/check-docs.sh mirrors the build steps (mirror contract) and its
 #      render/assemble/assert section enforces the assembled-layout predicates
-#      (clauses 9-10 asserted by Phase 2's end-to-end check-docs.sh run; the
-#      structural greps here pin the mirror contract)
-#  10. existing artifact survives (mdBook index.html, api/, examples/) — no
+#      (asserted by Phase 2's end-to-end check-docs.sh run; the structural
+#      greps here pin the mirror contract). #227 lockstep: check-docs.sh
+#      contains no demo-standalone legs either.
+#   8. existing artifact survives (mdBook index.html, api/, examples/) — no
 #      rm -rf docs/book/book/* clobber (asserted by check-docs.sh Phase 2)
-#  11. ci.yml quarto-render job runs this test (awk job-block pin, not file-wide)
+#   9. ci.yml quarto-render job runs this test (awk job-block pin, not
+#      file-wide) and runs NO deleted test: test_demo_standalone_render.sh and
+#      test_verify_live_wiring.sh were removed with their subject (#227)
+#  10. #227 deletion pins: demo-standalone/, scripts/fix-demo-coi-scope.sh,
+#      scripts/tests/test_demo_standalone_render.sh,
+#      scripts/tests/test_verify_live_wiring.sh, and the rodney pages-live
+#      suite (sole consumer was the removed verify-live job — deleted, not
+#      repointed) are all absent from the tree
 #
-# AC-6 of smevals-eval-report (#199) adds a 12th concern — evals publishing:
-#  12. build job gains a guarded evals assemble step: if/then/fi guard with the
+# Evals publishing (AC-6 of smevals-eval-report, #199; /Users/ pin #215):
+#  11. build job gains a guarded evals assemble step: if/then/fi guard with the
 #      literal `if [ -d docs/evals ]` AND the `&&` shorthand `[ -d docs/evals ]
 #      &&` ABSENT anywhere in the workflow (Actions runs steps under
 #      bash -eo pipefail — a trailing && chain exits 1 when the dir is missing,
 #      reddening CI before AC-5 commits any report)
-#  13. within the step, line order is guard < `rm -rf docs/book/book/evals` <
+#  12. within the step, line order is guard < `rm -rf docs/book/book/evals` <
 #      `mkdir -p docs/book/book/evals` < literal DOT-COPY `cp -R docs/evals/.
 #      docs/book/book/evals/` (trailing /. — a bare cp double-nests to
 #      /evals/evals/<lesson>/ → 404); mkdir INSIDE the guard (no empty /evals/
 #      nest published pre-AC-5); step before .nojekyll and before upload
-#  14. deploy job block free of `evals`/`docs/evals` needles (deploy has no
+#  13. deploy job block free of `evals`/`demo-book` needles (deploy has no
 #      checkout); check-docs.sh mirrors the guarded assemble + double-nest
 #      assert against $book_out; fixture sub-phase (Phase 3) proves the cp
 #      semantics (no double-nest) + the guard exits 0 when docs/evals absent
-#  15. AC-215 (#215): committed smevals evidence is portable — check-docs.sh
+#  14. AC-215 (#215): committed smevals evidence is portable — check-docs.sh
 #      fails closed on any /Users/ path under docs/evals/, and docs.yml's
 #      evals step enforces the same pin itself (docs.yml never runs
 #      check-docs.sh; without the workflow guard a polluted eval.json goes
@@ -52,24 +59,22 @@
 # Negative cases (from the spec):
 #   - quarto setup step missing → render fails on clean runner → clause 1
 #   - || true / continue-on-error: true → silent-failure deploy of a broken
-#     artifact → clause 8 refusal-arm pin
+#     artifact → clause 6 refusal-arm pin
 #   - cp -R demo-book/_output dst (no trailing /.) → extra _output/ layer →
-#     /demo-book/ 404 → clause 5 + check-docs demo-book/index.html existence
-#   - COI post-process skipped or run after copy → SW subdir scope → webR dead
-#     despite a green "coi present" grep → clause 4 order pin + check-docs
-#     exact ./coi-serviceworker.js src on the ASSEMBLED artifact
+#     /demo-book/ 404 → clause 4 + check-docs demo-book/index.html existence
 #   - .nojekyll omitted from workflow (relying on local untracked file) or
 #     nested path → Quarto *_files/ dirs Jekyll-filtered in branch mode →
-#     clause 7 step pin + check-docs root-existence assert
-#   - new steps placed AFTER upload → artifact uploaded without demos →
-#     clause 8 line-order pin
-#   - render/copy steps in deploy job (no checkout, no quarto) → clause 8
+#     clause 5 step pin + check-docs root-existence assert
+#   - demo-standalone wiring reintroduced (render/COI-fix/assemble step,
+#     verify-live job, deleted script/test/probe files) → clause 3/9/10
+#     absence pins
+#   - new steps placed AFTER upload → artifact uploaded without demo-book →
+#     clause 6 line-order pin
+#   - render/copy steps in deploy job (no checkout, no quarto) → clause 6
 #     build-job-block scoping + deploy-block absence assert
 #   - rm -rf docs/book/book/* during assembly → mdBook/rustdoc/examples
-#     clobbered → clause 10 survival asserts in check-docs.sh
-#   - demo-standalone copied wholesale → .qmd/_quarto.yml/_extensions/ leak →
-#     clause 6 selective-copy pin + check-docs no-_extensions/ assert
-#   - check-docs.sh not updated → mirror contract silently broken → clause 9
+#     clobbered → clause 8 survival asserts in check-docs.sh
+#   - check-docs.sh not updated → mirror contract silently broken → clause 7
 #     structural grep in Phase 1
 #
 # Usage: bash scripts/tests/test_docs_pages_artifact.sh
@@ -102,7 +107,7 @@ job_block() {
 }
 
 # Relative line number of the first occurrence of $2 in block $1 (empty if
-# none). Used for the clause-4/8 ordering pins within the build job block.
+# none). Used for the clause-6 ordering pins within the build job block.
 block_line() {
   grep -nF "$2" <<< "$1" | head -1 | cut -d: -f1 || true
 }
@@ -118,10 +123,7 @@ DEPLOY_BLOCK="$(job_block "$DOCS_FILE" deploy || true)"
 
 L_SETUP="$(block_line "$BUILD_BLOCK" 'quarto-dev/quarto-actions/setup@v2')"
 L_RENDER_BOOK="$(block_line "$BUILD_BLOCK" 'quarto render demo-book')"
-L_RENDER_SA="$(block_line "$BUILD_BLOCK" 'quarto render demo-standalone')"
-L_FIX="$(block_line "$BUILD_BLOCK" 'scripts/fix-demo-coi-scope.sh demo-standalone')"
 L_COPY_BOOK="$(block_line "$BUILD_BLOCK" 'demo-book/_output/.')"
-L_COPY_DEMO="$(block_line "$BUILD_BLOCK" 'cp demo-standalone/index.html')"
 L_NOJEKYLL="$(block_line "$BUILD_BLOCK" 'docs/book/book/.nojekyll')"
 L_UPLOAD="$(block_line "$BUILD_BLOCK" 'actions/upload-pages-artifact@v5')"
 L_EVALS_GUARD="$(block_line "$BUILD_BLOCK" 'if [ -d docs/evals ]')"
@@ -144,18 +146,12 @@ else
   ko "build job renders demo-book (quarto render demo-book --to html) — missing"
 fi
 
-# Clause 3 — build job renders demo-standalone.
-if [ -n "$L_RENDER_SA" ]; then
-  ok "build job renders demo-standalone (quarto render demo-standalone --to html)"
+# Clause 3 — demo-standalone fully absent from docs.yml (#227): no render
+# step, no COI-scope fix step, no /demo/ assemble step.
+if grep -qE 'demo-standalone|fix-demo-coi-scope' "$DOCS_FILE"; then
+  ko "docs.yml free of demo-standalone wiring — reference found"
 else
-  ko "build job renders demo-standalone (quarto render demo-standalone --to html) — missing"
-fi
-
-# Clause 4 — COI post-process present, after the standalone render, before copy.
-if [ -n "$L_FIX" ]; then
-  ok "COI post-process present (scripts/fix-demo-coi-scope.sh demo-standalone)"
-else
-  ko "COI post-process present (scripts/fix-demo-coi-scope.sh demo-standalone) — missing"
+  ok "docs.yml free of demo-standalone wiring (no render/COI-fix/assemble step)"
 fi
 
 # Clause 5 — dot-copy literal (trailing /.) for demo-book/_output.
@@ -165,21 +161,6 @@ else
   ko "demo-book DOT-COPY literal (cp -R demo-book/_output/. — no _output/ layer) — missing"
 fi
 
-# Clause 6 — selective demo copy: index.html + index_files/ + coi-serviceworker.js.
-SELECTIVE_OK=0
-for needle in \
-  'cp demo-standalone/index.html' \
-  'cp -R demo-standalone/index_files' \
-  'cp demo-standalone/coi-serviceworker.js' \
-  'docs/book/book/demo'; do
-  grep -qF "$needle" <<< "$BUILD_BLOCK" && SELECTIVE_OK=$((SELECTIVE_OK + 1))
-done
-if [ "$SELECTIVE_OK" -eq 4 ]; then
-  ok "selective demo copy (index.html + index_files/ + coi-serviceworker.js → /demo/)"
-else
-  ko "selective demo copy — only $SELECTIVE_OK/4 selective-copy commands found in build job"
-fi
-
 # Clause 7 — explicit .nojekyll step at artifact ROOT.
 if [ -n "$L_NOJEKYLL" ]; then
   ok ".nojekyll step at artifact root (touch docs/book/book/.nojekyll)"
@@ -187,25 +168,22 @@ else
   ko ".nojekyll step at artifact root (touch docs/book/book/.nojekyll) — missing"
 fi
 
-# Clause 8 — ordering: setup → demo-book render → demo-standalone render →
-# fix-coi → dot-copy demo-book → selective demo copy → .nojekyll → upload.
+# Clause 6 — ordering: setup → demo-book render → dot-copy → evals guard →
+# .nojekyll → upload.
 ORDER_OK=1
-for ln in "$L_SETUP" "$L_RENDER_BOOK" "$L_RENDER_SA" "$L_FIX" "$L_COPY_BOOK" \
-          "$L_COPY_DEMO" "$L_EVALS_GUARD" "$L_NOJEKYLL" "$L_UPLOAD"; do
+for ln in "$L_SETUP" "$L_RENDER_BOOK" "$L_COPY_BOOK" \
+          "$L_EVALS_GUARD" "$L_NOJEKYLL" "$L_UPLOAD"; do
   [ -n "$ln" ] || ORDER_OK=0
 done
 if [ "$ORDER_OK" -eq 1 ] \
     && [ "$L_SETUP" -lt "$L_RENDER_BOOK" ] \
-    && [ "$L_RENDER_BOOK" -lt "$L_RENDER_SA" ] \
-    && [ "$L_RENDER_SA" -lt "$L_FIX" ] \
-    && [ "$L_FIX" -lt "$L_COPY_BOOK" ] \
-    && [ "$L_COPY_BOOK" -lt "$L_COPY_DEMO" ] \
-    && [ "$L_COPY_DEMO" -lt "$L_EVALS_GUARD" ] \
+    && [ "$L_RENDER_BOOK" -lt "$L_COPY_BOOK" ] \
+    && [ "$L_COPY_BOOK" -lt "$L_EVALS_GUARD" ] \
     && [ "$L_EVALS_GUARD" -lt "$L_NOJEKYLL" ] \
     && [ "$L_NOJEKYLL" -lt "$L_UPLOAD" ]; then
-  ok "ordering: setup → renders → fix-coi → copies → evals guard → .nojekyll all BEFORE upload (clauses 4, 8)"
+  ok "ordering: setup → demo-book render → dot-copy → evals guard → .nojekyll all BEFORE upload (clause 6)"
 else
-  ko "ordering: all new steps BEFORE upload with fix-coi after render, before copy — setup=$L_SETUP render_book=$L_RENDER_BOOK render_sa=$L_RENDER_SA fix=$L_FIX copy_book=$L_COPY_BOOK copy_demo=$L_COPY_DEMO evals=$L_EVALS_GUARD nojekyll=$L_NOJEKYLL upload=$L_UPLOAD"
+  ko "ordering: all steps BEFORE upload — setup=$L_SETUP render_book=$L_RENDER_BOOK copy_book=$L_COPY_BOOK evals=$L_EVALS_GUARD nojekyll=$L_NOJEKYLL upload=$L_UPLOAD"
 fi
 
 # Clause 8 — refusal arms: no || true, no continue-on-error on any step.
@@ -273,9 +251,9 @@ else
   ok "no '|| true' on evals step"
 fi
 
-# Clause 8 — build-job-block scoping: no render/copy steps leak into deploy.
+# Clause 6 — build-job-block scoping: no render/copy steps leak into deploy.
 DEPLOY_LEAK=""
-for needle in 'quarto render' 'fix-demo-coi-scope' 'demo-book' 'demo-standalone' '.nojekyll' 'evals'; do
+for needle in 'quarto render' 'demo-book' '.nojekyll' 'evals'; do
   if grep -qF "$needle" <<< "$DEPLOY_BLOCK"; then
     DEPLOY_LEAK="$DEPLOY_LEAK $needle"
   fi
@@ -288,7 +266,7 @@ fi
 
 echo "== Phase 1: structural pins (ci.yml quarto-render job) =="
 
-# Clause 11 — ci.yml quarto-render job runs this test (awk job-block pin).
+# Clause 9 — ci.yml quarto-render job runs this test (awk job-block pin).
 QR_BLOCK="$(job_block "$CI_FILE" quarto-render || true)"
 if grep -qF 'scripts/tests/test_docs_pages_artifact.sh' <<< "$QR_BLOCK"; then
   ok "CI quarto-render job runs test_docs_pages_artifact.sh"
@@ -296,24 +274,30 @@ else
   ko "CI quarto-render job runs test_docs_pages_artifact.sh — not found in quarto-render job block"
 fi
 
+# Clause 9 — ci.yml runs NO deleted test: the standalone-demo render test and
+# the verify-live wiring test were removed with their subject (#227).
+for deleted in 'scripts/tests/test_demo_standalone_render.sh' \
+               'scripts/tests/test_verify_live_wiring.sh'; do
+  if grep -qF "$deleted" "$CI_FILE"; then
+    ko "ci.yml free of deleted test step: $deleted"
+  else
+    ok "ci.yml free of deleted test step: $deleted"
+  fi
+done
+
 echo "== Phase 1: structural pins (check-docs.sh mirror contract) =="
 
-# Clause 9 (structural half) — check-docs.sh mirrors the new build steps so
-# the local mirror cannot silently diverge from CI. AC-6 (#199) adds the three
-# evals needles (guard, dot-copy, double-nest assert) → 8 → 11. AC-215 adds
-# the /Users/ leak pin needle → 11 → 12. Phase 2 below SKIPs in CI's
-# quarto-render job (command -v quarto guard), so this mirror-contract grep is
-# the ONLY thing CI validates about check-docs.sh — a reverting AC-215 pin
-# must trip this needle or it slips through silently.
+# Clause 7 (structural half) — check-docs.sh mirrors the build steps so the
+# local mirror cannot silently diverge from CI. Originally 8 needles (#152),
+# grew to 12 with evals (#199) + the /Users/ pin (#215); #227 removed the five
+# demo-standalone needles → 7. Phase 2 below SKIPs in CI's quarto-render job
+# (command -v quarto guard), so this mirror-contract grep is the ONLY thing CI
+# validates about check-docs.sh — a reverting AC-215 pin must trip this needle
+# or it slips through silently.
 MIRROR_OK=0
 for needle in \
   'quarto render demo-book' \
-  'quarto render demo-standalone' \
-  'scripts/fix-demo-coi-scope.sh demo-standalone' \
   'demo-book/_output/.' \
-  'cp demo-standalone/index.html' \
-  'cp -R demo-standalone/index_files' \
-  'cp demo-standalone/coi-serviceworker.js' \
   '.nojekyll' \
   'if [ -d docs/evals ]' \
   'cp -R docs/evals/. "$book_out/evals/"' \
@@ -321,10 +305,63 @@ for needle in \
   'rg -l '\''/Users/'\'' docs/evals/'; do
   grep -qF "$needle" "$CHECK_DOCS" && MIRROR_OK=$((MIRROR_OK + 1))
 done
-if [ "$MIRROR_OK" -eq 12 ]; then
-  ok "check-docs.sh mirrors the build steps incl. guarded evals assemble + /Users/ pin (12/12 commands found)"
+if [ "$MIRROR_OK" -eq 7 ]; then
+  ok "check-docs.sh mirrors the build steps incl. guarded evals assemble + /Users/ pin (7/7 commands found)"
 else
-  ko "check-docs.sh mirrors the build steps — only $MIRROR_OK/12 commands found"
+  ko "check-docs.sh mirrors the build steps — only $MIRROR_OK/7 commands found"
+fi
+
+# Clause 7 (#227 lockstep) — check-docs.sh dropped the demo-standalone legs
+# (render, COI-scope fix, selective /demo/ copy + asserts) together with
+# docs.yml.
+if grep -qE 'demo-standalone|fix-demo-coi-scope' "$CHECK_DOCS"; then
+  ko "check-docs.sh free of demo-standalone legs — reference found"
+else
+  ok "check-docs.sh free of demo-standalone legs"
+fi
+
+# ---------------------------------------------------------------------------
+# Phase 1b — deletion pins (#227: demo-standalone + verify-live fully removed)
+# ---------------------------------------------------------------------------
+
+echo "== Phase 1b: deletion pins (#227) =="
+
+# Clause 10 — the demo-standalone surface is gone from the tree: source dir,
+# COI-scope script, its render test, the verify-live wiring test, and the
+# rodney pages-live suite (sole consumer was the removed verify-live job —
+# deleted, not repointed).
+for absent in \
+  "demo-standalone" \
+  "scripts/fix-demo-coi-scope.sh" \
+  "scripts/tests/test_demo_standalone_render.sh" \
+  "scripts/tests/test_verify_live_wiring.sh" \
+  "rodney-probes/pages-live.js" \
+  "rodney-probes/pages-live-core.js" \
+  "rodney-probes/pages-live-core.test.js" \
+  "rodney-probes/pages-live-structure.test.js"; do
+  if [ -e "$absent" ]; then
+    ko "#227 deletion: $absent still present"
+  else
+    ok "#227 deletion: $absent absent"
+  fi
+done
+
+# Clause 3 — verify-live job removed entirely (user decision: deleted, not
+# repointed). Job-block extraction returns empty when the job is gone; the
+# file-wide grep also catches stray comment references.
+VERIFY_BLOCK="$(job_block "$DOCS_FILE" verify-live || true)"
+if [ -z "$VERIFY_BLOCK" ] && ! grep -q 'verify-live' "$DOCS_FILE"; then
+  ok "docs.yml has no verify-live job"
+else
+  ko "docs.yml has no verify-live job — job block or reference remains"
+fi
+
+# Clause 3 — no pages-live reference anywhere in docs.yml (the deleted probe
+# suite must not be re-wired).
+if grep -q 'pages-live' "$DOCS_FILE"; then
+  ko "docs.yml free of pages-live references"
+else
+  ok "docs.yml free of pages-live references"
 fi
 
 # ---------------------------------------------------------------------------
@@ -333,22 +370,21 @@ fi
 
 echo "== Phase 2: local render + assemble + assert (check-docs.sh) =="
 
-# Clause 9-10 (assert half) live in check-docs.sh's render/assemble/assert
-# section: full local build (mdBook + rustdoc + examples + demo renders) then
-# assembled-layout asserts (demo-book/index.html not under _output/,
-# demo/index.html coi src exactly ./coi-serviceworker.js with no _extensions/,
-# shim byte-identical to vendored, root .nojekyll, existing artifact survives).
-# SKIP (exit 0) when any required tool is absent — CI's quarto-render job only
-# has quarto, so this phase is exercised locally and on dev machines.
+# Clause 7-8 (assert half) live in check-docs.sh's render/assemble/assert
+# section: full local build (mdBook + rustdoc + examples + demo-book render)
+# then assembled-layout asserts (demo-book/index.html not under _output/,
+# root .nojekyll, existing artifact survives). SKIP (exit 0) when any required
+# tool is absent — CI's quarto-render job only has quarto, so this phase is
+# exercised locally and on dev machines.
 if ! command -v quarto &>/dev/null || ! command -v mdbook &>/dev/null \
     || ! command -v cargo &>/dev/null; then
   echo "  SKIP: quarto/mdbook/cargo not all installed — Phase 2 skipped"
   echo "  (Phase 1 structural assertions are the CI-enforced half)"
 else
   if bash "$CHECK_DOCS"; then
-    ok "check-docs.sh renders + assembles + asserts the artifact layout (clauses 9-10)"
+    ok "check-docs.sh renders + assembles + asserts the artifact layout (clauses 7-8)"
   else
-    ko "check-docs.sh renders + assembles + asserts the artifact layout (clauses 9-10)"
+    ko "check-docs.sh renders + assembles + asserts the artifact layout (clauses 7-8)"
   fi
 fi
 

@@ -1,0 +1,71 @@
+== Phase 1: structural pins (docs.yml build job) ==
+  PASS: quarto setup in build job (quarto-dev/quarto-actions/setup@v2)
+  PASS: build job renders demo-book (quarto render demo-book --to html)
+  PASS: docs.yml free of demo-standalone wiring (no render/COI-fix/assemble step)
+  PASS: demo-book DOT-COPY literal (cp -R demo-book/_output/. — no _output/ layer)
+  PASS: .nojekyll step at artifact root (touch docs/book/book/.nojekyll)
+  PASS: ordering: setup → demo-book render → dot-copy → evals guard → .nojekyll all BEFORE upload (clause 6)
+  PASS: no '|| true' on build steps
+  PASS: no 'continue-on-error: true' on build steps
+  PASS: evals guard present (if [ -d docs/evals ])
+  PASS: no '&&' shorthand guard (if/then/fi only — CI green before AC-5)
+  PASS: evals step order: guard < rm < mkdir < dot-copy (clause 2, mkdir inside guard)
+  PASS: docs.yml evals step guards /Users/ leak (rg -l '/Users/' docs/evals/ | grep -q .)
+  PASS: no '|| true' on evals step
+  PASS: no render/copy steps in deploy job block
+== Phase 1: structural pins (ci.yml quarto-render job) ==
+  PASS: CI quarto-render job runs test_docs_pages_artifact.sh
+  PASS: ci.yml free of deleted test step: scripts/tests/test_demo_standalone_render.sh
+  PASS: ci.yml free of deleted test step: scripts/tests/test_verify_live_wiring.sh
+== Phase 1: structural pins (check-docs.sh mirror contract) ==
+  PASS: check-docs.sh mirrors the build steps incl. guarded evals assemble + /Users/ pin (7/7 commands found)
+  PASS: check-docs.sh free of demo-standalone legs
+== Phase 1b: deletion pins (#227) ==
+  PASS: #227 deletion: demo-standalone absent
+  PASS: #227 deletion: scripts/fix-demo-coi-scope.sh absent
+  PASS: #227 deletion: scripts/tests/test_demo_standalone_render.sh absent
+  PASS: #227 deletion: scripts/tests/test_verify_live_wiring.sh absent
+  PASS: #227 deletion: rodney-probes/pages-live.js absent
+  PASS: #227 deletion: rodney-probes/pages-live-core.js absent
+  PASS: #227 deletion: rodney-probes/pages-live-core.test.js absent
+  PASS: #227 deletion: rodney-probes/pages-live-structure.test.js absent
+  PASS: docs.yml has no verify-live job
+  PASS: docs.yml free of pages-live references
+== Phase 2: local render + assemble + assert (check-docs.sh) ==
+docs: building API reference (rustdoc, -D warnings) …
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.12s
+   Generated /Users/carbonite/Documents/coding/portfolio/worktree-issue-227/target/doc/blendtutor/index.html and 1 other file
+docs: building narrative site (mdBook) …
+ INFO Book building has started
+ INFO Running the html backend
+ INFO HTML book written to `/Users/carbonite/Documents/coding/portfolio/worktree-issue-227/docs/book/book`
+docs: assembling merged site (docs/book/book + /api) …
+docs: building example sites (webr + pyodide) …
+    Finished `release` profile [optimized] target(s) in 1.44s
+     Running `target/release/blendtutor build examples/write-less-code-r --target webr -o docs/book/book/examples/r`
+built 5 lesson(s) for webr into docs/book/book/examples/r
+    Finished `release` profile [optimized] target(s) in 0.79s
+     Running `target/release/blendtutor build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python`
+built 5 lesson(s) for pyodide into docs/book/book/examples/python
+docs: rendering demo book (quarto) and assembling /demo-book/ …
+[1m[34m[1/4] index.qmd[39m[22m
+[1m[34m[2/4] api-key.qmd[39m[22m
+[1m[34m[3/4] r-exercises.qmd[39m[22m
+[1m[34m[4/4] python-exercises.qmd[39m[22m
+
+Output created: _output/index.html
+
+docs: verifying failure propagation (missing course path) …
+docs: OK — merged site at docs/book/book (book at /, API at /api, examples at /examples/{r,python}, demo book at /demo-book/, evals at /evals/)
+  PASS: check-docs.sh renders + assembles + asserts the artifact layout (clauses 7-8)
+== Phase 3: functional evals fixture sub-phase ==
+  PASS: fixture HTML lands at <scratch>/evals/evals-fixture/index.html, byte-identical (dot-copy)
+  PASS: committed lesson nests alongside fixture (<scratch>/evals/01_seed_data/evals/01_seed_data/eval.json)
+  PASS: no double-nest — <scratch>/evals/evals absent
+  PASS: guard exits 0 with docs/evals absent; no evals/ nest created (CI green pre-AC-5)
+  PASS: committed docs/evals preserved byte-identical after fixture sub-phase
+
+=========================================
+  Results: 35 passed, 0 failed
+=========================================
+All tests passed.

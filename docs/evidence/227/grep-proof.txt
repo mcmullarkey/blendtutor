@@ -1,0 +1,50 @@
+# grep proof — demo-standalone deletion (#227), captured 2026-09-08T21:38:54Z
+
+Scope: repo-wide, excluding .git/ target/ node_modules/.
+
+## LIVE WIRING — must be (and is) ZERO
+
+grep demo-standalone|fix-demo-coi|pages-live|verify-live|test_demo_standalone_render across
+.github/ scripts/ rodney-probes/ crates/ demo-book/ examples/ docs/book/ .gitignore README.md:
+
+(zero hits outside the pin test)
+
+The ONLY live-file hits are scripts/tests/test_docs_pages_artifact.sh itself — the absence
+pins MUST name the deleted paths to assert their absence (self-referential by design).
+
+## REMAINING REFERENCES — all historical records or plan text (not wiring)
+
+Full repo-wide listing (excluding .git/target/node_modules):
+./.opencode/plans/github-pages-deploy/decomposition.md
+./.opencode/plans/github-pages-deploy/AC-2.md
+./.opencode/plans/github-pages-deploy/AC-3.md
+./.opencode/plans/github-pages-deploy/AC-1.md
+./.opencode/plans/smevals-eval-report.md
+./.opencode/plans/user-friendliness/decomposition.md
+./.opencode/plans/user-friendliness/plan.md
+./.opencode/plans/user-friendliness/AC-5.md
+./.opencode/plans/smevals-eval-report/AC-6.md
+./docs/evidence/150/test-suite.log
+./docs/evidence/150/shim-listing.log
+./docs/evidence/227/grep-proof.txt
+./docs/evidence/153/README.md
+./docs/evidence/153/test-suite.log
+./docs/evidence/199/README.md
+./docs/evidence/199/test-suite.log
+./docs/evidence/199/check-docs-secondary.log
+./docs/evidence/152/check-docs-run.log
+./docs/evidence/152/docs-yml-steps.txt
+./docs/evidence/152/test-suite.log
+./docs/evidence/212/check-docs-e2e.log
+./docs/evidence/212/destructive-proof.log
+./docs/evidence/215/probe.log
+./docs/evidence/170/check-docs.log
+./docs/agent-notes/quarto-extension-lua.md
+./scripts/tests/test_docs_pages_artifact.sh
+
+Categories:
+1. docs/evidence/{150,152,153,156,157,170,182,199,212,215}/ — historical evidence logs, DO NOT TOUCH (issue constraint)
+2. .opencode/plans/{github-pages-deploy,byok-api-key,rigorous-exercises,smevals-eval-report}/ — completed-feature plan records
+3. .opencode/plans/user-friendliness/ — THIS feature's plan (AC-5 subject is demo-standalone itself)
+4. docs/agent-notes/quarto-extension-lua.md — dated historical lesson, annotated 'before its #227 removal'
+5. scripts/tests/test_docs_pages_artifact.sh — the absence pins (enforcement mechanism)

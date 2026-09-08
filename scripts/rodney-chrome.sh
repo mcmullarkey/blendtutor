@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # rodney-chrome.sh — strip Chrome flags that break cross-origin isolation, then
 # exec a real Chrome build. Installed into the rodney probe path via
-# ROD_CHROME_BIN (see rodney-probes/pages-live.js) so rodney launches Chrome
+# ROD_CHROME_BIN (see rodney-probes/key-page-probe.js) so rodney launches Chrome
 # THROUGH this wrapper and receives rodney's full argument list.
 #
 # WHY (see issue #153 research note):

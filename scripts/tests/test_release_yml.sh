@@ -28,6 +28,11 @@
 #     member by that exact path) → tar-root clause
 #   - checksums upload arg dropped from `gh release create` (Generate step
 #     still writes the file, but the release ships none) → create-step clause
+#   - Generate step's output filename mutated (create-step upload arg then
+#     matches nothing and fails loud at release time) → generate-step clause
+#   - raw github.ref_name in a filename (a workflow_dispatch from a
+#     slash-branch puts `/` into tar/artifact names; upload-artifact rejects
+#     `/` outright) → sanitization clause
 #   - tarball upload arg dropped from `gh release create` (release ships
 #     checksums only) → create-step clause
 #   - release name hardcoded / not the tag → gh release create clause
@@ -192,8 +197,9 @@ else
   ko "tar root layout: bare blendtutor binary at tarball root — '-C dist blendtutor' missing from build job"
 fi
 
-# Artifact-name contract (consumed by AC-2 — pinned HERE): the tarball literal.
-if grep -qF 'blendtutor-${{ github.ref_name }}-${{ matrix.target }}.tar.gz' <<< "$BUILD_BLOCK_CODE"; then
+# Artifact-name contract (consumed by AC-2 — pinned HERE): the tarball
+# literal, built from the sanitized TAG (see sanitization clause).
+if grep -qF 'blendtutor-${TAG}-${{ matrix.target }}.tar.gz' <<< "$BUILD_BLOCK_CODE"; then
   ok "tarball contract: blendtutor-<tag>-<target>.tar.gz (exact literal in build job)"
 else
   ko "tarball contract: blendtutor-<tag>-<target>.tar.gz — exact literal missing from build job"
@@ -273,10 +279,22 @@ fi
 # step block — the Generate step writing the file does not put it on the
 # release, so the literal must appear in the create step itself.
 if grep -qF 'sha256sum' <<< "$RELEASE_BLOCK_CODE" \
-    && grep -qF 'blendtutor-${{ github.ref_name }}-sha256sums.txt' <<< "$CREATE_STEP_CODE"; then
+    && grep -qF 'blendtutor-${TAG}-sha256sums.txt' <<< "$CREATE_STEP_CODE"; then
   ok "checksums contract: sha256sum generated + blendtutor-<tag>-sha256sums.txt uploaded (literal in gh-release-create step)"
 else
   ko "checksums contract: sha256sum → blendtutor-<tag>-sha256sums.txt — literal missing from gh-release-create step"
+fi
+
+# The Generate step's own output filename: the create-step upload arg
+# matching does not prove the file was WRITTEN under the contracted name —
+# the Generate step's filename could mutate while the upload arg still
+# matches nothing and fails loud at release time.
+GENERATE_STEP_BLOCK="$(step_block "$RELEASE_BLOCK" "Generate checksums (blendtutor-<tag>-sha256sums.txt)" || true)"
+GENERATE_STEP_CODE="$(grep -vE '^[[:space:]]*#' <<< "$GENERATE_STEP_BLOCK" || true)"
+if grep -qF 'blendtutor-${TAG}-sha256sums.txt' <<< "$GENERATE_STEP_CODE"; then
+  ok "checksums filename written by Generate step (blendtutor-<tag>-sha256sums.txt literal in generate step)"
+else
+  ko "checksums filename written by Generate step — blendtutor-<tag>-sha256sums.txt literal missing from generate step"
 fi
 
 # Release upload args: the create step must upload the tarballs too —
@@ -289,10 +307,24 @@ fi
 
 # Release name = tag (gh release create with the tag as name AND title).
 if grep -qF 'gh release create' <<< "$RELEASE_BLOCK_CODE" \
-    && grep -qF -e '--title "${{ github.ref_name }}"' <<< "$RELEASE_BLOCK_CODE"; then
+    && grep -qF -e '--title "${TAG}"' <<< "$RELEASE_BLOCK_CODE"; then
   ok "release name = tag (gh release create --title <tag>)"
 else
   ko "release name = tag — 'gh release create' or '--title <tag>' missing from release job"
+fi
+
+# ref_name sanitization: a workflow_dispatch from a slash-branch (e.g.
+# staging/rewrite-in-rust-lol) makes github.ref_name contain `/`, which
+# breaks tar -czf output paths and upload-artifact names (v4 rejects `/`).
+# Every filename use must go through TAG="${GITHUB_REF_NAME//\//-}" — the
+# upload step's name:/path: cannot shell-expand, so it reads the pack
+# step's output instead.
+if grep -qF 'TAG="${GITHUB_REF_NAME//\//-}"' <<< "$BUILD_BLOCK_CODE" \
+    && grep -qF 'steps.pack.outputs.tag' <<< "$BUILD_BLOCK_CODE" \
+    && grep -qF 'TAG="${GITHUB_REF_NAME//\//-}"' <<< "$RELEASE_BLOCK_CODE"; then
+  ok "ref_name sanitized for filenames (TAG=<sanitized> in build + release jobs; upload name via pack step output)"
+else
+  ko "ref_name sanitized for filenames — TAG sanitization or steps.pack.outputs.tag missing from build/release job"
 fi
 
 # ---------------------------------------------------------------------------

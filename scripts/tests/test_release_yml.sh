@@ -24,6 +24,12 @@
 #   - a matrix target dropped (AC-2 uname mapping dangles) → 4/4 target clause
 #   - tarball renamed (breaks AC-2 byte-match) → contract clause
 #   - binary staged from a non-target dir (host/target mixup) → binary-path clause
+#   - tar root layout changed (install.sh extracts the bare `blendtutor`
+#     member by that exact path) → tar-root clause
+#   - checksums upload arg dropped from `gh release create` (Generate step
+#     still writes the file, but the release ships none) → create-step clause
+#   - tarball upload arg dropped from `gh release create` (release ships
+#     checksums only) → create-step clause
 #   - release name hardcoded / not the tag → gh release create clause
 #   - release job runs on branch dispatch (creates a junk tag named after the
 #     branch) → gate clause
@@ -70,6 +76,15 @@ job_line() {
 top_block() {
   local file="$1" key="$2"
   awk -v key="^$key:" '$0 ~ key {f=1;next} f&&/^[a-z][a-z-]*:/{f=0} f' "$file"
+}
+
+# Extract one step block from within an already-extracted job block: starts
+# at the 6-space `- name:` header, ends at the next 6-space `- ` item (or end
+# of input). Literal substring match (index, not regex) so step names with
+# parens/braces cannot break the pattern.
+step_block() {
+  local content="$1" name="$2"
+  awk -v name="- name: $name" 'index($0, name) {f=1;next} f&&/^      - /{f=0} f' <<< "$content"
 }
 
 # ---------------------------------------------------------------------------
@@ -160,6 +175,15 @@ else
   ko "binary staged from target/<matrix.target>/release/blendtutor — missing"
 fi
 
+# Tar root layout (pinned HERE per the release.yml header contract): the
+# tarball contains the bare `blendtutor` binary at its root — install.sh
+# (AC-2) extracts the member by that exact path.
+if grep -qF -e '-C dist blendtutor' <<< "$BUILD_BLOCK_CODE"; then
+  ok "tar root layout: bare blendtutor binary at tarball root (-C dist blendtutor)"
+else
+  ko "tar root layout: bare blendtutor binary at tarball root — '-C dist blendtutor' missing from build job"
+fi
+
 # Artifact-name contract (consumed by AC-2 — pinned HERE): the tarball literal.
 if grep -qF 'blendtutor-${{ github.ref_name }}-${{ matrix.target }}.tar.gz' <<< "$BUILD_BLOCK_CODE"; then
   ok "tarball contract: blendtutor-<tag>-<target>.tar.gz (exact literal in build job)"
@@ -182,6 +206,12 @@ echo "== Phase 3: release job pins =="
 RELEASE_BLOCK="$(job_block "$RELEASE_FILE" release || true)"
 RELEASE_LINE="$(job_line "$RELEASE_FILE" release || true)"
 RELEASE_BLOCK_CODE="$(grep -vE '^[[:space:]]*#' <<< "$RELEASE_BLOCK" || true)"
+
+# The gh-release-create step block (upload args live here — a job-level grep
+# cannot tell the Generate step's output filename from the create step's
+# upload arg, so the upload arg is pinned in the step block itself).
+CREATE_STEP_BLOCK="$(step_block "$RELEASE_BLOCK" "Create GitHub release (name = tag)" || true)"
+CREATE_STEP_CODE="$(grep -vE '^[[:space:]]*#' <<< "$CREATE_STEP_BLOCK" || true)"
 
 # Line-order pin: release declared AFTER the build block ends.
 NEXT_AFTER_BUILD="$(awk -v bl="${BUILD_LINE:-0}" 'NR>bl && /^  [a-z][a-z-]*:$/{print NR; exit}' "$RELEASE_FILE" || true)"
@@ -217,12 +247,23 @@ else
   ko "release job downloads build artifacts — actions/download-artifact missing"
 fi
 
-# Checksums contract (consumed by AC-2 — pinned HERE).
+# Checksums contract (consumed by AC-2 — pinned HERE). Generation (sha256sum)
+# is pinned at job level; the upload arg is pinned in the gh-release-create
+# step block — the Generate step writing the file does not put it on the
+# release, so the literal must appear in the create step itself.
 if grep -qF 'sha256sum' <<< "$RELEASE_BLOCK_CODE" \
-    && grep -qF 'blendtutor-${{ github.ref_name }}-sha256sums.txt' <<< "$RELEASE_BLOCK_CODE"; then
-  ok "checksums contract: sha256sum → blendtutor-<tag>-sha256sums.txt (exact literal in release job)"
+    && grep -qF 'blendtutor-${{ github.ref_name }}-sha256sums.txt' <<< "$CREATE_STEP_CODE"; then
+  ok "checksums contract: sha256sum generated + blendtutor-<tag>-sha256sums.txt uploaded (literal in gh-release-create step)"
 else
-  ko "checksums contract: sha256sum → blendtutor-<tag>-sha256sums.txt — missing from release job"
+  ko "checksums contract: sha256sum → blendtutor-<tag>-sha256sums.txt — literal missing from gh-release-create step"
+fi
+
+# Release upload args: the create step must upload the tarballs too —
+# deleting the tarball glob would silently ship a checksums-only release.
+if grep -qF 'blendtutor-*.tar.gz' <<< "$CREATE_STEP_CODE"; then
+  ok "release uploads tarballs (blendtutor-*.tar.gz arg in gh-release-create step)"
+else
+  ko "release uploads tarballs — blendtutor-*.tar.gz arg missing from gh-release-create step"
 fi
 
 # Release name = tag (gh release create with the tag as name AND title).

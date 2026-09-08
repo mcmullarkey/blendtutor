@@ -1,7 +1,3 @@
-# Issue #223 — release.yml pin test (scripts/tests/test_release_yml.sh)
-# Captured after feat commit 6399e9a (final code state)
-# Mutation negative-control: global tarball-literal rename → clause FAIL (22/1) → reverted → 23/23
-$ bash scripts/tests/test_release_yml.sh
 == Phase 0: file presence ==
   PASS: .github/workflows/release.yml exists
 == Phase 1: trigger pins ==
@@ -13,6 +9,7 @@ $ bash scripts/tests/test_release_yml.sh
   PASS: toolchain pinned via rust-toolchain.toml (rustup show active-toolchain pattern)
   PASS: no dtolnay/rust-toolchain action (rust-toolchain.toml is the single source of truth)
   PASS: binary staged from target/<matrix.target>/release/blendtutor
+  PASS: tar root layout: bare blendtutor binary at tarball root (-C dist blendtutor)
   PASS: tarball contract: blendtutor-<tag>-<target>.tar.gz (exact literal in build job)
   PASS: build job uploads tarball artifact (actions/upload-artifact)
 == Phase 3: release job pins ==
@@ -20,7 +17,8 @@ $ bash scripts/tests/test_release_yml.sh
   PASS: release job needs build
   PASS: release job gated to v* tag refs (workflow_dispatch builds without publishing)
   PASS: release job downloads build artifacts (actions/download-artifact)
-  PASS: checksums contract: sha256sum → blendtutor-<tag>-sha256sums.txt (exact literal in release job)
+  PASS: checksums contract: sha256sum generated + blendtutor-<tag>-sha256sums.txt uploaded (literal in gh-release-create step)
+  PASS: release uploads tarballs (blendtutor-*.tar.gz arg in gh-release-create step)
   PASS: release name = tag (gh release create --title <tag>)
 == Phase 4: doctrine pins ==
   PASS: workflow-level permissions: contents: read (least privilege)
@@ -33,7 +31,7 @@ $ bash scripts/tests/test_release_yml.sh
   PASS: ci.yml check job runs test_release_yml.sh
 
 =========================================
-  Results: 23 passed, 0 failed
+  Results: 25 passed, 0 failed
 =========================================
 All tests passed.
 EXIT=0

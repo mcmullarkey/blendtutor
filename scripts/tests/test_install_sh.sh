@@ -20,9 +20,13 @@
 #      failure → nonzero (fail-closed, no || true).
 #   8. Tarball absent from the checksums file → fail closed.
 #   9. PATH hint: printed when the install dir is not on PATH; absent when
-#      it is.
+#      it is — including when the dir is given with a trailing slash and the
+#      PATH entry has none (no false hint).
 #  10. Hygiene pins: `#!/bin/sh` shebang, `set -eu`, no `$0` anywhere (the
 #      curl|sh contract), `mcmullarkey/blendtutor` repo literal present.
+#  11. Environment fail arms: HOME unset → nonzero + message naming
+#      BLENDTUTOR_INSTALL_DIR; no sha256 tool on PATH → nonzero + "no sha256
+#      tool" message (fail-closed before any install).
 #
 # Stub pattern follows scripts/tests/test_smevals_runner.sh: fake curl/uname
 # via PATH injection + counter file proving invocation. The stub curl serves
@@ -470,6 +474,26 @@ else
   ok "no PATH hint when install dir IS on PATH"
 fi
 
+# Trailing-slash install dir: BLENDTUTOR_INSTALL_DIR=/dir/ must match a PATH
+# entry of /dir (the case match normalizes the trailing slash — a false
+# "not on your PATH" hint here is the bug this clause pins).
+: > "$COUNTER"
+HINT_DIR3="$TMPDIR/hint-bin3"
+run_install "$OUT" "$ERR" \
+  "BLENDTUTOR_INSTALL_DIR=$HINT_DIR3/" \
+  "PATH=$STUB_DIR:$HINT_DIR3:/usr/bin:/bin"
+assert_eq "trailing-slash scenario exits 0" "0" "$INSTALL_STATUS"
+if [ -x "$HINT_DIR3/blendtutor" ]; then
+  ok "trailing-slash install dir still installs the binary"
+else
+  ko "trailing-slash install dir still installs the binary — got: $(ls -la "$HINT_DIR3" 2>&1 || echo dir-missing)"
+fi
+if grep -qF "not on your PATH" "$OUT" "$ERR"; then
+  ko "no false PATH hint when trailing-slash dir IS on PATH — got: $(cat "$OUT") $(cat "$ERR")"
+else
+  ok "no false PATH hint when trailing-slash install dir IS on PATH"
+fi
+
 # ---------------------------------------------------------------------------
 # Predicate 10 — hygiene pins (shebang, set -eu, no $0, repo literal).
 # ---------------------------------------------------------------------------
@@ -479,9 +503,9 @@ echo "== Predicate 10: hygiene pins =="
 assert_eq "shebang is #!/bin/sh (POSIX sh)" "#!/bin/sh" "$(sed -n '1p' "$INSTALL_SH")"
 
 if grep -qE '^set -eu$' "$INSTALL_SH"; then
-  ok "starts with set -eu (fail-closed hygiene)"
+  ok "contains set -eu (fail-closed hygiene)"
 else
-  ko "starts with set -eu — missing"
+  ko "contains set -eu — missing"
 fi
 
 if grep -qF '$0' "$INSTALL_SH"; then
@@ -494,6 +518,64 @@ if grep -qF 'mcmullarkey/blendtutor' "$INSTALL_SH"; then
   ok "repo literal mcmullarkey/blendtutor present"
 else
   ko "repo literal mcmullarkey/blendtutor present — missing"
+fi
+
+# ---------------------------------------------------------------------------
+# Predicate 11 — environment fail arms (fail-closed on a poisoned env).
+# ---------------------------------------------------------------------------
+
+echo "== Predicate 11: environment fail arms =="
+
+# Arm 1 — HOME unset (empty): neither BLENDTUTOR_INSTALL_DIR nor HOME
+# resolves, so install.sh must fail naming the override var. The run_install
+# wrapper sets HOME="$TEST_HOME" before "$@", so the "HOME=" override wins
+# (env applies later assignments last) and the elif arm sees an empty value.
+: > "$COUNTER"
+run_install "$OUT" "$ERR" "HOME="
+if [ "$INSTALL_STATUS" -ne 0 ]; then
+  ok "HOME unset → nonzero exit"
+else
+  ko "HOME unset → nonzero exit — installed with unknown dir!"
+fi
+if grep -qF 'BLENDTUTOR_INSTALL_DIR' "$ERR"; then
+  ok "HOME-unset message names BLENDTUTOR_INSTALL_DIR"
+else
+  ko "HOME-unset message names BLENDTUTOR_INSTALL_DIR — got: $(cat "$ERR")"
+fi
+
+# Arm 2 — no sha256 tool: PATH has the stubs plus a stripped coreutils dir
+# (everything from /usr/bin and /bin EXCEPT sha256sum/shasum), so every
+# pre-verify step succeeds and the failure isolates sha256_of's no-tool arm.
+# (PATH=$STUB_DIR alone would die earlier at mktemp — wrong arm.)
+NOTOOL_BIN="$TMPDIR/notool-bin"
+mkdir -p "$NOTOOL_BIN"
+for src_dir in /usr/bin /bin; do
+  [ -d "$src_dir" ] || continue
+  for src in "$src_dir"/*; do
+    [ -e "$src" ] || continue
+    b=${src##*/}
+    case "$b" in sha256sum|shasum) continue ;; esac
+    ln -sf "$src" "$NOTOOL_BIN/$b" 2>/dev/null || :
+  done
+done
+
+: > "$COUNTER"
+NOTOOL_INST="$TMPDIR/notool-inst"
+run_install "$OUT" "$ERR" "PATH=$STUB_DIR:$NOTOOL_BIN" "BLENDTUTOR_INSTALL_DIR=$NOTOOL_INST"
+if [ "$INSTALL_STATUS" -ne 0 ]; then
+  ok "no sha256 tool → nonzero exit"
+else
+  ko "no sha256 tool → nonzero exit — installed an unverified tarball!"
+fi
+if grep -qi 'sha256 tool' "$ERR"; then
+  ok "no-sha256-tool message names the missing tool"
+else
+  ko "no-sha256-tool message names the missing tool — got: $(cat "$ERR")"
+fi
+if [ ! -e "$NOTOOL_INST/blendtutor" ]; then
+  ok "nothing installed without a sha256 tool"
+else
+  ko "nothing installed without a sha256 tool — binary exists after failed verify"
 fi
 
 # ---------------------------------------------------------------------------

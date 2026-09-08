@@ -114,8 +114,8 @@ jobs:
       # Repo context for gh: gh resolves the repo from git remotes under cwd
       # or GH_REPO env — it ignores GITHUB_REPOSITORY. Without this checkout,
       # `gh release create` after `cd dist` fails "could not determine git
-      # repo" on a fresh runner (docs.yml verify-live checks out before gh
-      # usage — repo convention).
+      # repo" on a fresh runner. Checkout-before-gh-usage is repo convention
+      # (the original model, docs.yml verify-live, was removed in #233).
       - uses: actions/checkout@v5
 
       - name: Download all tarball artifacts

@@ -2,8 +2,9 @@
 # Executable spec for issue #223 — tag-triggered release workflow.
 #
 # Verifies the release.yml structural predicate via awk job-block extraction
-# (modeled on test_verify_live_wiring.sh Phase 1 — a file-wide grep cannot
-# tell WHICH job a key landed in, so every job-scoped pin extracts the block):
+# (repo convention for YAML pin tests — a file-wide grep cannot
+# tell WHICH job a key landed in, so every job-scoped pin extracts the block;
+# the original model, test_verify_live_wiring.sh, was removed in #233):
 #
 #   Trigger — `v*` tag push + workflow_dispatch (on-block extraction).
 #   Matrix — 4 targets: linux x86_64/aarch64, macOS x86_64/aarch64.
@@ -65,7 +66,7 @@ CI_FILE=".github/workflows/ci.yml"
 
 # ---------------------------------------------------------------------------
 # Helpers — job-block extraction + job header line numbers
-# (same awk patterns as test_verify_live_wiring.sh)
+# (repo-convention awk patterns for YAML pin tests)
 # ---------------------------------------------------------------------------
 
 # Extract one job block: starts at the 2-space-indented job header (skipped so
@@ -149,7 +150,7 @@ BUILD_BLOCK_CODE="$(grep -vE '^[[:space:]]*#' <<< "$BUILD_BLOCK" || true)"
 # Matrix — all 4 targets (AC-2's uname→target mapping depends on each one).
 TARGETS_OK=0
 for target in x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu x86_64-apple-darwin aarch64-apple-darwin; do
-  grep -qF "$target" <<< "$BUILD_BLOCK" && TARGETS_OK=$((TARGETS_OK + 1))
+  grep -qF "$target" <<< "$BUILD_BLOCK_CODE" && TARGETS_OK=$((TARGETS_OK + 1))
 done
 if [ "$TARGETS_OK" -eq 4 ]; then
   ok "matrix covers 4 targets: linux x86_64/aarch64 + macOS x86_64/aarch64 (4/4)"
@@ -265,8 +266,8 @@ fi
 # cwd — it ignores GITHUB_REPOSITORY entirely. The release job cd's into
 # dist and runs gh release create; on a fresh runner without a checkout (or
 # GH_REPO env) that fails "could not determine git repo" and the first v*
-# tag push publishes nothing. docs.yml verify-live checks out before gh
-# usage — repo convention.
+# tag push publishes nothing. Checkout-before-gh-usage is repo convention
+# (the original model, docs.yml verify-live, was removed in #233).
 if grep -qF 'actions/checkout' <<< "$RELEASE_BLOCK_CODE" \
     || grep -qF 'GH_REPO:' <<< "$RELEASE_BLOCK_CODE"; then
   ok "release job has repo context (actions/checkout or GH_REPO env) for gh release create"

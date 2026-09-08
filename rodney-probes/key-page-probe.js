@@ -59,7 +59,7 @@ const STUB_PORT = parseInt(process.env.STUB_PORT || "8081", 10);
 const SERVE_ROOT = path.join(WORKTREE, "demo-book", "_output");
 
 // P13 — route rodney's Chrome through the committed wrapper unless the caller
-// already overrode it (same pattern as pages-live.js:88-97).
+// already overrode it.
 const RODNEY_CHROME_WRAPPER = path.join(WORKTREE, "scripts", "rodney-chrome.sh");
 if (!process.env.ROD_CHROME_BIN) {
   if (!fs.existsSync(RODNEY_CHROME_WRAPPER)) {
@@ -614,7 +614,7 @@ function main() {
   }
 
   // P1 — exit-code gate: a PROBES_FAIL verdict MUST exit non-zero (the old
-  // feedback-probe.js defect exited 0; pages-live.js:701 is the reference).
+  // feedback-probe.js defect exited 0).
   process.exit(verdict === "PROBES_PASS" ? 0 : 1);
 }
 

@@ -76,43 +76,27 @@ jobs:
       - name: Build Python example site (Pyodide)
         run: cargo run --release -p blendtutor-cli -- build examples/write-less-code-python --target pyodide -o docs/book/book/examples/python
 
-      # AC-2 (#152) — deploy demo-book + demo-standalone into the Pages
-      # artifact at /demo-book/ + /demo/, mirroring the /api + /examples nesting.
+      # AC-2 (#152, updated by #227) — deploy demo-book into the Pages
+      # artifact at /demo-book/, mirroring the /api + /examples nesting.
       # Quarto is not installed on this runner until setup@v2 runs, and the
       # demo-book renders into demo-book/_output/ (demo-book/_quarto.yml pins
       # output-dir: _output), so the copy must DOT-COPY (trailing /.): a bare
       # cp -R demo-book/_output dst would add a demo-book/_output/ layer and
-      # /demo-book/ would 404. demo-standalone renders beside its source, so the
-      # copy is SELECTIVE (index.html + index_files/ + coi-serviceworker.js) to
-      # keep .qmd sources/_quarto.yml/_extensions/ out of the public artifact.
-      # The COI scope post-process runs after render, before copy, so the page
-      # serves ./coi-serviceworker.js at page root (SW scope covers the page).
+      # /demo-book/ would 404. (The standalone demo — render, COI-scope
+      # post-process, /demo/ assemble — was removed by #227.)
       - uses: quarto-dev/quarto-actions/setup@v2
 
       - name: Render demo-book (Quarto)
         run: quarto render demo-book --to html
-
-      - name: Render demo-standalone (Quarto)
-        run: quarto render demo-standalone --to html
-
-      - name: Fix COI service-worker scope (demo-standalone)
-        run: bash scripts/fix-demo-coi-scope.sh demo-standalone
 
       - name: Assemble demo-book into artifact (/demo-book/)
         run: |
           mkdir -p docs/book/book/demo-book
           cp -R demo-book/_output/. docs/book/book/demo-book/
 
-      - name: Assemble demo-standalone into artifact (/demo/)
-        run: |
-          mkdir -p docs/book/book/demo
-          cp demo-standalone/index.html docs/book/book/demo/
-          cp -R demo-standalone/index_files docs/book/book/demo/
-          cp demo-standalone/coi-serviceworker.js docs/book/book/demo/
-
       # AC-6 (#199) — assemble committed docs/evals/ into the Pages artifact at
-      # /evals/, mirroring the /api + /examples/{r,python} + /demo-book/ +
-      # /demo/ nesting. Guarded: before AC-5 (#198) lands there is no
+      # /evals/, mirroring the /api + /examples/{r,python} + /demo-book/
+      # nesting. Guarded: before AC-5 (#198) lands there is no
       # docs/evals/, and the if/then/fi guard keeps the job green (Actions runs
       # steps under `bash -eo pipefail` — an `&&` shorthand would exit 1 on a
       # missing dir). mkdir INSIDE the guard: no empty /evals/ nest published
@@ -148,12 +132,6 @@ jobs:
     name: deploy to Pages
     needs: build
     runs-on: ubuntu-latest
-    # Job-level outputs: the built site URL. deploy-pages publishes and emits
-    # the live URL via the step id; job-level outputs are the ONLY way to pass
-    # it across job boundaries (step outputs do NOT survive needs:), so the
-    # verify-live alarm job can build DEPLOYED_URL from it (AC-4).
-    outputs:
-      page_url: ${{ steps.deployment.outputs.page_url }}
     # Job-level permissions replace the workflow defaults: the Pages deploy needs
     # the OIDC token write + pages write, and nothing else (it consumes the
     # artifact the build job uploaded; it does not check out the repo).
@@ -167,32 +145,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
-
-  # Post-deploy alarm — runs AC-3 probe against live URL; failure is NOT a gate
-  # (deploy already published).
-  verify-live:
-    name: verify live demo (AC-3 probe)
-    needs: deploy
-    runs-on: ubuntu-latest
-    # Probe wall-time ~4.5min (COI 30s + webR 120s + pyodide 60s); the alarm
-    # must outlive the probe so a slow-but-healthy site is not killed mid-run.
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      # uvx rodney (pinned rodney==0.4.0 in pages-live.js) requires uv.
-      - uses: astral-sh/setup-uv@v5
-
-      # Defensive node pin over the ubuntu-latest default.
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      # AC-3 probe against the LIVE URL: DEPLOYED_URL = Pages site root
-      # (needs.deploy.outputs.page_url, trailing slash) + demo/ nest. The
-      # harness (pages-live.js) sets ROD_CHROME_BIN to scripts/rodney-chrome.sh
-      # itself, so the committed wrapper strips rodney 0.4.0's isolation-
-      # breaking Chrome flags. No continue-on-error / || true / if: always():
-      # a probe failure FAILS this job — that is the alarm.
-      - name: Verify live demo (rodney COI probe)
-        run: DEPLOYED_URL="${{ needs.deploy.outputs.page_url }}demo/" uv run node rodney-probes/pages-live.js live

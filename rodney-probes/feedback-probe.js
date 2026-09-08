@@ -29,7 +29,7 @@
  * feedback-probe.js mock-adapter approach is removed).
  *
  * WHAT NOT: NOT the key-page clauses (P6-P9 — key-page-probe.js owns them),
- *        NOT runtime execution (pages-live.js owns real R/Python), NOT
+ *        NOT runtime execution (real R/Python lesson runs), NOT
  *        modifying production assets (probes only READ the rendered output).
  *
  * Usage:
@@ -64,7 +64,7 @@ const STUB_PORT = parseInt(process.env.STUB_PORT || "8081", 10);
 const SERVE_ROOT = path.join(WORKTREE, "demo-book", "_output");
 
 // P13 — route rodney's Chrome through the committed wrapper unless the caller
-// already overrode it (same pattern as pages-live.js:88-97).
+// already overrode it.
 const RODNEY_CHROME_WRAPPER = path.join(WORKTREE, "scripts", "rodney-chrome.sh");
 if (!process.env.ROD_CHROME_BIN) {
   if (!fs.existsSync(RODNEY_CHROME_WRAPPER)) {
@@ -627,7 +627,7 @@ function main() {
   }
 
   // P1 — exit-code gate: PROBES_FAIL MUST exit non-zero (old feedback-probe.js
-  // exited 0 on failure; pages-live.js:701 is the reference pattern).
+  // exited 0 on failure).
   process.exit(verdict === "PROBES_PASS" ? 0 : 1);
 }
 

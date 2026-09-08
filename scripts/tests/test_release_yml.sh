@@ -33,6 +33,10 @@
 #   - release name hardcoded / not the tag → gh release create clause
 #   - release job runs on branch dispatch (creates a junk tag named after the
 #     branch) → gate clause
+#   - release job without repo context (gh resolves the repo from git
+#     remotes under cwd or GH_REPO env — NEVER from GITHUB_REPOSITORY — so
+#     `gh release create` after `cd dist` fails "could not determine git
+#     repo" on a fresh runner) → repo-context clause
 #   - contents: write at workflow level (build jobs get release powers) →
 #     least-privilege clauses
 #   - continue-on-error / || true / if: always() → doctrine clauses
@@ -117,10 +121,14 @@ else
   ko "workflow_dispatch trigger present — missing from on: block"
 fi
 
-if grep -qF 'tags:' <<< "$ON_BLOCK" && grep -qF 'v*' <<< "$ON_BLOCK"; then
+# One anchored pattern, not two independent greps: `tags:` and `v*` found
+# separately could come from different keys (e.g. `branches:` + a comment).
+# Anchored: the v* pattern must sit inside the tags: filter value itself
+# (quoted or unquoted, flow list or plain).
+if grep -qE 'tags:\s*\[?"?v\*' <<< "$ON_BLOCK"; then
   ok "tag trigger present: tags: v* (on-block pin)"
 else
-  ko "tag trigger present: tags: v* — missing tags: filter or v* pattern in on: block"
+  ko "tag trigger present: tags: v* — no v* pattern inside the tags: filter in on: block"
 fi
 
 # ---------------------------------------------------------------------------
@@ -245,6 +253,19 @@ if grep -qF 'actions/download-artifact' <<< "$RELEASE_BLOCK_CODE"; then
   ok "release job downloads build artifacts (actions/download-artifact)"
 else
   ko "release job downloads build artifacts — actions/download-artifact missing"
+fi
+
+# Repo context: gh resolves the repo from GH_REPO env or git remotes under
+# cwd — it ignores GITHUB_REPOSITORY entirely. The release job cd's into
+# dist and runs gh release create; on a fresh runner without a checkout (or
+# GH_REPO env) that fails "could not determine git repo" and the first v*
+# tag push publishes nothing. docs.yml verify-live checks out before gh
+# usage — repo convention.
+if grep -qF 'actions/checkout' <<< "$RELEASE_BLOCK_CODE" \
+    || grep -qF 'GH_REPO:' <<< "$RELEASE_BLOCK_CODE"; then
+  ok "release job has repo context (actions/checkout or GH_REPO env) for gh release create"
+else
+  ko "release job has repo context — actions/checkout or GH_REPO env missing from release job (gh cannot resolve the repo)"
 fi
 
 # Checksums contract (consumed by AC-2 — pinned HERE). Generation (sha256sum)

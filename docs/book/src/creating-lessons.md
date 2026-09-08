@@ -74,7 +74,7 @@ Nonzero exit when the lesson is invalid, so it drops cleanly into CI.
 
 ```bash
 blendtutor run lessons/seed-data.yaml --code submission.R
-echo '...' | blendtutor run lessons/seed-data.yaml
+echo 'survey_data <- data.frame(respondent_id = 1:5)' | blendtutor run lessons/seed-data.yaml  # --code omitted: reads stdin
 ```
 
 Executes the `checks`, then asks the LLM for a verdict; the exit code reflects the verdict. `--format json` for a structured report.
@@ -114,6 +114,8 @@ Grades every case with polarity AND a real paid LLM-judge call (driving the pinn
 If you recorded from a git worktree, scrub the checkout prefix before committing — `scripts/check-docs.sh` fails any `/Users/` path under `docs/evals/`:
 
 ```bash
+# find -exec, not docs/evals/**: globstar is absent on macOS bash 3.2 —
+# the glob would match nothing and the scrub would silently no-op
 find docs/evals \( -name 'eval.json' -o -name 'run.yaml' \) -exec \
   perl -pi -e 's{/Users/[^/]*/portfolio/(?:worktree-|blendtutor-)[^/]*/}{}g' {} +
 git add docs/evals

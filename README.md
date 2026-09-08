@@ -121,7 +121,7 @@ COI does not take effect in the book render (limitation above).
 Python exercises are fully interactive (Pyodide needs no COI) and every page ships
 a static fallback. R exercises do not run in book mode — editors mount but
 execution is unavailable. For runnable R, use the CLI-built example sites
-([Live example sites](#live-example-sites)) —
+([Live example sites](#deploy-to-github-pages)) —
 R exercises run interactively via webR there, under the shim's isolation.
 Serve the rendered book over HTTP — `file://` blocks the ES-module bootstrap
 (CORS), so editors never mount and you see static exercise content only:

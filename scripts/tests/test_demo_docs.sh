@@ -9,7 +9,8 @@
 #
 #   c1.  Live demo-book URL as exact literal with trailing slash, inside the
 #        demo section (`### Demo book` → `## BYOK`); the standalone /demo/ URL
-#        is pinned ABSENT (demo-standalone deleted by issue #227)
+#        is pinned ABSENT across the WHOLE README (demo-standalone deleted by
+#        issue #227 — a stale URL re-added anywhere must fail)
 #   c2.  Book capabilities: Python-interactive claim + literal `static fallback`
 #   c3.  Runnable-R capability: interactive R (webR) claim — post-#227 the
 #        demo section points runnable R at the CLI-built example sites
@@ -21,8 +22,8 @@
 #   c7.  No stale /examples/ conflation inside the demo section
 #   c8.  Extend-don't-duplicate: 'COI does not function in Quarto' == 1 AND
 #        'Book-mode limitation' == 1 (whole README)
-#   c9.  Region pin: live demo-book URL at line >= 105 and < 135 (whole
-#        README; issue #225 reslimmed the README 373→~148 lines, so the old
+#   c9.  Region pin: live demo-book URL at line >= 60 and < 150 (whole
+#        README; issue #225 reslimmed the README 383→149 lines, so the old
 #        288-342 region no longer exists)
 #   c10. ADR-0015 pointer in README + file exists
 #   c11. Distribution-doc pins survive (test_quarto_distribution.sh README
@@ -63,10 +64,10 @@ if printf '%s' "$DEMO_SECTION" | grep -qF 'https://mcmullarkey.github.io/blendtu
 else
   ko "live demo-book URL literal missing from demo section"
 fi
-if printf '%s' "$DEMO_SECTION" | grep -qF 'https://mcmullarkey.github.io/blendtutor/demo/'; then
-  ko "dead /demo/ URL still present in demo section (demo-standalone removed by #227)"
+if grep -qF 'https://mcmullarkey.github.io/blendtutor/demo/' "$README"; then
+  ko "dead /demo/ URL still present in README (demo-standalone removed by #227)"
 else
-  ok "dead /demo/ URL absent from demo section"
+  ok "dead /demo/ URL absent from whole README"
 fi
 
 # ---------------------------------------------------------------------------
@@ -167,15 +168,17 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# c9: Region pin — live demo-book URL at line >= 105 and < 135 (whole README).
-#     Issue #225 reslimmed the README (373 → ~148 lines); the old 288-342
-#     region encoded the pre-slim layout.
+# c9: Region pin — live demo-book URL at line >= 60 and < 150 (whole README).
+#     Issue #225 reslimmed the README (383 → 149 lines); the old 288-342
+#     region encoded the pre-slim layout. Band widened to 60-150 so
+#     legitimate edits above/below the demo section don't fail the pin;
+#     content pins (c1-c8) + the c12 ceiling carry the real contract.
 # ---------------------------------------------------------------------------
 echo "== c9: demo section region pin =="
 for url in 'https://mcmullarkey.github.io/blendtutor/demo-book/'; do
   line="$(grep -nF "$url" "$README" | cut -d: -f1 | head -n1 || true)"
-  if [ -n "$line" ] && [ "$line" -ge 105 ] && [ "$line" -lt 135 ]; then
-    ok "URL at line $line (105 <= line < 135): $url"
+  if [ -n "$line" ] && [ "$line" -ge 60 ] && [ "$line" -lt 150 ]; then
+    ok "URL at line $line (60 <= line < 150): $url"
   else
     ko "URL line pin failed for $url (got: ${line:-missing})"
   fi
@@ -228,9 +231,9 @@ fi
 
 # ---------------------------------------------------------------------------
 # c12: README concision ceiling (issue #225 AC-3) — whole-game tone bar.
-#      Target ~130 lines (from 373); hard ceiling 150 leaves headroom for
+#      Target ~130 lines (from 383); hard ceiling 150 leaves headroom for
 #      legitimate one-line additions while failing a regression to the
-#      373-line monolith.
+#      383-line monolith.
 # ---------------------------------------------------------------------------
 echo "== c12: README line ceiling =="
 README_LINES="$(wc -l < "$README" | tr -d ' ')"

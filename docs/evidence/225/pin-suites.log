@@ -4,7 +4,7 @@ README line count — after (this branch): 149
 === bash scripts/tests/test_demo_docs.sh ===
 == c1: live demo URLs ==
   PASS: live demo-book URL literal present (trailing slash)
-  PASS: dead /demo/ URL absent from demo section
+  PASS: dead /demo/ URL absent from whole README
 == c2: book capability mapping ==
   PASS: book states Python exercises run interactively
   PASS: book states literal 'static fallback'
@@ -24,7 +24,7 @@ README line count — after (this branch): 149
   PASS: 'COI does not function in Quarto' appears exactly once
   PASS: 'Book-mode limitation' appears exactly once
 == c9: demo section region pin ==
-  PASS: URL at line 118 (105 <= line < 135): https://mcmullarkey.github.io/blendtutor/demo-book/
+  PASS: URL at line 118 (60 <= line < 150): https://mcmullarkey.github.io/blendtutor/demo-book/
 == c10: ADR-0015 pointer ==
   PASS: README links docs/adr/0015-opt-in-coi-cross-origin.md
   PASS: ADR file exists (docs/adr/0015-opt-in-coi-cross-origin.md)

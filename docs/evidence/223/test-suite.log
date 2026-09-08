@@ -13,13 +13,16 @@
   PASS: tarball contract: blendtutor-<tag>-<target>.tar.gz (exact literal in build job)
   PASS: build job uploads tarball artifact (actions/upload-artifact)
 == Phase 3: release job pins ==
-  PASS: release job declared after build block (line 92 > build end 91)
+  PASS: release job declared after build block (line 103 > build end 102)
   PASS: release job needs build
   PASS: release job gated to v* tag refs (workflow_dispatch builds without publishing)
   PASS: release job downloads build artifacts (actions/download-artifact)
+  PASS: release job has repo context (actions/checkout or GH_REPO env) for gh release create
   PASS: checksums contract: sha256sum generated + blendtutor-<tag>-sha256sums.txt uploaded (literal in gh-release-create step)
+  PASS: checksums filename written by Generate step (blendtutor-<tag>-sha256sums.txt literal in generate step)
   PASS: release uploads tarballs (blendtutor-*.tar.gz arg in gh-release-create step)
   PASS: release name = tag (gh release create --title <tag>)
+  PASS: ref_name sanitized for filenames (TAG=<sanitized> in build + release jobs; upload name via pack step output)
 == Phase 4: doctrine pins ==
   PASS: workflow-level permissions: contents: read (least privilege)
   PASS: release job scoped contents: write (job-level, creates the release)
@@ -31,7 +34,7 @@
   PASS: ci.yml check job runs test_release_yml.sh
 
 =========================================
-  Results: 25 passed, 0 failed
+  Results: 28 passed, 0 failed
 =========================================
 All tests passed.
 EXIT=0

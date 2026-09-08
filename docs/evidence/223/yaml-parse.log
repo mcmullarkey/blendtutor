@@ -1,0 +1,10 @@
+# Issue #223 — YAML parse validation (pyyaml safe_load)
+# Re-captured after review cycle 2 fixes (checkout + ref_name sanitization), 2e99892
+.github/workflows/release.yml: YAML OK, jobs=['build', 'release'], triggers=['push', 'workflow_dispatch']
+.github/workflows/ci.yml: YAML OK, jobs=['check', 'quarto-render', 'asset-parity', 'quarto-distribution', 'rodney-probes'], triggers=['push', 'pull_request']
+release matrix targets: ['x86_64-unknown-linux-gnu', 'aarch64-unknown-linux-gnu', 'x86_64-apple-darwin', 'aarch64-apple-darwin']
+workflow permissions: {'contents': 'read'}
+release job permissions: {'contents': 'write'}
+release job first step: ['uses'] -> {'uses': 'actions/checkout@v5'}
+pack step id=pack, output export present: True
+EXIT=0

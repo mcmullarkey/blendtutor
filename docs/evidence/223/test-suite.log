@@ -1,0 +1,39 @@
+# Issue #223 — release.yml pin test (scripts/tests/test_release_yml.sh)
+# Captured after feat commit 6399e9a (final code state)
+# Mutation negative-control: global tarball-literal rename → clause FAIL (22/1) → reverted → 23/23
+$ bash scripts/tests/test_release_yml.sh
+== Phase 0: file presence ==
+  PASS: .github/workflows/release.yml exists
+== Phase 1: trigger pins ==
+  PASS: workflow_dispatch trigger present (on-block pin)
+  PASS: tag trigger present: tags: v* (on-block pin)
+== Phase 2: build job pins ==
+  PASS: matrix covers 4 targets: linux x86_64/aarch64 + macOS x86_64/aarch64 (4/4)
+  PASS: build runs cargo build --release --locked -p blendtutor-cli --target <matrix.target>
+  PASS: toolchain pinned via rust-toolchain.toml (rustup show active-toolchain pattern)
+  PASS: no dtolnay/rust-toolchain action (rust-toolchain.toml is the single source of truth)
+  PASS: binary staged from target/<matrix.target>/release/blendtutor
+  PASS: tarball contract: blendtutor-<tag>-<target>.tar.gz (exact literal in build job)
+  PASS: build job uploads tarball artifact (actions/upload-artifact)
+== Phase 3: release job pins ==
+  PASS: release job declared after build block (line 92 > build end 91)
+  PASS: release job needs build
+  PASS: release job gated to v* tag refs (workflow_dispatch builds without publishing)
+  PASS: release job downloads build artifacts (actions/download-artifact)
+  PASS: checksums contract: sha256sum → blendtutor-<tag>-sha256sums.txt (exact literal in release job)
+  PASS: release name = tag (gh release create --title <tag>)
+== Phase 4: doctrine pins ==
+  PASS: workflow-level permissions: contents: read (least privilege)
+  PASS: release job scoped contents: write (job-level, creates the release)
+  PASS: build job does NOT hold contents: write (least privilege)
+  PASS: no continue-on-error anywhere in release.yml
+  PASS: no || true anywhere in release.yml
+  PASS: no if: always() anywhere in release.yml
+== Phase 5: ci.yml wiring ==
+  PASS: ci.yml check job runs test_release_yml.sh
+
+=========================================
+  Results: 23 passed, 0 failed
+=========================================
+All tests passed.
+EXIT=0

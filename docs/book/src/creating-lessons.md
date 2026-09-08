@@ -81,7 +81,7 @@ Executes the `checks`, then asks the LLM for a verdict; the exit code reflects t
 
 ## Step 7 — Write an eval suite
 
-Each lesson pairs with a sibling `eval_<name>.yaml` — the sibling convention `eval` discovers — containing sample submissions and expected verdicts (abridged from `examples/write-less-code-r/eval_01_seed_data.yaml`):
+Each lesson pairs with a sibling `eval_<name>.yaml` — create it by hand next to the lesson (`new` writes only the lesson file; `eval` discovers the suite by the sibling convention) — containing sample submissions and expected verdicts (abridged from `examples/write-less-code-r/eval_01_seed_data.yaml`):
 
 ```yaml
 cases:
@@ -109,7 +109,7 @@ Replays the eval cases through the run pipeline and reports how often the grader
 blendtutor eval-report lessons/seed-data.yaml
 ```
 
-Grades every case with polarity AND a real paid LLM-judge call (driving the pinned [`smevals`](https://pypi.org/project/smevals/) runner via [`uv`](https://docs.astral.sh/uv/), which must be on PATH), producing `.smevals/` (ephemeral, never commit) and `docs/evals/<lesson>/` (the committed static report, published at `/evals/<lesson>/`). Exits 0 as long as the run recorded its cases — a low score is evidence, not a failure. Same API key as `eval`.
+Grades every case with polarity AND a real paid LLM-judge call (driving the pinned [`smevals`](https://pypi.org/project/smevals/) runner via [`uv`](https://docs.astral.sh/uv/), which must be on PATH), producing `.smevals/` (ephemeral, never commit) and `docs/evals/<lesson>/` (the committed static report, published at `/evals/<lesson>/`). Exits 0 as long as the run recorded its cases — a low score is evidence, not a failure. It fails only when a stage produced nothing usable. Same API key as `eval`.
 
 If you recorded from a git worktree, scrub the checkout prefix before committing — `scripts/check-docs.sh` fails any `/Users/` path under `docs/evals/`:
 

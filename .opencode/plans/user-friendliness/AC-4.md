@@ -17,7 +17,7 @@ status: complete
 - Test seam: existing docs build (`scripts/check-docs.sh`).
 
 ### Progress
-- [x] 2026-09-08T21:45Z — creating-lessons.md 469→144 lines (≤150 AC met); introduction.md trimmed 24→22; examples/api-reference/SUMMARY audited, no changes needed; whole-game/adr/agent-notes untouched. mdbook build + check-docs.sh + test_docs_pages_artifact.sh (24/24) green. Commit b997a55, PR #232.
+- [x] 2026-09-08T21:45Z — creating-lessons.md 469→146 lines (≤150 AC met; 144 at slim commit, +2 review-cycle-1: restored `find -exec` why-comment, concrete stdin example; +0 review-cycle-2: restored eval-file-by-hand guidance, Step 9 failure condition — in-line edits); introduction.md trimmed 24→22; examples/api-reference/SUMMARY audited, no changes needed; whole-game/adr/agent-notes untouched. mdbook build + check-docs.sh + test_docs_pages_artifact.sh (24/24) green. Commit b997a55, PR #232.
 
 ### Decision Log
 - Kept the 11-step structure verbatim so check-docs.sh's "scrub per creating-lessons.md Step 9" error-message pointer (check-docs.sh:104-110, docs.yml:131) stays accurate.

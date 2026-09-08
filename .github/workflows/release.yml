@@ -13,7 +13,10 @@ name: Release
 #
 # workflow_dispatch builds the same artifacts WITHOUT publishing a release
 # (the release job is gated to v* tag refs), so the pipeline can be exercised
-# from any branch without cutting a release.
+# from any branch without cutting a release. ref_name is sanitized to TAG
+# (slashes → dashes) everywhere it lands in a filename — a dispatch from a
+# slash-branch must not put `/` into tarball/artifact names (upload-artifact
+# rejects `/` outright).
 
 on:
   push:
@@ -77,17 +80,25 @@ jobs:
       # Pack the bare binary at the tarball root (install.sh extracts it to
       # the install dir). Staged from the target-triple dir so the packed
       # binary is always the matrix target's, never the host's.
+      #
+      # TAG sanitizes ref_name (slashes → dashes): a dispatch from a
+      # slash-branch would otherwise put `/` into the tarball name. The
+      # sanitized tag is exported as a step output for the upload step's
+      # name:/path: — `with:` expressions cannot shell-expand.
       - name: Pack tarball (blendtutor-<tag>-<target>.tar.gz)
+        id: pack
         run: |
+          TAG="${GITHUB_REF_NAME//\//-}"
           mkdir -p dist
           cp "target/${{ matrix.target }}/release/blendtutor" dist/blendtutor
-          tar -czf "blendtutor-${{ github.ref_name }}-${{ matrix.target }}.tar.gz" -C dist blendtutor
+          tar -czf "blendtutor-${TAG}-${{ matrix.target }}.tar.gz" -C dist blendtutor
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Upload tarball artifact
         uses: actions/upload-artifact@v4
         with:
-          name: blendtutor-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
-          path: blendtutor-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+          name: blendtutor-${{ steps.pack.outputs.tag }}-${{ matrix.target }}.tar.gz
+          path: blendtutor-${{ steps.pack.outputs.tag }}-${{ matrix.target }}.tar.gz
 
   release:
     name: publish release (name = tag)
@@ -115,16 +126,18 @@ jobs:
 
       - name: Generate checksums (blendtutor-<tag>-sha256sums.txt)
         run: |
+          TAG="${GITHUB_REF_NAME//\//-}"
           cd dist
-          sha256sum blendtutor-*.tar.gz > "blendtutor-${{ github.ref_name }}-sha256sums.txt"
+          sha256sum blendtutor-*.tar.gz > "blendtutor-${TAG}-sha256sums.txt"
 
       - name: Create GitHub release (name = tag)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          TAG="${GITHUB_REF_NAME//\//-}"
           cd dist
-          gh release create "${{ github.ref_name }}" \
-            --title "${{ github.ref_name }}" \
+          gh release create "${TAG}" \
+            --title "${TAG}" \
             --generate-notes \
             blendtutor-*.tar.gz \
-            "blendtutor-${{ github.ref_name }}-sha256sums.txt"
+            "blendtutor-${TAG}-sha256sums.txt"

@@ -34,6 +34,7 @@ status: complete
 - README untouched (user decision — demo-link swap deferred to #225 to avoid README race with parallel AC-3 work). test_quarto_distribution.sh README pins verified still green (91/91).
 - No ADR: pure deletion + re-pointing, no new interface/boundary (issue Design Intent: "Prior art: none").
 - Absence pins grep for the literal tokens in docs.yml/check-docs.sh — explanatory comments in those files reworded to avoid the tokens so the pins stay meaningful (zero-occurrence contract).
+- 2026-09-08 — review cycle 1 carryover: scripts/tests/test_demo_docs.sh c1/c3/c9 pins the deleted /demo/ URL + standalone capability claims (manual-run suite, not CI-wired). MUST update in lockstep with issue #225's README demo-link swap — otherwise stale spec silently pins a dead URL. (grep-proof.txt listing nit — 3 missing historical paths in docs/evidence/227/grep-proof.txt — noted, non-blocking, no fix scheduled.)
 
 ### Surprises & Discoveries
 - The issue's blast radius missed scripts/tests/test_verify_live_wiring.sh (#156) — it pins the verify-live job and the pages-live wiring, so deleting verify-live without it would redden CI. Deleted it + its ci.yml step in the same change.

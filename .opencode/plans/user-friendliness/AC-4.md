@@ -25,6 +25,7 @@ status: complete
 - Field-level semantics linked to rustdoc (Lesson, Exercise, Manifest, ManifestEntry, EvalSuite) per "link, don't inline".
 - Prose written as single long lines (not 72-col wrapped like whole-game.md) — the ≤150 hard AC wins over wrap style; 10 lines >200 chars.
 - Kept the Step 9 worktree-path scrub recipe verbatim: it has no other home (whole-game.md only notes the repo-relative lesson field) and check-docs.sh's /Users/ leak error points here.
+- 2026-09-08 — review cycle 3 carryover (clean pass, optional polish NOT applied): (1) Step 4 append "Verify with `blendtutor list .`" — hand-edit manifest verification command, deleted with no home; (2) prerequisites line: "run, eval, and eval-report call the provider" (eval-report omitted); (3) line-counts.md evidence logs predate cycle-1/2 commits (facts true). All three are one-line doc edits if a future pass wants them.
 
 ### Surprises & Discoveries
 - check-docs.sh:261 greps the BUILT creating-lessons.html for 'export-quarto' — any rewrite must keep that string; verified present (3×) in built HTML.

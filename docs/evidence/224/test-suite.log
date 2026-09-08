@@ -43,13 +43,22 @@
   PASS: PATH hint printed when install dir not on PATH
   PASS: on-PATH scenario exits 0 (got: 0)
   PASS: no PATH hint when install dir IS on PATH
+  PASS: trailing-slash scenario exits 0 (got: 0)
+  PASS: trailing-slash install dir still installs the binary
+  PASS: no false PATH hint when trailing-slash install dir IS on PATH
 == Predicate 10: hygiene pins ==
   PASS: shebang is #!/bin/sh (POSIX sh) (got: #!/bin/sh)
-  PASS: starts with set -eu (fail-closed hygiene)
+  PASS: contains set -eu (fail-closed hygiene)
   PASS: no $0 anywhere (curl|sh contract)
   PASS: repo literal mcmullarkey/blendtutor present
+== Predicate 11: environment fail arms ==
+  PASS: HOME unset → nonzero exit
+  PASS: HOME-unset message names BLENDTUTOR_INSTALL_DIR
+  PASS: no sha256 tool → nonzero exit
+  PASS: no-sha256-tool message names the missing tool
+  PASS: nothing installed without a sha256 tool
 
 =========================================
-  Results: 39 passed, 0 failed
+  Results: 47 passed, 0 failed
 =========================================
 All tests passed.

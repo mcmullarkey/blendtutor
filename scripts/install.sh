@@ -40,6 +40,11 @@ else
   fail "cannot determine install dir: set BLENDTUTOR_INSTALL_DIR (HOME is unset)"
 fi
 
+# Strip a trailing slash so the PATH-hint case match doesn't false-positive
+# (BLENDTUTOR_INSTALL_DIR=/opt/tools/ must match PATH entry /opt/tools) and
+# installed-path messages don't double-slash.
+INSTALL_DIR="${INSTALL_DIR%/}"
+
 # --- OS/arch → release target triple (release.yml 4-target matrix) ----------
 
 os_name=$(uname -s)

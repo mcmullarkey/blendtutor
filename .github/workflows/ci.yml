@@ -75,6 +75,15 @@ jobs:
       - name: Release workflow test
         run: bash scripts/tests/test_release_yml.sh
 
+      # Issue #224 — install.sh (uv-style curl|sh installer): OS/arch →
+      # target-triple mapping (4-target matrix), latest-release resolution,
+      # tarball + checksums fetch byte-matching the release.yml contract,
+      # fail-closed SHA256 verification, ~/.local/bin install
+      # (BLENDTUTOR_INSTALL_DIR override), PATH hint. Stub-based shell BDD —
+      # fake curl/uname via PATH injection; zero network.
+      - name: install.sh test
+        run: bash scripts/tests/test_install_sh.sh
+
   quarto-render:
     name: quarto render
     runs-on: ubuntu-latest

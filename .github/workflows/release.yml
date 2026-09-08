@@ -1,0 +1,123 @@
+name: Release
+
+# Tag-triggered release build (issue #223). A push of a `v*` tag builds the
+# CLI binary for the 4-target matrix (linux x86_64/aarch64, macOS x86_64/
+# aarch64), packs each binary into a tarball, and publishes a GitHub release
+# whose name is the tag, carrying the per-target tarballs plus one checksum
+# file.
+#
+# Artifact-name contract (consumed by scripts/install.sh, AC-2 — pinned
+# HERE; the tarball contains the bare `blendtutor` binary at its root):
+#   blendtutor-<tag>-<target>.tar.gz   (one per matrix target)
+#   blendtutor-<tag>-sha256sums.txt    (sha256 of every tarball)
+#
+# workflow_dispatch builds the same artifacts WITHOUT publishing a release
+# (the release job is gated to v* tag refs), so the pipeline can be exercised
+# from any branch without cutting a release.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# Least privilege at the workflow level: read-only by default. The only write
+# grant (contents, to create the GitHub release) belongs solely to the release
+# job and is scoped there, mirroring docs.yml's deploy-job scoping.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # rust-toolchain.toml is the single source of truth for the toolchain
+      # (channel + components); rustup installs it on first cargo use. See
+      # ci.yml — no toolchain version is pinned in this file.
+      - name: Install pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Add cross-compile target
+        run: rustup target add ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # aarch64-linux is cross-compiled from the x86_64 ubuntu runner. The
+      # workspace is pure Rust (rustls, no openssl-sys), so a cross binutils
+      # linker is the only extra tool needed. The linker env var below is
+      # unused by the other three targets.
+      - name: Install aarch64 cross-linker (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build release binary
+        run: cargo build --release --locked -p blendtutor-cli --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+      # Pack the bare binary at the tarball root (install.sh extracts it to
+      # the install dir). Staged from the target-triple dir so the packed
+      # binary is always the matrix target's, never the host's.
+      - name: Pack tarball (blendtutor-<tag>-<target>.tar.gz)
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/blendtutor" dist/blendtutor
+          tar -czf "blendtutor-${{ github.ref_name }}-${{ matrix.target }}.tar.gz" -C dist blendtutor
+
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blendtutor-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+          path: blendtutor-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+
+  release:
+    name: publish release (name = tag)
+    needs: build
+    # Tag refs only: a workflow_dispatch from a branch builds artifacts but
+    # skips publishing (gh release create would otherwise mint a junk tag
+    # named after the branch).
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all tarball artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums (blendtutor-<tag>-sha256sums.txt)
+        run: |
+          cd dist
+          sha256sum blendtutor-*.tar.gz > "blendtutor-${{ github.ref_name }}-sha256sums.txt"
+
+      - name: Create GitHub release (name = tag)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            blendtutor-*.tar.gz \
+            "blendtutor-${{ github.ref_name }}-sha256sums.txt"

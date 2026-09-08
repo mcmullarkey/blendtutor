@@ -66,6 +66,15 @@ jobs:
       - name: smevals judge test
         run: python3 scripts/tests/test_judge_feedback.py
 
+      # Issue #223 — release.yml pin test: v* tag + workflow_dispatch trigger,
+      # 4-target matrix (linux/macOS x86_64/aarch64), artifact-name contract
+      # (blendtutor-<tag>-<target>.tar.gz + blendtutor-<tag>-sha256sums.txt,
+      # consumed by install.sh), release name = tag, least-privilege
+      # permissions, rust-toolchain.toml toolchain pin, no continue-on-error /
+      # || true / if: always(). awk job-block extraction, fail-closed.
+      - name: Release workflow test
+        run: bash scripts/tests/test_release_yml.sh
+
   quarto-render:
     name: quarto render
     runs-on: ubuntu-latest

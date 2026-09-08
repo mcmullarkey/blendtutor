@@ -1,5 +1,6 @@
 == Phase 0: file presence ==
   PASS: scripts/install.sh exists
+  PASS: wired into ci.yml (check job runs this test)
 == Predicate 1: happy path (linux x86_64, default install dir) ==
   PASS: install.sh exits 0 (got: 0)
   PASS: binary installed executable at $HOME/.local/bin/blendtutor
@@ -52,13 +53,18 @@
   PASS: no $0 anywhere (curl|sh contract)
   PASS: repo literal mcmullarkey/blendtutor present
 == Predicate 11: environment fail arms ==
-  PASS: HOME unset → nonzero exit
-  PASS: HOME-unset message names BLENDTUTOR_INSTALL_DIR
+  PASS: HOME unset/empty → nonzero exit
+  PASS: HOME-unset/empty message names BLENDTUTOR_INSTALL_DIR
   PASS: no sha256 tool → nonzero exit
   PASS: no-sha256-tool message names the missing tool
   PASS: nothing installed without a sha256 tool
+== Predicate 12: recovery arms ==
+  PASS: shasum-only PATH (no sha256sum) exits 0 (fallback) (got: 0)
+  PASS: binary installed via shasum fallback
+  PASS: HOME empty + BLENDTUTOR_INSTALL_DIR set exits 0 (got: 0)
+  PASS: binary installed to override dir despite empty HOME
 
 =========================================
-  Results: 47 passed, 0 failed
+  Results: 52 passed, 0 failed
 =========================================
 All tests passed.

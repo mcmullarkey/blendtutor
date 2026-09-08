@@ -4,22 +4,38 @@
 # executable bit, installed-binary execution, stdin-piped (curl|sh) mode.
 
 --- run 1: file mode (sh scripts/install.sh) ---
-$ env -i PATH=<stubbin>:/usr/bin:/bin HOME=/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.IUhx9lIesz/home BLENDTUTOR_INSTALL_DIR=/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.IUhx9lIesz/dest sh scripts/install.sh
-blendtutor v0.1.0 installed to /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.IUhx9lIesz/dest/blendtutor
+$ env -i PATH=<stubbin>:/usr/bin:/bin HOME=/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/home BLENDTUTOR_INSTALL_DIR=/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest sh scripts/install.sh
+
+note: /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest is not on your PATH.
+add it to your shell profile, e.g.:
+  export PATH="/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest:$PATH"
+blendtutor v0.1.0 installed to /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest/blendtutor
 # exit status: 0
 # installed binary runs:
-$ /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.IUhx9lIesz/dest/blendtutor
+$ /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest/blendtutor
 blendtutor-stub-binary v0.1.0
 
 --- run 2: stdin-piped mode (cat scripts/install.sh | sh) — the curl|sh shape ---
-$ env -i ... sh < scripts/install.sh   # stdin = the script itself
-blendtutor v0.1.0 installed to /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.IUhx9lIesz/dest/blendtutor
+$ env -i PATH=<stubbin>:/usr/bin:/bin HOME=/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/home BLENDTUTOR_INSTALL_DIR=/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest sh < scripts/install.sh   # stdin = the script itself
+
+note: /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest is not on your PATH.
+add it to your shell profile, e.g.:
+  export PATH="/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest:$PATH"
+blendtutor v0.1.0 installed to /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest/blendtutor
 # exit status: 0
 # installed binary runs:
 blendtutor-stub-binary v0.1.0
 
 --- run 3: checksum mismatch fails closed ---
-$ env -i ... sh scripts/install.sh   # tarball bytes no longer match checksums
+$ env -i PATH=<stubbin>:/usr/bin:/bin HOME=/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/home BLENDTUTOR_INSTALL_DIR=/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest-verify sh scripts/install.sh   # tarball bytes no longer match checksums; FRESH dest (runs 1/2 used /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest)
+checksum mismatch for blendtutor-v0.1.0-x86_64-unknown-linux-gnu.tar.gz:
+  expected: 72155b2538f0bc98562e49ba10af645e1d881da4a02f518df81ac9412de99247
+  actual:   cf04d718c0de7cd7407f90a6fe656de91589f41712bf117d8e62c60256e43afd
+error: checksum verification failed — refusing to install a corrupted tarball
 # exit status: 1 (nonzero = fail-closed)
 # dest contents after failed verify (must be empty):
+$ ls -la /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.hgFhK28Hph/dest-verify
+total 0
+drwxr-xr-x@ 2 carbonite  staff   64 Sep  8 17:15 .
+drwx------@ 8 carbonite  staff  256 Sep  8 17:15 ..
 # VERDICT: happy path installs + runs (file + stdin modes); mismatch fails closed — PASS

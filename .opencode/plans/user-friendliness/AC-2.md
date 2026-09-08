@@ -28,6 +28,7 @@ status: complete
 - [x] Review cycle 1 fixes (PR #234): env fail-arm coverage (P11, 5 clauses) + trailing-slash PATH-hint clause (P9, 3 clauses) + P10 relabel — committed d4b7052 (2026-09-08)
 - [x] install.sh trailing-slash normalization (review nit 4) — committed 7efbe13 (2026-09-08)
 - [x] README assets-requirement caveat + refreshed evidence (47/28/91 green) — committed 1cf952d (2026-09-08)
+- [x] Review cycle 2 fixes (PR #234, final batch): ci.yml self-wiring pin (P0) + recovery arms (P12: shasum fallback, HOME empty + override dir) + P11 HOME relabel + e2e-stubbed log ls-output re-capture + PR body counts — 52 clauses / 12 predicates, 52/28/91 green (2026-09-08)
 
 ### Decision Log
 - No ADR: install.sh consumes the asset contract release.yml already pins (and test_release_yml.sh enforces); no new interface or boundary introduced.
@@ -43,6 +44,7 @@ status: complete
 - The suite's own "nothing installed on checksum mismatch" clause initially failed against a CORRECT implementation — leftover binary from the happy-path scenario in the shared default dir. Fixed by giving the corrupt scenario its own BLENDTUTOR_INSTALL_DIR; test-ordering isolation matters in stateful shell suites.
 - Review cycle 1: the no-sha256-tool clause's "nothing installed" check initially watched $TEST_HOME/.local/bin — which the happy path (P1) had already populated. Same test-ordering isolation lesson resurfacing; gave the scenario its own BLENDTUTOR_INSTALL_DIR.
 - Review cycle 1: the review list's literal probe `PATH=$STUB_DIR` for the no-sha256-tool arm would have pinned the WRONG arm (mktemp fails first with "mktemp -d failed"). Env-dependent fail-arm probes need per-arm tool-availability analysis, not just a poisoned PATH.
+- Review cycle 2: the e2e-stubbed log's run 3 originally reused the dest dir from runs 1/2 — adding the requested `ls -la` output exposed the binary still present (leftover from happy-path runs), contradicting the "must be empty" claim. Re-captured with a FRESH dest for run 3; ls now shows "total 0". Same test-ordering isolation lesson, third resurface — stateful shell probes need per-scenario fresh state.
 
 ### Idempotence & Recovery
 - Safe retry: re-run builder on same branch; tests are idempotent

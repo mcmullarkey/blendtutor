@@ -24,9 +24,15 @@
 #      PATH entry has none (no false hint).
 #  10. Hygiene pins: `#!/bin/sh` shebang, `set -eu`, no `$0` anywhere (the
 #      curl|sh contract), `mcmullarkey/blendtutor` repo literal present.
-#  11. Environment fail arms: HOME unset → nonzero + message naming
+#  11. Environment fail arms: HOME unset/empty → nonzero + message naming
 #      BLENDTUTOR_INSTALL_DIR; no sha256 tool on PATH → nonzero + "no sha256
 #      tool" message (fail-closed before any install).
+#  12. Recovery arms: shasum-only PATH (sha256sum absent, shasum present) →
+#      install succeeds via the sha256_of fallback; HOME empty but
+#      BLENDTUTOR_INSTALL_DIR set → installs to the override dir.
+#  13. Self-wiring: ci.yml's check job invokes this test (a deleted step
+#      fails this suite instead of silently dropping coverage — sibling
+#      precedent: test_release_yml.sh Phase 5).
 #
 # Stub pattern follows scripts/tests/test_smevals_runner.sh: fake curl/uname
 # via PATH injection + counter file proving invocation. The stub curl serves
@@ -78,6 +84,16 @@ if [ ! -f "$INSTALL_SH" ]; then
   exit 1
 fi
 ok "$INSTALL_SH exists"
+
+# Self-wiring pin (sibling precedent: test_release_yml.sh Phase 5) — this
+# suite is invoked by ci.yml's check job; if that step is ever deleted, this
+# clause fails instead of the coverage silently dropping out of CI.
+CI_FILE=".github/workflows/ci.yml"
+if [ -f "$CI_FILE" ] && grep -qF 'bash scripts/tests/test_install_sh.sh' "$CI_FILE"; then
+  ok "wired into ci.yml (check job runs this test)"
+else
+  ko "wired into ci.yml — 'bash scripts/tests/test_install_sh.sh' not found in $CI_FILE"
+fi
 
 # ---------------------------------------------------------------------------
 # Setup: temp dir + stub curl/uname on PATH + canned release layout.
@@ -533,14 +549,14 @@ echo "== Predicate 11: environment fail arms =="
 : > "$COUNTER"
 run_install "$OUT" "$ERR" "HOME="
 if [ "$INSTALL_STATUS" -ne 0 ]; then
-  ok "HOME unset → nonzero exit"
+  ok "HOME unset/empty → nonzero exit"
 else
-  ko "HOME unset → nonzero exit — installed with unknown dir!"
+  ko "HOME unset/empty → nonzero exit — installed with unknown dir!"
 fi
 if grep -qF 'BLENDTUTOR_INSTALL_DIR' "$ERR"; then
-  ok "HOME-unset message names BLENDTUTOR_INSTALL_DIR"
+  ok "HOME-unset/empty message names BLENDTUTOR_INSTALL_DIR"
 else
-  ko "HOME-unset message names BLENDTUTOR_INSTALL_DIR — got: $(cat "$ERR")"
+  ko "HOME-unset/empty message names BLENDTUTOR_INSTALL_DIR — got: $(cat "$ERR")"
 fi
 
 # Arm 2 — no sha256 tool: PATH has the stubs plus a stripped coreutils dir
@@ -576,6 +592,53 @@ if [ ! -e "$NOTOOL_INST/blendtutor" ]; then
   ok "nothing installed without a sha256 tool"
 else
   ko "nothing installed without a sha256 tool — binary exists after failed verify"
+fi
+
+# ---------------------------------------------------------------------------
+# Predicate 12 — recovery arms (degraded env still installs).
+# ---------------------------------------------------------------------------
+
+echo "== Predicate 12: recovery arms =="
+
+# Arm 1 — shasum fallback: PATH has shasum but NOT sha256sum (same stripped-
+# coreutils symlink pattern as the no-tool arm, minus the shasum exclusion),
+# so sha256_of must fall back to shasum and the install succeeds. On macOS
+# hosts sha256sum is absent system-wide, so this doubles as the native path;
+# on Linux CI it exercises the actual fallback branch.
+SHASUM_ONLY_BIN="$TMPDIR/shasum-only-bin"
+mkdir -p "$SHASUM_ONLY_BIN"
+for src_dir in /usr/bin /bin; do
+  [ -d "$src_dir" ] || continue
+  for src in "$src_dir"/*; do
+    [ -e "$src" ] || continue
+    b=${src##*/}
+    case "$b" in sha256sum) continue ;; esac
+    ln -sf "$src" "$SHASUM_ONLY_BIN/$b" 2>/dev/null || :
+  done
+done
+
+: > "$COUNTER"
+SHASUM_INST="$TMPDIR/shasum-inst"
+run_install "$OUT" "$ERR" "PATH=$STUB_DIR:$SHASUM_ONLY_BIN" "BLENDTUTOR_INSTALL_DIR=$SHASUM_INST"
+assert_eq "shasum-only PATH (no sha256sum) exits 0 (fallback)" "0" "$INSTALL_STATUS"
+if [ -x "$SHASUM_INST/blendtutor" ]; then
+  ok "binary installed via shasum fallback"
+else
+  ko "binary installed via shasum fallback — got: $(ls -la "$SHASUM_INST" 2>&1 || echo dir-missing)"
+fi
+
+# Arm 2 — HOME empty but BLENDTUTOR_INSTALL_DIR set: the advertised recovery
+# path (install.sh checks the override var BEFORE HOME). The "HOME=" override
+# wins over the wrapper's HOME="$TEST_HOME" (env applies later assignments
+# last).
+: > "$COUNTER"
+NOHOME_INST="$TMPDIR/nohome-inst"
+run_install "$OUT" "$ERR" "HOME=" "BLENDTUTOR_INSTALL_DIR=$NOHOME_INST"
+assert_eq "HOME empty + BLENDTUTOR_INSTALL_DIR set exits 0" "0" "$INSTALL_STATUS"
+if [ -x "$NOHOME_INST/blendtutor" ]; then
+  ok "binary installed to override dir despite empty HOME"
+else
+  ko "binary installed to override dir despite empty HOME — got: $(ls -la "$NOHOME_INST" 2>&1 || echo dir-missing)"
 fi
 
 # ---------------------------------------------------------------------------

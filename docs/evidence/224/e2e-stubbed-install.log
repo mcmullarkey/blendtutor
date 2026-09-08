@@ -1,0 +1,25 @@
+# e2e-stubbed-install.log — full install flow vs a stubbed release layout
+# Stubbed: curl (serves a canned v0.1.0 release layout) + uname (linux x86_64).
+# REAL: tar, sha256sum, mktemp, checksum comparison, extraction, install,
+# executable bit, installed-binary execution, stdin-piped (curl|sh) mode.
+
+--- run 1: file mode (sh scripts/install.sh) ---
+$ env -i PATH=<stubbin>:/usr/bin:/bin HOME=/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.IUhx9lIesz/home BLENDTUTOR_INSTALL_DIR=/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.IUhx9lIesz/dest sh scripts/install.sh
+blendtutor v0.1.0 installed to /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.IUhx9lIesz/dest/blendtutor
+# exit status: 0
+# installed binary runs:
+$ /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.IUhx9lIesz/dest/blendtutor
+blendtutor-stub-binary v0.1.0
+
+--- run 2: stdin-piped mode (cat scripts/install.sh | sh) — the curl|sh shape ---
+$ env -i ... sh < scripts/install.sh   # stdin = the script itself
+blendtutor v0.1.0 installed to /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.IUhx9lIesz/dest/blendtutor
+# exit status: 0
+# installed binary runs:
+blendtutor-stub-binary v0.1.0
+
+--- run 3: checksum mismatch fails closed ---
+$ env -i ... sh scripts/install.sh   # tarball bytes no longer match checksums
+# exit status: 1 (nonzero = fail-closed)
+# dest contents after failed verify (must be empty):
+# VERDICT: happy path installs + runs (file + stdin modes); mismatch fails closed — PASS

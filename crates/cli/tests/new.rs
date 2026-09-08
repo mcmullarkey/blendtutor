@@ -139,6 +139,52 @@ fn new_lesson_r_creates_a_lesson_that_validates_and_lists() {
 }
 
 #[test]
+fn new_scaffolds_a_sibling_eval_suite() {
+    // Scaffolding parity (AC-6 F1): `new lesson` writes the lesson AND its
+    // `eval_`-prefixed sibling suite, so the scaffolded pair is immediately
+    // scoreable with `blendtutor eval lessons/<id>.yaml` — the sibling name
+    // derived through the one `eval_` convention `eval` itself resolves by.
+    let course = fresh_init_course();
+
+    Command::cargo_bin("blendtutor")
+        .unwrap()
+        .current_dir(course.path())
+        .args(["new", "lesson", "--lang", "python", "tally"])
+        .assert()
+        .success();
+
+    let lesson_path = course.path().join("lessons").join("tally.yaml");
+    let eval_path = course.path().join("lessons").join("eval_tally.yaml");
+    assert!(
+        lesson_path.is_file(),
+        "new lesson should write lessons/tally.yaml; missing at {lesson_path:?}"
+    );
+    assert!(
+        eval_path.is_file(),
+        "new lesson should write the eval sibling lessons/eval_tally.yaml; missing at {eval_path:?}"
+    );
+
+    // No-clobber (AC-6 F2): a hand-edited sibling is never overwritten. Edit
+    // the scaffolded suite, then re-run `new lesson` on the same id — the
+    // duplicate refusal fires, and the edited sibling's bytes survive verbatim.
+    let edited = "cases:\n  - submission: 'print(1)'\n    expected: incorrect\n";
+    std::fs::write(&eval_path, edited).unwrap();
+
+    Command::cargo_bin("blendtutor")
+        .unwrap()
+        .current_dir(course.path())
+        .args(["new", "lesson", "--lang", "python", "tally"])
+        .assert()
+        .failure();
+
+    assert_eq!(
+        std::fs::read_to_string(&eval_path).unwrap(),
+        edited,
+        "a refused duplicate must not clobber the hand-edited eval sibling"
+    );
+}
+
+#[test]
 fn new_lesson_refuses_a_duplicate_id_without_clobbering() {
     let course = fresh_init_course();
 

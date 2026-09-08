@@ -733,6 +733,119 @@ mod tests {
     }
 
     #[test]
+    fn eval_template_produces_a_valid_python_eval_suite() {
+        // The pure eval emitter (§2.1) returns a one-case suite the production
+        // parser accepts, so a scaffolded sibling is scoreable by `eval` as-is.
+        let yaml = eval_template(Language::Python, "greet");
+        let suite = parse_eval_suite(&yaml).expect("the generated python eval suite must parse");
+        assert_eq!(
+            suite.cases.len(),
+            1,
+            "the starter suite is minimal: one case"
+        );
+        assert_eq!(
+            suite.cases[0].expected,
+            crate::eval::ExpectedVerdict::Correct,
+            "the starter case expects a correct verdict"
+        );
+    }
+
+    #[test]
+    fn eval_template_produces_a_valid_r_eval_suite() {
+        // The twin: the same emitter yields a valid R suite, so language drives
+        // the submission snippet rather than a hardcoded default.
+        let yaml = eval_template(Language::R, "loops");
+        let suite = parse_eval_suite(&yaml).expect("the generated r eval suite must parse");
+        assert_eq!(
+            suite.cases.len(),
+            1,
+            "the starter suite is minimal: one case"
+        );
+    }
+
+    #[test]
+    fn eval_sibling_path_prefixes_the_lesson_file_name_with_eval() {
+        // The pure sibling derivation (§2.3), pinned at the same three shapes
+        // `cli`'s `sibling_suite_path` unit tests pin — the two must never
+        // diverge, because `eval` resolves the suite by this exact convention.
+        assert_eq!(
+            eval_sibling_path(Path::new("lessons/tally.yaml")),
+            PathBuf::from("lessons/eval_tally.yaml")
+        );
+        assert_eq!(
+            eval_sibling_path(Path::new("lesson_hello.yaml")),
+            PathBuf::from("eval_lesson_hello.yaml")
+        );
+        assert_eq!(
+            eval_sibling_path(Path::new("/")),
+            PathBuf::from("/eval_"),
+            "a degenerate path yields the prefix alone, so a later read fails \
+             with a path-named error"
+        );
+    }
+
+    #[test]
+    fn add_lesson_writes_the_eval_sibling_next_to_the_lesson() {
+        // Scaffolding parity: one `add_lesson` call lands BOTH the lesson and
+        // its `eval_`-prefixed sibling under lessons/, the sibling parses with
+        // the production eval parser, and the manifest registers only the
+        // lesson (the sibling is a derived path, never manifest state).
+        let dir = tempfile::tempdir().unwrap();
+        scaffold_course(dir.path()).unwrap();
+
+        add_lesson(dir.path(), Language::Python, "greet").expect("adding a fresh lesson succeeds");
+
+        let eval_path = dir.path().join(LESSONS_DIR).join("eval_greet.yaml");
+        let suite_yaml = std::fs::read_to_string(&eval_path)
+            .unwrap_or_else(|e| panic!("the eval sibling should be written at {eval_path:?}: {e}"));
+        let suite = parse_eval_suite(&suite_yaml)
+            .expect("the scaffolded eval sibling must satisfy the eval schema");
+        assert_eq!(
+            suite.cases.len(),
+            1,
+            "the starter suite is minimal: one case"
+        );
+
+        let manifest =
+            Manifest::parse(&std::fs::read_to_string(dir.path().join(MANIFEST_FILENAME)).unwrap())
+                .expect("the manifest still parses after registration");
+        assert_eq!(
+            manifest.lessons.len(),
+            2,
+            "starter + greet; the eval sibling is not registered"
+        );
+    }
+
+    #[test]
+    fn add_lesson_refuses_when_the_eval_sibling_already_exists_without_clobbering_it() {
+        // No-clobber covers the sibling too (§1.3.1): a pre-existing (e.g.
+        // hand-authored) eval_<id>.yaml is refused via the atomic create-new
+        // write, never overwritten — and the refusal leaves the user's bytes
+        // exactly as they were.
+        let dir = tempfile::tempdir().unwrap();
+        scaffold_course(dir.path()).unwrap();
+        std::fs::create_dir_all(dir.path().join(LESSONS_DIR)).unwrap();
+        let hand_edited = "cases:\n  - submission: '1'\n    expected: incorrect\n";
+        std::fs::write(
+            dir.path().join(LESSONS_DIR).join("eval_greet.yaml"),
+            hand_edited,
+        )
+        .unwrap();
+
+        let err = add_lesson(dir.path(), Language::Python, "greet")
+            .expect_err("a taken eval sibling must be refused");
+        assert!(
+            matches!(err, AddLessonError::AlreadyExists(_)),
+            "an existing eval sibling is an AlreadyExists refusal, got {err:?}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join(LESSONS_DIR).join("eval_greet.yaml")).unwrap(),
+            hand_edited,
+            "the pre-existing eval sibling's bytes must be unchanged"
+        );
+    }
+
+    #[test]
     fn add_lesson_refuses_a_duplicate_without_clobbering_or_double_registering() {
         // No-clobber (§1.3.1): a second add of the same id is refused before any
         // write, so the original lesson's bytes and the manifest are both

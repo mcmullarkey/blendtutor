@@ -1,0 +1,7 @@
+=== cargo test -p blendtutor-cli --test readme ===
+cargo test: 1 passed (1 suite, 0.00s)
+
+=== bash scripts/check-docs.sh ===
+
+docs: verifying failure propagation (missing course path) …
+docs: OK — merged site at docs/book/book (book at /, API at /api, examples at /examples/{r,python}, demo book at /demo-book/, evals at /evals/)

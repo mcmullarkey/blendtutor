@@ -402,11 +402,17 @@ function probeP6SaveFlow() {
 // ---------------------------------------------------------------------------
 function probeP7ClearFlow() {
   // Clear button only renders when mountKeyPage re-runs with a stored key
-  // (renderKeySet). Reload the page so the key-set state (Clear affordance)
+  // (renderKeySet). Re-navigate so the key-set state (Clear affordance)
   // appears. Seed the feedback counter so the reset assertion is non-vacuous.
   rodney(["js", "localStorage.setItem('bt_feedback_count', '3')"]);
-  rodney(["reload", "--hard"]);
-  sleep(3);
+  // NOT `rodney reload`: rodney 0.4.0's cmdReload → go-rod MustWaitLoad
+  // panics with CDP -32000 "Object reference chain is too long" against this
+  // pyodide-laden page (killed the harness twice in CI after P6 had already
+  // passed). navigateTo is the harness-wide navigation pattern — it never
+  // runs MustWaitLoad on the heavy page — and gives the same fresh-load
+  // re-mount semantics. The P7 vacuous guard below still gates the re-mount:
+  // if key-set state never renders, this probe FAILS.
+  navigateTo(KEY_PAGE_URL);
 
   const clearMounted = waitForExpr(
     "document.querySelector('[data-byok=\"clear\"]') !== null",

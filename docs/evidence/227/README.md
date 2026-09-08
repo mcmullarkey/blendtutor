@@ -10,6 +10,8 @@ Captured 2026-09-08 on branch `227-demo-standalone-removal` (worktree `../worktr
 | `test-suite.log` | `scripts/tests/test_docs_pages_artifact.sh` — 35 passed, 0 failed. Phase 1/1b structural + deletion pins (incl. the #227 absence pins that were RED before the deletion, commit `b14651c`); Phase 2 = full `check-docs.sh` end-to-end; Phase 3 evals fixture sub-phase. |
 | `check-docs-e2e.log` | `scripts/check-docs.sh` exit 0 — full local build (rustdoc -D warnings + mdBook + webr/pyodide example sites + demo-book quarto render + assemble + layout asserts + mirror contract against the edited docs.yml). Final line confirms the updated layout message (demo book at /demo-book/, no /demo/). |
 | `quarto-distribution.log` | `scripts/tests/test_quarto_distribution.sh` — 91 passed, 0 failed. README pins intact (README intentionally untouched; demo-link swap deferred to #225). |
+| `key-page-probe.log` + `key-page-probe-report.json` | Post-fix local run of `rodney-probes/key-page-probe.js` — 16/16 PASS, PROBES_PASS. Documents the CI-fix for the `rodney reload --hard` panic (go-rod MustWaitLoad, CDP -32000 "Object reference chain is too long", killed the harness in CI after P6 passed): P7 now re-mounts the key-set state via the harness-wide blank-page bootstrap (`navigateTo`) — same fresh-load semantics, no MustWaitLoad on the heavy page; the P7 vacuous guard still gates. |
+| `feedback-probe.log` + `feedback-probe-report.json` | Post-fix local run of `rodney-probes/feedback-probe.js` — PROBES_PASS. Second half of the same CI job (`rodney probes (key page + feedback)`); confirms the full job path is green with the fix. |
 
 ## Consumer analysis (pages-live suite fate)
 

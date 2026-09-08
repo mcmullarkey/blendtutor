@@ -1,0 +1,113 @@
+{
+  "issue": 169,
+  "branch": "169-rodney-probes-byok",
+  "worktree": "/Users/carbonite/Documents/coding/portfolio/worktree-issue-227",
+  "timestamp": "2026-09-08T22:01:02.134Z",
+  "probes": [
+    {
+      "name": "P11 vacuous guard: feedback UI mounted",
+      "status": "PASS",
+      "details": "feedback UI mounted (55ms)"
+    },
+    {
+      "name": "P11 no-key: inline key form rendered",
+      "status": "PASS",
+      "details": "inline key form appears on click with empty storage"
+    },
+    {
+      "name": "P11 no-key: NO navigation link (no data-byok=no-key)",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P11 no-key: NO anchor rendered in the form or feedback area",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P11 no-key: ZERO /chat/completions fetches before save",
+      "status": "PASS",
+      "details": "fetches observed: []"
+    },
+    {
+      "name": "P11 save: key stored via inline form",
+      "status": "PASS",
+      "details": "key stored (43ms)"
+    },
+    {
+      "name": "P11 save-continuation: feedback fetch fires through stub",
+      "status": "PASS",
+      "details": "new /chat/completions observed (40ms)"
+    },
+    {
+      "name": "P11 save-continuation: verdict rendered",
+      "status": "PASS",
+      "details": "verdict rendered (42ms)"
+    },
+    {
+      "name": "P5 save: key stored via key-page UI",
+      "status": "PASS",
+      "details": "key saved through UI (39ms)"
+    },
+    {
+      "name": "P5 vacuous guard: exercise page mounted",
+      "status": "PASS",
+      "details": "r-exercises.html mounted (65ms)"
+    },
+    {
+      "name": "P5 cross-page: localStorage key persists after navigation",
+      "status": "PASS",
+      "details": "expression true"
+    },
+    {
+      "name": "P5 past-no-key: click proceeds (no no-key link, pending/verdict reached)",
+      "status": "PASS",
+      "details": "no-key absent=true, pending/verdict reached=true"
+    },
+    {
+      "name": "P10 config guard: real render carries non-zero maxFeedbackPerSession",
+      "status": "PASS",
+      "details": "config=true"
+    },
+    {
+      "name": "P10 verdict: real stub round-trip fired",
+      "status": "PASS",
+      "details": "new /chat/completions observed (114ms)"
+    },
+    {
+      "name": "P10 verdict: rendered from real stub",
+      "status": "PASS",
+      "details": "verdict rendered (162ms)"
+    },
+    {
+      "name": "P10 verdict: stub message rendered",
+      "status": "PASS",
+      "details": "verdict text: \"CorrectStub says correct. <img src=x onerror=window.__xss=1>\""
+    },
+    {
+      "name": "P10 XSS: payload renders as literal text (in textContent, no element)",
+      "status": "PASS",
+      "details": "payload-literal=true, window.__xss undefined=true, img-in-verdict=true"
+    },
+    {
+      "name": "P10 real round-trip: /chat/completions hit stub",
+      "status": "PASS",
+      "details": "completions observed: [{\"url\":\"http://localhost:18081/chat/completions\",\"method\":\"POST\"},{\"url\":\"http://localhost:18081/chat/completions\",\"method\":\"POST\"}]"
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/opencode/key-page-evidence/fb-01-no-key-inline-form.png",
+      "ui_state": "exercise page with empty storage: inline key form + save-continuation verdict"
+    },
+    {
+      "path": "/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/opencode/key-page-evidence/fb-02-cross-page-verdict.png",
+      "ui_state": "after cross-page hop: key present, verdict flow reached"
+    },
+    {
+      "path": "/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/opencode/key-page-evidence/fb-03-verdict-xss-literal.png",
+      "ui_state": "verdict rendered with XSS payload as literal text"
+    }
+  ],
+  "verdict": "PROBES_PASS"
+}

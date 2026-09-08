@@ -131,8 +131,8 @@ fi
 
 # Build command — release + locked + the workspace cli package + cross-target.
 if grep -qF 'cargo build --release --locked' <<< "$BUILD_BLOCK_CODE" \
-    && grep -qF '-p blendtutor-cli' <<< "$BUILD_BLOCK_CODE" \
-    && grep -qF -- '--target ${{ matrix.target }}' <<< "$BUILD_BLOCK_CODE"; then
+    && grep -qF -e '-p blendtutor-cli' <<< "$BUILD_BLOCK_CODE" \
+    && grep -qF -e '--target ${{ matrix.target }}' <<< "$BUILD_BLOCK_CODE"; then
   ok "build runs cargo build --release --locked -p blendtutor-cli --target <matrix.target>"
 else
   ko "build runs cargo build --release --locked -p blendtutor-cli --target <matrix.target> — missing"
@@ -227,7 +227,7 @@ fi
 
 # Release name = tag (gh release create with the tag as name AND title).
 if grep -qF 'gh release create' <<< "$RELEASE_BLOCK_CODE" \
-    && grep -qF '--title "${{ github.ref_name }}"' <<< "$RELEASE_BLOCK_CODE"; then
+    && grep -qF -e '--title "${{ github.ref_name }}"' <<< "$RELEASE_BLOCK_CODE"; then
   ok "release name = tag (gh release create --title <tag>)"
 else
   ko "release name = tag — 'gh release create' or '--title <tag>' missing from release job"

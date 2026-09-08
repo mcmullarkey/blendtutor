@@ -7,10 +7,13 @@
 # runtime validity belongs to the AC-3/AC-4 rodney probes; a curl/HTTP-HEAD
 # probe here would 404 before the AC-2 Pages deploy is live).
 #
-#   c1.  Both live URLs as exact literals with trailing slash, inside the demo
-#        section (`### Demo book` → `## License`)
+#   c1.  Live demo-book URL as exact literal with trailing slash, inside the
+#        demo section (`### Demo book` → `## BYOK`); the standalone /demo/ URL
+#        is pinned ABSENT (demo-standalone deleted by issue #227)
 #   c2.  Book capabilities: Python-interactive claim + literal `static fallback`
-#   c3.  Standalone capabilities: interactive R (webR) + interactive Python
+#   c3.  Runnable-R capability: interactive R (webR) claim — post-#227 the
+#        demo section points runnable R at the CLI-built example sites
+#        (issue #225 relabeled; regex unchanged) + interactive Python
 #   c4.  COI book-mode limitation survives + names `type: book`
 #   c5.  Book explicitly does NOT run R (regex; generic COI-doesn't-function
 #        insufficient)
@@ -18,12 +21,17 @@
 #   c7.  No stale /examples/ conflation inside the demo section
 #   c8.  Extend-don't-duplicate: 'COI does not function in Quarto' == 1 AND
 #        'Book-mode limitation' == 1 (whole README)
-#   c9.  Region pin: both live URLs at line >= 288 and < 342 (whole README)
+#   c9.  Region pin: live demo-book URL at line >= 105 and < 135 (whole
+#        README; issue #225 reslimmed the README 373→~148 lines, so the old
+#        288-342 region no longer exists)
 #   c10. ADR-0015 pointer in README + file exists
 #   c11. Distribution-doc pins survive (test_quarto_distribution.sh README
 #        group): python3 -m http.server 8000 present; 'COI configuration'
 #        absent; PANDOC_SCRIPT_FILE absent; `type: book` present; demo-book/
 #        dir exists
+#   c12. README concision ceiling (issue #225 AC-3): whole-game tone bar,
+#        ~130-line target — hard ceiling 150 gives legitimate-edit headroom
+#        while failing a regression to the 373-line monolith
 #
 # Usage: bash scripts/tests/test_demo_docs.sh
 set -euo pipefail
@@ -45,7 +53,9 @@ ADR_FILE="docs/adr/0015-opt-in-coi-cross-origin.md"
 DEMO_SECTION="$(awk '/^### Demo book/,/^## BYOK/' "$README")"
 
 # ---------------------------------------------------------------------------
-# c1: Both live URLs exact literals, trailing slash pinned (demo section)
+# c1: Live demo-book URL exact literal, trailing slash pinned (demo section);
+#     the standalone /demo/ URL is pinned ABSENT — demo-standalone was deleted
+#     by issue #227, so a stale dead link must fail this suite.
 # ---------------------------------------------------------------------------
 echo "== c1: live demo URLs =="
 if printf '%s' "$DEMO_SECTION" | grep -qF 'https://mcmullarkey.github.io/blendtutor/demo-book/'; then
@@ -54,9 +64,9 @@ else
   ko "live demo-book URL literal missing from demo section"
 fi
 if printf '%s' "$DEMO_SECTION" | grep -qF 'https://mcmullarkey.github.io/blendtutor/demo/'; then
-  ok "live demo URL literal present (trailing slash)"
+  ko "dead /demo/ URL still present in demo section (demo-standalone removed by #227)"
 else
-  ko "live demo URL literal missing from demo section"
+  ok "dead /demo/ URL absent from demo section"
 fi
 
 # ---------------------------------------------------------------------------
@@ -75,18 +85,21 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# c3: Standalone capabilities — interactive R (webR) + interactive Python
+# c3: Runnable-R + Python capability mapping (demo section). Post-#227 the
+#     standalone demo is gone; the demo section must point runnable R at the
+#     CLI-built example sites (webR) — issue #225 relabeled the claim, the
+#     regex is unchanged.
 # ---------------------------------------------------------------------------
-echo "== c3: standalone capability mapping =="
+echo "== c3: runnable-R + Python capability mapping =="
 if printf '%s' "$DEMO_SECTION" | grep -qiE 'r .*interactive.*webr|interactive.*r.*webr|r exercises? run interactively via webr'; then
-  ok "standalone states interactive R via webR"
+  ok "demo section states R runs interactively via webR (example sites)"
 else
-  ko "standalone capability — interactive R (webR) claim missing"
+  ko "runnable-R capability — interactive R (webR) claim missing from demo section"
 fi
 if printf '%s' "$DEMO_SECTION" | grep -qiE 'python.*interactive|interactive.*python|python exercises? run interactively'; then
-  ok "standalone states interactive Python"
+  ok "demo section states interactive Python"
 else
-  ko "standalone capability — interactive Python claim missing"
+  ko "Python capability — interactive Python claim missing from demo section"
 fi
 
 # ---------------------------------------------------------------------------
@@ -154,13 +167,15 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# c9: Region pin — both live URLs at line >= 288 and < 342 (whole README)
+# c9: Region pin — live demo-book URL at line >= 105 and < 135 (whole README).
+#     Issue #225 reslimmed the README (373 → ~148 lines); the old 288-342
+#     region encoded the pre-slim layout.
 # ---------------------------------------------------------------------------
 echo "== c9: demo section region pin =="
-for url in 'https://mcmullarkey.github.io/blendtutor/demo-book/' 'https://mcmullarkey.github.io/blendtutor/demo/'; do
+for url in 'https://mcmullarkey.github.io/blendtutor/demo-book/'; do
   line="$(grep -nF "$url" "$README" | cut -d: -f1 | head -n1 || true)"
-  if [ -n "$line" ] && [ "$line" -ge 288 ] && [ "$line" -lt 342 ]; then
-    ok "URL at line $line (288 <= line < 342): $url"
+  if [ -n "$line" ] && [ "$line" -ge 105 ] && [ "$line" -lt 135 ]; then
+    ok "URL at line $line (105 <= line < 135): $url"
   else
     ko "URL line pin failed for $url (got: ${line:-missing})"
   fi
@@ -209,6 +224,20 @@ if [ -d "$DEMO_BOOK_DIR" ]; then
   ok "demo-book/ directory exists (relative link target)"
 else
   ko "distribution pin — demo-book/ directory missing"
+fi
+
+# ---------------------------------------------------------------------------
+# c12: README concision ceiling (issue #225 AC-3) — whole-game tone bar.
+#      Target ~130 lines (from 373); hard ceiling 150 leaves headroom for
+#      legitimate one-line additions while failing a regression to the
+#      373-line monolith.
+# ---------------------------------------------------------------------------
+echo "== c12: README line ceiling =="
+README_LINES="$(wc -l < "$README" | tr -d ' ')"
+if [ "$README_LINES" -le 150 ]; then
+  ok "README within concision ceiling ($README_LINES <= 150 lines)"
+else
+  ko "README exceeds concision ceiling ($README_LINES > 150 lines — issue #225 bar is ~130)"
 fi
 
 # ---------------------------------------------------------------------------

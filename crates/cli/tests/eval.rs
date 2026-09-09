@@ -303,6 +303,83 @@ async fn eval_case_mismatch_exit0() {
     );
 }
 
+/// AC7 (F1+F2) — the human render shows each mismatched case's grader feedback
+/// verbatim under its row and ends with a next-steps footer naming the
+/// mismatched cases and the knobs that shape grading.
+///
+/// The three mock messages are distinct, so attribution is provable: only
+/// gamma's message (the mismatch) may appear on a `grader:` line — alpha's and
+/// beta's (both matches) must not. The footer must not add a second bracketed
+/// `[mismatch]` token: AC1's exactly-one count stays the pin.
+#[tokio::test]
+async fn eval_human_shows_grader_feedback_and_next_steps_footer() {
+    if rscript_absent() {
+        return;
+    }
+    let server = MockServer::start().await;
+    mount_three_case_provider(&server).await;
+
+    let output = eval_against(&server, &[]).await;
+
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "eval should succeed; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+    assert!(
+        stdout.contains("grader: gamma is off"),
+        "the mismatched case's verbatim feedback must be shown, got: {stdout:?}"
+    );
+    assert!(
+        !stdout.contains("grader: alpha looks right") && !stdout.contains("grader: beta is off"),
+        "match rows carry no feedback line, got: {stdout:?}"
+    );
+    assert!(
+        stdout.contains("mismatched cases: 3"),
+        "the footer must name the mismatched case numbers, got: {stdout:?}"
+    );
+    assert!(
+        stdout.contains("--case N"),
+        "the footer must point at re-running a single case, got: {stdout:?}"
+    );
+    assert!(
+        stdout.contains("llm_evaluation_prompt"),
+        "the footer must name the grading knobs, got: {stdout:?}"
+    );
+}
+
+/// AC7 negative — an all-matched run (accuracy 3/3) emits NO footer and NO
+/// guidance lines: the footer is mismatch-driven, not unconditional.
+#[tokio::test]
+async fn eval_human_full_match_emits_no_footer() {
+    if rscript_absent() {
+        return;
+    }
+    let server = MockServer::start().await;
+    // gamma graded correct against an expected-correct case → all three match.
+    mount_feedback_for(&server, "alpha", true, "alpha looks right").await;
+    mount_feedback_for(&server, "beta", false, "beta is off").await;
+    mount_feedback_for(&server, "gamma", true, "gamma looks right").await;
+
+    let output = eval_against(&server, &[]).await;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+    assert!(
+        stdout.contains("3/3"),
+        "all three cases should match, got: {stdout:?}"
+    );
+    assert!(
+        !stdout.contains("grader:"),
+        "a full match emits no feedback lines, got: {stdout:?}"
+    );
+    assert!(
+        !stdout.contains("mismatched cases") && !stdout.contains("--case"),
+        "a full match emits no footer or guidance lines, got: {stdout:?}"
+    );
+}
+
 /// Decisions — a non-numeric `--case` is a clap parse error (exit 2); only a
 /// numeric-but-out-of-bounds value is our exit-1 error class. No provider
 /// request is ever made for a parse failure.

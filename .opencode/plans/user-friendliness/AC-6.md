@@ -2,7 +2,7 @@
 ac: 6
 depends_on: AC-3, AC-4
 risk: low
-status: spec
+status: complete
 ---
 
 **Factual dispute verdict:** Speculator A correct. `scaffold_plan()` (scaffold.rs:60-83, init-only via `scaffold_course`) plans EVAL_FILENAME (eval_lesson_hello.yaml) + EVAL_TEMPLATE for the starter lesson. `add_lesson()` (scaffold.rs:346-361, called by `blendtutor new lesson` via commands/new.rs) writes ONLY lessons/<id>.yaml + manifest append — no eval sibling. B conflated init starter-files with new-lesson path. Corollary: evals/*.R untracked+gitignored (.gitignore:5 /evals/ anchored) — "prune" in PR = (1) .gitignore tracked edit, (2) doc reference cleanup, (3) local rm -rf evals/ documented in issue (PR cannot delete untracked files).
@@ -66,13 +66,24 @@ status: spec
 **Friction:** planner named nonexistent doctor command — both speculators re-derived from main.rs. Candidate lesson: planner must list command surface from main.rs grep, not memory.
 
 ### Progress
-- (none yet)
+- [x] RED suite committed (4a2c87d): `new_scaffolds_a_sibling_eval_suite` in crates/cli/tests/new.rs (behavioral RED — missing-sibling assertion) + 5 scaffold.rs in-module tests (compile RED on eval_template/eval_sibling_path) — 2026-09-09
+- [x] feat committed (28a4ba9): EVAL_SIBLING_PREFIX + eval_sibling_path + eval_template in core::scaffold; add_lesson writes sibling via write_without_clobber; cli sibling_suite_path delegates to core (single source); negative control confirmed (bogus expected token fails 3 tests) — 2026-09-09
+- [x] prune+docs committed (c595fc9): .gitignore /evals/ entry + comment removed; creating-lessons.md Step 7 + whole-game.md eval region name the sibling convention; agent-notes/eval.md annotated retired; local `rm -rf evals/` done in main checkout (untracked — PR cannot delete) — 2026-09-09
+- [x] evidence committed (b6f166a): docs/evidence/228/ — e2e-new-lesson-sibling.log, e2e-eval-help-sibling-convention.log, e2e-missing-sibling-negative.log, prune-absence-greps.log, test-suite.log — 2026-09-09
+- [x] Full gate green: new 4, eval 7, eval_report_cli 10, readme 2, cli 2, cutover 1, core 201, model-alignment OK, smevals-runner 12, judge-feedback 78, quarto-dist 9, demo-docs 5
 
 ### Decision Log
-- (none yet)
+- Sibling convention single source lives in **core** (`core::scaffold::eval_sibling_path` + `EVAL_SIBLING_PREFIX`), not cli: dependency only points cli → core, so delegation (cli `sibling_suite_path` → core fn) is the only shape with exactly one implementation. Spec's "or same constant if core/cli crate boundary requires" resolved to the stronger full-delegation form.
+- `add_lesson` write order: lesson first, then eval sibling, then manifest append. Duplicate-id refusal (the common case) still fires with zero writes; the rare pre-existing-sibling refusal leaves an unregistered lesson (documented residual window in add_lesson doc comment, same recoverable class as the manifest-append window).
+- `AddLessonError::AlreadyExists` Display: "a lesson already exists" → "a file already exists" — accurate for both collision arms (lesson or sibling); no external pins on the old wording.
+- eval_template emits ONE case (`expected: correct`) with the language's hello-world submission; the starter course's committed two-case suite remains the fuller example (per needs-clarification #2).
+- README left untouched: post-slim line 40 already claims "add lessons/greet.yaml + eval_<name>.yaml sibling" — F1 makes the existing claim TRUE (spec: "becomes TRUE rather than edited weaker").
 
 ### Surprises & Discoveries
-- (none yet)
+- The spec's probe greps `crates/` wholesale but its own P1 prose scopes `crates/*/src` with fixture headers exempt — the literal probe has exactly one hit, the archival provenance comment in `crates/core/tests/fixtures/evals/eval_fireworks_vitals.yaml:2` (`# evals/eval_fireworks_vitals.R (the eval_data tibble…)`). Followed the P1 prose scope (zero hits, PASS) and documented the exempt hit in docs/evidence/228/prune-absence-greps.log rather than editing the archival fixture header.
+- `Language` is Clone-not-Copy, so `add_lesson`'s two template calls need one `language.clone()` (on the first call; the second consumes the original).
+- Post-slim README already carried the sibling claim at line 40 (`eval_<name>.yaml`) — the pre-slim line numbers in the spec (~:80) had drifted; grep located it. No README edit required.
+- `blendtutor eval --help` already names `eval_<lesson>.yaml` via clap doc comment (main.rs:72) — P7's help-grep arm passed with zero changes.
 
 ### Idempotence & Recovery
 - Safe retry: re-run builder on same branch; tests are idempotent

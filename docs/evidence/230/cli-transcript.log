@@ -1,0 +1,56 @@
+# E2E transcript — issue #230 eval --write-report (real binary, local mock provider)
+
+## eval --help advertises --write-report
+$ blendtutor eval --help | grep -- --write-report
+      --write-report
+
+## positive: eval --write-report from NON-course-root CWD (mock provider on 127.0.0.1:8765)
+$ cd /tmp-ish/other-cwd && blendtutor eval <course>/demo_lesson.yaml --write-report
+Accuracy: 2/3 (66.7%)
+
+case 1: expected correct, got correct [match]
+case 2: expected incorrect, got incorrect [match]
+case 3: expected correct, got incorrect [mismatch]
+  grader: gamma is off
+
+mismatched cases: 3
+inspect one: blendtutor eval <lesson> --case N
+grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`
+wrote eval-report.json to /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/opencode/evidence-230/course/eval-report.json
+exit=0
+
+## written artifact (at course root, NOT at CWD)
+$ ls course/eval-report.json . && cat course/eval-report.json
+/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/opencode/evidence-230/course/eval-report.json
+no eval-report.json at CWD: confirmed
+{"cases":[{"expected":"correct","actual":"correct","matched":true,"feedback_message":"alpha looks right"},{"expected":"incorrect","actual":"incorrect","matched":true,"feedback_message":"beta is off"},{"expected":"correct","actual":"incorrect","matched":false,"feedback_message":"gamma is off"}],"accuracy":0.6666666666666666}
+## overwrite warns and proceeds
+$ blendtutor eval <course>/demo_lesson.yaml --write-report (second run)
+Accuracy: 2/3 (66.7%)
+
+case 1: expected correct, got correct [match]
+case 2: expected incorrect, got incorrect [match]
+case 3: expected correct, got incorrect [mismatch]
+  grader: gamma is off
+
+mismatched cases: 3
+inspect one: blendtutor eval <lesson> --case N
+grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`
+WARNING: overwriting existing eval report at /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/opencode/evidence-230/course/eval-report.json
+wrote eval-report.json to /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/opencode/evidence-230/course/eval-report.json
+exit=0
+
+## build round-trip: build consumes the written report
+$ blendtutor build --target webr course -o site && grep accuracy site/eval-results.html
+built 1 lesson(s) for webr into /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/opencode/evidence-230/site
+67%
+
+## N1: no blendtutor.toml ancestor refuses before scoring
+Error: --write-report: no blendtutor.toml course root found above /private/var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/opencode/evidence-230/no-course/demo_lesson.yaml — an eval report is written at the course root
+exit=1
+no file written: confirmed
+
+## N3: --case 1 --write-report refused, names both flags
+Error: --case N and --write-report are incompatible: a single-case report would render as the course-level accuracy in the built site; drop one of the flags
+exit=1
+no .tmp leftover: confirmed

@@ -1,0 +1,23 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.52s
+     Running tests/eval.rs (target/debug/deps/eval-93ad8e799f24424c)
+
+running 16 tests
+test eval_help_lists_write_report_flag ... ok
+test eval_case_non_numeric_is_a_parse_error_exit_2 ... ok
+test eval_case_out_of_range_exits_1_naming_the_suite_size ... ok
+test eval_write_report_no_course_root ... ok
+test eval_case_selection_scores_only_the_requested_case ... ok
+test eval_case_mismatch_exit0 ... ok
+test eval_write_report_partial_refused ... ok
+test eval_case_selection_is_one_based ... ok
+test eval_json_emits_per_case_verdicts_and_aggregate ... ok
+test eval_human_full_match_emits_no_footer ... ok
+test eval_human_shows_grader_feedback_and_next_steps_footer ... ok
+test eval_reports_aggregate_accuracy_and_per_case_results ... ok
+test eval_write_report_failure_propagates ... ok
+test eval_write_report_overwrite_warns ... ok
+test eval_write_report_build_roundtrip ... ok
+test eval_write_report_writes_full_shape_report_at_course_root ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.91s
+

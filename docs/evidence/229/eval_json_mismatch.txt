@@ -1,0 +1,1 @@
+{"cases":[{"expected":"correct","actual":"correct","matched":true,"feedback_message":"alpha looks right"},{"expected":"incorrect","actual":"incorrect","matched":true,"feedback_message":"beta is off"},{"expected":"correct","actual":"incorrect","matched":false,"feedback_message":"gamma is off"}],"accuracy":0.6666666666666666}

@@ -71,6 +71,18 @@ a correct submission and an incorrect one. Every lesson added with `new lesson`
 gets the same treatment: an `eval_<name>.yaml` sibling scaffolded alongside it.
 Use `--case N` for a single case, `--format json` for JSON output.
 
+A mismatched case prints the grader's verbatim feedback on an indented
+`grader:` line under its row, and any mismatched run ends with next steps:
+
+```text
+case 2: expected correct, got incorrect [mismatch]
+  grader: the submission is missing a call to `mean()`
+
+mismatched cases: 2
+inspect one: blendtutor eval <lesson> --case N
+grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`
+```
+
 ## Eval report — grade with the LLM judge
 
 `eval-report` drives the pinned smevals runner, which grades each case with

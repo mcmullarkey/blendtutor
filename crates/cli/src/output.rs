@@ -13,7 +13,7 @@ use clap::ValueEnum;
 use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
-use blendtutor_core::eval::EvalReport;
+use blendtutor_core::eval::{CaseResult, EvalReport};
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
 use blendtutor_core::run::RunReport;
@@ -366,15 +366,18 @@ pub fn emit_run(report: &RunReport, format: OutputFormat) -> io::Result<()> {
     writeln!(io::stdout(), "{text}")
 }
 
-/// The human rendering of an [`EvalReport`]: an accuracy headline followed by one
-/// row per case showing the expected and actual polarity and whether they
-/// matched.
+/// The human rendering of an [`EvalReport`]: an accuracy headline, one row per
+/// case showing the expected and actual polarity and whether they matched, the
+/// grader's verbatim feedback under each mismatched row, and — when at least
+/// one case mismatched — a next-steps footer.
 ///
 /// Pure (§2.1): it reads the report and returns text, performing no I/O. The
 /// match marker is derived from the typed `matched` flag, so it cannot drift from
 /// the score; accuracy is shown as both the exact `matched/total` fraction and a
 /// rounded percentage. Each polarity word is the report's own canonical token, so
-/// the rendering cannot drift from the accepted set.
+/// the rendering cannot drift from the accepted set. The footer is derived from
+/// the case data alone — the lesson path is never threaded in, so the render
+/// stays a pure function of the report (§2).
 fn render_eval(report: &EvalReport) -> String {
     let total = report.cases().len();
     let matched = report.cases().iter().filter(|case| case.matched()).count();
@@ -397,8 +400,58 @@ fn render_eval(report: &EvalReport) -> String {
             expected = case.expected().token(),
             actual = case.actual().token(),
         ));
+        if let Some(feedback) = feedback_line(case) {
+            lines.push(feedback);
+        }
+    }
+    if let Some(footer) = next_steps_footer(report) {
+        lines.push(String::new());
+        lines.push(footer);
     }
     lines.join("\n")
+}
+
+/// The indented `grader:` line carrying one case's verbatim feedback — present
+/// only for a mismatched case (§3.4): the grader's own words, never reworded or
+/// truncated, and never attached to a `[match]` row where the polarity did not
+/// surprise the author.
+fn feedback_line(case: &CaseResult) -> Option<String> {
+    if case.matched() {
+        return None;
+    }
+    Some(format!("  grader: {}", case.feedback_message()))
+}
+
+/// The next-steps footer for a report with at least one mismatched case, or
+/// `None` for a full match — the guidance is mismatch-driven, not unconditional
+/// (§5.1: one pure helper, not scattered `format!` calls).
+///
+/// It names the 1-based numbers of the mismatched cases, points at re-running a
+/// single case with `--case N`, and names the knobs that shape grading — the
+/// lesson's `llm_evaluation_prompt` and each exercise's reference `solution`.
+/// It speaks in plain words ("mismatched"), never the bracketed `[mismatch]`
+/// token, which the integration tests count exactly.
+fn next_steps_footer(report: &EvalReport) -> Option<String> {
+    let mismatched: Vec<usize> = report
+        .cases()
+        .iter()
+        .enumerate()
+        .filter(|(_, case)| !case.matched())
+        .map(|(position, _)| position + 1)
+        .collect();
+    if mismatched.is_empty() {
+        return None;
+    }
+    let numbers = mismatched
+        .iter()
+        .map(|number| number.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(format!(
+        "mismatched cases: {numbers}\n\
+         inspect one: blendtutor eval <lesson> --case N\n\
+         grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`"
+    ))
 }
 
 /// Render `report` in `format` and write it to stdout — the single place an eval

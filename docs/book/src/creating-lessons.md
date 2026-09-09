@@ -81,7 +81,7 @@ Executes the `checks`, then asks the LLM for a verdict; the exit code reflects t
 
 ## Step 7 — Write an eval suite
 
-Each lesson pairs with a sibling `eval_<name>.yaml` — create it by hand next to the lesson (`new` writes only the lesson file; `eval` discovers the suite by the sibling convention) — containing sample submissions and expected verdicts (abridged from `examples/write-less-code-r/eval_01_seed_data.yaml`):
+Each lesson pairs with a sibling `eval_<name>.yaml` — `new` scaffolds a minimal one-case starter suite next to the lesson (edit it in place; `eval` discovers the suite by the sibling convention), and the starter course's `eval_lesson_hello.yaml` shows the fuller two-case shape — containing sample submissions and expected verdicts (abridged from `examples/write-less-code-r/eval_01_seed_data.yaml`):
 
 ```yaml
 cases:

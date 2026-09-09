@@ -1,0 +1,21 @@
+# E2E: blendtutor init + new lesson scaffolds lesson AND eval sibling (issue #228 F1/F2)
+$ blendtutor init <tmp>/course
+Scaffolded a new course in /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/opencode/e228.go9zpe/course
+$ cd course && blendtutor new lesson --lang python tally
+Added tally lesson at lessons/tally.yaml + eval sibling at lessons/eval_tally.yaml
+$ ls lessons/
+eval_tally.yaml
+tally.yaml
+$ cat lessons/eval_tally.yaml
+# The eval suite scaffolded by `blendtutor new lesson` for
+# lessons/tally.yaml — this file's `eval_`-prefixed sibling. Each case
+# pairs a sample submission with the verdict you expect a good grader
+# to return (correct or incorrect). Edit it, then score it with
+# `blendtutor eval lessons/tally.yaml`.
+cases:
+  - submission: |-
+      print("hello")
+    expected: correct
+$ blendtutor new lesson --lang python tally  (re-run: no-clobber refusal)
+Error: a file already exists at "lessons/tally.yaml"; new lesson refuses to overwrite it — choose a different id
+exit=1

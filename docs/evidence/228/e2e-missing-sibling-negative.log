@@ -1,0 +1,7 @@
+# Negative arm: eval with the sibling suite absent → exit 1 naming the resolved path
+$ rm lessons/eval_tally.yaml && blendtutor eval lessons/tally.yaml
+Error: reading eval suite lessons/eval_tally.yaml
+
+Caused by:
+    No such file or directory (os error 2)
+exit=1

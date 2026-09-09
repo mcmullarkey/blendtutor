@@ -39,6 +39,10 @@ ADR-0007 for the verdict-representation decision.
   top-level R working dir) was unanchored, so it also ignored Rust eval fixtures
   under `crates/*/tests/fixtures/evals/`. Anchored to `/evals/` — fixtures track,
   the R dir stays ignored. Watch for this if adding eval fixtures elsewhere.
+  (2026-09-08, #228: the R working dir and its scripts are retired — the
+  `/evals/` rule was removed from `.gitignore` and the untracked `evals/` tree
+  deleted; the fixture-anchoring lesson above stands for any future ignore
+  rules.)
 - 2026-06-07 (#12): Fixtures in `crates/core/tests/fixtures/evals/`:
   `eval_fireworks_vitals.yaml` (10 cases ported from
   `evals/eval_fireworks_vitals.R`, each `submission` + `expected:

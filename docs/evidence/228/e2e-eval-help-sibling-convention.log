@@ -1,0 +1,24 @@
+# P7: blendtutor eval --help names the eval_ sibling convention
+Run feedback-quality evals for a lesson
+
+Usage: blendtutor eval [OPTIONS] <LESSON>
+
+Arguments:
+  <LESSON>
+          Path to the lesson YAML file; its sibling `eval_<lesson>.yaml` supplies the eval cases
+
+Options:
+      --format <FORMAT>
+          Output format: `human` (default) or `json`
+
+          Possible values:
+          - human: Human-readable text (the default)
+          - json:  Stable, machine-readable JSON
+          
+          [default: human]
+
+      --case <CASE>
+          Score only the 1-based case `N` instead of the whole suite
+
+  -h, --help
+          Print help (see a summary with '-h')

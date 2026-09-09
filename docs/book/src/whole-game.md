@@ -66,7 +66,9 @@ export FIREWORKS_API_KEY=fw_...
 blendtutor eval lesson_hello.yaml
 ```
 
-The starter lesson ships two cases — a correct submission and an incorrect one.
+The starter lesson ships its `eval_lesson_hello.yaml` sibling with two cases —
+a correct submission and an incorrect one. Every lesson added with `new lesson`
+gets the same treatment: an `eval_<name>.yaml` sibling scaffolded alongside it.
 Use `--case N` for a single case, `--format json` for JSON output.
 
 ## Eval report — grade with the LLM judge

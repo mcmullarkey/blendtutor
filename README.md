@@ -14,11 +14,11 @@ to `~/.local/bin`, override with `BLENDTUTOR_INSTALL_DIR`):
 curl -LsSf https://raw.githubusercontent.com/mcmullarkey/blendtutor/main/scripts/install.sh | sh
 ```
 
-No release assets are published yet — until the next release, install from a clone:
+Prebuilt binaries for Linux and macOS (x86_64 + aarch64) are on the
+[releases page](https://github.com/mcmullarkey/blendtutor/releases). To build
+from source instead:
 
 ```bash
-git clone https://github.com/mcmullarkey/blendtutor.git
-cd blendtutor
 cargo install --path crates/cli
 ```
 

@@ -136,12 +136,15 @@ fn write_report_artifact(report: &EvalReport, course_root: &Path) -> anyhow::Res
         serde_json::to_string(report).expect("an EvalReport serializes to JSON infallibly"),
     )
     .with_context(|| format!("writing {}", tmp.display()))?;
-    let renamed = std::fs::rename(&tmp, &target).or_else(|_| {
-        // Windows: rename fails while the target exists — remove it and retry
-        // (a small non-atomic window, acceptable for a dev tool; the same
-        // remove-then-rename shape as eval_report.rs's replace_dir).
-        std::fs::remove_file(&target)?;
-        std::fs::rename(&tmp, &target)
+    let renamed = std::fs::rename(&tmp, &target).or_else(|e| {
+        // Windows only: rename fails while target exists. Accepted-untested on
+        // unix CI (rename overwrites) — precedent: eval_report.rs replace_dir.
+        if cfg!(windows) && target.exists() {
+            std::fs::remove_file(&target)?;
+            std::fs::rename(&tmp, &target)
+        } else {
+            Err(e)
+        }
     });
     if let Err(e) = renamed {
         let _ = std::fs::remove_file(&tmp);

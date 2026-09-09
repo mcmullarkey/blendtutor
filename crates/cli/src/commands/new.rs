@@ -14,6 +14,8 @@ use std::process::ExitCode;
 use blendtutor_core::lesson::Language;
 use blendtutor_core::scaffold::add_lesson;
 
+use crate::commands::sibling_suite_path;
+
 /// Parse the `--lang` flag into a core [`Language`], rejecting any other value at
 /// the CLI boundary (§1.3) so an unknown language never travels downstream as
 /// data. The accepted spellings are the lowercase wire forms `r` and `python`,
@@ -35,6 +37,11 @@ pub fn parse_language(value: &str) -> Result<Language, String> {
 /// never half-reports success.
 pub fn run(language: Language, id: &str) -> anyhow::Result<ExitCode> {
     let path = add_lesson(Path::new("."), language, id)?;
-    println!("Added {id} lesson at {}", path.display());
+    let eval_path = sibling_suite_path(&path);
+    println!(
+        "Added {id} lesson at {} + eval sibling at {}",
+        path.display(),
+        eval_path.display()
+    );
     Ok(ExitCode::SUCCESS)
 }

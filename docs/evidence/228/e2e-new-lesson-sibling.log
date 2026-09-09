@@ -1,8 +1,8 @@
 # E2E: blendtutor init + new lesson scaffolds lesson AND eval sibling (issue #228 F1/F2)
-$ blendtutor init /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.wxwVJOGFGT/course
-Scaffolded a new course in /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/tmp.wxwVJOGFGT/course
+$ blendtutor init <tmp>/course
+Scaffolded a new course in /var/folders/np/n0s92vd91p597552_mh5tt6r0000gn/T/opencode/e228.go9zpe/course
 $ cd course && blendtutor new lesson --lang python tally
-Added tally lesson at lessons/tally.yaml
+Added tally lesson at lessons/tally.yaml + eval sibling at lessons/eval_tally.yaml
 $ ls lessons/
 eval_tally.yaml
 tally.yaml

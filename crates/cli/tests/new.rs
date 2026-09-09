@@ -185,6 +185,31 @@ fn new_scaffolds_a_sibling_eval_suite() {
 }
 
 #[test]
+fn new_stdout_names_the_eval_sibling() {
+    // Discoverability: the success line names BOTH scaffolded files, so the
+    // author sees the grading suite that was written next to the lesson
+    // without having to `ls lessons/`. The sibling name is derived through
+    // the one `eval_` convention, not a test-local literal.
+    let course = fresh_init_course();
+
+    let output = Command::cargo_bin("blendtutor")
+        .unwrap()
+        .current_dir(course.path())
+        .args(["new", "lesson", "--lang", "python", "tally"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let sibling =
+        blendtutor_core::scaffold::eval_sibling_path(std::path::Path::new("lessons/tally.yaml"));
+    assert!(
+        stdout.contains(sibling.to_string_lossy().as_ref()),
+        "success stdout should name the eval sibling {sibling:?}; got {stdout:?}"
+    );
+}
+
+#[test]
 fn new_lesson_refuses_a_duplicate_id_without_clobbering() {
     let course = fresh_init_course();
 

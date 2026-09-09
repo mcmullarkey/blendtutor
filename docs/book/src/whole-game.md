@@ -83,6 +83,19 @@ inspect one: blendtutor eval <lesson> --case N
 grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`
 ```
 
+To persist the result for `build` to fold into the site's eval-results page,
+write the report at the course root:
+
+```bash
+blendtutor eval lesson_hello.yaml --write-report
+```
+
+This writes `eval-report.json` next to the course's `blendtutor.toml` — found
+from the lesson's directory, wherever you run the command from — as the same
+full-shape JSON `--format json` prints, regardless of `--format`. Re-runs
+overwrite it with a warning. `--case N` and `--write-report` are mutually
+exclusive: a single-case report would render as the course-level accuracy.
+
 ## Eval report — grade with the LLM judge
 
 `eval-report` drives the pinned smevals runner, which grades each case with

@@ -41,6 +41,7 @@ blendtutor new lesson --lang r greet              # add lessons/greet.yaml + eva
 blendtutor validate lessons/greet.yaml            # check a lesson (nonzero exit drops into CI)
 blendtutor run lessons/greet.yaml --code sub.R    # execute the submission, get an LLM verdict
 blendtutor eval lessons/greet.yaml                # score grading-prompt accuracy on the eval cases
+blendtutor eval lessons/greet.yaml --write-report # persist eval-report.json at the course root for build
 blendtutor eval-report lessons/greet.yaml         # LLM-judged report → docs/evals/<lesson>/
 blendtutor build my-course --target webr -o site  # static browser site (--target webr|pyodide)
 ```

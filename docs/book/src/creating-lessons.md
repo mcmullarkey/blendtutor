@@ -103,6 +103,8 @@ blendtutor eval lessons/seed-data.yaml
 
 Replays the eval cases through the run pipeline and reports how often the grader's verdict matches the expected label — regression-test grading accuracy before shipping. `--case N` for one case, `--format json` for structured output. Real paid calls: run against the provider your deployed site will use.
 
+To persist the score for `build` to fold into the site's eval-results page, add `--write-report`: it writes the full-shape `eval-report.json` next to the course's `blendtutor.toml` (found from the lesson's directory, wherever you run from), overwriting a previous report with a warning. `--case N` and `--write-report` are mutually exclusive — a single-case report would render as the course-level accuracy.
+
 ## Step 9 — Generate the eval report
 
 ```bash

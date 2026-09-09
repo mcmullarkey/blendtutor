@@ -2,7 +2,7 @@
 ac: 8
 depends_on: AC-6, AC-7
 risk: medium
-status: spec
+status: complete
 ---
 
 **Verdicts (in-spec resolutions):**
@@ -74,13 +74,20 @@ status: spec
 **Disagreement level: moderate** (divergence on overwrite policy + shared const + refusal-arm enumeration; converged on surface, shape, fixture, verification medium). All needs-clarification resolved in-spec.
 
 ### Progress
-- (none yet)
+- [x] RED suite committed (5041599): 7 tests in crates/cli/tests/eval.rs — positive items 1-6 (incl. `--format json` byte-identity), N1-N4, build round-trip, `eval --help` flag pin. All failed on the absent flag (clap exit 2 / missing help entry).
+- [x] Implementation committed (0592438): `#[arg(long)] write_report: bool` on Eval variant + dispatch; canonicalize-before-course_root_for; refusals precede scoring; `write_report_artifact` (.tmp + rename, Windows remove-then-rename retry, no .tmp leftover on failure); confirmation on stderr (keeps `--format json` stdout byte-pure); doc comment names the side effect + filename.
+- [x] Docs committed (dc8a170): whole-game.md eval region, creating-lessons.md Step 8, README loop one-liner.
+- [x] Evidence: docs/evidence/230/ (test-suite.log 16/16 + real-binary cli-transcript.log covering positive, overwrite, build round-trip 67%, N1, N3).
+- [x] Full workspace `cargo test` green; clippy clean; 9-subcommand surface untouched (cli.rs pin unchanged).
 
 ### Decision Log
-- (none yet)
+- Confirmation + overwrite warning go to **stderr**, not stdout: the spec allows either, but `--format json --write-report` must keep stdout a single pure JSON document for the byte-identity pin (item 5) — a stdout confirmation would break it. Matches the repo's "stdout is the data stream" pattern (embed-key WARNING precedent).
+- Atomic write = rename fast-path with remove-then-rename **retry** on failure (Windows target-exists), not unconditional remove-first: keeps the unix rename atomic, satisfies the Windows caveat, and the failure path removes the `.tmp` so no leftover survives.
+- N4 `.tmp`-leftover guarantee is enforced by cleanup-on-rename-failure plus the fact that the read-only-dir failure hits at `fs::write(tmp)` (nothing created yet).
 
 ### Surprises & Discoveries
-- (none yet)
+- macOS tempdir paths are symlinked (`/var/folders/...` → `/private/var/folders/...`): the binary canonicalizes the lesson before walking ancestors, so paths it prints are `/private/...` while a naive test assertion on the raw tempdir path would mismatch. Fix: the test helper canonicalizes the course dir before returning it, so asserted and printed paths agree.
+- The `eval --help` flag pin (item 7) does not match the `eval_write_report` test filter, so it must be run under its own name (`eval_help_lists_write_report_flag`) — the spec's probe list filters by `eval_write_report*` and would silently skip it.
 
 ### Idempotence & Recovery
 - Safe retry: re-run builder on same branch; tests are idempotent

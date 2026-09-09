@@ -13,7 +13,7 @@ use clap::ValueEnum;
 use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
-use blendtutor_core::eval::EvalReport;
+use blendtutor_core::eval::{CaseResult, EvalReport};
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
 use blendtutor_core::run::RunReport;
@@ -366,15 +366,18 @@ pub fn emit_run(report: &RunReport, format: OutputFormat) -> io::Result<()> {
     writeln!(io::stdout(), "{text}")
 }
 
-/// The human rendering of an [`EvalReport`]: an accuracy headline followed by one
-/// row per case showing the expected and actual polarity and whether they
-/// matched.
+/// The human rendering of an [`EvalReport`]: an accuracy headline, one row per
+/// case showing the expected and actual polarity and whether they matched, the
+/// grader's verbatim feedback under each mismatched row, and — when at least
+/// one case mismatched — a next-steps footer.
 ///
 /// Pure (§2.1): it reads the report and returns text, performing no I/O. The
 /// match marker is derived from the typed `matched` flag, so it cannot drift from
 /// the score; accuracy is shown as both the exact `matched/total` fraction and a
 /// rounded percentage. Each polarity word is the report's own canonical token, so
-/// the rendering cannot drift from the accepted set.
+/// the rendering cannot drift from the accepted set. The footer is derived from
+/// the case data alone — the lesson path is never threaded in, so the render
+/// stays a pure function of the report (§2).
 fn render_eval(report: &EvalReport) -> String {
     let total = report.cases().len();
     let matched = report.cases().iter().filter(|case| case.matched()).count();
@@ -397,8 +400,71 @@ fn render_eval(report: &EvalReport) -> String {
             expected = case.expected().token(),
             actual = case.actual().token(),
         ));
+        if let Some(feedback) = feedback_line(case) {
+            lines.push(feedback);
+        }
+    }
+    if let Some(footer) = next_steps_footer(report) {
+        lines.push(String::new());
+        lines.push(footer);
     }
     lines.join("\n")
+}
+
+/// The indented `grader:` line carrying one case's verbatim feedback — present
+/// only for a mismatched case (§3.4): the grader's own words, never reworded or
+/// truncated, and never attached to a `[match]` row where the polarity did not
+/// surprise the author. A multi-line message keeps every character verbatim;
+/// its continuation lines are indented to align under the first feedback line
+/// (the prefix is [`GRADER_PREFIX_WIDTH`] columns) so the message cannot break
+/// the row alignment.
+const GRADER_PREFIX: &str = "  grader: ";
+
+/// The width of the [`GRADER_PREFIX`] label: continuation lines of a multi-line
+/// grader message are indented this far so they align under the feedback text.
+const GRADER_PREFIX_WIDTH: usize = GRADER_PREFIX.len();
+
+fn feedback_line(case: &CaseResult) -> Option<String> {
+    if case.matched() {
+        return None;
+    }
+    let continuation = format!("\n{:width$}", "", width = GRADER_PREFIX_WIDTH);
+    Some(format!(
+        "{GRADER_PREFIX}{}",
+        case.feedback_message().replace('\n', &continuation)
+    ))
+}
+
+/// The next-steps footer for a report with at least one mismatched case, or
+/// `None` for a full match — the guidance is mismatch-driven, not unconditional
+/// (§5.1: one pure helper, not scattered `format!` calls).
+///
+/// It names the 1-based numbers of the mismatched cases, points at re-running a
+/// single case with `--case N`, and names the knobs that shape grading — the
+/// lesson's `llm_evaluation_prompt` and each exercise's reference `solution`.
+/// It speaks in plain words ("mismatched"), never the bracketed `[mismatch]`
+/// token, which the integration tests count exactly.
+fn next_steps_footer(report: &EvalReport) -> Option<String> {
+    let mismatched: Vec<usize> = report
+        .cases()
+        .iter()
+        .enumerate()
+        .filter(|(_, case)| !case.matched())
+        .map(|(position, _)| position + 1)
+        .collect();
+    if mismatched.is_empty() {
+        return None;
+    }
+    let numbers = mismatched
+        .iter()
+        .map(|number| number.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(format!(
+        "mismatched cases: {numbers}\n\
+         inspect one: blendtutor eval <lesson> --case N\n\
+         grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`"
+    ))
 }
 
 /// Render `report` in `format` and write it to stdout — the single place an eval
@@ -535,26 +601,284 @@ mod tests {
         assert_eq!(render_list(&empty, OutputFormat::Json), "[]");
     }
 
-    /// Pin the human rendering of an eval report — the accuracy headline and the
-    /// 1-based per-case rows with their `[match]`/`[mismatch]` markers — so any
-    /// drift in wording, numbering, or the fraction/percentage fails loudly. The
-    /// fixture is the AC1 shape (two matches, one mismatch → 2/3).
+    /// Pin the human rendering of an eval report — the accuracy headline, the
+    /// 1-based per-case rows with their `[match]`/`[mismatch]` markers, each
+    /// mismatched case's verbatim `grader:` feedback line, and the next-steps
+    /// footer — so any drift in wording, numbering, or the fraction/percentage
+    /// fails loudly. The fixture is the AC1 shape (two matches, one mismatch →
+    /// 2/3) with a distinct feedback message per case, so a feedback line under
+    /// the wrong row cannot pass.
     #[test]
     fn eval_human_matches_snapshot() {
         use blendtutor_core::eval::{CaseResult, EvalReport, ExpectedVerdict};
 
         let correct = Verdict::Correct {
-            message: "well done".to_string(),
+            message: "alpha checks out".to_string(),
         };
         let incorrect = Verdict::Incorrect {
-            message: "try again".to_string(),
+            message: "beta is wrong".to_string(),
+        };
+        let flipped = Verdict::Incorrect {
+            message: "gamma polarity flipped".to_string(),
         };
         let report = EvalReport::new(vec![
             CaseResult::score(ExpectedVerdict::Correct, &correct),
             CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-            CaseResult::score(ExpectedVerdict::Correct, &incorrect),
+            CaseResult::score(ExpectedVerdict::Correct, &flipped),
         ]);
 
         insta::assert_snapshot!(render_eval(&report));
+    }
+
+    /// F1 — a mismatched case's row is immediately followed by the grader's
+    /// verbatim feedback on an indented `grader:` line, and `[match]` rows carry
+    /// no feedback line. The three distinct messages make attribution
+    /// provable: only the mismatch's own message may appear (negative
+    /// missing-feedback and wrong-case-attribution arms).
+    #[test]
+    fn eval_human_shows_grader_feedback_only_under_mismatch_rows() {
+        use blendtutor_core::eval::{CaseResult, EvalReport, ExpectedVerdict};
+
+        let correct = Verdict::Correct {
+            message: "alpha checks out".to_string(),
+        };
+        let incorrect = Verdict::Incorrect {
+            message: "beta is wrong".to_string(),
+        };
+        let flipped = Verdict::Incorrect {
+            message: "gamma polarity flipped".to_string(),
+        };
+        let report = EvalReport::new(vec![
+            CaseResult::score(ExpectedVerdict::Correct, &correct),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
+            CaseResult::score(ExpectedVerdict::Correct, &flipped),
+        ]);
+
+        let rendered = render_eval(&report);
+
+        assert!(
+            rendered.contains("  grader: gamma polarity flipped"),
+            "the mismatched case's verbatim feedback must appear, indented and labeled, got: {rendered:?}"
+        );
+        assert!(
+            !rendered.contains("grader: alpha checks out"),
+            "a [match] row carries no feedback line, got: {rendered:?}"
+        );
+        assert!(
+            !rendered.contains("grader: beta is wrong"),
+            "a [match] row carries no feedback line, got: {rendered:?}"
+        );
+        // Immediately under its row: the feedback line is the very next line
+        // after the mismatch row it belongs to.
+        let mismatch_row_position = rendered
+            .lines()
+            .position(|line| line.ends_with("[mismatch]"))
+            .expect("a mismatch row is rendered");
+        assert_eq!(
+            rendered.lines().nth(mismatch_row_position + 1),
+            Some("  grader: gamma polarity flipped"),
+            "the grader feedback line must come immediately after its mismatch row"
+        );
+    }
+
+    /// F2 — a run with at least one mismatch ends with a next-steps footer that
+    /// names the 1-based mismatched case numbers, points at
+    /// `blendtutor eval <lesson> --case N`, and names `llm_evaluation_prompt`
+    /// and the reference `solution` as the grading knobs. The footer must not
+    /// contain the bracketed `[mismatch]` token — `tests/eval.rs` counts
+    /// `[mismatch]` occurrences exactly, and the footer speaks in plain words.
+    #[test]
+    fn eval_human_mismatch_run_ends_with_next_steps_footer() {
+        use blendtutor_core::eval::{CaseResult, EvalReport, ExpectedVerdict};
+
+        let correct = Verdict::Correct {
+            message: "alpha checks out".to_string(),
+        };
+        let incorrect = Verdict::Incorrect {
+            message: "beta is wrong".to_string(),
+        };
+        let flipped = Verdict::Incorrect {
+            message: "gamma polarity flipped".to_string(),
+        };
+        let report = EvalReport::new(vec![
+            CaseResult::score(ExpectedVerdict::Correct, &correct),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
+            CaseResult::score(ExpectedVerdict::Correct, &flipped),
+        ]);
+
+        let rendered = render_eval(&report);
+
+        assert!(
+            rendered.contains("mismatched cases: 3"),
+            "the footer must name the 1-based mismatched case numbers, got: {rendered:?}"
+        );
+        assert!(
+            rendered.contains("blendtutor eval <lesson> --case N"),
+            "the footer must point at re-running a single case, got: {rendered:?}"
+        );
+        assert!(
+            rendered.contains("llm_evaluation_prompt"),
+            "the footer must name the prompt knob, got: {rendered:?}"
+        );
+        assert!(
+            rendered.contains("solution"),
+            "the footer must name the reference solution knob, got: {rendered:?}"
+        );
+        assert!(
+            !rendered.contains("[mismatch] --") && rendered.matches("[mismatch]").count() == 1,
+            "the footer must not add bracketed [mismatch]-like tokens, got: {rendered:?}"
+        );
+        // The footer is the tail: the render ends with the footer's last line.
+        assert!(
+            rendered.ends_with("reference `solution`"),
+            "the footer must be the end of the output, got: {rendered:?}"
+        );
+    }
+
+    /// F2 — several mismatches are listed together: the footer names every
+    /// mismatched 1-based case number joined with `", "` (cases 1 and 3 here),
+    /// so a multi-mismatch run points the learner at all of them, not just the
+    /// first. The `1, 3` literal is a deliberate contract pin on the
+    /// comma-joined numbering the AC's plural "numbers" requires.
+    #[test]
+    fn eval_human_footer_lists_every_mismatched_case_number() {
+        use blendtutor_core::eval::{CaseResult, EvalReport, ExpectedVerdict};
+
+        let wrong_alpha = Verdict::Incorrect {
+            message: "alpha is off".to_string(),
+        };
+        let wrong_beta = Verdict::Incorrect {
+            message: "beta is off".to_string(),
+        };
+        let wrong_gamma = Verdict::Incorrect {
+            message: "gamma is off".to_string(),
+        };
+        let report = EvalReport::new(vec![
+            // Case 1: expected correct, got incorrect → mismatch.
+            CaseResult::score(ExpectedVerdict::Correct, &wrong_alpha),
+            // Case 2: expected incorrect, got incorrect → match.
+            CaseResult::score(ExpectedVerdict::Incorrect, &wrong_beta),
+            // Case 3: expected correct, got incorrect → mismatch.
+            CaseResult::score(ExpectedVerdict::Correct, &wrong_gamma),
+        ]);
+
+        let rendered = render_eval(&report);
+
+        assert!(
+            rendered.contains("mismatched cases: 1, 3"),
+            "the footer must name every mismatched case, comma-joined, got: {rendered:?}"
+        );
+    }
+
+    /// F2 negative — an all-matched run emits NO footer and NO guidance lines:
+    /// the footer is mismatch-driven, not unconditional.
+    #[test]
+    fn eval_human_full_match_emits_no_footer() {
+        use blendtutor_core::eval::{CaseResult, EvalReport, ExpectedVerdict};
+
+        let correct = Verdict::Correct {
+            message: "alpha checks out".to_string(),
+        };
+        let incorrect = Verdict::Incorrect {
+            message: "beta is wrong".to_string(),
+        };
+        let report = EvalReport::new(vec![
+            CaseResult::score(ExpectedVerdict::Correct, &correct),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
+        ]);
+
+        let rendered = render_eval(&report);
+
+        assert!(
+            !rendered.contains("mismatched cases"),
+            "a full match emits no footer, got: {rendered:?}"
+        );
+        assert!(
+            !rendered.contains("--case"),
+            "a full match emits no guidance lines, got: {rendered:?}"
+        );
+        assert!(
+            !rendered.contains("llm_evaluation_prompt"),
+            "a full match emits no guidance lines, got: {rendered:?}"
+        );
+        assert!(
+            !rendered.contains("grader:"),
+            "a full match emits no feedback lines, got: {rendered:?}"
+        );
+    }
+
+    /// A multi-line grader message keeps every character verbatim but has each
+    /// continuation line indented to align under the first feedback line (the
+    /// `grader:` prefix width), so a multi-line message cannot break the row
+    /// alignment. The expected block is derived from the same prefix-width
+    /// constant the renderer uses (derive-from-source), so the pin survives a
+    /// legitimate prefix rewording while still failing on any lost indent or
+    /// truncated content.
+    #[test]
+    fn eval_human_multiline_feedback_indents_continuation_lines() {
+        use blendtutor_core::eval::{CaseResult, EvalReport, ExpectedVerdict};
+
+        let correct = Verdict::Correct {
+            message: "alpha checks out".to_string(),
+        };
+        let incorrect = Verdict::Incorrect {
+            message: "beta is wrong".to_string(),
+        };
+        let multiline = Verdict::Incorrect {
+            message: "gamma polarity flipped\nthe prompt admits both polarities\ncheck the reference solution"
+                .to_string(),
+        };
+        let report = EvalReport::new(vec![
+            CaseResult::score(ExpectedVerdict::Correct, &correct),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
+            CaseResult::score(ExpectedVerdict::Correct, &multiline),
+        ]);
+
+        let rendered = render_eval(&report);
+
+        let indent = " ".repeat(GRADER_PREFIX_WIDTH);
+        let expected_block = format!(
+            "  grader: gamma polarity flipped\n{indent}the prompt admits both polarities\n{indent}check the reference solution"
+        );
+        assert!(
+            rendered.contains(&expected_block),
+            "multi-line feedback must stay verbatim with continuation lines aligned under the first, got: {rendered:?}"
+        );
+    }
+
+    /// P2 — the JSON document is byte-identical to the pre-change shape: the
+    /// per-case keys (`expected`, `actual`, `matched`, `feedback_message`) and
+    /// the top-level (`cases`, `accuracy`) in declaration order, with the
+    /// verbatim messages. The accuracy literal is serde_json's rendering of
+    /// 2/3 — a deliberate contract pin on the wire shape machine consumers
+    /// embed without re-scoring.
+    #[test]
+    fn eval_json_shape_is_byte_stable() {
+        use blendtutor_core::eval::{CaseResult, EvalReport, ExpectedVerdict};
+
+        let correct = Verdict::Correct {
+            message: "alpha checks out".to_string(),
+        };
+        let incorrect = Verdict::Incorrect {
+            message: "beta is wrong".to_string(),
+        };
+        let flipped = Verdict::Incorrect {
+            message: "gamma polarity flipped".to_string(),
+        };
+        let report = EvalReport::new(vec![
+            CaseResult::score(ExpectedVerdict::Correct, &correct),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
+            CaseResult::score(ExpectedVerdict::Correct, &flipped),
+        ]);
+
+        let json = serde_json::to_string(&report).expect("an EvalReport serializes infallibly");
+
+        let expected = concat!(
+            r#"{"cases":[{"expected":"correct","actual":"correct","matched":true,"feedback_message":"alpha checks out"},"#,
+            r#"{"expected":"incorrect","actual":"incorrect","matched":true,"feedback_message":"beta is wrong"},"#,
+            r#"{"expected":"correct","actual":"incorrect","matched":false,"feedback_message":"gamma polarity flipped"}],"#,
+            r#""accuracy":0.6666666666666666}"#,
+        );
+        assert_eq!(json, expected, "the JSON wire shape must not drift");
     }
 }

@@ -2,7 +2,7 @@
 ac: 7
 depends_on: AC-6
 risk: low
-status: spec
+status: complete
 ---
 
 ### AC-7 — eval terminal interpretation
@@ -36,13 +36,18 @@ status: spec
   - design intent (§2/§3/§4/§5): render_eval gains a pure `feedback line per mismatch` + pure `next_steps_footer(&[case_numbers])`; everything keyed off `EvalReport`'s own data; docs note in whole-game evals section minimal (one short paragraph + example), editing the region AC-6 finalized.
 
 ### Progress
-- (none yet)
+- [x] RED suite committed (5ed9403): unit tests in `output.rs` mod tests (feedback-line presence/attribution, footer content + `[mismatch]`-literal absence, full-match no-footer, JSON byte pin) + integration tests in `tests/eval.rs` (F1+F2 human render, full-match negative). Verified RED: 2 unit + 1 integration failed for the expected reasons (no feedback line / no footer); absence + JSON-pin tests green-on-first-run as expected (guards, not new behavior).
+- [x] Implementation committed (a15183d): pure `feedback_line(&CaseResult) -> Option<String>` + pure `next_steps_footer(&EvalReport) -> Option<String>` wired into `render_eval`; snapshot regenerated via `INSTA_UPDATE=always` and reviewed (5 added lines, exactly the intended shape); whole-game.md eval section got one paragraph + example; E2E evidence in `docs/evidence/229/` (real binary + real Rscript + provider stub: mismatch run, full-match run, JSON run — all exit 0).
 
 ### Decision Log
-- (none yet)
+- Footer wording: three terse lines — `mismatched cases: <numbers>` / `inspect one: blendtutor eval <lesson> --case N` / `grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution``. Uses the generic `--case N` placeholder (spec's own spelling) rather than substituting the concrete number — simpler, and the numbers are already named on the line above.
+- Footer separated from rows by one blank line; feedback line indented two spaces with `grader: ` label, immediately under its row (spec's "e.g. indented `grader: <message>`").
+- JSON byte pin added as a unit test (`eval_json_shape_is_byte_stable`) with the full expected document as a named `concat!` constant — the accuracy literal `0.6666666666666666` is a deliberate contract pin (serde_json's rendering of 2/3), documented in the test comment.
+- Snapshot fixture messages made distinct per case ("alpha checks out" / "beta is wrong" / "gamma polarity flipped") so wrong-case attribution is provable at unit level too, not just integration.
 
 ### Surprises & Discoveries
-- (none yet)
+- The old snapshot never contained the grader messages (the render dropped them), so extending the fixture messages alone did NOT turn the snapshot test RED — the snapshot only went RED after implementation. The two explicit assertion tests were the RED drivers; the snapshot is the review artifact. Resolution: RED proven by the explicit tests, snapshot diff reviewed line-by-line after `INSTA_UPDATE=always`.
+- `eval_human_full_match_emits_no_footer` (unit + integration) passed on first run — expected and valid: it is the negative guard whose value is catching a future unconditional footer, not new behavior.
 
 ### Idempotence & Recovery
 - Safe retry: re-run builder on same branch; tests are idempotent

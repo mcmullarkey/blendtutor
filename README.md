@@ -15,8 +15,8 @@ curl -LsSf https://raw.githubusercontent.com/mcmullarkey/blendtutor/main/scripts
 ```
 
 Prebuilt binaries for Linux and macOS (x86_64 + aarch64) are on the
-[releases page](https://github.com/mcmullarkey/blendtutor/releases). To build
-from source instead:
+[releases page](https://github.com/mcmullarkey/blendtutor/releases); verify
+against `sha256sums.txt` in the same release. To build from source instead:
 
 ```bash
 cargo install --path crates/cli

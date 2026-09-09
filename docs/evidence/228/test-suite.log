@@ -1,0 +1,16 @@
+# Issue #228 non-regression gate — 2026-09-09T00:16Z @ c595fc9
+# cargo test -p blendtutor-cli --test new            → 4 passed
+# cargo test -p blendtutor-cli --test eval           → 7 passed
+# cargo test -p blendtutor-cli --test eval_report_cli → 10 passed
+# cargo test -p blendtutor-cli --test readme         → 2 passed
+# cargo test -p blendtutor-cli --test cli            → 2 passed
+# cargo test -p blendtutor-cli --test cutover        → 1 passed
+# cargo test -p blendtutor-core                      → 201 passed
+# bash scripts/check-model-alignment.sh              → OK (deepseek-v4-flash-0731 pinned)
+# bash scripts/tests/test_smevals_runner.sh          → 12 passed
+# python3 scripts/tests/test_judge_feedback.py       → 78 passed
+# bash scripts/tests/test_quarto_distribution.sh     → 9 passed
+# bash scripts/tests/test_demo_docs.sh               → 5 passed
+
+# cargo test -p blendtutor-core (lib result line):
+test result: ok. 201 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 159.41s

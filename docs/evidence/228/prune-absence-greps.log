@@ -1,0 +1,20 @@
+# P1/P2 prune arms (issue #228)
+$ rg 'eval_fireworks_(vitals|sequential)\.R|eval_evaluate_with_llm' crates/*/src .github/ scripts/ docs/book/src README.md   # AC scope — expect zero hits
+exit=1 (1 = zero hits, PASS)
+
+$ same pattern over crates/ — single hit is the ARCHIVAL fixture header comment, exempt per spec:
+crates/core/tests/fixtures/evals/eval_fireworks_vitals.yaml:2:# evals/eval_fireworks_vitals.R (the `eval_data` tibble, cases 1-10). Each case
+
+$ grep '^/evals/$' .gitignore   # expect no match
+exit=1 (1 = entry removed, PASS)
+
+$ rg 'uvx|smevals|SMEVALS_PIN' crates/cli/src/commands/eval.rs   # expect zero hits
+exit=1 (1 = PASS)
+
+$ rg 'smevals==0.2.0' crates/cli/src/commands/eval_report.rs   # expect the pin retained
+5://! smevals==0.2.0` package to run and build the report, and publish it under
+35:const SMEVALS_PIN: &str = "smevals==0.2.0";
+162:/// Invoke `uvx smevals==0.2.0 <args…>` and return its exit status.
+
+$ rg 'format!("eval_' crates/core/src/scaffold.rs crates/cli/src/commands/mod.rs   # no second hand-copied naming rule
+exit=1 (1 = no duplicated naming rule, PASS)

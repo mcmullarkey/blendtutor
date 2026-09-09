@@ -14,7 +14,10 @@ expected polarities `[correct, incorrect, correct]`).
 | `eval_human_full_match.txt` | `eval demo_lesson.yaml` (stub: gamma→correct) | Negative arm: accuracy 3/3, NO footer, NO guidance lines, NO `grader:` lines. Exit 0. |
 | `eval_json_mismatch.txt` | `eval demo_lesson.yaml --format json` (stub: gamma→incorrect) | P2: JSON byte-shape unchanged — `cases`/`accuracy`, per-case `expected`/`actual`/`matched`/`feedback_message`, no footer concept. Exit 0. |
 
-`.stderr.txt` files are empty (no diagnostics mixed into stdout).
+All three `.stderr.txt` files (`eval_human_mismatch`, `eval_human_full_match`,
+`eval_json_mismatch`) are empty — no diagnostics on stderr, nothing mixed into
+the data stream. The trailing `exit=0` line in each `.txt` is a capture
+annotation appended by the run harness, not program output.
 
 ## Reproduce
 

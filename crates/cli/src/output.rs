@@ -414,12 +414,25 @@ fn render_eval(report: &EvalReport) -> String {
 /// The indented `grader:` line carrying one case's verbatim feedback — present
 /// only for a mismatched case (§3.4): the grader's own words, never reworded or
 /// truncated, and never attached to a `[match]` row where the polarity did not
-/// surprise the author.
+/// surprise the author. A multi-line message keeps every character verbatim;
+/// its continuation lines are indented to align under the first feedback line
+/// (the prefix is [`GRADER_PREFIX_WIDTH`] columns) so the message cannot break
+/// the row alignment.
+const GRADER_PREFIX: &str = "  grader: ";
+
+/// The width of the [`GRADER_PREFIX`] label: continuation lines of a multi-line
+/// grader message are indented this far so they align under the feedback text.
+const GRADER_PREFIX_WIDTH: usize = GRADER_PREFIX.len();
+
 fn feedback_line(case: &CaseResult) -> Option<String> {
     if case.matched() {
         return None;
     }
-    Some(format!("  grader: {}", case.feedback_message()))
+    let continuation = format!("\n{:width$}", "", width = GRADER_PREFIX_WIDTH);
+    Some(format!(
+        "{GRADER_PREFIX}{}",
+        case.feedback_message().replace('\n', &continuation)
+    ))
 }
 
 /// The next-steps footer for a report with at least one mismatched case, or
@@ -722,6 +735,41 @@ mod tests {
         );
     }
 
+    /// F2 — several mismatches are listed together: the footer names every
+    /// mismatched 1-based case number joined with `", "` (cases 1 and 3 here),
+    /// so a multi-mismatch run points the learner at all of them, not just the
+    /// first. The `1, 3` literal is a deliberate contract pin on the
+    /// comma-joined numbering the AC's plural "numbers" requires.
+    #[test]
+    fn eval_human_footer_lists_every_mismatched_case_number() {
+        use blendtutor_core::eval::{CaseResult, EvalReport, ExpectedVerdict};
+
+        let wrong_alpha = Verdict::Incorrect {
+            message: "alpha is off".to_string(),
+        };
+        let wrong_beta = Verdict::Incorrect {
+            message: "beta is off".to_string(),
+        };
+        let wrong_gamma = Verdict::Incorrect {
+            message: "gamma is off".to_string(),
+        };
+        let report = EvalReport::new(vec![
+            // Case 1: expected correct, got incorrect → mismatch.
+            CaseResult::score(ExpectedVerdict::Correct, &wrong_alpha),
+            // Case 2: expected incorrect, got incorrect → match.
+            CaseResult::score(ExpectedVerdict::Incorrect, &wrong_beta),
+            // Case 3: expected correct, got incorrect → mismatch.
+            CaseResult::score(ExpectedVerdict::Correct, &wrong_gamma),
+        ]);
+
+        let rendered = render_eval(&report);
+
+        assert!(
+            rendered.contains("mismatched cases: 1, 3"),
+            "the footer must name every mismatched case, comma-joined, got: {rendered:?}"
+        );
+    }
+
     /// F2 negative — an all-matched run emits NO footer and NO guidance lines:
     /// the footer is mismatch-driven, not unconditional.
     #[test]
@@ -756,6 +804,45 @@ mod tests {
         assert!(
             !rendered.contains("grader:"),
             "a full match emits no feedback lines, got: {rendered:?}"
+        );
+    }
+
+    /// A multi-line grader message keeps every character verbatim but has each
+    /// continuation line indented to align under the first feedback line (the
+    /// `grader:` prefix width), so a multi-line message cannot break the row
+    /// alignment. The expected block is derived from the same prefix-width
+    /// constant the renderer uses (derive-from-source), so the pin survives a
+    /// legitimate prefix rewording while still failing on any lost indent or
+    /// truncated content.
+    #[test]
+    fn eval_human_multiline_feedback_indents_continuation_lines() {
+        use blendtutor_core::eval::{CaseResult, EvalReport, ExpectedVerdict};
+
+        let correct = Verdict::Correct {
+            message: "alpha checks out".to_string(),
+        };
+        let incorrect = Verdict::Incorrect {
+            message: "beta is wrong".to_string(),
+        };
+        let multiline = Verdict::Incorrect {
+            message: "gamma polarity flipped\nthe prompt admits both polarities\ncheck the reference solution"
+                .to_string(),
+        };
+        let report = EvalReport::new(vec![
+            CaseResult::score(ExpectedVerdict::Correct, &correct),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
+            CaseResult::score(ExpectedVerdict::Correct, &multiline),
+        ]);
+
+        let rendered = render_eval(&report);
+
+        let indent = " ".repeat(GRADER_PREFIX_WIDTH);
+        let expected_block = format!(
+            "  grader: gamma polarity flipped\n{indent}the prompt admits both polarities\n{indent}check the reference solution"
+        );
+        assert!(
+            rendered.contains(&expected_block),
+            "multi-line feedback must stay verbatim with continuation lines aligned under the first, got: {rendered:?}"
         );
     }
 

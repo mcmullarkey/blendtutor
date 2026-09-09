@@ -8,3 +8,4 @@ case 3: expected correct, got incorrect [mismatch]
 mismatched cases: 3
 inspect one: blendtutor eval <lesson> --case N
 grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`
+exit=0

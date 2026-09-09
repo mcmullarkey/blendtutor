@@ -78,6 +78,11 @@ enum Commands {
         /// Score only the 1-based case `N` instead of the whole suite.
         #[arg(long)]
         case: Option<usize>,
+        /// Also write the full-shape report as `eval-report.json` at the
+        /// course root (the nearest `blendtutor.toml` ancestor) — the durable
+        /// artifact `build` folds into the site's eval-results page.
+        #[arg(long)]
+        write_report: bool,
     },
     /// Generate a static smevals eval report for a lesson.
     EvalReport {
@@ -144,7 +149,8 @@ fn main() -> anyhow::Result<ExitCode> {
             lesson,
             format,
             case,
-        } => commands::eval::run(&lesson, format, case),
+            write_report,
+        } => commands::eval::run(&lesson, format, case, write_report),
         Commands::EvalReport { lesson } => commands::eval_report::run(&lesson),
         Commands::New { target } => match target {
             NewTarget::Lesson { lang, id } => commands::new::run(lang, &id),

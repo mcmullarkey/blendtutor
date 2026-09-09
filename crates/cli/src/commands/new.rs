@@ -1,11 +1,12 @@
 //! `blendtutor new lesson --lang <r|python> <id>` — add a language-appropriate
-//! lesson to the current course and register it in the manifest.
+//! lesson to the current course, scaffold its `eval_<id>.yaml` grading suite,
+//! and register the lesson in the manifest.
 //!
 //! A thin shell over [`blendtutor_core::scaffold::add_lesson`]: parse the `--lang`
 //! flag into the core [`Language`] at the boundary (§1.2, §1.3), then hand the
 //! course (the current directory) and id to core. The decision of *what* a lesson
-//! contains and *how* it is registered lives in `core` (§4.1); this command only
-//! names the target and frames the outcome.
+//! and its grading suite contain, and *how* the lesson is registered, lives in
+//! `core` (§4.1); this command only names the target and frames the outcome.
 
 use std::path::Path;
 use std::process::ExitCode;

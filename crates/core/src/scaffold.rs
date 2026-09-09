@@ -6,11 +6,12 @@
 //! no filesystem, §2.3), and [`scaffold_course`] — the single effectful step
 //! that refuses a non-empty target before any write (§1.3.1) then writes that
 //! plan into it. It also grows an existing course one lesson at a time: the pure
-//! [`lesson_template`] selects a language-appropriate starter (§2.1) and the
-//! effectful [`add_lesson`] writes it and registers it in the manifest. This
-//! module owns *what a course's content is*; it does not parse CLI flags or decide
-//! where the course lives (§4.1). The templates are data the writer consumes, so
-//! changing a template never changes the writer (§3.2).
+//! [`lesson_template`] selects a language-appropriate starter (§2.1), the pure
+//! [`eval_template`] emits the lesson's `eval_`-prefixed grading suite, and the
+//! effectful [`add_lesson`] writes the pair and registers the lesson in the
+//! manifest. This module owns *what a course's content is*; it does not parse
+//! CLI flags or decide where the course lives (§4.1). The templates are data the
+//! writer consumes, so changing a template never changes the writer (§3.2).
 
 use std::error::Error;
 use std::fmt;
@@ -247,6 +248,59 @@ pub fn lesson_template(language: Language, id: &str) -> String {
     )
 }
 
+/// The `eval_` prefix of the sibling-suite naming convention: a lesson
+/// `lessons/foo.yaml` pairs with the suite `lessons/eval_foo.yaml`. The single
+/// source of the convention — the scaffolding derives the sibling name through
+/// [`eval_sibling_path`], and `cli`'s `sibling_suite_path` (which `eval` and
+/// `eval-report` resolve suites by) delegates to the same function, so the two
+/// ends of the convention can never drift apart.
+pub const EVAL_SIBLING_PREFIX: &str = "eval_";
+
+/// The eval-suite sibling of `lesson_path`: the same file name prefixed with
+/// [`EVAL_SIBLING_PREFIX`], in the same directory.
+///
+/// Pure (§2.1): a path-to-path derivation with no filesystem access. This is
+/// THE convention — `new` scaffolds the sibling here, `eval` and `eval-report`
+/// discover it through `cli`'s delegating `sibling_suite_path` — so a suite
+/// authored (or scaffolded) next to its lesson is found by every consumer
+/// without configuration. A path with no file name (a bare root) yields the
+/// prefix alone, so a subsequent read fails with a path-named error rather
+/// than silently scoring nothing.
+pub fn eval_sibling_path(lesson_path: &Path) -> PathBuf {
+    let file_name = lesson_path.file_name().unwrap_or_default();
+    let mut suite_name = std::ffi::OsString::from(EVAL_SIBLING_PREFIX);
+    suite_name.push(file_name);
+    lesson_path.with_file_name(suite_name)
+}
+
+/// Render a starter eval suite for `language` under the lesson slug `id`.
+///
+/// Pure (§2.1): the [`lesson_template`] twin for grading — it picks the
+/// language-appropriate hello-world submission and frames a minimal one-case
+/// suite (a `correct` verdict) as data with no filesystem access, so the result
+/// is asserted directly against the production eval parser. One case, not two:
+/// the scaffold's job is a parseable starting point the instructor edits, and
+/// the starter course's committed suite (with its correct *and* incorrect
+/// cases) remains the fuller example. The caller is responsible for `id` being
+/// a safe slug; [`add_lesson`] guards it.
+pub fn eval_template(language: Language, id: &str) -> String {
+    let submission = match language {
+        Language::R => r#"cat("hello\n")"#,
+        Language::Python => r#"print("hello")"#,
+    };
+    format!(
+        "# The eval suite scaffolded by `blendtutor new lesson` for\n\
+         # lessons/{id}.yaml — this file's `eval_`-prefixed sibling. Each case\n\
+         # pairs a sample submission with the verdict you expect a good grader\n\
+         # to return (correct or incorrect). Edit it, then score it with\n\
+         # `blendtutor eval lessons/{id}.yaml`.\n\
+         cases:\n\
+         \x20 - submission: |-\n\
+         \x20     {submission}\n\
+         \x20   expected: correct\n"
+    )
+}
+
 /// Why a lesson could not be added to a course.
 ///
 /// The three refusals are kept distinct from a genuine write failure so the cli
@@ -267,8 +321,9 @@ pub enum AddLessonError {
     /// rather than leaving an orphan lesson in a non-course directory. Carries the
     /// directory. (Run `blendtutor init` first, or `cd` into a course.)
     NotACourse(PathBuf),
-    /// A lesson already exists at the target path, so the command refuses to
-    /// overwrite it (no clobber), before any write. Carries the course-relative
+    /// A file already exists at the target path — the lesson itself, or its
+    /// `eval_`-prefixed sibling suite — so the command refuses to overwrite it
+    /// (no clobber), before any write to that path. Carries the course-relative
     /// path that is already taken.
     AlreadyExists(PathBuf),
     /// A filesystem operation failed while writing the lesson file or registering
@@ -291,7 +346,7 @@ impl fmt::Display for AddLessonError {
             ),
             AddLessonError::AlreadyExists(path) => write!(
                 f,
-                "a lesson already exists at {path:?}; new lesson refuses to \
+                "a file already exists at {path:?}; new lesson refuses to \
                  overwrite it — choose a different id",
             ),
             AddLessonError::Write(e) => write!(f, "could not write the new lesson: {e}"),
@@ -325,34 +380,51 @@ fn is_valid_slug(id: &str) -> bool {
 }
 
 /// Add a `language` lesson `id` to the course rooted at `dir`: write
-/// `lessons/<id>.yaml` from [`lesson_template`] and register it in the manifest.
+/// `lessons/<id>.yaml` from [`lesson_template`] and its `eval_`-prefixed
+/// sibling suite from [`eval_template`], then register the lesson in the
+/// manifest.
 ///
 /// The effectful shell (§2.2) over the pure template selection. Three guards fire
 /// before any write (§1.3.1): an unsafe slug is refused as
 /// [`AddLessonError::InvalidId`]; a directory with no `blendtutor.toml` is refused
 /// as [`AddLessonError::NotACourse`] — its manifest is *opened* up front, so a
 /// non-course directory is never left with an orphan lesson; and an id whose
-/// lesson file already exists is refused as [`AddLessonError::AlreadyExists`], the
-/// create-new write making that check atomic so a duplicate never clobbers the
-/// existing lesson nor appends a second manifest entry. On success the lesson file
-/// is written, a `[[lessons]]` entry appended to `blendtutor.toml`, and the
-/// course-relative lesson path returned.
+/// lesson file — or whose eval sibling — already exists is refused as
+/// [`AddLessonError::AlreadyExists`], the create-new write making that check
+/// atomic so a duplicate never clobbers the existing lesson, a hand-authored
+/// sibling suite, nor appends a second manifest entry. On success the lesson file
+/// and its sibling are written, a `[[lessons]]` entry appended to
+/// `blendtutor.toml`, and the course-relative lesson path returned. The sibling
+/// is deliberately *not* registered in the manifest: it is a derived path
+/// ([`eval_sibling_path`]), so it can never drift from the lesson it grades.
 ///
 /// The manifest is opened first (the not-a-course guard) but its entry is appended
-/// last, after the lesson file is written. The only residual non-atomic window is
-/// a rare append failure after a good write, which leaves an orphan lesson `list`
-/// (manifest-driven) simply omits — a valid, recoverable state. Registering first
-/// would be worse: a `list` row pointing at a file that was never written.
+/// last, after the files are written. Two residual non-atomic windows remain, each
+/// leaving a valid, recoverable state: a rare append failure after good writes
+/// leaves an orphan lesson `list` (manifest-driven) simply omits; and a
+/// pre-existing eval sibling refuses *after* the lesson file is written, leaving
+/// an unregistered lesson a re-run then refuses on — recoverable by deleting the
+/// scaffolded lesson or adopting it. Registering first would be worse: a `list`
+/// row pointing at a file that was never written.
 pub fn add_lesson(dir: &Path, language: Language, id: &str) -> Result<PathBuf, AddLessonError> {
     if !is_valid_slug(id) {
         return Err(AddLessonError::InvalidId(id.to_string()));
     }
     let mut manifest = open_manifest_for_append(dir)?;
     let rel_path = PathBuf::from(LESSONS_DIR).join(format!("{id}.yaml"));
+    let eval_rel_path = eval_sibling_path(&rel_path);
     std::fs::create_dir_all(dir.join(LESSONS_DIR)).map_err(AddLessonError::Write)?;
-    write_without_clobber(&dir.join(&rel_path), &lesson_template(language, id)).map_err(
+    write_without_clobber(&dir.join(&rel_path), &lesson_template(language.clone(), id)).map_err(
         |e| match e.kind() {
             std::io::ErrorKind::AlreadyExists => AddLessonError::AlreadyExists(rel_path.clone()),
+            _ => AddLessonError::Write(e),
+        },
+    )?;
+    write_without_clobber(&dir.join(&eval_rel_path), &eval_template(language, id)).map_err(
+        |e| match e.kind() {
+            std::io::ErrorKind::AlreadyExists => {
+                AddLessonError::AlreadyExists(eval_rel_path.clone())
+            }
             _ => AddLessonError::Write(e),
         },
     )?;

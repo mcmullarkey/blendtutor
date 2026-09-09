@@ -4,7 +4,6 @@
 //! renders the result for the terminal. No domain logic lives here — that is
 //! `core`'s responsibility (the dependency only ever points cli → core).
 
-use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
 pub mod build;
@@ -27,13 +26,12 @@ pub(crate) const PROVIDER_URL_VAR: &str = "BLENDTUTOR_PROVIDER_URL";
 /// the instructor-only sibling convention — the suite is authored next to its
 /// lesson and is never bundled into a built site.
 ///
-/// Shared by `eval` and `eval-report` (single source, so the two commands can
-/// never derive the sibling path differently).
+/// A thin delegate to [`blendtutor_core::scaffold::eval_sibling_path`] — the
+/// single source of the convention, which the `new` scaffolding also derives
+/// sibling names through. Shared by `eval`, `eval-report`, and the scaffolding,
+/// so no consumer can ever derive the sibling path differently.
 pub(crate) fn sibling_suite_path(lesson_path: &Path) -> PathBuf {
-    let file_name = lesson_path.file_name().unwrap_or_else(|| OsStr::new(""));
-    let mut suite_name = OsString::from("eval_");
-    suite_name.push(file_name);
-    lesson_path.with_file_name(suite_name)
+    blendtutor_core::scaffold::eval_sibling_path(lesson_path)
 }
 
 #[cfg(test)]

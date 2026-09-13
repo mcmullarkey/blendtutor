@@ -244,7 +244,7 @@ local function build_html_dependency()
   quarto.doc.add_html_dependency({
     name = "blendtutor",
     version = BT_DEP_VERSION,
-    stylesheets = { "assets/styles.css" },
+    stylesheets = { "assets/styles.css", "assets/quarto-theme.css" },
     resources = resources,
   })
 end

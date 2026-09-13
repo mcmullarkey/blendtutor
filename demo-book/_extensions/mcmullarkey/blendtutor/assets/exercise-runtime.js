@@ -175,16 +175,25 @@ export function buildRegistry(entries) {
  * when JS never runs (file:// CORS-blocks ES modules, JS disabled).
  * Progressive enhancement: when the runtime boots, this block is replaced by
  * the interactive editor UI — remove it BEFORE mounting so the static content
- * never sits alongside the editor. Exercises that are skipped (no
+ * never sits alongside the editor. The prompt is kept (re-classed
+ * `.bt-prompt`): learners still need the instructions once the editor mounts. Exercises that are skipped (no
  * data-language, no adapter) KEEP their static block — the page degrades to
  * readable content instead of nothing.
  * @param {HTMLElement} element — The div.bt-exercise element.
  */
 function removeStaticFallback(element) {
   const fallback = element.querySelector(".bt-exercise-static");
-  if (fallback) {
-    fallback.remove();
+  if (!fallback) {
+    return;
   }
+  // ADR-0021: the prompt is the exercise's instructions, not fallback-only
+  // content — move it out (where the block sat) before dropping the rest.
+  const prompt = fallback.querySelector(".bt-static-prompt");
+  if (prompt) {
+    prompt.className = "bt-prompt";
+    fallback.before(prompt);
+  }
+  fallback.remove();
 }
 
 /**
@@ -354,10 +363,14 @@ function wireExercise(entry, runtime) {
   statusEl.className = "bt-status";
   statusEl.dataset.status = "idle";
   statusEl.textContent = "idle";
+  // ADR-0021: idle chrome stays hidden until something runs, so an exercise
+  // without checks never shows an "idle" badge or an empty output box.
+  statusEl.hidden = true;
   entry.element.appendChild(statusEl);
 
   const outputEl = document.createElement("div");
   outputEl.className = "bt-output";
+  outputEl.hidden = true;
   entry.element.appendChild(outputEl);
 
   // Per-exercise getSubmission — reads THIS exercise's editor (§3.4).
@@ -387,6 +400,7 @@ function wireExercise(entry, runtime) {
   entry.setStatus = function (state, text) {
     statusEl.dataset.status = state;
     statusEl.textContent = text ?? state;
+    statusEl.hidden = state === "idle";
   };
 
   // Per-exercise runSubmission — evaluates via the injected runtime adapter.
@@ -413,6 +427,7 @@ function wireExercise(entry, runtime) {
         entry.payload.packages ?? [],
       );
       outputEl.textContent = output;
+      outputEl.hidden = false;
       entry.setStatus(ok ? "pass" : "fail", ok ? "pass" : "fail");
       return ok ? "pass" : "fail";
     } finally {

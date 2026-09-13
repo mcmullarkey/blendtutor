@@ -656,6 +656,16 @@
   color: var(--bt-color-surface);
 }
 
+/* ADR-0021: status and output render only once something has run; the
+ * feedback area collapses until it has content. Attribute selectors beat the
+ * component display rules above, which would otherwise override [hidden]. */
+
+.bt-exercise .bt-status[hidden],
+.bt-exercise .bt-output[hidden],
+.bt-exercise .bt-feedback:empty {
+  display: none;
+}
+
 .bt-exercise .bt-output {
   background: var(--bt-color-surface-code);
   border: 1px solid var(--bt-color-border);

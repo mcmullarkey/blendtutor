@@ -100,7 +100,7 @@ fi
 # this pin fails closed on any /Users/ leak regardless of where it came from.
 if [ -d docs/evals ]; then
   if rg -l '/Users/' docs/evals/ >/dev/null; then
-    echo "docs: /Users/ absolute path leaked into docs/evals/ (scrub per whole-game.md "Eval report")" >&2
+    echo "docs: /Users/ absolute path leaked into docs/evals/ (scrub per whole-game.md 'Eval report')" >&2
     exit 1
   fi
 fi

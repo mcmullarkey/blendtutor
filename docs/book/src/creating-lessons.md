@@ -135,13 +135,29 @@ Emits a fully static site — `index.html`, per-lesson JSON, the in-browser runt
 
 ## Step 11 — Export a lesson to Quarto
 
-`export-quarto` converts a single lesson YAML into a Quarto fenced-div snippet on stdout — validating first and refusing invalid lessons:
+`export-quarto` converts a single lesson YAML into Quarto source on stdout — validating first and refusing invalid lessons. It has three shapes:
 
 ```bash
-blendtutor export-quarto lessons/lesson_hello.yaml > my-exercises.qmd
+# A fenced-div snippet to paste into an existing page
+blendtutor export-quarto lessons/lesson_hello.yaml
+
+# A complete, renderable page (title, filter, and coi for R in the front matter)
+blendtutor export-quarto --document lessons/lesson_hello.yaml > hello.qmd
+
+# The API key page learners use to store their Fireworks key
+blendtutor export-quarto --key-page > api-key.qmd
 ```
 
-To render exercises, `quarto add mcmullarkey/blendtutor`, add the `filters: [mcmullarkey/blendtutor]` front-matter filter, then `quarto render my-exercises.qmd` — requirements and the rendered snippet are covered by the [README §Quarto Extension](https://github.com/mcmullarkey/blendtutor#quarto-extension). `export-quarto` prints a snippet for authoring, not a site; for the end-to-end Quarto deploy see [whole-game §Quarto deploy](./whole-game.md#quarto-deploy).
+Every optional field the widget understands is carried over: `code_template`, `checks`, `solution`, `hints`, `gotchas`, `success_criteria` (added to the in-browser feedback prompt), and `packages` (preloaded in webR/Pyodide). A lesson with no checks, solution, or hints still exports, with a warning on stderr: its widget offers only Run and LLM feedback.
+
+To render:
+
+1. Run `quarto add mcmullarkey/blendtutor` **from the folder that contains `_quarto.yml`** (or the `.qmd`, for a standalone page). Quarto only looks for `_extensions/` there; installing one level up leaves the filter undiscoverable and exercises render as plain text.
+2. Enable the filter. `--document` and `--key-page` pages declare it themselves; for a snippet, add `filters: [mcmullarkey/blendtutor]` to the page or to `_quarto.yml` — not both, since Quarto merges the lists.
+3. R exercises need `coi: true` (webR requires cross-origin isolation). COI does not work in `type: book` projects, so R exercises only run on standalone pages; Python exercises run anywhere.
+4. Serve over HTTP (`quarto preview`): `file://` blocks the ES modules and `localStorage` the widget needs.
+
+Requirements and the rendered snippet are covered by the [README §Quarto Extension](https://github.com/mcmullarkey/blendtutor#quarto-extension); for the end-to-end deploy see [whole-game §Quarto deploy](./whole-game.md#quarto-deploy).
 
 ## Complete example courses
 

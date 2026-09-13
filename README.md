@@ -71,6 +71,11 @@ Installs to `_extensions/mcmullarkey/blendtutor/` (version 0.1.0). Asset
 resolution is install-path-independent — assets deploy alongside the rendered
 HTML, so the extension works regardless of where `quarto add` installs it.
 
+> **Run `quarto add` from the folder that contains `_quarto.yml`** (or the
+> `.qmd`, for a standalone page). Quarto only discovers `_extensions/` next to
+> the project file; an extension installed one directory up is never loaded,
+> and exercises render as plain prose.
+
 #### Quick start (zero hand-written bootstrap)
 
 A complete copy-paste document — zero hand-written bootstrap. Filter by name,
@@ -93,6 +98,23 @@ add <- function(a, b) { ___ }
 
 Render, open in a browser — interactive immediately. Grade submissions with a
 `{.r .checks}` block (`stopifnot(add(1, 2) == 3)`); Python: same div, `language="python"`.
+
+Inside the div, optional blocks add learner aids: a `{.r .solution}` code block,
+`::: {.hints}` and `::: {.gotchas}` bullet divs, and a `::: {.success-criteria}`
+div whose rubric is added to the AI feedback prompt. Preload packages with a
+`packages="dplyr,purrr"` attribute on the `.blendtutor` div.
+
+#### From a lesson YAML
+
+`blendtutor export-quarto` writes the div for you, carrying every field above:
+
+```bash
+blendtutor export-quarto lesson.yaml                        # snippet to paste
+blendtutor export-quarto --document lesson.yaml > page.qmd  # complete page
+blendtutor export-quarto --key-page > api-key.qmd           # API key page
+```
+
+It warns on stderr when a lesson has no checks, solution, or hints.
 
 #### Auto-bootstrap opt-out
 

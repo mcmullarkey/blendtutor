@@ -915,6 +915,18 @@ assert(ac5Prompt.includes("<<<STUDENT_CODE_BEGIN>>>") && ac5Prompt.includes("<<<
 const emptyPrompt = mod.buildPrompt({ task: "t", code: "c", output: "", checks: [] });
 assert(emptyPrompt.includes("<<<CAPTURED_OUTPUT>>>"), "AC-5 arm 13 (Node): empty output still yields CAPTURED_OUTPUT section (not an error)");
 assert(!emptyPrompt.includes("undefined") && !emptyPrompt.includes("null"), "AC-5 arm 13 (Node): empty output never injects undefined/null");
+// ADR-0020: success criteria ride the prompt between the task and the code fence.
+const criteriaPrompt = mod.buildPrompt({
+  task: "Add two numbers",
+  successCriteria: "- Returns CRITERIA-BETA",
+  code: "add <- function(a, b) a + b",
+  output: "",
+  checks: [],
+});
+const criteriaAt = criteriaPrompt.indexOf("Success criteria:");
+assert(criteriaAt > criteriaPrompt.indexOf("Add two numbers") && criteriaAt < criteriaPrompt.indexOf("<<<STUDENT_CODE_BEGIN>>>"), "ADR-0020 (Node): Success criteria section sits between the task and the code fence");
+assert(criteriaPrompt.includes("- Returns CRITERIA-BETA"), "ADR-0020 (Node): buildPrompt includes the success criteria text");
+assert(!ac5Prompt.includes("Success criteria:"), "ADR-0020 (Node): no Success criteria section when criteria are absent");
 assert(mod.PROVIDERS.fireworks.fallbackModel === "accounts/fireworks/models/deepseek-v4-flash-0731", "AC-5 arm 3 (Node): PROVIDERS.fireworks.fallbackModel pinned to -0731");
 
 // --- AC-5 DOM→prompt wiring (fetch-spy behavioral suite) -------------------

@@ -95,7 +95,8 @@ const MIN_FENCE_LEN: usize = 3;
 /// present, so no empty blocks appear for absent fields (§1.1). The
 /// author-only `llm_evaluation_prompt` is excluded (ADR-0006).
 ///
-/// With [`ExportShape::Document`] the div is preceded by [`front_matter`].
+/// With [`ExportShape::Document`] the div is preceded by YAML front matter
+/// (title, the blendtutor filter, and `coi: true` for R).
 ///
 /// # Arguments
 /// * `lesson` — A valid, parsed lesson (constructed via [`Lesson::parse`]).

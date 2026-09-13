@@ -373,3 +373,121 @@ exercise:
         "output must end with ::: despite ::: in prompt, got last line: {last_line:?}"
     );
 }
+
+// ── ADR-0019: --document shape and --key-page export ────────────────────────
+
+/// Run `blendtutor export-quarto <args>` and return the raw output.
+fn export_output(args: &[&str]) -> std::process::Output {
+    Command::cargo_bin("blendtutor")
+        .unwrap()
+        .arg("export-quarto")
+        .args(args)
+        .output()
+        .unwrap()
+}
+
+/// Stdout of a successful `export-quarto <args>` run.
+fn export_success(args: &[&str]) -> String {
+    let output = export_output(args);
+    assert!(
+        output.status.success(),
+        "export-quarto {args:?} should exit 0, got {:?}\nstderr: {}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).expect("stdout should be UTF-8")
+}
+
+#[test]
+fn document_r_lesson_is_a_renderable_page_with_filter_and_coi() {
+    let stdout = export_success(&["--document", R_LESSON_FULL]);
+    assert!(
+        stdout
+            .starts_with("---\ntitle: \"Add Two Numbers\"\nfilters:\n  - mcmullarkey/blendtutor\n"),
+        "document should open with title + filter front matter, got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("\ncoi: true\n"),
+        "R documents need cross-origin isolation for webR, got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("type: book"),
+        "R documents should warn that COI does not work in book projects, got:\n{stdout}"
+    );
+    let body = stdout.split("\n---\n").nth(1).unwrap_or("");
+    assert!(
+        body.contains("::: {.blendtutor language=\"r\"}"),
+        "the exercise div should follow the front matter, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn document_python_lesson_omits_coi() {
+    let stdout = export_success(&["--document", PYTHON_LESSON]);
+    assert!(stdout.starts_with("---\n"), "got:\n{stdout}");
+    assert!(
+        !stdout.contains("coi:"),
+        "Pyodide needs no cross-origin isolation, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn document_title_escapes_yaml_special_characters() {
+    let yaml = "\
+lesson_name: 'Say \"hi\" \\\\ bye'
+language: Python
+exercise:
+  prompt: \"Write add.\"
+  llm_evaluation_prompt: \"Grade this: {student_code}\"
+";
+    let mut file = tempfile::NamedTempFile::new().unwrap();
+    file.write_all(yaml.as_bytes()).unwrap();
+    let stdout = export_success(&["--document", file.path().to_str().unwrap()]);
+    assert!(
+        stdout.contains("title: \"Say \\\"hi\\\" \\\\\\\\ bye\"\n"),
+        "quotes and backslashes in the title must be YAML-escaped, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn key_page_is_a_complete_page_with_the_key_mount_div() {
+    let stdout = export_success(&["--key-page"]);
+    assert!(
+        stdout.starts_with("---\ntitle: \"API Key\"\nfilters:\n  - mcmullarkey/blendtutor\n---\n"),
+        "key page should carry title + filter front matter, got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("\n::: {.blendtutor-key}\n"),
+        "key page must contain the key mount div, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn key_page_mount_div_matches_the_demo_book_copy() {
+    // Drift guard (ADR-0019): the runtime mounts on this exact div, so the
+    // exported page and the demo book's hand-written page must agree on it.
+    let demo = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../demo-book/api-key.qmd"
+    ))
+    .unwrap();
+    let exported = export_success(&["--key-page"]);
+    for page in [&demo, &exported] {
+        assert!(page.contains("\n::: {.blendtutor-key}\n"), "got:\n{page}");
+    }
+}
+
+#[test]
+fn key_page_and_lesson_are_mutually_exclusive() {
+    assert!(
+        !export_output(&["--key-page", R_LESSON_FULL])
+            .status
+            .success()
+    );
+    assert!(!export_output(&[]).status.success());
+    assert!(
+        !export_output(&["--key-page", "--document"])
+            .status
+            .success()
+    );
+}

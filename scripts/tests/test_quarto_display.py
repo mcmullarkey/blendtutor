@@ -199,6 +199,10 @@ def check_browser(url: str) -> None:
             "D1: the prompt stays visible after the editor mounts",
         )
         check(
+            js("(() => { const p = document.querySelector('.bt-exercise .bt-prompt'); return !!p && getComputedStyle(p).marginBottom !== '0px'; })()") == "true",
+            "D1: the kept prompt is styled (.bt-prompt rule applies)",
+        )
+        check(
             js("(() => { const w = document.querySelector('.bt-exercise'); const s = w.querySelector('.bt-status'); const o = w.querySelector('.bt-output'); return !!s && !!o && s.getClientRects().length === 0 && o.getClientRects().length === 0; })()") == "true",
             "D2: status badge and output box are not rendered before a run",
         )

@@ -430,6 +430,14 @@ function wireExercise(entry, runtime) {
       outputEl.hidden = false;
       entry.setStatus(ok ? "pass" : "fail", ok ? "pass" : "fail");
       return ok ? "pass" : "fail";
+    } catch (err) {
+      // A throwing adapter (boot failure, runtime crash) must not leave the
+      // badge stuck on "running" with the output hidden (ADR-0021 hides both
+      // until a run): surface the error and mark the run failed.
+      outputEl.textContent = `Error: ${err && err.message ? err.message : err}`;
+      outputEl.hidden = false;
+      entry.setStatus("fail", "fail");
+      return "fail";
     } finally {
       entry._running = false;
       if (entry.checkBtn) entry.checkBtn.disabled = false;

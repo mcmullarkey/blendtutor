@@ -166,6 +166,15 @@ footer.site-footer {
   margin-bottom: var(--bt-space-md);
 }
 
+/* ADR-0021: the prompt the runtime keeps after removing the static fallback.
+ * Same rhythm as the fallback prompt, primary color: these are the live
+ * instructions, not fallback prose. */
+.bt-prompt {
+  color: var(--bt-color-text-primary);
+  line-height: var(--bt-line-height);
+  margin-bottom: var(--bt-space-md);
+}
+
 .bt-exercise-static pre.bt-static-code {
   font-family: var(--bt-font-family-code);
   font-size: var(--bt-font-size-base);

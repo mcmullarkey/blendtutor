@@ -491,3 +491,40 @@ fn key_page_and_lesson_are_mutually_exclusive() {
             .success()
     );
 }
+
+// ── Thin-lesson warning ───────────────────────────────────────────────────────
+
+#[test]
+fn lesson_without_checks_solution_or_hints_warns_on_stderr() {
+    let output = export_output(&[R_LESSON_MINIMAL]);
+    assert!(output.status.success(), "a thin lesson still exports");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.starts_with("warning:"),
+        "a lesson with no learner aids should warn, got stderr:\n{stderr}"
+    );
+    for field in ["checks", "solution", "hints"] {
+        assert!(
+            stderr.contains(field),
+            "the warning should name the missing `{field}`, got:\n{stderr}"
+        );
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("::: {.blendtutor language=\"r\"}"),
+        "the warning must not leak into stdout, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn lesson_with_learner_aids_or_key_page_exports_silently() {
+    for args in [vec![R_LESSON_FULL], vec![PYTHON_LESSON], vec!["--key-page"]] {
+        let output = export_output(&args);
+        assert!(output.status.success());
+        assert!(
+            output.stderr.is_empty(),
+            "export-quarto {args:?} should not warn, got stderr:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}

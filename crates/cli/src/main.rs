@@ -6,14 +6,16 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use clap::{Parser, Subcommand};
+use clap::{ArgGroup, Parser, Subcommand};
 
 use blendtutor_core::lesson::Language;
+use blendtutor_core::quarto_export::ExportShape;
 use blendtutor_core::site::BuildTarget;
 
 mod commands;
 mod output;
 
+use commands::export_quarto::ExportRequest;
 use output::OutputFormat;
 
 /// Author and run interactive R and Python coding lessons with LLM feedback.
@@ -112,10 +114,19 @@ enum Commands {
         #[arg(long)]
         embed_key: Option<String>,
     },
-    /// Export a lesson YAML file to a Quarto `.qmd` fenced-div snippet.
+    /// Export a lesson YAML file to a Quarto `.qmd` fenced-div snippet, a
+    /// complete page (`--document`), or print the API key page (`--key-page`).
+    #[command(group(ArgGroup::new("source").required(true).args(["lesson", "key_page"])))]
     ExportQuarto {
         /// Path to the lesson YAML file.
-        lesson: PathBuf,
+        lesson: Option<PathBuf>,
+        /// Prefix the exercise with front matter (title, blendtutor filter, and
+        /// `coi: true` for R) so the page renders on its own.
+        #[arg(long, requires = "lesson", conflicts_with = "key_page")]
+        document: bool,
+        /// Print a complete API key page; save it as `api-key.qmd`.
+        #[arg(long)]
+        key_page: bool,
     },
 }
 
@@ -132,6 +143,22 @@ enum NewTarget {
         /// The lesson's course id; also its file stem under `lessons/`.
         id: String,
     },
+}
+
+/// Turn the `export-quarto` flags into a request. clap's `source` group
+/// guarantees a missing lesson path means `--key-page` was given.
+fn export_request(lesson: Option<PathBuf>, document: bool) -> ExportRequest {
+    match lesson {
+        Some(path) => ExportRequest::Lesson {
+            path,
+            shape: if document {
+                ExportShape::Document
+            } else {
+                ExportShape::Snippet
+            },
+        },
+        None => ExportRequest::KeyPage,
+    }
 }
 
 fn main() -> anyhow::Result<ExitCode> {
@@ -168,6 +195,8 @@ fn main() -> anyhow::Result<ExitCode> {
             password.as_deref(),
             embed_key.as_deref(),
         ),
-        Commands::ExportQuarto { lesson } => commands::export_quarto::run(&lesson),
+        Commands::ExportQuarto {
+            lesson, document, ..
+        } => commands::export_quarto::run(export_request(lesson, document)),
     }
 }

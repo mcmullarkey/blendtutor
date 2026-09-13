@@ -306,7 +306,7 @@ fi
 
 # Clause 12: no stale mechanism/bootstrap instructions + command/version
 # consistency (matches ci.yml:148 full org/repo command, _extension.yml:3
-# version 0.1.0, no short-form install).
+# version 0.2.0, no short-form install).
 echo "== Clause 12: no stale mechanism, command/version consistency =="
 if [ -f "$README" ] && ! grep -qiE 'relative to.*filter|PANDOC_SCRIPT_FILE|locates its assets' "$README"; then
   ok "stale mechanism claim removed (relative to filter script / PANDOC_SCRIPT_FILE)"
@@ -323,10 +323,10 @@ if [ -f "$README" ] && ! grep -qE 'quarto add[[:space:]]+blendtutor([^/]|$)' "$R
 else
   ko "short-form install command found ('quarto add blendtutor')"
 fi
-if [ -f "$README" ] && grep -qF '0.1.0' "$README"; then
-  ok "version stated matches _extension.yml (0.1.0)"
+if [ -f "$README" ] && grep -qF '0.2.0' "$README"; then
+  ok "version stated matches _extension.yml (0.2.0)"
 else
-  ko "version consistency — '0.1.0' not stated in README"
+  ko "version consistency — '0.2.0' not stated in README"
 fi
 
 # Clause 13: demo book serve-over-HTTP instructions (fix-demo-visible-exercises
@@ -476,7 +476,7 @@ else
           ko "asset href target missing: $href"
           HREF_MISSING=1
         fi
-      done < <(grep -hoE '(href|src)="[^"]*blendtutor-0\.1\.0/[^"]*"' "$RENDER_HTML_DIR"/*.html 2>/dev/null | sed -E 's/^[^"]*"([^"]*)"/\1/' | sort -u)
+      done < <(grep -hoE '(href|src)="[^"]*blendtutor-0\.2\.0/[^"]*"' "$RENDER_HTML_DIR"/*.html 2>/dev/null | sed -E 's/^[^"]*"([^"]*)"/\1/' | sort -u)
       if [ "$HREF_FOUND" -eq 0 ]; then
         ko "asset href file check — no blendtutor asset hrefs found in rendered HTML"
       fi
@@ -514,7 +514,7 @@ fi
 # never <stem>_files/; NO _extensions/ substring in filter-injected bootstrap
 # specifiers for the four assets.
 echo "== AC-5 Clause 5: book libs URLs (site_libs) + no _extensions/ in bootstrap =="
-BOOK_LIBS="site_libs/quarto-contrib/blendtutor-0.1.0"
+BOOK_LIBS="site_libs/quarto-contrib/blendtutor-0.2.0"
 if [ -d "$RENDER_HTML_DIR" ]; then
   # Extract the filter-injected bootstrap body (coi shim src legitimately
   # contains _extensions/... outside the bootstrap, so scope the check).
@@ -569,7 +569,7 @@ else
 fi
 
 # Issue #143 AC-5 clause 6 (amended): files on disk under the shared
-# _output/site_libs/quarto-contrib/blendtutor-0.1.0/ — exercise-runtime.js +
+# _output/site_libs/quarto-contrib/blendtutor-0.2.0/ — exercise-runtime.js +
 # styles.css + codemirror.js always; webr-adapter.js iff any R exercise in the
 # book; pyodide-adapter.js iff any python exercise. Base dir is
 # demo-book/_output/ (rendered-document-relative), NOT demo-book/.
@@ -601,7 +601,7 @@ fi
 
 # Issue #143 AC-5 clause 7: COI boundary — r-exercises.html (coi: true)
 # still loads coi-serviceworker.js via include_text; the shim is NEVER
-# deployed via our add_html_dependency into the blendtutor-0.1.0 libs dir
+# deployed via our add_html_dependency into the blendtutor-0.2.0 libs dir
 # (SW scope = script URL dir). NOTE: in BOOK mode Quarto rewrites in-header
 # src pointing at the by-name extension into its own
 # site_libs/quarto-contrib/quarto-project/... copy — the shim src is
@@ -614,10 +614,10 @@ if [ -f "$RENDER_HTML_DIR/r-exercises.html" ]; then
   else
     ko "r-exercises coi shim — no coi-serviceworker.js src found"
   fi
-  if grep -qE 'src="[^"]*blendtutor-0\.1\.0/coi-serviceworker\.js"' "$RENDER_HTML_DIR/r-exercises.html"; then
-    ko "coi shim NOT in blendtutor libs URL — src points into blendtutor-0.1.0/ dir"
+  if grep -qE 'src="[^"]*blendtutor-0\.2\.0/coi-serviceworker\.js"' "$RENDER_HTML_DIR/r-exercises.html"; then
+    ko "coi shim NOT in blendtutor libs URL — src points into blendtutor-0.2.0/ dir"
   else
-    ok "coi shim src does not point into blendtutor-0.1.0 libs dir"
+    ok "coi shim src does not point into blendtutor-0.2.0 libs dir"
   fi
   if [ -d "$BT_SITE_LIBS" ] && [ -f "$BT_SITE_LIBS/coi-serviceworker.js" ]; then
     ko "coi-serviceworker.js NOT in blendtutor libs dir — found (SW scope break)"

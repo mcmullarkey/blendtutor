@@ -159,6 +159,14 @@ pub enum ValidationError {
         /// The name of the field with malformed bullets (e.g. `"gotchas"`).
         field: String,
     },
+    /// A `packages` entry is empty or contains a double quote, a comma, or
+    /// whitespace. Every consumer joins or splits the list on commas (the
+    /// Quarto `packages="a,b"` attribute, `uv run --with`), so such a name
+    /// would silently become a different package list or break the attribute.
+    InvalidPackageName {
+        /// The offending entry, verbatim.
+        name: String,
+    },
 }
 
 impl fmt::Display for ValidationError {
@@ -175,6 +183,11 @@ impl fmt::Display for ValidationError {
                 f,
                 "exercise.{field} must be bullet-formatted: each non-empty line must \
                  start with `- ` or `* `"
+            ),
+            ValidationError::InvalidPackageName { name } => write!(
+                f,
+                "packages entry {name:?} is invalid: package names must be non-empty \
+                 and contain no quotes, commas, or whitespace"
             ),
         }
     }
@@ -202,6 +215,23 @@ fn validate_bullet_format(field: &str, content: &str) -> Result<(), ValidationEr
     Ok(())
 }
 
+/// Validate that one `packages` entry survives being joined into a
+/// comma-separated list: non-empty, with no `"`, `,`, or whitespace. Version
+/// specifiers such as `pandas>=2` stay valid.
+fn validate_package_name(name: &str) -> Result<(), ValidationError> {
+    let list_safe = !name.is_empty()
+        && !name
+            .chars()
+            .any(|c| c == '"' || c == ',' || c.is_whitespace());
+    if list_safe {
+        Ok(())
+    } else {
+        Err(ValidationError::InvalidPackageName {
+            name: name.to_string(),
+        })
+    }
+}
+
 impl Lesson {
     /// Parse a lesson from a YAML document.
     ///
@@ -219,10 +249,10 @@ impl Lesson {
 
     /// Enforce the semantic rules that structure alone cannot.
     ///
-    /// Currently three rules: the evaluation prompt must contain the
-    /// `{student_code}` placeholder, `exercise.gotchas` (if present) must be
-    /// bullet-formatted, and `exercise.hints` (if present) must be
-    /// bullet-formatted. Split from the structural deserialize so each name
+    /// Currently four rules: the evaluation prompt must contain the
+    /// `{student_code}` placeholder, `exercise.gotchas` and `exercise.hints`
+    /// (if present) must be bullet-formatted, and every `packages` entry must
+    /// be a single list-safe name. Split from the structural deserialize so each name
     /// covers its body (§5.1).
     fn validate_semantics(&self) -> Result<(), ValidationError> {
         if !self
@@ -237,6 +267,9 @@ impl Lesson {
         }
         if let Some(ref hints) = self.exercise.hints {
             validate_bullet_format("hints", hints)?;
+        }
+        for name in &self.packages {
+            validate_package_name(name)?;
         }
         Ok(())
     }
@@ -832,5 +865,30 @@ exercise:
             std::error::Error::source(&read).is_some(),
             "Read should expose the io::Error as its source"
         );
+    }
+
+    fn lesson_with_packages(entries: &str) -> String {
+        format!(
+            "lesson_name: \"Pkg\"\nlanguage: Python\npackages: {entries}\nexercise:\n  prompt: \"Write add.\"\n  llm_evaluation_prompt: \"Grade: {{student_code}}\"\n"
+        )
+    }
+
+    #[test]
+    fn parse_accepts_plain_and_versioned_package_names() {
+        let lesson = Lesson::parse(&lesson_with_packages("[pandas, 'numpy>=2', purrr]"))
+            .expect("plain and versioned names are list-safe");
+        assert_eq!(lesson.packages, vec!["pandas", "numpy>=2", "purrr"]);
+    }
+
+    #[test]
+    fn parse_rejects_package_names_that_break_comma_lists() {
+        for bad in [r#"['foo"bar']"#, "['a,b']", "['has space']", "['']"] {
+            let err = Lesson::parse(&lesson_with_packages(bad))
+                .expect_err(&format!("{bad} must be rejected"));
+            assert!(
+                matches!(err, ValidationError::InvalidPackageName { .. }),
+                "expected InvalidPackageName for {bad}, got {err:?}"
+            );
+        }
     }
 }

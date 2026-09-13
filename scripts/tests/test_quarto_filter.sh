@@ -3,11 +3,11 @@
 #
 # Verifies the compound predicate from AC-2:
 #   1. HTML render produces >=3 div.bt-exercise with script[type=application/json]
-#   2. JSON has all 9 SiteLesson keys, llm_evaluation_prompt ABSENT
+#   2. JSON has all 10 SiteLesson keys, llm_evaluation_prompt ABSENT
 #   3. Full exercise: prompt <code>, code_template <-, checks len 2,
 #      solution "a + b", hints <-, gotchas null, packages []
-#   4. Minimal Python: packages parsed, all 9 keys present
-#   5. Empty exercise: all 9 keys present (null/[] for absent)
+#   4. Minimal Python: packages parsed, all 10 keys present
+#   5. Empty exercise: all 10 keys present (null/[] for absent)
 #   6. IDs distinct, titles non-empty
 #   7. Non-HTML format: no bt-exercise + warning
 #   8. Invalid language: warning + skip (no bt-exercise)
@@ -123,17 +123,17 @@ fi
 if [ ! -f "$HTML_FILE" ]; then
   ko "HTML output exists — not found: $HTML_FILE"
   ko ">=3 bt-exercise widgets — HTML missing"
-  ko "all 9 keys present — HTML missing"
+  ko "all 10 keys present — HTML missing"
   ko "full exercise values — HTML missing"
   ko "IDs distinct — HTML missing"
 else
   # Run Python JSON assertions (covers assertions 1-6)
   python3 scripts/tests/verify_filter_output.py "$HTML_FILE" 2>&1 && PY_RC=0 || PY_RC=$?
   if [ "$PY_RC" -eq 0 ]; then
-    ok ">=4 bt-exercise widgets with all 9 keys"
+    ok ">=4 bt-exercise widgets with all 10 keys"
     ok "full exercise values correct (prompt <code>, code_template <-, checks len 2, solution 'a + b', hints <-, gotchas null, packages [])"
-    ok "minimal Python: packages parsed, all 9 keys present"
-    ok "empty exercise: all 9 keys present (null/[] for absent)"
+    ok "minimal Python: packages parsed, all 10 keys present"
+    ok "empty exercise: all 10 keys present (null/[] for absent)"
     ok "IDs distinct, titles non-empty"
     ok "llm_evaluation_prompt ABSENT"
   else

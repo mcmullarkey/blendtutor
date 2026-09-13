@@ -29,6 +29,10 @@ a + b
 ::: {.hints}
 Use the `<-` operator to assign the function body.
 :::
+
+::: {.success-criteria}
+- Returns the sum of `a` and `b`
+:::
 :::
 
 ### Minimal Python exercise

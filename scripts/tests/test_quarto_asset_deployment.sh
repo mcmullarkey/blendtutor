@@ -17,15 +17,15 @@
 #      has_python. ISSUE #164 (byok-api-key AC-3): assets/exercise-feedback.js
 #      + assets/key-page.js ALWAYS (C1 — the bootstrap imports both).
 #   3. Deployed to libs: files physically exist at
-#      <stem>_files/libs/quarto-contrib/blendtutor-0.1.0/ — exercise-runtime.js,
+#      <stem>_files/libs/quarto-contrib/blendtutor-0.2.0/ — exercise-runtime.js,
 #      codemirror.js, styles.css always; webr-adapter.js present iff page has R
 #      exercises, ABSENT otherwise (same for pyodide/python); exercise-feedback.js
 #      + key-page.js always (C2).
 #   4. CSS via Quarto link: rendered HTML contains exactly one
-#      <link ... blendtutor-0.1.0/styles.css>; no _extensions/.../assets/styles.css
+#      <link ... blendtutor-0.2.0/styles.css>; no _extensions/.../assets/styles.css
 #      link present.
 #   5. Bootstrap specifiers rewritten: data-bt-bootstrap="auto" module's import
-#      specifiers reference <stem>_files/libs/quarto-contrib/blendtutor-0.1.0/<file>.js,
+#      specifiers reference <stem>_files/libs/quarto-contrib/blendtutor-0.2.0/<file>.js,
 #      computed from quarto.doc.output_file stem; NO _extensions/ substring and
 #      NO resolve_asset_path output in any specifier.
 #   6. No classic runtime script tag: rendered HTML contains NO
@@ -41,7 +41,7 @@
 #      keeps <stem>_files/... (discriminator pin).
 #   9. Non-HTML gate: hermetic latex render → zero *_files/libs/ dirs created,
 #      zero bootstrap injection.
-#  10. Version pin single-sourced: BT_DEP_VERSION = "0.1.0" Lua constant equals
+#  10. Version pin single-sourced: BT_DEP_VERSION = "0.2.0" Lua constant equals
 #      _extension.yml:3 version AND used in BOTH dependency declaration and
 #      emitted libs URL string.
 #  5b. Key-only page (issue #164 C14): hermetic render with ONLY a
@@ -72,7 +72,7 @@ LUA_FILTER="_extensions/blendtutor/blendtutor.lua"
 EXTENSION_YML="_extensions/blendtutor/_extension.yml"
 FIXTURE_DIR="quarto-fixture"
 MARKER='data-bt-bootstrap="auto"'
-LIB_VERSION="0.1.0"
+LIB_VERSION="0.2.0"
 LIBS_REL="libs/quarto-contrib/blendtutor-$LIB_VERSION"
 
 if ! command -v quarto &>/dev/null; then
@@ -295,7 +295,7 @@ else
   # "Relative references must start with /, ./, or ../" at import time —
   # rodney clause 11 caught this; <link href> tolerates bare paths, modules
   # do not).
-  if has_token "$MIXED_BOOTSTRAP" 'from "./mixed-lang_files/libs/quarto-contrib/blendtutor-0.1.0/exercise-runtime.js"'; then
+  if has_token "$MIXED_BOOTSTRAP" 'from "./mixed-lang_files/libs/quarto-contrib/blendtutor-0.2.0/exercise-runtime.js"'; then
     ok "runtime specifier is ES-module-safe (./ prefix)"
   else
     ko "runtime specifier is ES-module-safe — missing ./ prefix"
@@ -718,10 +718,10 @@ rm -rf "$TMP_LATEX"
 
 echo "== Clause 10: BT_DEP_VERSION single-sourced =="
 
-if has_token "$LUA_CONTENT" 'BT_DEP_VERSION = "0.1.0"'; then
-  ok "BT_DEP_VERSION = \"0.1.0\" constant in blendtutor.lua"
+if has_token "$LUA_CONTENT" 'BT_DEP_VERSION = "0.2.0"'; then
+  ok "BT_DEP_VERSION = \"0.2.0\" constant in blendtutor.lua"
 else
-  ko "BT_DEP_VERSION = \"0.1.0\" — constant missing or drifted"
+  ko "BT_DEP_VERSION = \"0.2.0\" — constant missing or drifted"
 fi
 
 if has_token "$LUA_CONTENT" 'version = BT_DEP_VERSION'; then
@@ -736,10 +736,10 @@ else
   ko "emitted libs URL uses BT_DEP_VERSION — URL not tied to constant"
 fi
 
-if [ "$(sed -n '3p' "$EXTENSION_YML" | tr -d ' ')" = "version:0.1.0" ]; then
-  ok "_extension.yml line 3 version = 0.1.0 (parity with BT_DEP_VERSION)"
+if [ "$(sed -n '3p' "$EXTENSION_YML" | tr -d ' ')" = "version:0.2.0" ]; then
+  ok "_extension.yml line 3 version = 0.2.0 (parity with BT_DEP_VERSION)"
 else
-  ko "_extension.yml line 3 version = 0.1.0 — got: $(sed -n '3p' "$EXTENSION_YML")"
+  ko "_extension.yml line 3 version = 0.2.0 — got: $(sed -n '3p' "$EXTENSION_YML")"
 fi
 
 # ---------------------------------------------------------------------------

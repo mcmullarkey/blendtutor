@@ -32,7 +32,7 @@ const R_LESSON_MINIMAL: &str = concat!(
     "/../core/tests/fixtures/lessons/add_two_numbers.yaml"
 );
 
-/// The R fixture with gotchas — verifies gotchas text is excluded from output.
+/// The R fixture with gotchas — verifies gotchas render as a `.gotchas` div.
 const R_LESSON_WITH_GOTCHAS: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../core/tests/fixtures/lessons/gotcha_lesson.yaml"
@@ -160,15 +160,17 @@ fn clause_8_llm_evaluation_prompt_absent() {
 }
 
 #[test]
-fn clause_9_gotchas_absent() {
+fn clause_9_gotchas_render_in_gotchas_div() {
+    // The Quarto filter parses a nested `::: {.gotchas}` div into the widget's
+    // gotchas panel, so the export must carry the field rather than drop it.
     let stdout = export_stdout(R_LESSON_WITH_GOTCHAS);
     assert!(
-        !stdout.contains("Vectorized operations apply element-wise"),
-        "gotchas text must be ABSENT from output, got:\n{stdout}"
+        stdout.contains("::: {.gotchas}\n- R uses '<-' for assignment, not '='."),
+        "gotchas should render as a ::: {{.gotchas}} div, got:\n{stdout}"
     );
     assert!(
-        !stdout.contains("gotchas"),
-        "the word 'gotchas' must not appear in output, got:\n{stdout}"
+        stdout.contains("Vectorized operations apply element-wise"),
+        "every gotcha bullet should be present, got:\n{stdout}"
     );
 }
 
@@ -215,13 +217,35 @@ fn clause_11_no_empty_blocks_for_absent_fields() {
 }
 
 #[test]
-fn clause_12_packages_omitted() {
-    // The Python fixture has no packages, but we also verify the word doesn't
-    // appear as an attribute or block.
+fn clause_12_packages_render_as_div_attribute() {
+    // The Quarto filter reads a comma-separated `packages` attribute on the
+    // blendtutor div and preloads them in webR/Pyodide.
+    let yaml = "\
+lesson_name: \"Pkg\"
+language: Python
+packages:
+  - pandas
+  - numpy
+exercise:
+  prompt: \"Write add.\"
+  llm_evaluation_prompt: \"Grade this: {student_code}\"
+";
+    let mut file = tempfile::NamedTempFile::new().unwrap();
+    file.write_all(yaml.as_bytes()).unwrap();
+
+    let stdout = export_stdout(file.path().to_str().unwrap());
+    assert!(
+        stdout.starts_with("::: {.blendtutor language=\"python\" packages=\"pandas,numpy\"}\n"),
+        "packages should ride the opening div as an attribute, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn clause_12b_no_packages_attribute_when_list_is_empty() {
     let stdout = export_stdout(PYTHON_LESSON);
     assert!(
-        !stdout.contains("packages"),
-        "packages must be OMITTED from output, got:\n{stdout}"
+        !stdout.contains("packages="),
+        "no packages attribute for a lesson without packages, got:\n{stdout}"
     );
 }
 
@@ -348,4 +372,159 @@ exercise:
         last_line, ":::",
         "output must end with ::: despite ::: in prompt, got last line: {last_line:?}"
     );
+}
+
+// ── ADR-0019: --document shape and --key-page export ────────────────────────
+
+/// Run `blendtutor export-quarto <args>` and return the raw output.
+fn export_output(args: &[&str]) -> std::process::Output {
+    Command::cargo_bin("blendtutor")
+        .unwrap()
+        .arg("export-quarto")
+        .args(args)
+        .output()
+        .unwrap()
+}
+
+/// Stdout of a successful `export-quarto <args>` run.
+fn export_success(args: &[&str]) -> String {
+    let output = export_output(args);
+    assert!(
+        output.status.success(),
+        "export-quarto {args:?} should exit 0, got {:?}\nstderr: {}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).expect("stdout should be UTF-8")
+}
+
+#[test]
+fn document_r_lesson_is_a_renderable_page_with_filter_and_coi() {
+    let stdout = export_success(&["--document", R_LESSON_FULL]);
+    assert!(
+        stdout
+            .starts_with("---\ntitle: \"Add Two Numbers\"\nfilters:\n  - mcmullarkey/blendtutor\n"),
+        "document should open with title + filter front matter, got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("\ncoi: true\n"),
+        "R documents need cross-origin isolation for webR, got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("type: book"),
+        "R documents should note that book projects run R without COI, got:\n{stdout}"
+    );
+    let body = stdout.split("\n---\n").nth(1).unwrap_or("");
+    assert!(
+        body.contains("::: {.blendtutor language=\"r\"}"),
+        "the exercise div should follow the front matter, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn document_python_lesson_omits_coi() {
+    let stdout = export_success(&["--document", PYTHON_LESSON]);
+    assert!(stdout.starts_with("---\n"), "got:\n{stdout}");
+    assert!(
+        !stdout.contains("coi:"),
+        "Pyodide needs no cross-origin isolation, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn document_title_escapes_yaml_special_characters() {
+    let yaml = "\
+lesson_name: 'Say \"hi\" \\\\ bye'
+language: Python
+exercise:
+  prompt: \"Write add.\"
+  llm_evaluation_prompt: \"Grade this: {student_code}\"
+";
+    let mut file = tempfile::NamedTempFile::new().unwrap();
+    file.write_all(yaml.as_bytes()).unwrap();
+    let stdout = export_success(&["--document", file.path().to_str().unwrap()]);
+    assert!(
+        stdout.contains("title: \"Say \\\"hi\\\" \\\\\\\\ bye\"\n"),
+        "quotes and backslashes in the title must be YAML-escaped, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn key_page_is_a_complete_page_with_the_key_mount_div() {
+    let stdout = export_success(&["--key-page"]);
+    assert!(
+        stdout.starts_with("---\ntitle: \"API Key\"\nfilters:\n  - mcmullarkey/blendtutor\n---\n"),
+        "key page should carry title + filter front matter, got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("\n::: {.blendtutor-key}\n"),
+        "key page must contain the key mount div, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn key_page_mount_div_matches_the_demo_book_copy() {
+    // Drift guard (ADR-0019): the runtime mounts on this exact div, so the
+    // exported page and the demo book's hand-written page must agree on it.
+    let demo = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../demo-book/api-key.qmd"
+    ))
+    .unwrap();
+    let exported = export_success(&["--key-page"]);
+    for page in [&demo, &exported] {
+        assert!(page.contains("\n::: {.blendtutor-key}\n"), "got:\n{page}");
+    }
+}
+
+#[test]
+fn key_page_and_lesson_are_mutually_exclusive() {
+    assert!(
+        !export_output(&["--key-page", R_LESSON_FULL])
+            .status
+            .success()
+    );
+    assert!(!export_output(&[]).status.success());
+    assert!(
+        !export_output(&["--key-page", "--document"])
+            .status
+            .success()
+    );
+}
+
+// ── Thin-lesson warning ───────────────────────────────────────────────────────
+
+#[test]
+fn lesson_without_checks_solution_or_hints_warns_on_stderr() {
+    let output = export_output(&[R_LESSON_MINIMAL]);
+    assert!(output.status.success(), "a thin lesson still exports");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.starts_with("warning:"),
+        "a lesson with no learner aids should warn, got stderr:\n{stderr}"
+    );
+    for field in ["checks", "solution", "hints"] {
+        assert!(
+            stderr.contains(field),
+            "the warning should name the missing `{field}`, got:\n{stderr}"
+        );
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("::: {.blendtutor language=\"r\"}"),
+        "the warning must not leak into stdout, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn lesson_with_learner_aids_or_key_page_exports_silently() {
+    for args in [vec![R_LESSON_FULL], vec![PYTHON_LESSON], vec!["--key-page"]] {
+        let output = export_output(&args);
+        assert!(output.status.success());
+        assert!(
+            output.stderr.is_empty(),
+            "export-quarto {args:?} should not warn, got stderr:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 }

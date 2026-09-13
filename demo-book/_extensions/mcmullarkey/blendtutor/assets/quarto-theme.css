@@ -1,0 +1,58 @@
+/* quarto-theme.css — Quarto extension only (ADR-0021).
+ *
+ * WHAT:  Re-declares the widget's --bt-color-* tokens from Quarto's page class
+ *        (body.quarto-light / body.quarto-dark) so exercises follow the book's
+ *        theme instead of the OS prefers-color-scheme setting.
+ * WHERE: Listed after styles.css in blendtutor.lua's html dependency.
+ * NOT:   No layout or component rules. Token VALUES mirror
+ *        crates/core/assets/shared/styles.css (light :root and the dark media
+ *        :root); scripts/tests/test_quarto_display.py pins them.
+ */
+
+body.quarto-light {
+  --bt-color-surface: #ffffff;
+  --bt-color-surface-code: #f5f5f5;
+  --bt-color-text-primary: #1a1a1a;
+  --bt-color-text-secondary: #555555;
+  --bt-color-status-pass: #0a7d28;
+  --bt-color-status-fail: #c0202a;
+  --bt-color-status-running: #b06a00;
+  --bt-color-brand: #1a1a1a;
+  --bt-color-brand-hover: #000000;
+  --bt-color-border: #d4d4d4;
+  --bt-color-status-idle: #e8e8e8;
+  --bt-color-success-bg: #e8f5e9;
+  --bt-color-danger-bg: #fff3e0;
+  --bt-color-syntax-keyword: #055;
+  --bt-color-syntax-string: #a11;
+  --bt-color-syntax-number: #708;
+  --bt-color-syntax-comment: #6a6a6a;
+  --bt-color-syntax-variable: #000;
+  --bt-color-syntax-function: #30a;
+  --bt-color-syntax-operator: #000;
+  --bt-color-cursor: #1a1a1a;
+}
+
+body.quarto-dark {
+  --bt-color-surface: #1e1e1e;
+  --bt-color-surface-code: #2d2d2d;
+  --bt-color-text-primary: #e0e0e0;
+  --bt-color-text-secondary: #a0a0a0;
+  --bt-color-status-pass: #66bb6a;
+  --bt-color-status-fail: #ff5252;
+  --bt-color-status-running: #ff9800;
+  --bt-color-brand: #e0e0e0;
+  --bt-color-brand-hover: #ffffff;
+  --bt-color-border: #808080;
+  --bt-color-status-idle: #888888;
+  --bt-color-success-bg: #1b3d1b;
+  --bt-color-danger-bg: #3d1b1b;
+  --bt-color-syntax-keyword: #569cd6;
+  --bt-color-syntax-string: #ce9178;
+  --bt-color-syntax-number: #b5cea8;
+  --bt-color-syntax-comment: #6a9955;
+  --bt-color-syntax-variable: #d4d4d4;
+  --bt-color-syntax-function: #dcdcaa;
+  --bt-color-syntax-operator: #d4d4d4;
+  --bt-color-cursor: #ffffff;
+}

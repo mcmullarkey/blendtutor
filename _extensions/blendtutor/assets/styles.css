@@ -159,6 +159,16 @@
   margin-bottom: var(--bt-space-md);
 }
 
+/* ADR-0021: the prompt the runtime keeps after removing the static fallback.
+ * Same rhythm as the fallback prompt, primary color: these are the live
+ * instructions, not fallback prose. */
+
+.bt-exercise .bt-prompt {
+  color: var(--bt-color-text-primary);
+  line-height: var(--bt-line-height);
+  margin-bottom: var(--bt-space-md);
+}
+
 .bt-exercise .bt-exercise-static pre.bt-static-code {
   font-family: var(--bt-font-family-code);
   font-size: var(--bt-font-size-base);
@@ -654,6 +664,16 @@
 .bt-exercise .bt-status[data-status="fail"] {
   background: var(--bt-color-status-fail);
   color: var(--bt-color-surface);
+}
+
+/* ADR-0021: status and output render only once something has run; the
+ * feedback area collapses until it has content. Attribute selectors beat the
+ * component display rules above, which would otherwise override [hidden]. */
+
+.bt-exercise .bt-status[hidden],
+.bt-exercise .bt-output[hidden],
+.bt-exercise .bt-feedback:empty {
+  display: none;
 }
 
 .bt-exercise .bt-output {

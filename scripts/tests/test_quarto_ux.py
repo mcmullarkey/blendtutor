@@ -434,7 +434,7 @@ def check_styles_css_loaded() -> None:
     # AC-4: styles.css deploys via add_html_dependency to the libs dir. ux.qmd
     # lives in quarto-fixture/ so the emitted href is the document-relative
     # ux_files/libs/... shape (never _extensions/.../assets/styles.css).
-    if 'href="ux_files/libs/quarto-contrib/blendtutor-0.1.0/styles.css"' in html:
+    if 'href="ux_files/libs/quarto-contrib/blendtutor-0.2.0/styles.css"' in html:
         ok("styles.css <link> present in rendered HTML (libs-dir href)")
     else:
         ko("styles.css <link> present in rendered HTML — not found in rendered output")
@@ -581,7 +581,7 @@ def check_installed_layout_asset_path() -> None:
     if tmp is None:
         return
     html = (tmp / "test.html").read_text()
-    if 'href="test_files/libs/quarto-contrib/blendtutor-0.1.0/styles.css"' in html:
+    if 'href="test_files/libs/quarto-contrib/blendtutor-0.2.0/styles.css"' in html:
         ok("installed layout — href uses libs-dir deployment (test_files/libs/...)")
     else:
         ko("installed layout — href missing libs-dir deployment")
@@ -609,7 +609,7 @@ def check_by_name_install_absolute_path() -> None:
         ko("by-name install — no styles.css href found in rendered HTML")
         return
     url = match.group(1)
-    if url == "test_files/libs/quarto-contrib/blendtutor-0.1.0/styles.css":
+    if url == "test_files/libs/quarto-contrib/blendtutor-0.2.0/styles.css":
         ok("by-name install — absolute PANDOC_SCRIPT_FILE handled; libs-dir href deployed")
     else:
         ko(f"by-name install — expected libs-dir href, got: {url}")

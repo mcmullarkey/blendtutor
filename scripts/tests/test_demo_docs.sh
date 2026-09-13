@@ -16,8 +16,9 @@
 #        demo section points runnable R at the CLI-built example sites
 #        (issue #225 relabeled; regex unchanged) + interactive Python
 #   c4.  COI book-mode limitation survives + names `type: book`
-#   c5.  Book explicitly does NOT run R (regex; generic COI-doesn't-function
-#        insufficient)
+#   c5.  Book states R DOES run without COI, on webR's slower fallback channel
+#        (flipped: the deployed demo book executes R with crossOriginIsolated
+#        false, so the old "R does not run in book" pin enforced a false claim)
 #   c6.  Pyodide accuracy guard, whole README (pyodide needs no COI)
 #   c7.  No stale /examples/ conflation inside the demo section
 #   c8.  Extend-don't-duplicate: 'COI does not function in Quarto' == 1 AND
@@ -122,11 +123,13 @@ fi
 # c5: Book explicitly does NOT run R (demo section) — generic
 #     COI-doesn't-function is insufficient
 # ---------------------------------------------------------------------------
-echo "== c5: R does not run in book =="
-if printf '%s' "$DEMO_SECTION" | grep -E 'R exercises.*(don.?t|do not|cannot|not).*(run|execute)|R exercises.*unavailable|editors mount but execution' >/dev/null; then
-  ok "book states R does not run / editors mount but execution unavailable"
+echo "== c5: R runs in book without COI =="
+if printf '%s' "$DEMO_SECTION" | grep -E 'R exercises (also )?run in (book mode|the book)' >/dev/null \
+  && printf '%s' "$DEMO_SECTION" | grep -qiE 'slower|fallback|non-isolated' \
+  && ! printf '%s' "$DEMO_SECTION" | grep -E 'R exercises.*(don.?t|do not|cannot).*(run|execute)|editors mount but execution' >/dev/null; then
+  ok "book states R runs on webR's slower non-isolated channel"
 else
-  ko "book does NOT state R-does-not-run — generic COI-doesn't-function insufficient"
+  ko "book does not state that R runs on the slower non-isolated channel (or still claims R does not run)"
 fi
 
 # ---------------------------------------------------------------------------

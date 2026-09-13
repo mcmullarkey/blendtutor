@@ -68,6 +68,10 @@ export function statusMessage(reason) {
 
 // --- effectful shell (DOM wiring, fetch, storage) ------------------------------
 
+// Placeholder for the key input: browser BYOK is Fireworks-only (keys look
+// like fw_...), so the hint matches what learners paste.
+const KEY_PLACEHOLDER = "fw_...";
+
 // Guard against double-mounting: mounting the same container twice must not
 // duplicate the submit listener (one save must issue exactly one fetch).
 const mountedTargets = new WeakSet();
@@ -107,18 +111,32 @@ function renderKeyForm(container, initialReason, onSaved) {
   const status = document.createElement("p");
   status.dataset.byok = "key-status";
 
+  // ADR-0021: say what the input wants and where the key lives, so the inline
+  // form is self-explanatory when Get feedback mounts it without a key.
+  const providerLabel = PROVIDERS[PROVIDER_ID].label;
+  const hint = document.createElement("p");
+  hint.dataset.byok = "key-hint";
+  hint.textContent =
+    "Paste your " + providerLabel + " API key to get AI feedback. It is stored only in this browser.";
+
   const input = document.createElement("input");
   input.type = "password";
   input.name = "byok-key";
   input.autocomplete = "off";
+  input.placeholder = KEY_PLACEHOLDER;
   input.dataset.byok = "key-input";
+
+  const label = document.createElement("label");
+  label.dataset.byok = "key-label";
+  label.textContent = providerLabel + " API key ";
+  label.append(input);
 
   const save = document.createElement("button");
   save.type = "submit";
   save.dataset.byok = "save";
   save.textContent = "Save key";
 
-  form.append(status, input, save);
+  form.append(hint, label, save, status);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     return handleSave(input, status, onSaved);

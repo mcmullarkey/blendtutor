@@ -245,3 +245,39 @@ fn new_lesson_refuses_a_duplicate_id_without_clobbering() {
         "a refused duplicate must not append a manifest entry"
     );
 }
+
+#[test]
+fn new_lesson_scaffolds_commented_optional_fields_for_both_languages() {
+    // Authors only discover solution/hints/gotchas/checks/packages if the
+    // scaffold shows them; they arrive commented out so the lesson validates
+    // unchanged and each field is one uncomment away.
+    let course = fresh_init_course();
+    for (lang, id) in [("r", "optional_r"), ("python", "optional_py")] {
+        Command::cargo_bin("blendtutor")
+            .unwrap()
+            .current_dir(course.path())
+            .args(["new", "lesson", "--lang", lang, id])
+            .assert()
+            .success();
+        let rel = format!("lessons/{id}.yaml");
+        let yaml = std::fs::read_to_string(course.path().join(&rel)).unwrap();
+        for key in [
+            "# solution:",
+            "# hints:",
+            "# gotchas:",
+            "# checks:",
+            "# packages:",
+        ] {
+            assert!(
+                yaml.lines().any(|line| line.trim_start().starts_with(key)),
+                "{lang} scaffold should show a commented `{key}` field, got:\n{yaml}"
+            );
+        }
+        Command::cargo_bin("blendtutor")
+            .unwrap()
+            .current_dir(course.path())
+            .args(["validate", &rel])
+            .assert()
+            .success();
+    }
+}

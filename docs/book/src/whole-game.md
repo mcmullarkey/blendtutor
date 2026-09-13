@@ -170,15 +170,22 @@ blendtutor export-quarto lesson_hello.yaml
 
 ````markdown
 ::: {.blendtutor language="r"}
-<!-- the lesson's prompt and code template, rendered from the YAML -->
+<!-- the lesson's prompt, template, checks, solution, hints, gotchas and
+     success criteria, rendered from the YAML -->
 :::
 ````
 
+For a page that renders on its own, add `--document`; for the page learners use
+to store their API key, run `blendtutor export-quarto --key-page > api-key.qmd`.
+
 To render exercises, install the blendtutor Quarto extension — see the
-[README](../../../README.md) for requirements (Quarto 1.4 or newer) — then
-render:
+[README](../../../README.md) for requirements (Quarto 1.4 or newer) — from the
+folder that contains `_quarto.yml`, then render:
 
 ```bash
 quarto add mcmullarkey/blendtutor
 quarto render
 ```
+
+R exercises run in books too, on webR's slower non-isolated channel; `coi: true` speeds them up on standalone pages. See
+[Creating Lessons §Step 11](./creating-lessons.md#step-11--export-a-lesson-to-quarto).

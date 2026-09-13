@@ -18,7 +18,7 @@
 #      NOT double-start-guard reliance.
 #   5. Non-HTML gate: filter.qmd → latex → zero data-bt-bootstrap="auto".
 #   6. Libs-URL specifiers + coi depth (AC-4 rewrite): bootstrap import
-#      specifiers reference <stem>_files/libs/quarto-contrib/blendtutor-0.1.0/
+#      specifiers reference <stem>_files/libs/quarto-contrib/blendtutor-0.2.0/
 #      (computed from quarto.doc.output_file), never _extensions/ source-tree
 #      paths; coi-book/chapter-coi.qmd shows the coi-serviceworker.js src STILL
 #      depth-correct ../.. _extensions/ (COI stays include_text — SW scope).
@@ -432,11 +432,11 @@ fi
 echo "== Clause 6: libs-URL specifiers + coi depth =="
 
 if [ -f "$MIXED_HTML" ]; then
-  LIBS_PREFIX='mixed-lang_files/libs/quarto-contrib/blendtutor-0.1.0'
+  LIBS_PREFIX='mixed-lang_files/libs/quarto-contrib/blendtutor-0.2.0'
   if has_token "$MIXED_BOOTSTRAP" "$LIBS_PREFIX/exercise-runtime.js" \
     && has_token "$MIXED_BOOTSTRAP" "$LIBS_PREFIX/webr-adapter.js" \
     && has_token "$MIXED_BOOTSTRAP" "$LIBS_PREFIX/pyodide-adapter.js"; then
-    ok "specifiers are libs URLs (mixed-lang_files/libs/quarto-contrib/blendtutor-0.1.0/)"
+    ok "specifiers are libs URLs (mixed-lang_files/libs/quarto-contrib/blendtutor-0.2.0/)"
   else
     ko "specifiers are libs URLs — $LIBS_PREFIX/ not found in bootstrap"
   fi
@@ -487,12 +487,12 @@ fi
 echo "== Clause 10: bootstrap imports mountAllFeedback + mountKeyPage (C5/C6) =="
 
 if [ -f "$MIXED_HTML" ]; then
-  if has_token "$MIXED_BOOTSTRAP" 'import { mountAllFeedback } from "./mixed-lang_files/libs/quarto-contrib/blendtutor-0.1.0/exercise-feedback.js"'; then
+  if has_token "$MIXED_BOOTSTRAP" 'import { mountAllFeedback } from "./mixed-lang_files/libs/quarto-contrib/blendtutor-0.2.0/exercise-feedback.js"'; then
     ok "bootstrap imports mountAllFeedback from libs exercise-feedback.js"
   else
     ko "bootstrap imports mountAllFeedback from libs exercise-feedback.js — not found"
   fi
-  if has_token "$MIXED_BOOTSTRAP" 'import { mountKeyPage } from "./mixed-lang_files/libs/quarto-contrib/blendtutor-0.1.0/key-page.js"'; then
+  if has_token "$MIXED_BOOTSTRAP" 'import { mountKeyPage } from "./mixed-lang_files/libs/quarto-contrib/blendtutor-0.2.0/key-page.js"'; then
     ok "bootstrap imports mountKeyPage from libs key-page.js"
   else
     ko "bootstrap imports mountKeyPage from libs key-page.js — not found"

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Verify filter output: assert 9-key SiteLesson JSON contract + data-language.
+"""Verify filter output: assert 10-key SiteLesson JSON contract + data-language.
 
 Reads an HTML file, extracts all bt-exercise widget JSON payloads and their
 data-language attributes, and asserts:
-  - the 9-key SiteLesson contract from AC-2's executable spec
+  - the 10-key SiteLesson contract from AC-2's executable spec
   - every bt-exercise div carries exactly one data-language="r|python"
     (all-or-none: attribute count must equal widget count)
   - per-index language pairing matches quarto-fixture/filter.qmd order
@@ -20,7 +20,8 @@ import sys
 from typing import Any
 
 
-# The 9 SiteLesson keys that MUST be present in every widget JSON.
+# The 10 SiteLesson keys that MUST be present in every widget JSON
+# (ADR-0020 added success_criteria).
 REQUIRED_KEYS: set[str] = {
     "id",
     "title",
@@ -31,6 +32,7 @@ REQUIRED_KEYS: set[str] = {
     "solution",
     "hints",
     "gotchas",
+    "success_criteria",
 }
 
 # Keys that MUST NOT appear — llm_evaluation_prompt is server/CLI only
@@ -137,6 +139,13 @@ def assert_full_exercise(data: dict[str, Any], errors: list[str]) -> None:
             f"Full exercise: packages should be [], got: {data['packages']!r}"
         )
 
+    # success_criteria from the nested .success-criteria div (ADR-0020)
+    criteria = data["success_criteria"]
+    if criteria is None or "sum of" not in criteria:
+        errors.append(
+            f"Full exercise: success_criteria missing 'sum of' — got: {criteria!r}"
+        )
+
 
 def assert_minimal_python(data: dict[str, Any], errors: list[str]) -> None:
     """Assert conditions for the minimal Python exercise (index 1).
@@ -167,6 +176,11 @@ def assert_minimal_python(data: dict[str, Any], errors: list[str]) -> None:
     if data["gotchas"] is not None:
         errors.append(
             f"Minimal Python: gotchas should be null, got: {data['gotchas']!r}"
+        )
+
+    if data["success_criteria"] is not None:
+        errors.append(
+            f"Minimal Python: success_criteria should be null, got: {data['success_criteria']!r}"
         )
 
 
@@ -226,6 +240,11 @@ def assert_empty_exercise(data: dict[str, Any], errors: list[str]) -> None:
     if data["gotchas"] is not None:
         errors.append(
             f"Empty exercise: gotchas should be null, got: {data['gotchas']!r}"
+        )
+
+    if data["success_criteria"] is not None:
+        errors.append(
+            f"Empty exercise: success_criteria should be null, got: {data['success_criteria']!r}"
         )
 
 
@@ -356,7 +375,7 @@ def main() -> int:
     # BEFORE the payload script (fix-demo-visible-exercises Part 1).
     assert_static_fallback(html, widgets, errors)
 
-    # For each widget: 9 keys present, no forbidden keys, title non-empty
+    # For each widget: 10 keys present, no forbidden keys, title non-empty
     for i, data in enumerate(widgets):
         keys = set(data.keys())
         missing = REQUIRED_KEYS - keys
@@ -367,7 +386,7 @@ def main() -> int:
             errors.append(f"Exercise {i}: missing keys: {sorted(missing)}")
         if extra:
             errors.append(
-                f"Exercise {i}: extra keys (not in 9-key contract): {sorted(extra)}"
+                f"Exercise {i}: extra keys (not in 10-key contract): {sorted(extra)}"
             )
         if forbidden:
             errors.append(f"Exercise {i}: FORBIDDEN key present: {sorted(forbidden)}")

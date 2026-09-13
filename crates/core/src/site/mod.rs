@@ -125,6 +125,10 @@ pub struct SiteLesson {
     /// shape stays stable — mirroring the `solution: null` and `hints: null`
     /// precedents from ADR-0008.
     pub gotchas: Option<String>,
+    /// Optional author rubric, added to the in-browser LLM feedback prompt
+    /// between the task and the submission (ADR-0020). Always serialized (null
+    /// when absent) like `solution`, `hints`, and `gotchas`.
+    pub success_criteria: Option<String>,
 }
 
 impl SiteLesson {
@@ -144,6 +148,7 @@ impl SiteLesson {
             solution: lesson.exercise.solution.clone(),
             hints: lesson.exercise.hints.clone(),
             gotchas: lesson.exercise.gotchas.clone(),
+            success_criteria: lesson.exercise.success_criteria.clone(),
         }
     }
 }
@@ -787,6 +792,10 @@ mod tests {
             site_lesson.gotchas, lesson.exercise.gotchas,
             "gotchas ride the contract verbatim from exercise.gotchas"
         );
+        assert_eq!(
+            site_lesson.success_criteria, lesson.exercise.success_criteria,
+            "success_criteria ride the contract verbatim (ADR-0020)"
+        );
     }
 
     #[test]
@@ -978,6 +987,10 @@ exercise:
         assert!(
             lesson.get("gotchas").is_some() && lesson["gotchas"].is_null(),
             "a missing gotchas serializes as null, never dropped: {lesson}"
+        );
+        assert!(
+            lesson.get("success_criteria").is_some(),
+            "success_criteria is always serialized, never dropped: {lesson}"
         );
     }
 

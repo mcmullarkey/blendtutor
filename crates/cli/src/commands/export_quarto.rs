@@ -10,7 +10,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use blendtutor_core::lesson::{LoadError, read_lesson_file};
-use blendtutor_core::quarto_export::{ExportShape, export_lesson_to_qmd, key_page_qmd};
+use blendtutor_core::quarto_export::{
+    ExportShape, export_lesson_to_qmd, key_page_qmd, thin_lesson_warning,
+};
 
 /// What the author asked `export-quarto` to print. Built from the clap flags
 /// in `main`, where clap has already refused invalid combinations (§1.3).
@@ -38,7 +40,7 @@ pub fn run(request: ExportRequest) -> anyhow::Result<ExitCode> {
 }
 
 /// Load the lesson at `path`, transform it to `.qmd` in `shape`, and write it
-/// to stdout.
+/// to stdout, printing any thin-lesson warning to stderr first.
 ///
 /// A read failure (missing file, bad permissions) propagates to `main` as an
 /// error. An invalid lesson (failed validation) prints the error to stderr
@@ -53,6 +55,9 @@ fn export_lesson(path: &Path, shape: ExportShape) -> anyhow::Result<ExitCode> {
         }
         Err(LoadError::Read(error)) => return Err(error.into()),
     };
+    if let Some(warning) = thin_lesson_warning(&lesson) {
+        eprintln!("{warning}");
+    }
     print!("{}", export_lesson_to_qmd(&lesson, shape));
     Ok(ExitCode::SUCCESS)
 }

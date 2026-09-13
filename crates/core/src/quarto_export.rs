@@ -184,6 +184,26 @@ pub fn export_lesson_to_qmd(lesson: &Lesson, shape: ExportShape) -> String {
     out
 }
 
+/// Warn when `lesson` carries none of the aids that make the Quarto widget more
+/// than a Run button: no `checks`, no `solution`, and no `hints`.
+///
+/// Pure (§2.1): returns the stderr message for the CLI shell to print, or
+/// `None` when any aid is present. Authors mistake such a bare widget for a
+/// broken install, so the export names exactly what is missing.
+pub fn thin_lesson_warning(lesson: &Lesson) -> Option<String> {
+    let has_aid = !lesson.checks.is_empty()
+        || lesson.exercise.solution.is_some()
+        || lesson.exercise.hints.is_some();
+    if has_aid {
+        return None;
+    }
+    Some(
+        "warning: lesson has no checks, solution, or hints; the exported \
+         exercise will offer only Run and LLM feedback"
+            .to_string(),
+    )
+}
+
 /// Render the YAML front matter that makes an exported lesson a standalone page:
 /// title, the blendtutor filter, and — for R only — `coi: true` with a note
 /// that COI does not work in book projects (ADR-0015, ADR-0019).
@@ -485,5 +505,36 @@ exercise:
             )
         );
         assert!(page.contains("\n::: {.blendtutor-key}\n"));
+    }
+
+    #[test]
+    fn thin_lesson_warning_names_every_missing_aid() {
+        let lesson = Lesson::parse(
+            "lesson_name: \"Thin\"\nlanguage: R\nexercise:\n  prompt: \"p\"\n  llm_evaluation_prompt: \"{student_code}\"\n",
+        )
+        .unwrap();
+        let warning = thin_lesson_warning(&lesson).expect("a lesson with no aids warns");
+        assert!(warning.starts_with("warning:"), "got: {warning}");
+        for field in ["checks", "solution", "hints"] {
+            assert!(warning.contains(field), "missing `{field}` in: {warning}");
+        }
+    }
+
+    #[test]
+    fn thin_lesson_warning_is_silent_when_any_aid_is_present() {
+        for aid in ["checks:\n  - \"stopifnot(TRUE)\"\n", ""] {
+            let extra_exercise = if aid.is_empty() {
+                "  hints: |\n    - Try it.\n"
+            } else {
+                ""
+            };
+            let yaml = format!(
+                "lesson_name: \"Aided\"\nlanguage: R\n{aid}exercise:\n  prompt: \"p\"\n{extra_exercise}  llm_evaluation_prompt: \"{{student_code}}\"\n"
+            );
+            let lesson = Lesson::parse(&yaml).unwrap();
+            assert_eq!(thin_lesson_warning(&lesson), None, "yaml:\n{yaml}");
+        }
+        let solved = Lesson::parse(VALID_YAML).unwrap();
+        assert_eq!(thin_lesson_warning(&solved), None);
     }
 }

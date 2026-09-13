@@ -112,7 +112,7 @@ jobs:
         run: |
           if [ -d docs/evals ]; then
             if rg -l '/Users/' docs/evals/ | grep -q .; then
-              echo "docs.yml: /Users/ leak in docs/evals/ (scrub per creating-lessons.md Step 9)" >&2
+              echo "docs.yml: /Users/ leak in docs/evals/ (scrub per whole-game.md Eval report)" >&2
               exit 1
             fi
             rm -rf docs/book/book/evals

@@ -1,4 +1,5 @@
-//! Pure transform: [`Lesson`] → Quarto `.qmd` fenced-div snippet.
+//! Pure transforms: [`Lesson`] → Quarto `.qmd` fenced-div snippet or complete
+//! page, plus the static API key page (ADR-0019).
 //!
 //! The conversion is a pure function — no I/O, no side effects, deterministic
 //! (§2.1). The CLI command in `blendtutor-cli` is the thin effectful shell that
@@ -20,6 +21,68 @@
 
 use crate::lesson::{Language, Lesson};
 
+/// What `export_lesson_to_qmd` produces (ADR-0019).
+///
+/// A sum type rather than a bool so each call site names the shape it wants
+/// (§1.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportShape {
+    /// The bare `::: {.blendtutor}` div, for pasting into an existing page.
+    Snippet,
+    /// The div preceded by front matter, so the page renders on its own.
+    Document,
+}
+
+/// The filter reference every exported page declares.
+const FILTER_NAME: &str = "mcmullarkey/blendtutor";
+
+/// Front-matter comment for R documents: webR needs cross-origin isolation,
+/// which the README documents as non-functional in book projects.
+const R_BOOK_COI_NOTE: &str = "\
+# R exercises run in webR, which needs cross-origin isolation (coi: true).
+# COI does not function in Quarto `type: book` projects; render this page as a
+# standalone document for runnable R.
+";
+
+/// A complete API key page (ADR-0019), mirroring `demo-book/api-key.qmd`.
+const KEY_PAGE_QMD: &str = r#"---
+title: "API Key"
+filters:
+  - mcmullarkey/blendtutor
+---
+
+# API Key
+
+AI-powered feedback on these exercises uses the [Fireworks AI](https://fireworks.ai)
+API with your own key. Create a key in the
+[Fireworks console](https://app.fireworks.ai/account/keys); keys look like
+`fw_...`.
+
+## Enter your key
+
+::: {.blendtutor-key}
+
+Loading API key settings…
+
+:::
+
+Your key is stored **only** in this browser's `localStorage`, shared across
+every page of the site, and sent **only** in an `Authorization: Bearer` header
+to `api.fireworks.ai`.
+
+## Serve over HTTP
+
+`localStorage` and JavaScript ES modules are blocked for pages opened from the
+local filesystem (`file://`). Preview with `quarto preview`, or serve the
+rendered output directory over HTTP.
+"#;
+
+/// The complete API key page, ready to save as `api-key.qmd` (the filter's
+/// default `bt-key-page` target is `api-key.html`).
+pub fn key_page_qmd() -> &'static str {
+    KEY_PAGE_QMD
+}
+
 /// The minimum fence length for a fenced code block (CommonMark default).
 const MIN_FENCE_LEN: usize = 3;
 
@@ -32,15 +95,21 @@ const MIN_FENCE_LEN: usize = 3;
 /// present, so no empty blocks appear for absent fields (§1.1). The
 /// author-only `llm_evaluation_prompt` is excluded (ADR-0006).
 ///
+/// With [`ExportShape::Document`] the div is preceded by [`front_matter`].
+///
 /// # Arguments
 /// * `lesson` — A valid, parsed lesson (constructed via [`Lesson::parse`]).
+/// * `shape` — Snippet or complete page.
 ///
 /// # Returns
 /// A `String` containing the `.qmd` fenced-div snippet, terminated by a
 /// newline.
-pub fn export_lesson_to_qmd(lesson: &Lesson) -> String {
+pub fn export_lesson_to_qmd(lesson: &Lesson, shape: ExportShape) -> String {
     let lang = language_tag(&lesson.language);
-    let mut out = String::new();
+    let mut out = match shape {
+        ExportShape::Snippet => String::new(),
+        ExportShape::Document => front_matter(lesson),
+    };
 
     // Opening div with the language attribute, plus the comma-separated
     // packages attribute the Quarto filter splits (`parse_packages`).
@@ -115,6 +184,29 @@ pub fn export_lesson_to_qmd(lesson: &Lesson) -> String {
     out
 }
 
+/// Render the YAML front matter that makes an exported lesson a standalone page:
+/// title, the blendtutor filter, and — for R only — `coi: true` with a note
+/// that COI does not work in book projects (ADR-0015, ADR-0019).
+fn front_matter(lesson: &Lesson) -> String {
+    let title = yaml_double_quoted(&lesson.lesson_name.to_string());
+    let coi = match lesson.language {
+        Language::R => format!("coi: true\n{R_BOOK_COI_NOTE}"),
+        Language::Python => String::new(),
+    };
+    format!("---\ntitle: {title}\nfilters:\n  - {FILTER_NAME}\n{coi}---\n\n")
+}
+
+/// Quote `value` as a YAML double-quoted scalar, escaping backslashes, quotes,
+/// and line breaks so author text can never end the scalar early.
+fn yaml_double_quoted(value: &str) -> String {
+    let escaped = value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r");
+    format!("\"{escaped}\"")
+}
+
 /// Map a [`Language`] to its lowercase code-fence tag.
 ///
 /// `R` → `"r"`, `Python` → `"python"`. Lowercase matches Pandoc/Quarto
@@ -172,7 +264,7 @@ exercise:
     #[test]
     fn export_opens_with_blendtutor_div_and_language() {
         let lesson = Lesson::parse(VALID_YAML).unwrap();
-        let qmd = export_lesson_to_qmd(&lesson);
+        let qmd = export_lesson_to_qmd(&lesson, ExportShape::Snippet);
         assert!(
             qmd.starts_with("::: {.blendtutor language=\"r\"}\n"),
             "should open with the blendtutor div, got:\n{qmd}"
@@ -182,7 +274,7 @@ exercise:
     #[test]
     fn export_closes_with_div_marker() {
         let lesson = Lesson::parse(VALID_YAML).unwrap();
-        let qmd = export_lesson_to_qmd(&lesson);
+        let qmd = export_lesson_to_qmd(&lesson, ExportShape::Snippet);
         assert!(
             qmd.trim_end().ends_with(":::"),
             "should close with :::, got:\n{qmd}"
@@ -192,7 +284,7 @@ exercise:
     #[test]
     fn export_excludes_llm_evaluation_prompt() {
         let lesson = Lesson::parse(VALID_YAML).unwrap();
-        let qmd = export_lesson_to_qmd(&lesson);
+        let qmd = export_lesson_to_qmd(&lesson, ExportShape::Snippet);
         assert!(
             !qmd.contains("llm_evaluation_prompt"),
             "llm_evaluation_prompt must be absent, got:\n{qmd}"
@@ -215,7 +307,7 @@ exercise:
   llm_evaluation_prompt: "Grade this: {student_code}"
 "#;
         let lesson = Lesson::parse(yaml).unwrap();
-        let qmd = export_lesson_to_qmd(&lesson);
+        let qmd = export_lesson_to_qmd(&lesson, ExportShape::Snippet);
         assert!(
             qmd.contains("::: {.gotchas}\n- R uses '<-' for assignment.\n:::\n"),
             "gotchas should render as a closed ::: {{.gotchas}} div, got:\n{qmd}"
@@ -235,7 +327,7 @@ exercise:
   llm_evaluation_prompt: "Grade this: {student_code}"
 "#;
         let lesson = Lesson::parse(yaml).unwrap();
-        let qmd = export_lesson_to_qmd(&lesson);
+        let qmd = export_lesson_to_qmd(&lesson, ExportShape::Snippet);
         assert!(
             qmd.starts_with("::: {.blendtutor language=\"python\" packages=\"pandas,numpy\"}\n"),
             "packages should be a comma-separated div attribute, got:\n{qmd}"
@@ -252,7 +344,7 @@ exercise:
   llm_evaluation_prompt: "Grade this: {student_code}"
 "#;
         let lesson = Lesson::parse(yaml).unwrap();
-        let qmd = export_lesson_to_qmd(&lesson);
+        let qmd = export_lesson_to_qmd(&lesson, ExportShape::Snippet);
         assert!(
             !qmd.contains(".solution"),
             "no .solution block for absent solution, got:\n{qmd}"
@@ -282,7 +374,7 @@ exercise:
   llm_evaluation_prompt: "Grade this: {student_code}"
 "#;
         let lesson = Lesson::parse(yaml).unwrap();
-        let qmd = export_lesson_to_qmd(&lesson);
+        let qmd = export_lesson_to_qmd(&lesson, ExportShape::Snippet);
         assert!(
             qmd.contains("language=\"python\""),
             "Python lesson should use language=\"python\", got:\n{qmd}"
@@ -306,7 +398,7 @@ exercise:
   llm_evaluation_prompt: "Grade this: {student_code}"
 "#;
         let lesson = Lesson::parse(yaml).unwrap();
-        let qmd = export_lesson_to_qmd(&lesson);
+        let qmd = export_lesson_to_qmd(&lesson, ExportShape::Snippet);
         assert!(
             qmd.contains("````r\n"),
             "fence should be 4 backticks when content has ```, got:\n{qmd}"
@@ -325,8 +417,8 @@ exercise:
 "#;
         let lesson_b = Lesson::parse(yaml_b).unwrap();
         assert_ne!(
-            export_lesson_to_qmd(&lesson_a),
-            export_lesson_to_qmd(&lesson_b),
+            export_lesson_to_qmd(&lesson_a, ExportShape::Snippet),
+            export_lesson_to_qmd(&lesson_b, ExportShape::Snippet),
             "different lessons must produce different output"
         );
     }
@@ -357,5 +449,41 @@ exercise:
         assert_eq!(longest_backtick_run("one ` here"), 1);
         assert_eq!(longest_backtick_run("triple ``` here"), 3);
         assert_eq!(longest_backtick_run("`` and ``` mixed"), 3);
+    }
+
+    #[test]
+    fn document_shape_prefixes_front_matter_and_keeps_the_snippet_intact() {
+        let lesson = Lesson::parse(VALID_YAML).unwrap();
+        let snippet = export_lesson_to_qmd(&lesson, ExportShape::Snippet);
+        let document = export_lesson_to_qmd(&lesson, ExportShape::Document);
+        assert_eq!(document, format!("{}{snippet}", front_matter(&lesson)));
+    }
+
+    #[test]
+    fn front_matter_adds_coi_only_for_r() {
+        let r = Lesson::parse(VALID_YAML).unwrap();
+        assert!(front_matter(&r).contains("\ncoi: true\n"));
+        let py = Lesson::parse(
+            "lesson_name: \"Py\"\nlanguage: Python\nexercise:\n  prompt: \"p\"\n  llm_evaluation_prompt: \"{student_code}\"\n",
+        )
+        .unwrap();
+        assert!(!front_matter(&py).contains("coi"));
+    }
+
+    #[test]
+    fn yaml_double_quoted_escapes_scalar_terminators() {
+        assert_eq!(yaml_double_quoted("plain"), "\"plain\"");
+        assert_eq!(yaml_double_quoted("a\"b\\c\nd"), "\"a\\\"b\\\\c\\nd\"");
+    }
+
+    #[test]
+    fn key_page_has_front_matter_and_mount_div() {
+        let page = key_page_qmd();
+        assert!(
+            page.starts_with(
+                "---\ntitle: \"API Key\"\nfilters:\n  - mcmullarkey/blendtutor\n---\n"
+            )
+        );
+        assert!(page.contains("\n::: {.blendtutor-key}\n"));
     }
 }

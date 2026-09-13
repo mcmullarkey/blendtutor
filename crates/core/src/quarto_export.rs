@@ -265,6 +265,10 @@ exercise:
             !qmd.contains("{.hints}"),
             "no hints div for absent hints, got:\n{qmd}"
         );
+        assert!(
+            !qmd.contains("{.gotchas}"),
+            "no gotchas div for absent gotchas, got:\n{qmd}"
+        );
     }
 
     #[test]

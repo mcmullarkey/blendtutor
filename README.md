@@ -67,7 +67,7 @@ checks, solution reveal, AI hints, all static HTML. Requires **Quarto >= 1.4**:
 quarto add mcmullarkey/blendtutor
 ```
 
-Installs to `_extensions/mcmullarkey/blendtutor/` (version 0.1.0). **Run it from the
+Installs to `_extensions/mcmullarkey/blendtutor/` (version 0.2.0). **Run it from the
 folder that contains `_quarto.yml`** (or the `.qmd`): Quarto only discovers `_extensions/`
 there, so one installed a directory up never loads; assets are install-path-independent.
 

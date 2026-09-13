@@ -170,7 +170,7 @@ local COI_SCRIPT_PATH = resolve_asset_path(PANDOC_SCRIPT_FILE, "coi-serviceworke
 -- Single source of truth for the extension version (AC-4 clause 10). Used in
 -- BOTH the add_html_dependency declaration AND the emitted libs URL string;
 -- must equal _extension.yml:3 version.
-local BT_DEP_VERSION = "0.1.0"
+local BT_DEP_VERSION = "0.2.0"
 
 --- Compute the document-relative libs URL for a deployed asset (AC-4, AC-5).
 -- Quarto deploys add_html_dependency resources + stylesheets to
@@ -199,8 +199,8 @@ local BT_DEP_VERSION = "0.1.0"
 -- (probe-verified quarto 1.10.18) — strip to the basename before the stem.
 -- @param filename asset basename, e.g. "exercise-runtime.js"
 -- @return document-relative ES-module-safe libs URL,
---   standalone: "./index_files/libs/quarto-contrib/blendtutor-0.1.0/exercise-runtime.js"
---   book:       "./site_libs/quarto-contrib/blendtutor-0.1.0/exercise-runtime.js"
+--   standalone: "./index_files/libs/quarto-contrib/blendtutor-0.2.0/exercise-runtime.js"
+--   book:       "./site_libs/quarto-contrib/blendtutor-0.2.0/exercise-runtime.js"
 local function libs_url(filename)
   local output_file = quarto and quarto.doc and quarto.doc.output_file or ""
   local basename = output_file:match("^.*[/\\]([^/\\]+)$") or output_file

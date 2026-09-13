@@ -387,7 +387,8 @@ end
 --   - Nested Div with .success-criteria class → success_criteria (markdown, ADR-0020)
 --
 -- @param blocks A List of Pandoc Block elements (the div's content)
--- @return A table with prompt, code_template, checks, solution, hints, gotchas
+-- @return A table with prompt, code_template, checks, solution, hints, gotchas,
+--   success_criteria
 local function parse_inner_blocks(blocks)
   local prompt_blocks = {}
   local code_template = nil

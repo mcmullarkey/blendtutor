@@ -176,7 +176,9 @@ fn is_empty_target(dir: &Path) -> Result<bool, ScaffoldError> {
 const LESSONS_DIR: &str = "lessons";
 
 /// The exercise body of an R starter lesson: a valid `exercise` block whose
-/// `llm_evaluation_prompt` carries the required `{student_code}` placeholder.
+/// `llm_evaluation_prompt` carries the required `{student_code}` placeholder,
+/// followed by commented-out optional fields (solution, hints, gotchas, checks,
+/// packages) so authors discover them without the lesson changing meaning.
 const R_EXERCISE: &str = r#"exercise:
   type: "function_writing"
   prompt: |
@@ -189,6 +191,13 @@ const R_EXERCISE: &str = r#"exercise:
   success_criteria: |
     - Prints exactly the word "hello"
     - Uses cat()
+  # Optional learner aids — uncomment to use. hints and gotchas are bullet lists.
+  # solution: |
+  #   cat("hello\n")
+  # hints: |
+  #   - cat() prints its arguments without quotes or an index.
+  # gotchas: |
+  #   - print("hello") adds [1] and quotes; use cat() here.
   llm_evaluation_prompt: |
     You are grading a beginner R exercise: print the word "hello" with cat().
 
@@ -198,6 +207,11 @@ const R_EXERCISE: &str = r#"exercise:
     Decide whether it prints "hello" and call respond_with_feedback with your
     assessment. Set is_correct true when the requirement is met, and give two or
     three sentences of encouraging feedback.
+# Optional lesson-level fields — uncomment to use.
+# checks:
+#   - "stopifnot(is.function(cat))"
+# packages:
+#   - dplyr
 "#;
 
 /// The exercise body of a Python starter lesson: the `print()` twin of
@@ -214,6 +228,13 @@ const PYTHON_EXERCISE: &str = r#"exercise:
   success_criteria: |
     - Prints exactly the word "hello"
     - Uses print()
+  # Optional learner aids — uncomment to use. hints and gotchas are bullet lists.
+  # solution: |
+  #   print("hello")
+  # hints: |
+  #   - print() adds a trailing newline for you.
+  # gotchas: |
+  #   - Quote the word: print(hello) looks up a variable named hello.
   llm_evaluation_prompt: |
     You are grading a beginner Python exercise: print the word "hello" with print().
 
@@ -223,6 +244,11 @@ const PYTHON_EXERCISE: &str = r#"exercise:
     Decide whether it prints "hello" and call respond_with_feedback with your
     assessment. Set is_correct true when the requirement is met, and give two or
     three sentences of encouraging feedback.
+# Optional lesson-level fields — uncomment to use.
+# checks:
+#   - "assert callable(print)"
+# packages:
+#   - pandas
 "#;
 
 /// Render a starter lesson for `language` under the slug `id`.
@@ -663,6 +689,40 @@ mod tests {
             "Write should frame and carry the message, got: {write_msg}"
         );
         assert!(std::error::Error::source(&write).is_some());
+    }
+
+    /// Uncomment every optional field the template shows: drop the `# ` from
+    /// commented lines except the file header and the `# Optional ...` labels.
+    fn uncomment_optional_fields(yaml: &str) -> String {
+        yaml.lines()
+            .map(|line| {
+                let trimmed = line.trim_start();
+                let indent = &line[..line.len() - trimmed.len()];
+                let is_label = trimmed.starts_with("# Optional")
+                    || trimmed.starts_with("# A lesson scaffolded")
+                    || trimmed.starts_with("# changes with");
+                match trimmed.strip_prefix("# ") {
+                    Some(rest) if !is_label => format!("{indent}{rest}"),
+                    _ => line.to_string(),
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn lesson_template_optional_fields_parse_once_uncommented() {
+        for language in [Language::R, Language::Python] {
+            let yaml = uncomment_optional_fields(&lesson_template(language.clone(), "aided"));
+            let lesson = Lesson::parse(&yaml).unwrap_or_else(|e| {
+                panic!("uncommented {language:?} template must parse: {e}\n{yaml}")
+            });
+            assert!(lesson.exercise.solution.is_some(), "{language:?} solution");
+            assert!(lesson.exercise.hints.is_some(), "{language:?} hints");
+            assert!(lesson.exercise.gotchas.is_some(), "{language:?} gotchas");
+            assert_eq!(lesson.checks.len(), 1, "{language:?} checks");
+            assert_eq!(lesson.packages.len(), 1, "{language:?} packages");
+        }
     }
 
     #[test]

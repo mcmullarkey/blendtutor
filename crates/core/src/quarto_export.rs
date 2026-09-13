@@ -14,9 +14,9 @@
 //! | `exercise.solution`  | ```` ```{.<lang> .solution} ```` block (if `Some`) |
 //! | `exercise.hints`      | `::: {.hints}` div (if `Some`)           |
 //! | `lesson.language`    | `language="<r|python>"` attribute         |
-//! | `exercise.gotchas`   | EXCLUDED (no `.qmd` equivalent)          |
+//! | `exercise.gotchas`   | `::: {.gotchas}` div (if `Some`)         |
+//! | `lesson.packages`    | `packages="a,b"` attribute (if non-empty) |
 //! | `exercise.llm_evaluation_prompt` | EXCLUDED (author-only, ADR-0006) |
-//! | `lesson.packages`    | OMITTED (out-of-scope per decomposition)  |
 
 use crate::lesson::{Language, Lesson};
 
@@ -27,10 +27,10 @@ const MIN_FENCE_LEN: usize = 3;
 ///
 /// The output is a self-contained block starting with
 /// `::: {.blendtutor language="<r|python>"}` and closing with `:::`. Each
-/// optional section (code template, checks, solution, hints) is emitted only
-/// when the corresponding field is present, so no empty blocks appear for
-/// absent fields (§1.1). Author-only fields (`llm_evaluation_prompt`,
-/// `gotchas`) and out-of-scope fields (`packages`) are excluded.
+/// optional section (code template, checks, solution, hints, gotchas) and the
+/// `packages` attribute are emitted only when the corresponding field is
+/// present, so no empty blocks appear for absent fields (§1.1). The
+/// author-only `llm_evaluation_prompt` is excluded (ADR-0006).
 ///
 /// # Arguments
 /// * `lesson` — A valid, parsed lesson (constructed via [`Lesson::parse`]).
@@ -42,8 +42,16 @@ pub fn export_lesson_to_qmd(lesson: &Lesson) -> String {
     let lang = language_tag(&lesson.language);
     let mut out = String::new();
 
-    // Opening div with the language attribute.
-    out.push_str(&format!("::: {{.blendtutor language=\"{lang}\"}}\n"));
+    // Opening div with the language attribute, plus the comma-separated
+    // packages attribute the Quarto filter splits (`parse_packages`).
+    let packages = if lesson.packages.is_empty() {
+        String::new()
+    } else {
+        format!(" packages=\"{}\"", lesson.packages.join(","))
+    };
+    out.push_str(&format!(
+        "::: {{.blendtutor language=\"{lang}\"{packages}}}\n"
+    ));
 
     // Prompt as prose (always present — it is a required field).
     out.push_str(lesson.exercise.prompt.trim_end());
@@ -88,6 +96,15 @@ pub fn export_lesson_to_qmd(lesson: &Lesson) -> String {
         out.push('\n');
         out.push_str("::: {.hints}\n");
         out.push_str(hints.trim_end());
+        out.push('\n');
+        out.push_str(":::\n");
+    }
+
+    // Gotchas as a fenced div (if present).
+    if let Some(ref gotchas) = lesson.exercise.gotchas {
+        out.push('\n');
+        out.push_str("::: {.gotchas}\n");
+        out.push_str(gotchas.trim_end());
         out.push('\n');
         out.push_str(":::\n");
     }
@@ -187,7 +204,7 @@ exercise:
     }
 
     #[test]
-    fn export_excludes_gotchas() {
+    fn export_renders_gotchas_as_gotchas_div() {
         let yaml = r#"
 lesson_name: "Gotchas"
 language: R
@@ -200,22 +217,19 @@ exercise:
         let lesson = Lesson::parse(yaml).unwrap();
         let qmd = export_lesson_to_qmd(&lesson);
         assert!(
-            !qmd.contains("gotchas"),
-            "gotchas must be absent, got:\n{qmd}"
-        );
-        assert!(
-            !qmd.contains("R uses '<-' for assignment"),
-            "gotchas text must be absent, got:\n{qmd}"
+            qmd.contains("::: {.gotchas}\n- R uses '<-' for assignment.\n:::\n"),
+            "gotchas should render as a closed ::: {{.gotchas}} div, got:\n{qmd}"
         );
     }
 
     #[test]
-    fn export_omits_packages() {
+    fn export_renders_packages_as_comma_separated_attribute() {
         let yaml = r#"
 lesson_name: "Pkg"
 language: Python
 packages:
   - pandas
+  - numpy
 exercise:
   prompt: "Write add."
   llm_evaluation_prompt: "Grade this: {student_code}"
@@ -223,12 +237,8 @@ exercise:
         let lesson = Lesson::parse(yaml).unwrap();
         let qmd = export_lesson_to_qmd(&lesson);
         assert!(
-            !qmd.contains("packages"),
-            "packages must be omitted, got:\n{qmd}"
-        );
-        assert!(
-            !qmd.contains("pandas"),
-            "package names must be omitted, got:\n{qmd}"
+            qmd.starts_with("::: {.blendtutor language=\"python\" packages=\"pandas,numpy\"}\n"),
+            "packages should be a comma-separated div attribute, got:\n{qmd}"
         );
     }
 

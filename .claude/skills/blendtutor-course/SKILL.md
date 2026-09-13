@@ -59,6 +59,8 @@ exercise:
     <complete answer; must pass every check>
   hints: |
     - <one bullet per hint; every non-empty line starts with "- ">
+  gotchas: |                            # optional: common mistakes, also bullets
+    - <a pitfall learners hit>
   success_criteria: |
     - <what a correct answer does, including what checks cannot see>
   llm_evaluation_prompt: |
@@ -168,6 +170,7 @@ def run(label, code):
     with tempfile.NamedTemporaryFile("w", suffix=".R", delete=False) as f:
         f.write(script)
     out = subprocess.run(["Rscript", f.name], capture_output=True, text=True)
+    pathlib.Path(f.name).unlink(missing_ok=True)
     print(label, out.stdout.strip() or f"submission error: {out.stderr.strip().splitlines()[-1:]}")
 run("solution", lesson["exercise"]["solution"])
 for i, case in enumerate(cases, 1):

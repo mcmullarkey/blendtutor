@@ -476,7 +476,7 @@ else
           ko "asset href target missing: $href"
           HREF_MISSING=1
         fi
-      done < <(grep -hoE '(href|src)="[^"]*blendtutor-0\.1\.0/[^"]*"' "$RENDER_HTML_DIR"/*.html 2>/dev/null | sed -E 's/^[^"]*"([^"]*)"/\1/' | sort -u)
+      done < <(grep -hoE '(href|src)="[^"]*blendtutor-0\.2\.0/[^"]*"' "$RENDER_HTML_DIR"/*.html 2>/dev/null | sed -E 's/^[^"]*"([^"]*)"/\1/' | sort -u)
       if [ "$HREF_FOUND" -eq 0 ]; then
         ko "asset href file check — no blendtutor asset hrefs found in rendered HTML"
       fi
@@ -614,7 +614,7 @@ if [ -f "$RENDER_HTML_DIR/r-exercises.html" ]; then
   else
     ko "r-exercises coi shim — no coi-serviceworker.js src found"
   fi
-  if grep -qE 'src="[^"]*blendtutor-0\.1\.0/coi-serviceworker\.js"' "$RENDER_HTML_DIR/r-exercises.html"; then
+  if grep -qE 'src="[^"]*blendtutor-0\.2\.0/coi-serviceworker\.js"' "$RENDER_HTML_DIR/r-exercises.html"; then
     ko "coi shim NOT in blendtutor libs URL — src points into blendtutor-0.2.0/ dir"
   else
     ok "coi shim src does not point into blendtutor-0.2.0 libs dir"

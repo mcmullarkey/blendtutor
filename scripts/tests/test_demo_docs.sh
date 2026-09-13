@@ -22,11 +22,10 @@
 #   c6.  Pyodide accuracy guard, whole README (pyodide needs no COI)
 #   c7.  No stale /examples/ conflation inside the demo section
 #   c8.  Extend-don't-duplicate: 'COI does not function in Quarto' == 1 AND
-#        'Book-mode limitation' == 1 (whole README)
-#   c9.  Region pin: live demo-book URL at line >= 60 and < 150 (whole
-#        README; issue #225 reslimmed the README 383→149 lines, so the old
-#        288-342 region no longer exists)
-#   c10. ADR-0015 pointer in README + file exists
+#        'Book-mode limitation' == 1 (whole-game chapter)
+#   c9.  README links to the whole-game demo section (whole-game.html#demo-book);
+#        the Quarto/COI/demo prose moved out of README into that chapter
+#   c10. ADR-0015 pointer in the whole-game chapter + file exists
 #   c11. Distribution-doc pins survive (test_quarto_distribution.sh README
 #        group): python3 -m http.server 8000 present; 'COI configuration'
 #        absent; PANDOC_SCRIPT_FILE absent; `type: book` present; demo-book/
@@ -47,12 +46,16 @@ ok() { echo "  PASS: $1"; PASS=$((PASS + 1)); }
 ko() { echo "  FAIL: $1"; FAIL=$((FAIL + 1)); }
 
 README="README.md"
+# The Quarto/COI/demo-book prose moved from README into the whole-game chapter
+# (README keeps a short pointer section); content pins read DOC, README keeps
+# the dead-URL guard, the pointer link, and the concision ceiling.
+DOC="docs/book/src/whole-game.md"
 DEMO_BOOK_DIR="demo-book"
 ADR_FILE="docs/adr/0015-opt-in-coi-cross-origin.md"
 
 # Demo section scope: `### Demo book` through `## BYOK` (exclusive of the
 # BYOK section, which now follows the demo section before `## License`).
-DEMO_SECTION="$(awk '/^### Demo book/,/^## BYOK/' "$README")"
+DEMO_SECTION="$(awk '/^### Demo book/,/^## BYOK/' "$DOC")"
 
 # ---------------------------------------------------------------------------
 # c1: Live demo-book URL exact literal, trailing slash pinned (demo section);
@@ -65,10 +68,10 @@ if printf '%s' "$DEMO_SECTION" | grep -qF 'https://mcmullarkey.github.io/blendtu
 else
   ko "live demo-book URL literal missing from demo section"
 fi
-if grep -qF 'https://mcmullarkey.github.io/blendtutor/demo/' "$README"; then
-  ko "dead /demo/ URL still present in README (demo-standalone removed by #227)"
+if grep -qF 'https://mcmullarkey.github.io/blendtutor/demo/' "$README" "$DOC"; then
+  ko "dead /demo/ URL still present in README or whole-game (demo-standalone removed by #227)"
 else
-  ok "dead /demo/ URL absent from whole README"
+  ok "dead /demo/ URL absent from README and whole-game"
 fi
 
 # ---------------------------------------------------------------------------
@@ -136,10 +139,10 @@ fi
 # c6: Pyodide accuracy guard — whole README
 # ---------------------------------------------------------------------------
 echo "== c6: pyodide no-COI accuracy guard =="
-if grep -qE 'pyodide.*(do not|doesn.?t|no).*COI|Pyodide-only.*do not need COI' "$README"; then
-  ok "README states pyodide needs no COI"
+if grep -qE 'pyodide.*(do not|doesn.?t|no).*COI|Pyodide-only.*do not need COI' "$DOC"; then
+  ok "whole-game states pyodide needs no COI"
 else
-  ko "pyodide accuracy — no pyodide-no-COI statement anywhere in README"
+  ko "pyodide accuracy — no pyodide-no-COI statement anywhere in whole-game"
 fi
 
 # ---------------------------------------------------------------------------
@@ -157,13 +160,13 @@ fi
 # c8: Extend-don't-duplicate — count pins (whole README)
 # ---------------------------------------------------------------------------
 echo "== c8: extend-don't-duplicate count pins =="
-count_coi_phrase="$(grep -cF 'COI does not function in Quarto' "$README" || true)"
+count_coi_phrase="$(grep -cF 'COI does not function in Quarto' "$DOC" || true)"
 if [ "$count_coi_phrase" -eq 1 ]; then
   ok "'COI does not function in Quarto' appears exactly once"
 else
   ko "'COI does not function in Quarto' count != 1 (got $count_coi_phrase — duplicated or deleted)"
 fi
-count_book_heading="$(grep -c 'Book-mode limitation' "$README" || true)"
+count_book_heading="$(grep -c 'Book-mode limitation' "$DOC" || true)"
 if [ "$count_book_heading" -eq 1 ]; then
   ok "'Book-mode limitation' appears exactly once"
 else
@@ -171,30 +174,25 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# c9: Region pin — live demo-book URL at line >= 60 and < 150 (whole README).
-#     Issue #225 reslimmed the README (383 → 149 lines); the old 288-342
-#     region encoded the pre-slim layout. Band widened to 60-150 so
-#     legitimate edits above/below the demo section don't fail the pin;
-#     content pins (c1-c8) + the c12 ceiling carry the real contract.
+# c9: README points at the whole-game demo section (the prose lives there now)
 # ---------------------------------------------------------------------------
-echo "== c9: demo section region pin =="
-for url in 'https://mcmullarkey.github.io/blendtutor/demo-book/'; do
-  line="$(grep -nF "$url" "$README" | cut -d: -f1 | head -n1 || true)"
-  if [ -n "$line" ] && [ "$line" -ge 60 ] && [ "$line" -lt 150 ]; then
-    ok "URL at line $line (60 <= line < 150): $url"
-  else
-    ko "URL line pin failed for $url (got: ${line:-missing})"
-  fi
-done
+echo "== c9: README links to the whole-game demo section =="
+if grep -qF 'whole-game.html#demo-book' "$README"; then
+  ok "README links whole-game.html#demo-book"
+else
+  ko "README missing link to whole-game.html#demo-book"
+fi
+
+# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # c10: ADR-0015 pointer + file exists
 # ---------------------------------------------------------------------------
 echo "== c10: ADR-0015 pointer =="
-if grep -qF 'docs/adr/0015-opt-in-coi-cross-origin.md' "$README"; then
-  ok "README links docs/adr/0015-opt-in-coi-cross-origin.md"
+if grep -qF 'docs/adr/0015-opt-in-coi-cross-origin.md' "$DOC"; then
+  ok "whole-game links docs/adr/0015-opt-in-coi-cross-origin.md"
 else
-  ko "README missing ADR-0015 pointer (docs/adr/0015-opt-in-coi-cross-origin.md)"
+  ko "whole-game missing ADR-0015 pointer (docs/adr/0015-opt-in-coi-cross-origin.md)"
 fi
 if [ -f "$ADR_FILE" ]; then
   ok "ADR file exists ($ADR_FILE)"
@@ -206,22 +204,22 @@ fi
 # c11: Distribution-doc pins survive (test_quarto_distribution.sh README group)
 # ---------------------------------------------------------------------------
 echo "== c11: distribution-doc pins survive =="
-if grep -qF 'python3 -m http.server 8000' "$README"; then
+if grep -qF 'python3 -m http.server 8000' "$DOC"; then
   ok "serve-over-HTTP instruction present (python3 -m http.server 8000)"
 else
   ko "distribution pin — 'python3 -m http.server 8000' missing"
 fi
-if ! grep -qF 'COI configuration' "$README"; then
+if ! grep -qF 'COI configuration' "$DOC"; then
   ok "no overclaiming 'COI configuration' phrase"
 else
   ko "distribution pin — 'COI configuration' present (overclaim)"
 fi
-if ! grep -qF 'PANDOC_SCRIPT_FILE' "$README"; then
+if ! grep -qF 'PANDOC_SCRIPT_FILE' "$DOC"; then
   ok "no stale mechanism phrase 'PANDOC_SCRIPT_FILE'"
 else
   ko "distribution pin — 'PANDOC_SCRIPT_FILE' present (stale mechanism)"
 fi
-if grep -qF 'type: book' "$README"; then
+if grep -qF 'type: book' "$DOC"; then
   ok "COI caveat names Quarto type: book (README-wide)"
 else
   ko "distribution pin — 'type: book' not found"

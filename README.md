@@ -57,93 +57,31 @@ don't need it). Two example courses are deployed alongside the docs:
 - **[R example site (webR)](https://mcmullarkey.github.io/blendtutor/examples/r/)**
 - **[Python example site (Pyodide)](https://mcmullarkey.github.io/blendtutor/examples/python/)**
 
+## Author a course with Claude Code
+
+This repo ships a Claude Code skill,
+[`blendtutor-course`](.claude/skills/blendtutor-course/SKILL.md). In a clone,
+run `/blendtutor-course <chapter file or URL>` (or ask Claude to build a
+course): it scaffolds lessons with checks and solutions, writes a minimal eval
+suite, verifies the checks locally, and exports a Quarto snippet or builds a site.
+
 ## Quarto extension
 
-blendtutor also ships as a [Quarto](https://quarto.org) extension for
-interactive coding exercises in `.qmd` documents — in-browser editor, instant
-checks, solution reveal, AI hints, all static HTML. Requires **Quarto >= 1.4**:
+Interactive exercises in `.qmd` documents (Quarto >= 1.4, extension version
+0.2.0). Run this from the folder that contains `_quarto.yml`:
 
 ```bash
 quarto add mcmullarkey/blendtutor
 ```
 
-Installs to `_extensions/mcmullarkey/blendtutor/` (version 0.2.0). **Run it from the
-folder that contains `_quarto.yml`** (or the `.qmd`): Quarto only discovers `_extensions/`
-there, so one installed a directory up never loads; assets are install-path-independent.
+[The whole game](https://mcmullarkey.github.io/blendtutor/whole-game.html#quarto-extension) covers the rest:
 
-#### Quick start (zero hand-written bootstrap)
-
-A complete copy-paste document — zero hand-written bootstrap. Filter by name,
-`.blendtutor` div, render:
-
-````markdown
----
-title: "My exercises"
-filters: [mcmullarkey/blendtutor]
----
-
-::: {.blendtutor language="r"}
-Write a function `add(a, b)` that returns the sum.
-
-```r
-add <- function(a, b) { ___ }
-```
-:::
-````
-
-Render, open in a browser — interactive immediately. Grade submissions with a
-`{.r .checks}` block (`stopifnot(add(1, 2) == 3)`); Python: same div, `language="python"`.
-
-Optional blocks inside the div add a `{.r .solution}`, `::: {.hints}` / `::: {.gotchas}`
-bullets, and a `::: {.success-criteria}` rubric for AI feedback; `packages="dplyr"` on the
-div preloads packages. `blendtutor export-quarto lesson.yaml` writes the div from a lesson
-(`--document` for a full page, `--key-page` for the API key page).
-
-#### Auto-bootstrap opt-out
-
-The filter auto-bootstraps by default; to wire up the runtime yourself, set
-`bt-auto-bootstrap: false` in the YAML header. To keep it but disable the
-auto-mounted AI feedback, set `bt-feedback: false` — see
-[BYOK](#byok-bring-your-own-key).
-
-### Cross-origin isolation (COI)
-
-webR runs faster with `SharedArrayBuffer`, which needs cross-origin isolation
-(COOP/COEP). Opt in with `coi: true` (page YAML header) or `coi="true"` (any div);
-the filter injects a service-worker shim. Pyodide-only pages do not need COI.
-
-> **Book-mode limitation:** COI does not function in Quarto `type: book`
-> projects — the shim's scope cannot cover the book's `_output/` pages, so webR
-> uses its slower non-isolated channel ([ADR-0015](docs/adr/0015-opt-in-coi-cross-origin.md)).
-
-### Demo book
-
-A complete demo book with R and Python exercises lives in
-[`demo-book/`](demo-book/), rendered live at
-<https://mcmullarkey.github.io/blendtutor/demo-book/> (rebuild locally with
-`cd demo-book && quarto render`). It is a Quarto `type: book` project, so
-COI does not take effect (limitation above). Python exercises are fully interactive
-and every page ships a static fallback. R exercises run in the book too, on webR's slower
-fallback channel; the CLI-built [example sites](#deploy-to-github-pages) add isolation,
-R exercises run interactively via webR there. Over `file://` you get static exercise content only; serve over HTTP:
-
-```bash
-cd demo-book/_output && python3 -m http.server 8000
-```
-
-## BYOK (Bring Your Own Key)
-
-Browser feedback uses the learner's own API key — no server-side key. Feedback
-is **auto-mounted**: the injected bootstrap imports `exercise-feedback.js` and
-calls `mountAllFeedback(registry)` after the runtime starts. The key is entered
-once on the API key page (the demo book ships one) and shared via `localStorage`
-— readable by any JavaScript on the page's origin, so never reuse a critical
-key; it is sent only to `api.fireworks.ai`. BYOK is Fireworks-only (pinned model
-`accounts/fireworks/models/deepseek-v4-flash-0731`); the CLI supports other
-providers (see [API key](#api-key)). Serve over HTTP — `file://` breaks
-`localStorage` sharing and blocks ES modules, so feedback never mounts.
-Self-hosted CSP: add `connect-src https://api.fireworks.ai` (Pages cannot set
-CSP headers; the shim covers only COOP/COEP).
+- [Quick start](https://mcmullarkey.github.io/blendtutor/whole-game.html#quick-start-zero-hand-written-bootstrap)
+- [Export a lesson](https://mcmullarkey.github.io/blendtutor/whole-game.html#export-a-lesson) with `blendtutor export-quarto`
+- [Auto-bootstrap opt-out](https://mcmullarkey.github.io/blendtutor/whole-game.html#auto-bootstrap-opt-out)
+- [Cross-origin isolation](https://mcmullarkey.github.io/blendtutor/whole-game.html#cross-origin-isolation-coi) and R in book projects
+- [Demo book](https://mcmullarkey.github.io/blendtutor/whole-game.html#demo-book)
+- [BYOK feedback](https://mcmullarkey.github.io/blendtutor/whole-game.html#byok-bring-your-own-key)
 
 ## License
 

@@ -55,6 +55,10 @@ ok() { echo "  PASS: $1"; PASS=$((PASS + 1)); }
 ko() { echo "  FAIL: $1"; FAIL=$((FAIL + 1)); }
 
 README="README.md"
+# The Quarto extension docs moved from README into the whole-game chapter; the
+# Group 1 content clauses accept either file (README keeps install + pointers).
+WHOLE_GAME="docs/book/src/whole-game.md"
+README_DOCS=("$README" "$WHOLE_GAME")
 DEMO_BOOK_DIR="demo-book"
 CI_FILE=".github/workflows/ci.yml"
 
@@ -69,7 +73,7 @@ echo "== Clause 1: install command =="
 if [ ! -f "$README" ]; then
   ko "install command — README not found: $README"
 else
-  if grep -qF 'quarto add mcmullarkey/blendtutor' "$README"; then
+  if grep -qF 'quarto add mcmullarkey/blendtutor' "${README_DOCS[@]}"; then
     ok "install command present (quarto add mcmullarkey/blendtutor)"
   else
     ko "install command present — 'quarto add mcmullarkey/blendtutor' not found in README"
@@ -82,14 +86,14 @@ if [ ! -f "$README" ]; then
   ko "syntax both languages — README not found"
 else
   # Check for R exercise syntax (language="r")
-  if grep -qF 'language="r"' "$README" || grep -qF "language='r'" "$README"; then
+  if grep -qF 'language="r"' "${README_DOCS[@]}" || grep -qF "language='r'" "${README_DOCS[@]}"; then
     ok "R exercise syntax shown in README"
   else
     ko "R exercise syntax shown in README — language=\"r\" not found"
   fi
 
   # Check for Python exercise syntax (language="python")
-  if grep -qF 'language="python"' "$README" || grep -qF "language='python'" "$README"; then
+  if grep -qF 'language="python"' "${README_DOCS[@]}" || grep -qF "language='python'" "${README_DOCS[@]}"; then
     ok "Python exercise syntax shown in README"
   else
     ko "Python exercise syntax shown in README — language=\"python\" not found"
@@ -102,7 +106,7 @@ if [ ! -f "$README" ]; then
   ko "BYOK — README not found"
 else
   # Check for BYOK or "bring your own key" (case-insensitive)
-  if grep -qiE 'BYOK|bring.your.own.key' "$README"; then
+  if grep -qiE 'BYOK|bring.your.own.key' "${README_DOCS[@]}"; then
     ok "BYOK mentioned in README"
   else
     ko "BYOK mentioned in README — no BYOK or 'bring your own key' found"
@@ -115,7 +119,7 @@ if [ ! -f "$README" ]; then
   ko "minimum Quarto version — README not found"
 else
   # Check for a Quarto version requirement (e.g., "Quarto 1.4", "Quarto >= 1.4", "Quarto 1.5+")
-  if grep -qiE 'quarto[[:space:]]*[>=]*[[:space:]]*1\.[0-9]' "$README"; then
+  if grep -qiE 'quarto[[:space:]]*[>=]*[[:space:]]*1\.[0-9]' "${README_DOCS[@]}"; then
     ok "minimum Quarto version stated in README"
   else
     ko "minimum Quarto version stated in README — no Quarto version requirement found"
@@ -128,7 +132,7 @@ if [ ! -f "$README" ]; then
   ko "demo book link — README not found"
 else
   # Check for a link to the demo-book directory
-  if grep -qiE 'demo-book|demo.book' "$README"; then
+  if grep -qiE 'demo-book|demo.book' "${README_DOCS[@]}"; then
     ok "demo book link present in README"
   else
     ko "demo book link present in README — no demo-book reference found"
@@ -141,21 +145,21 @@ if [ ! -f "$README" ]; then
   ko "install path — README not found"
 else
   # 6a: Install command survives
-  if grep -qF 'quarto add mcmullarkey/blendtutor' "$README"; then
+  if grep -qF 'quarto add mcmullarkey/blendtutor' "${README_DOCS[@]}"; then
     ok "install command present (quarto add mcmullarkey/blendtutor)"
   else
     ko "install command present — 'quarto add mcmullarkey/blendtutor' not found"
   fi
 
   # 6b: Correct install path stated (org/repo path, not bare repo name)
-  if grep -qF '_extensions/mcmullarkey/blendtutor/' "$README"; then
+  if grep -qF '_extensions/mcmullarkey/blendtutor/' "${README_DOCS[@]}"; then
     ok "install path stated (_extensions/mcmullarkey/blendtutor/)"
   else
     ko "install path stated — '_extensions/mcmullarkey/blendtutor/' not found"
   fi
 
   # 6c: Old wrong claim gone (bare 'your project's _extensions/blendtutor/' phrase)
-  if ! grep -qF "your project's \`_extensions/blendtutor/\`" "$README"; then
+  if ! grep -qF "your project's \`_extensions/blendtutor/\`" "${README_DOCS[@]}"; then
     ok "old wrong install path claim removed"
   else
     ko "old wrong install path claim removed — found 'your project's \`_extensions/blendtutor/\`'"
@@ -164,7 +168,7 @@ else
   # 6d: Install-path independence stated (outcome-level only — assets deploy
   # alongside the rendered HTML; NOT the stale 'relative to the filter
   # script' mechanism, which issue #147 removed in lockstep with the README).
-  if grep -qiE 'install-path-independent|independent of.{0,40}install|regardless install' "$README"; then
+  if grep -qiE 'install-path-independent|independent of.{0,40}install|regardless install' "${README_DOCS[@]}"; then
     ok "install-path independence stated in README"
   else
     ko "install-path independence stated in README — no independence mention found"
@@ -190,7 +194,7 @@ fi
 echo "== Clause 7: zero-bootstrap quick-start =="
 QUICK_START=""
 if [ -f "$README" ]; then
-  QUICK_START=$(awk '/^#### Quick start/{flag=1;next} /^#### Auto-bootstrap opt-out/{flag=0;next} flag' "$README")
+  QUICK_START=$(awk '/^#+ Quick start/{flag=1;next} /^#+ Auto-bootstrap opt-out/{flag=0;next} flag' "$WHOLE_GAME")
 fi
 if [ -z "$QUICK_START" ]; then
   ko "quick-start — no '#### Quick start' subsection found in README"
@@ -224,12 +228,12 @@ fi
 
 # Clause 9: auto-bootstrap opt-out documented (literal + prose).
 echo "== Clause 9: auto-bootstrap opt-out =="
-if [ -f "$README" ] && grep -qF 'bt-auto-bootstrap: false' "$README"; then
+if [ -f "$README" ] && grep -qF 'bt-auto-bootstrap: false' "${README_DOCS[@]}"; then
   ok "opt-out literal present (bt-auto-bootstrap: false)"
 else
   ko "opt-out literal — 'bt-auto-bootstrap: false' not found"
 fi
-if [ -f "$README" ] && grep -qiE 'opt-out' "$README"; then
+if [ -f "$README" ] && grep -qiE 'opt-out' "${README_DOCS[@]}"; then
   ok "opt-out prose present"
 else
   ko "opt-out prose — no 'opt-out' mention found"
@@ -242,33 +246,33 @@ fi
 # plain /^## BYOK/,/^## / range self-terminates on the heading — the heading
 # matches both patterns).
 echo "== Clause 10: feedback auto-mount =="
-if [ -f "$README" ] && grep -qF 'exercise-feedback.js' "$README"; then
+if [ -f "$README" ] && grep -qF 'exercise-feedback.js' "${README_DOCS[@]}"; then
   ok "feedback names exercise-feedback.js"
 else
   ko "feedback — 'exercise-feedback.js' not found"
 fi
-if [ -f "$README" ] && grep -qF 'mountAllFeedback' "$README"; then
+if [ -f "$README" ] && grep -qF 'mountAllFeedback' "${README_DOCS[@]}"; then
   ok "feedback auto-mounts via mountAllFeedback"
 else
   ko "feedback — 'mountAllFeedback' not found"
 fi
-if [ -f "$README" ] && grep -qiE 'auto-mounted|auto-mounts' "$README"; then
+if [ -f "$README" ] && grep -qiE 'auto-mounted|auto-mounts' "${README_DOCS[@]}"; then
   ok "feedback stated auto-mounted (not manual opt-in)"
 else
   ko "feedback — no 'auto-mounted'/'auto-mounts' statement found"
 fi
-if [ -f "$README" ] && ! grep -qiE 'not auto-mounted|manual opt-in' "$README"; then
+if [ -f "$README" ] && ! grep -qiE 'not auto-mounted|manual opt-in' "${README_DOCS[@]}"; then
   ok "no stale 'manual opt-in' / 'not auto-mounted' claim survives"
 else
   ko "feedback — stale 'not auto-mounted'/'manual opt-in' claim still present"
 fi
-if [ -f "$README" ] && grep -qF 'ANTHROPIC_API_KEY' "$README"; then
+if [ -f "$README" ] && grep -qF 'ANTHROPIC_API_KEY' "${README_DOCS[@]}"; then
   ok "CLI ANTHROPIC_API_KEY env-var doc survives (rig/ADR-0006)"
 else
   ko "CLI ANTHROPIC_API_KEY doc — 'ANTHROPIC_API_KEY' not found in README"
 fi
 # BYOK section is Fireworks-only: zero ANTHROPIC_API_KEY inside it.
-BYOK_SEC="$(awk '/^## BYOK/{f=1} f{print} f && /^## / && !/^## BYOK/{exit}' "$README")"
+BYOK_SEC="$(awk '/^## BYOK/{f=1} f{print} f && /^## / && !/^## BYOK/{exit}' "$WHOLE_GAME")"
 if [ -f "$README" ] && ! printf '%s' "$BYOK_SEC" | grep -q 'ANTHROPIC_API_KEY'; then
   ok "BYOK section has zero ANTHROPIC_API_KEY (Fireworks-only)"
 else
@@ -283,22 +287,22 @@ fi
 # clauses, incl. exact live-URL literals + capability mapping). This grep is
 # kept, not retired, for distribution-group coverage of the README contract.
 echo "== Clause 11: COI book-mode caveat =="
-if [ -f "$README" ] && grep -qF 'type: book' "$README"; then
+if [ -f "$README" ] && grep -qF 'type: book' "${README_DOCS[@]}"; then
   ok "COI caveat names Quarto type: book"
 else
   ko "COI caveat — 'type: book' not found"
 fi
-if [ -f "$README" ] && grep -qiE 'does not function|does not take effect|cannot cover' "$README"; then
+if [ -f "$README" ] && grep -qiE 'does not function|does not take effect|cannot cover' "${README_DOCS[@]}"; then
   ok "COI caveat states book-mode does not function"
 else
   ko "COI caveat — no book-mode limitation statement found"
 fi
-if [ -f "$README" ] && grep -qF '_output/' "$README"; then
+if [ -f "$README" ] && grep -qF '_output/' "${README_DOCS[@]}"; then
   ok "COI caveat explains _output/ scope"
 else
   ko "COI caveat — '_output/' not mentioned"
 fi
-if [ -f "$README" ] && ! grep -qF 'COI configuration' "$README"; then
+if [ -f "$README" ] && ! grep -qF 'COI configuration' "${README_DOCS[@]}"; then
   ok "demo book no longer overclaims 'COI configuration'"
 else
   ko "demo book overclaim — 'COI configuration' still present"
@@ -308,22 +312,22 @@ fi
 # consistency (matches ci.yml:148 full org/repo command, _extension.yml:3
 # version 0.2.0, no short-form install).
 echo "== Clause 12: no stale mechanism, command/version consistency =="
-if [ -f "$README" ] && ! grep -qiE 'relative to.*filter|PANDOC_SCRIPT_FILE|locates its assets' "$README"; then
+if [ -f "$README" ] && ! grep -qiE 'relative to.*filter|PANDOC_SCRIPT_FILE|locates its assets' "${README_DOCS[@]}"; then
   ok "stale mechanism claim removed (relative to filter script / PANDOC_SCRIPT_FILE)"
 else
   ko "stale mechanism claim still present (relative to.*filter|PANDOC_SCRIPT_FILE|locates its assets)"
 fi
-if [ -f "$README" ] && ! grep -qE 'import .*exercise-runtime\.js' "$README"; then
+if [ -f "$README" ] && ! grep -qE 'import .*exercise-runtime\.js' "${README_DOCS[@]}"; then
   ok "no stale runtime bootstrap import (import .*exercise-runtime.js)"
 else
   ko "stale runtime bootstrap import found (import .*exercise-runtime.js)"
 fi
-if [ -f "$README" ] && ! grep -qE 'quarto add[[:space:]]+blendtutor([^/]|$)' "$README"; then
+if [ -f "$README" ] && ! grep -qE 'quarto add[[:space:]]+blendtutor([^/]|$)' "${README_DOCS[@]}"; then
   ok "no short-form install command (full org/repo required, matches ci.yml:148)"
 else
   ko "short-form install command found ('quarto add blendtutor')"
 fi
-if [ -f "$README" ] && grep -qF '0.2.0' "$README"; then
+if [ -f "$README" ] && grep -qF '0.2.0' "${README_DOCS[@]}"; then
   ok "version stated matches _extension.yml (0.2.0)"
 else
   ko "version consistency — '0.2.0' not stated in README"
@@ -333,17 +337,17 @@ fi
 # Part 3 — exercises require HTTP because file:// CORS-blocks ES modules; the
 # README must tell users how to serve the rendered book interactively).
 echo "== Clause 13: demo book serve-over-HTTP instructions =="
-if [ -f "$README" ] && grep -qF 'python3 -m http.server 8000' "$README"; then
+if [ -f "$README" ] && grep -qF 'python3 -m http.server 8000' "${README_DOCS[@]}"; then
   ok "README serve-over-HTTP instruction present (python3 -m http.server 8000)"
 else
   ko "README serve-over-HTTP instruction — 'python3 -m http.server 8000' not found"
 fi
-if [ -f "$README" ] && grep -qiE 'file://|ES modules|CORS' "$README"; then
+if [ -f "$README" ] && grep -qiE 'file://|ES modules|CORS' "${README_DOCS[@]}"; then
   ok "README explains file:// blocks ES modules"
 else
   ko "README explains file:// blocks ES modules — no file:// / ES modules / CORS mention"
 fi
-if [ -f "$README" ] && grep -qiE 'static exercise content|not interactive' "$README"; then
+if [ -f "$README" ] && grep -qiE 'static exercise content|not interactive' "${README_DOCS[@]}"; then
   ok "README notes file:// shows static fallback content only"
 else
   ko "README notes file:// shows static fallback content only — no 'static exercise content'/'not interactive' mention"

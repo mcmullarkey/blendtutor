@@ -94,13 +94,13 @@ if [ -d docs/evals ]; then
 fi
 
 # AC-215 — committed smevals evidence must be portable: no worktree-specific
-# absolute paths under docs/evals/. The creating-lessons.md Step 9 convention
+# absolute paths under docs/evals/. The whole-game.md "Eval report" scrub convention
 # strips the /Users/.../portfolio/<checkout>/ prefix (worktree-issue-N/,
 # worktree-*, blendtutor-*) from lesson/runner/checker fields before git add;
 # this pin fails closed on any /Users/ leak regardless of where it came from.
 if [ -d docs/evals ]; then
   if rg -l '/Users/' docs/evals/ >/dev/null; then
-    echo "docs: /Users/ absolute path leaked into docs/evals/ (scrub per creating-lessons.md Step 9)" >&2
+    echo "docs: /Users/ absolute path leaked into docs/evals/ (scrub per whole-game.md "Eval report")" >&2
     exit 1
   fi
 fi
@@ -225,7 +225,7 @@ test -f "$book_out/whole-game.html" \
   || { echo "docs: built mdBook missing whole-game.html (page not in SUMMARY.md?)" >&2; exit 1; }
 grep -q 'evals/lesson_hello' "$book_out/whole-game.html" \
   || { echo "docs: built whole-game.html missing evals/lesson_hello citation" >&2; exit 1; }
-grep -q 'export-quarto' "$book_out/creating-lessons.html" \
-  || { echo "docs: built creating-lessons.html missing export-quarto step" >&2; exit 1; }
+grep -q 'export-quarto' "$book_out/whole-game.html" \
+  || { echo "docs: built whole-game.html missing export-quarto step" >&2; exit 1; }
 
 echo "docs: OK — merged site at $book_out (book at /, API at /api, examples at /examples/{r,python}, demo book at /demo-book/, evals at /evals/)"

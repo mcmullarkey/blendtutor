@@ -412,7 +412,7 @@ fn document_r_lesson_is_a_renderable_page_with_filter_and_coi() {
     );
     assert!(
         stdout.contains("type: book"),
-        "R documents should warn that COI does not work in book projects, got:\n{stdout}"
+        "R documents should note that book projects run R without COI, got:\n{stdout}"
     );
     let body = stdout.split("\n---\n").nth(1).unwrap_or("");
     assert!(

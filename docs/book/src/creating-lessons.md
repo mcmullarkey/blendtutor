@@ -154,7 +154,7 @@ To render:
 
 1. Run `quarto add mcmullarkey/blendtutor` **from the folder that contains `_quarto.yml`** (or the `.qmd`, for a standalone page). Quarto only looks for `_extensions/` there; installing one level up leaves the filter undiscoverable and exercises render as plain text.
 2. Enable the filter. `--document` and `--key-page` pages declare it themselves; for a snippet, add `filters: [mcmullarkey/blendtutor]` to the page or to `_quarto.yml` — not both, since Quarto merges the lists.
-3. R exercises need `coi: true` (webR requires cross-origin isolation). COI does not work in `type: book` projects, so R exercises only run on standalone pages; Python exercises run anywhere.
+3. R exercises run everywhere. On standalone pages, `coi: true` lets webR use SharedArrayBuffer for faster execution; in `type: book` projects the COI service worker cannot control pages, so webR falls back to a slower channel that still runs R. Python exercises need no COI.
 4. Serve over HTTP (`quarto preview`): `file://` blocks the ES modules and `localStorage` the widget needs.
 
 Requirements and the rendered snippet are covered by the [README §Quarto Extension](https://github.com/mcmullarkey/blendtutor#quarto-extension); for the end-to-end deploy see [whole-game §Quarto deploy](./whole-game.md#quarto-deploy).

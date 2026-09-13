@@ -187,5 +187,5 @@ quarto add mcmullarkey/blendtutor
 quarto render
 ```
 
-R exercises need `coi: true`, which does not work in `type: book` projects; see
+R exercises run in books too, on webR's slower non-isolated channel; `coi: true` speeds them up on standalone pages. See
 [Creating Lessons §Step 11](./creating-lessons.md#step-11--export-a-lesson-to-quarto).

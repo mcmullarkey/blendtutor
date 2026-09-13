@@ -67,14 +67,9 @@ checks, solution reveal, AI hints, all static HTML. Requires **Quarto >= 1.4**:
 quarto add mcmullarkey/blendtutor
 ```
 
-Installs to `_extensions/mcmullarkey/blendtutor/` (version 0.1.0). Asset
-resolution is install-path-independent — assets deploy alongside the rendered
-HTML, so the extension works regardless of where `quarto add` installs it.
-
-> **Run `quarto add` from the folder that contains `_quarto.yml`** (or the
-> `.qmd`, for a standalone page). Quarto only discovers `_extensions/` next to
-> the project file; an extension installed one directory up is never loaded,
-> and exercises render as plain prose.
+Installs to `_extensions/mcmullarkey/blendtutor/` (version 0.1.0). **Run it from the
+folder that contains `_quarto.yml`** (or the `.qmd`): Quarto only discovers `_extensions/`
+there, so one installed a directory up never loads; assets are install-path-independent.
 
 #### Quick start (zero hand-written bootstrap)
 
@@ -99,22 +94,10 @@ add <- function(a, b) { ___ }
 Render, open in a browser — interactive immediately. Grade submissions with a
 `{.r .checks}` block (`stopifnot(add(1, 2) == 3)`); Python: same div, `language="python"`.
 
-Inside the div, optional blocks add learner aids: a `{.r .solution}` code block,
-`::: {.hints}` and `::: {.gotchas}` bullet divs, and a `::: {.success-criteria}`
-div whose rubric is added to the AI feedback prompt. Preload packages with a
-`packages="dplyr,purrr"` attribute on the `.blendtutor` div.
-
-#### From a lesson YAML
-
-`blendtutor export-quarto` writes the div for you, carrying every field above:
-
-```bash
-blendtutor export-quarto lesson.yaml                        # snippet to paste
-blendtutor export-quarto --document lesson.yaml > page.qmd  # complete page
-blendtutor export-quarto --key-page > api-key.qmd           # API key page
-```
-
-It warns on stderr when a lesson has no checks, solution, or hints.
+Optional blocks inside the div add a `{.r .solution}`, `::: {.hints}` / `::: {.gotchas}`
+bullets, and a `::: {.success-criteria}` rubric for AI feedback; `packages="dplyr"` on the
+div preloads packages. `blendtutor export-quarto lesson.yaml` writes the div from a lesson
+(`--document` for a full page, `--key-page` for the API key page).
 
 #### Auto-bootstrap opt-out
 
@@ -125,14 +108,13 @@ auto-mounted AI feedback, set `bt-feedback: false` — see
 
 ### Cross-origin isolation (COI)
 
-webR requires `SharedArrayBuffer` → cross-origin isolation (COOP/COEP). Opt in
-with `coi: true` (page YAML header) or `coi="true"` (any div); the filter
-injects the same service-worker shim. Pyodide-only pages do not need COI.
+webR runs faster with `SharedArrayBuffer`, which needs cross-origin isolation
+(COOP/COEP). Opt in with `coi: true` (page YAML header) or `coi="true"` (any div);
+the filter injects a service-worker shim. Pyodide-only pages do not need COI.
 
 > **Book-mode limitation:** COI does not function in Quarto `type: book`
-> projects — the shim re-serves the page's own scope, which cannot cover the
-> book's `_output/` directory. Use a standalone document for COI-enabled
-> exercises (mechanics: [ADR-0015](docs/adr/0015-opt-in-coi-cross-origin.md)).
+> projects — the shim's scope cannot cover the book's `_output/` pages, so webR
+> uses its slower non-isolated channel ([ADR-0015](docs/adr/0015-opt-in-coi-cross-origin.md)).
 
 ### Demo book
 
@@ -140,14 +122,10 @@ A complete demo book with R and Python exercises lives in
 [`demo-book/`](demo-book/), rendered live at
 <https://mcmullarkey.github.io/blendtutor/demo-book/> (rebuild locally with
 `cd demo-book && quarto render`). It is a Quarto `type: book` project, so
-COI does not take effect in the book render (limitation above).
-Python exercises are fully interactive (Pyodide needs no COI) and every page ships
-a static fallback. R exercises do not run in book mode — editors mount but
-execution is unavailable. For runnable R, use the CLI-built example sites
-([Live example sites](#deploy-to-github-pages)) —
-R exercises run interactively via webR there, under the shim's isolation.
-Serve the rendered book over HTTP — `file://` blocks the ES-module bootstrap
-(CORS), so editors never mount and you see static exercise content only:
+COI does not take effect (limitation above). Python exercises are fully interactive
+and every page ships a static fallback. R exercises run in the book too, on webR's slower
+fallback channel; the CLI-built [example sites](#deploy-to-github-pages) add isolation,
+R exercises run interactively via webR there. Over `file://` you get static exercise content only; serve over HTTP:
 
 ```bash
 cd demo-book/_output && python3 -m http.server 8000

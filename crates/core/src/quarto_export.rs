@@ -37,12 +37,13 @@ pub enum ExportShape {
 /// The filter reference every exported page declares.
 const FILTER_NAME: &str = "mcmullarkey/blendtutor";
 
-/// Front-matter comment for R documents: webR needs cross-origin isolation,
-/// which the README documents as non-functional in book projects.
+/// Front-matter comment for R documents: what `coi: true` buys webR, and that
+/// book projects fall back to webR's slower channel (the COI service worker's
+/// scope cannot cover book pages), so R still runs there.
 const R_BOOK_COI_NOTE: &str = "\
-# R exercises run in webR, which needs cross-origin isolation (coi: true).
-# COI does not function in Quarto `type: book` projects; render this page as a
-# standalone document for runnable R.
+# coi: true lets webR use SharedArrayBuffer for faster R execution.
+# In Quarto `type: book` projects the COI service worker cannot control pages,
+# so R runs on webR's slower fallback channel instead.
 ";
 
 /// A complete API key page (ADR-0019), mirroring `demo-book/api-key.qmd`.
@@ -219,7 +220,7 @@ pub fn thin_lesson_warning(lesson: &Lesson) -> Option<String> {
 
 /// Render the YAML front matter that makes an exported lesson a standalone page:
 /// title, the blendtutor filter, and — for R only — `coi: true` with a note
-/// that COI does not work in book projects (ADR-0015, ADR-0019).
+/// that book projects run R without isolation (ADR-0015, ADR-0019).
 fn front_matter(lesson: &Lesson) -> String {
     let title = yaml_double_quoted(&lesson.lesson_name.to_string());
     let coi = match lesson.language {

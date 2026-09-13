@@ -41,8 +41,10 @@ Option 3.
 - **Document front matter.** `title` (from `lesson_name`),
   `filters: [mcmullarkey/blendtutor]`, and `coi: true` for R lessons only
   (Pyodide needs no isolation, ADR-0015). R documents carry a YAML comment that
-  COI does not function in `type: book` projects (README limitation) so the
-  author learns it at export time, not after deploy.
+  `coi: true` gives webR its faster SharedArrayBuffer channel, and that in
+  `type: book` projects the COI service worker cannot control pages, so R runs
+  on webR's slower fallback channel. Verified against the deployed demo book:
+  `crossOriginIsolated` is false there, yet R exercises execute.
 - **Key page.** `core::quarto_export::key_page_qmd()` is a pure constant-backed
   function returning a complete page: front matter with the filter, the
   `::: {.blendtutor-key}` mount div, and the storage/HTTP-serving notes

@@ -5,7 +5,9 @@
 # output under docs/evals/ (deliberately committed) nor Rust eval fixtures
 # under crates/*/tests/fixtures/evals/.
 **/.smevals/
-.claude/
+# Local Claude state stays ignored; project skills under .claude/skills/ are shared.
+.claude/*
+!.claude/skills/
 rv/library/
 
 # Rust

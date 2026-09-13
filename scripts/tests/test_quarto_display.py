@@ -87,8 +87,12 @@ def check(cond: bool, msg: str) -> None:
 
 
 def color_tokens(block: str) -> dict[str, str]:
-    """Map every --bt-color-* custom property in a CSS block to its value."""
-    return {m.group(1): m.group(2).strip() for m in re.finditer(r"(--bt-color-[\w-]+)\s*:\s*([^;]+);", block)}
+    """Map every --bt-color-* custom property in a CSS block to its value,
+    lowercased so equal hex colors compare equal regardless of case."""
+    return {
+        m.group(1): m.group(2).strip().lower()
+        for m in re.finditer(r"(--bt-color-[\w-]+)\s*:\s*([^;]+);", block)
+    }
 
 
 def block_after(css: str, opener: str) -> str:
@@ -116,14 +120,17 @@ def check_theme_stylesheet() -> None:
     ok("quarto-theme.css exists in the extension assets")
     theme = THEME_CSS.read_text()
     shared = SHARED_CSS.read_text()
-    light_expected = color_tokens(block_after(shared, r":root\s*\{"))
-    dark_media = block_after(shared, r"@media \(prefers-color-scheme: dark\)")
-    dark_expected = color_tokens(block_after(dark_media, r":root\s*\{"))
-    light_actual = color_tokens(block_after(theme, r"body\.quarto-light\s*\{"))
-    dark_actual = color_tokens(block_after(theme, r"body\.quarto-dark\s*\{"))
+    light_expected = color_tokens(block_after(shared, r"(?m)^:root\s*\{"))
+    # (?m)^ anchors to real at-rules: the stylesheet header comment also
+    # mentions "@media (prefers-color-scheme: dark)" and ":root".
+    dark_media = block_after(shared, r"(?m)^@media \(prefers-color-scheme: dark\)\s*\{")
+    dark_expected = color_tokens(block_after(dark_media, r"(?m)^\s*:root\s*\{"))
+    # (?![\w-]) keeps a future body.quarto-light-dim from matching.
+    light_actual = color_tokens(block_after(theme, r"body\.quarto-light(?![\w-])\s*\{"))
+    dark_actual = color_tokens(block_after(theme, r"body\.quarto-dark(?![\w-])\s*\{"))
     check(bool(light_expected) and light_actual == light_expected,
           "body.quarto-light re-declares every shared light color token")
-    check(bool(dark_expected) and dark_actual == {k: v for k, v in dark_expected.items()},
+    check(bool(dark_expected) and dark_actual == dark_expected,
           "body.quarto-dark declares the shared dark color tokens")
     check("assets/quarto-theme.css" in LUA_FILTER.read_text(),
           "the filter's html dependency ships quarto-theme.css")

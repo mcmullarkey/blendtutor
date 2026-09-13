@@ -104,14 +104,20 @@ function neutralize(text) {
 // task, a single fenced copy of the submission, captured output, and the lesson's
 // checks — every interpolated value neutralized so the fences and labels appear
 // exactly once even when the submission forges them.
-function buildPrompt({ task, code, output, checks }) {
+function buildPrompt({ task, successCriteria, code, output, checks }) {
   const renderedChecks = (checks ?? []).map((check) => neutralize(check)).join("\n");
+  // ADR-0020: optional rubric between the task and the fence, skipped when blank
+  // (mirrors the Rust build_prompt).
+  const criteria = String(successCriteria ?? "").trim() === ""
+    ? []
+    : ["Success criteria:", neutralize(successCriteria).replace(/\s+$/, ""), ""];
   return [
     "You are evaluating student code for a programming exercise.",
     "",
     "Task:",
     neutralize(task).replace(/\s+$/, ""),
     "",
+    ...criteria,
     OPEN_CODE,
     neutralize(code).replace(/\n+$/, ""),
     CLOSE_CODE,
@@ -397,6 +403,7 @@ function currentSubmission() {
   const outputEl = document.getElementById("output");
   return {
     task: lesson ? lesson.prompt : "",
+    successCriteria: lesson ? lesson.success_criteria : null,
     code: bt && bt.getSubmission ? bt.getSubmission() : "",
     output: outputEl ? outputEl.textContent : "",
     checks: lesson && lesson.checks ? lesson.checks : [],

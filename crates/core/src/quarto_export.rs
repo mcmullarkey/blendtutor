@@ -16,6 +16,7 @@
 //! | `exercise.hints`      | `::: {.hints}` div (if `Some`)           |
 //! | `lesson.language`    | `language="<r|python>"` attribute         |
 //! | `exercise.gotchas`   | `::: {.gotchas}` div (if `Some`)         |
+//! | `exercise.success_criteria` | `::: {.success-criteria}` div (if `Some`, ADR-0020) |
 //! | `lesson.packages`    | `packages="a,b"` attribute (if non-empty) |
 //! | `exercise.llm_evaluation_prompt` | EXCLUDED (author-only, ADR-0006) |
 
@@ -90,7 +91,8 @@ const MIN_FENCE_LEN: usize = 3;
 ///
 /// The output is a self-contained block starting with
 /// `::: {.blendtutor language="<r|python>"}` and closing with `:::`. Each
-/// optional section (code template, checks, solution, hints, gotchas) and the
+/// optional section (code template, checks, solution, hints, gotchas, success
+/// criteria) and the
 /// `packages` attribute are emitted only when the corresponding field is
 /// present, so no empty blocks appear for absent fields (§1.1). The
 /// author-only `llm_evaluation_prompt` is excluded (ADR-0006).
@@ -175,6 +177,16 @@ pub fn export_lesson_to_qmd(lesson: &Lesson, shape: ExportShape) -> String {
         out.push('\n');
         out.push_str("::: {.gotchas}\n");
         out.push_str(gotchas.trim_end());
+        out.push('\n');
+        out.push_str(":::\n");
+    }
+
+    // Success criteria as a fenced div (if present) — the filter carries them
+    // into the feedback prompt (ADR-0020).
+    if let Some(ref criteria) = lesson.exercise.success_criteria {
+        out.push('\n');
+        out.push_str("::: {.success-criteria}\n");
+        out.push_str(criteria.trim_end());
         out.push('\n');
         out.push_str(":::\n");
     }
@@ -537,5 +549,26 @@ exercise:
         }
         let solved = Lesson::parse(VALID_YAML).unwrap();
         assert_eq!(thin_lesson_warning(&solved), None);
+    }
+
+    #[test]
+    fn export_renders_success_criteria_as_div() {
+        let yaml = r#"
+lesson_name: "Rubric"
+language: R
+exercise:
+  prompt: "Write pseudocode."
+  success_criteria: |
+    - Uses only comments
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+        let lesson = Lesson::parse(yaml).unwrap();
+        let qmd = export_lesson_to_qmd(&lesson, ExportShape::Snippet);
+        assert!(
+            qmd.contains("::: {.success-criteria}\n- Uses only comments\n:::\n"),
+            "success criteria should render as a closed div, got:\n{qmd}"
+        );
+        let bare = Lesson::parse(VALID_YAML).unwrap();
+        assert!(!export_lesson_to_qmd(&bare, ExportShape::Snippet).contains("success-criteria"));
     }
 }

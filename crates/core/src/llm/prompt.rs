@@ -25,6 +25,11 @@ pub const OUTPUT_LABEL: &str = "<<<CAPTURED_OUTPUT>>>";
 /// Labels the check-results section.
 pub const CHECKS_LABEL: &str = "<<<CHECK_RESULTS>>>";
 
+/// Labels the optional success-criteria section (ADR-0020). Not a structural
+/// token: criteria text is author-written and neutralized like the task, so it
+/// can never forge a fence or a verdict section.
+const SUCCESS_CRITERIA_LABEL: &str = "Success criteria:";
+
 /// What replaces any structural token found inside untrusted interpolated text,
 /// so an injected fence or label can never count as a real one.
 const NEUTRALIZED: &str = "[neutralized-delimiter]";
@@ -133,7 +138,8 @@ fn render_checks(lesson: &Lesson, outcomes: &[CheckOutcome]) -> String {
 ///
 /// Pure (§2.1): it reads only the borrowed domain values and performs no IO, env
 /// read, or network call, so identical inputs always render byte-identically. The
-/// layout is a fixed structure — the task, a single fenced copy of the submission,
+/// layout is a fixed structure — the task, the lesson's `success_criteria` when
+/// present and non-blank (ADR-0020), a single fenced copy of the submission,
 /// a captured-output section, and a check-results section (one line per outcome,
 /// labeled with its `lesson.checks` entry by index) — not the lesson's
 /// `llm_evaluation_prompt` template (ADR-0006). `results.outcomes` is expected 1:1
@@ -144,16 +150,27 @@ fn render_checks(lesson: &Lesson, outcomes: &[CheckOutcome]) -> String {
 /// read as code or as a verdict.
 pub fn build_prompt(lesson: &Lesson, submission: &Submission, results: &ExecResults) -> Prompt {
     let task = neutralize(&lesson.exercise.prompt);
+    let criteria = lesson
+        .exercise
+        .success_criteria
+        .as_deref()
+        .filter(|text| !text.trim().is_empty())
+        .map(neutralize);
     let code = neutralize(&submission.code);
     let output = neutralize(&results.output.stdout);
     let checks = render_checks(lesson, &results.outcomes);
 
-    let rendered = [
+    let mut lines = vec![
         "You are evaluating student code for a programming exercise.",
         "",
         "Task:",
         task.trim_end(),
         "",
+    ];
+    if let Some(criteria) = &criteria {
+        lines.extend([SUCCESS_CRITERIA_LABEL, criteria.trim_end(), ""]);
+    }
+    lines.extend([
         OPEN_CODE,
         code.trim_end_matches('\n'),
         CLOSE_CODE,
@@ -163,8 +180,8 @@ pub fn build_prompt(lesson: &Lesson, submission: &Submission, results: &ExecResu
         "",
         CHECKS_LABEL,
         &checks,
-    ]
-    .join("\n");
+    ]);
+    let rendered = lines.join("\n");
 
     Prompt(rendered)
 }

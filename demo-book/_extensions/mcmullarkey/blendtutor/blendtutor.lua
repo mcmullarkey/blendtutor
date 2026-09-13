@@ -1,6 +1,6 @@
 --- blendtutor.lua ---
 -- WHAT:  Pandoc filter that parses ::: {.blendtutor} divs into widget HTML
---        with embedded 9-key SiteLesson JSON (ADR-0008 contract), and
+--        with embedded 10-key SiteLesson JSON (ADR-0008 contract), and
 --        injects the auto-bootstrap module script that boots the exercise
 --        runtime with per-language adapters (AC-3).
 --        ISSUE #164 (byok-api-key AC-3) additionally:
@@ -38,8 +38,9 @@
 -- standalone and project modes. For distribution via `quarto add`, the
 -- _extension.yml contributes.filters mechanism is used instead.
 --
--- SiteLesson JSON contract (9 keys, ADR-0008):
---   id, title, prompt, code_template, checks, packages, solution, hints, gotchas
+-- SiteLesson JSON contract (10 keys, ADR-0008 amended by ADR-0020):
+--   id, title, prompt, code_template, checks, packages, solution, hints, gotchas,
+--   success_criteria
 -- llm_evaluation_prompt is NEVER emitted (server/CLI concern, §3.2 leak).
 
 -- Module-level exercise counter for auto-generated IDs (bt-exercise-<index>).
@@ -383,6 +384,7 @@ end
 --   - CodeBlock with .solution class → solution
 --   - Nested Div with .hints class → hints (rendered to markdown)
 --   - Nested Div with .gotchas class → gotchas (rendered to markdown)
+--   - Nested Div with .success-criteria class → success_criteria (markdown, ADR-0020)
 --
 -- @param blocks A List of Pandoc Block elements (the div's content)
 -- @return A table with prompt, code_template, checks, solution, hints, gotchas
@@ -393,6 +395,7 @@ local function parse_inner_blocks(blocks)
   local solution = nil
   local hints = nil
   local gotchas = nil
+  local success_criteria = nil
   local found_code = false
 
   for _, block in ipairs(blocks) do
@@ -415,6 +418,9 @@ local function parse_inner_blocks(blocks)
       if block.classes:includes("gotchas") then
         gotchas = render_markdown(block.content)
       end
+      if block.classes:includes("success-criteria") then
+        success_criteria = render_markdown(block.content)
+      end
     elseif not found_code and (block.t == "Para" or block.t == "Plain") then
       prompt_blocks[#prompt_blocks + 1] = block
     end
@@ -427,6 +433,7 @@ local function parse_inner_blocks(blocks)
     solution = solution,
     hints = hints,
     gotchas = gotchas,
+    success_criteria = success_criteria,
   }
 end
 
@@ -434,7 +441,7 @@ end
 -- Payload builder
 -- ---------------------------------------------------------------------------
 
---- Build the 9-key SiteLesson JSON payload.
+--- Build the 10-key SiteLesson JSON payload (ADR-0008, amended by ADR-0020).
 -- @param index The exercise index (0-based)
 -- @param parsed The parsed inner blocks table
 -- @param packages The packages array
@@ -453,6 +460,7 @@ local function build_payload(index, parsed, packages)
     '"solution":' .. json_value(parsed.solution),
     '"hints":' .. json_value(parsed.hints),
     '"gotchas":' .. json_value(parsed.gotchas),
+    '"success_criteria":' .. json_value(parsed.success_criteria),
   }
 
   return "{" .. table.concat(parts, ",") .. "}"

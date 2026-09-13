@@ -32,7 +32,7 @@ const R_LESSON_MINIMAL: &str = concat!(
     "/../core/tests/fixtures/lessons/add_two_numbers.yaml"
 );
 
-/// The R fixture with gotchas — verifies gotchas text is excluded from output.
+/// The R fixture with gotchas — verifies gotchas render as a `.gotchas` div.
 const R_LESSON_WITH_GOTCHAS: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../core/tests/fixtures/lessons/gotcha_lesson.yaml"
@@ -160,15 +160,17 @@ fn clause_8_llm_evaluation_prompt_absent() {
 }
 
 #[test]
-fn clause_9_gotchas_absent() {
+fn clause_9_gotchas_render_in_gotchas_div() {
+    // The Quarto filter parses a nested `::: {.gotchas}` div into the widget's
+    // gotchas panel, so the export must carry the field rather than drop it.
     let stdout = export_stdout(R_LESSON_WITH_GOTCHAS);
     assert!(
-        !stdout.contains("Vectorized operations apply element-wise"),
-        "gotchas text must be ABSENT from output, got:\n{stdout}"
+        stdout.contains("::: {.gotchas}\n- R uses '<-' for assignment, not '='."),
+        "gotchas should render as a ::: {{.gotchas}} div, got:\n{stdout}"
     );
     assert!(
-        !stdout.contains("gotchas"),
-        "the word 'gotchas' must not appear in output, got:\n{stdout}"
+        stdout.contains("Vectorized operations apply element-wise"),
+        "every gotcha bullet should be present, got:\n{stdout}"
     );
 }
 
@@ -215,13 +217,35 @@ fn clause_11_no_empty_blocks_for_absent_fields() {
 }
 
 #[test]
-fn clause_12_packages_omitted() {
-    // The Python fixture has no packages, but we also verify the word doesn't
-    // appear as an attribute or block.
+fn clause_12_packages_render_as_div_attribute() {
+    // The Quarto filter reads a comma-separated `packages` attribute on the
+    // blendtutor div and preloads them in webR/Pyodide.
+    let yaml = "\
+lesson_name: \"Pkg\"
+language: Python
+packages:
+  - pandas
+  - numpy
+exercise:
+  prompt: \"Write add.\"
+  llm_evaluation_prompt: \"Grade this: {student_code}\"
+";
+    let mut file = tempfile::NamedTempFile::new().unwrap();
+    file.write_all(yaml.as_bytes()).unwrap();
+
+    let stdout = export_stdout(file.path().to_str().unwrap());
+    assert!(
+        stdout.starts_with("::: {.blendtutor language=\"python\" packages=\"pandas,numpy\"}\n"),
+        "packages should ride the opening div as an attribute, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn clause_12b_no_packages_attribute_when_list_is_empty() {
     let stdout = export_stdout(PYTHON_LESSON);
     assert!(
-        !stdout.contains("packages"),
-        "packages must be OMITTED from output, got:\n{stdout}"
+        !stdout.contains("packages="),
+        "no packages attribute for a lesson without packages, got:\n{stdout}"
     );
 }
 

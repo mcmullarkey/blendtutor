@@ -49,3 +49,16 @@ a `with_source` builder instead of widening `score` again.
   narrow for them. A `seed` field for clustering is deferred.
 - `audit` does not yet warn when a generated item crashes (`incorrect` +
   `NotRun` is consistent). That is the next gate to add.
+
+## Amendment (2026-11-08): audit warns on tagged items that never run
+
+The gate gap listed above is now closed. `LabelAudit` derives
+`warning: Option<AuditWarning>` at construction. It is
+`TaggedItemNeverRan` when the case has a misconception tag and its checks
+came back `NotRun`. The wire carries `"warning": "tagged_item_never_ran"` only
+when present, and the human report lists each warned case. This is a
+**warning, not a violation**: `audit` still exits 0, because a crash
+contradicts nothing. The item just can't show its misconception. Untagged
+crashing items are legitimate syntax-error cases and get no warning. The
+warning applies regardless of `source`, since a hand-written tagged item that
+crashes is equally useless as evidence.

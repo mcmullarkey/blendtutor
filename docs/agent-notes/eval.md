@@ -182,3 +182,14 @@ ADR-0007 for the verdict-representation decision.
   control flipped exactly `a_crashing_item_is_counted_but_not_caught`).
   Fixture `eval_blueprint/`: M2 (print instead of return) is a real R gap,
   because `print()` returns its argument, so the checks pass.
+- 2026-11-08 (eval-measurement slice 4): **Grader detection per misconception**
+  (ADR-0025). `CaseResult::score` takes a `CaseLabel` (callers pass
+  `ExpectedVerdict::X.into()`), and `EvalReport::new(blueprint, cases)` derives
+  `by_misconception: Vec<DetectionRow>`, where "caught" = actual polarity is
+  Incorrect. `eval::wilson(successes, n)` is a 95% Wilson score interval
+  (`None` at n = 0), chosen over Wald, which is zero-width at 0/n and n/n.
+  `by_misconception` is `skip_serializing_if = "Vec::is_empty"` so untagged
+  reports stay byte-identical (the `eval_json_shape_is_byte_stable` pin still
+  holds), and `interval` is omitted when items = 0. The fixture
+  `eval_blueprint/` gained `# zz_*` comment tokens for mock keying, which
+  doesn't change check outcomes.

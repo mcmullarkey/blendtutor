@@ -161,6 +161,21 @@ you which mistakes depend entirely on the LLM grader, which is where its eval
 cases matter most. A tag on a `correct` case, or one the blueprint doesn't
 list, fails to parse.
 
+With a blueprint, `eval` also reports how often the **grader** catches each
+misconception, with a 95% interval, so a small item count reads as uncertain
+instead of perfect:
+
+```text
+Grader detection by misconception (95% interval):
+  M1 returns x instead of x + y: 2/2 caught (34%–100%)
+  M2 prints the sum instead of returning it: 1/2 caught (9%–91%)
+  M4 uses integer division: no items
+```
+
+A wide interval means add items for that misconception. The interval assumes
+the items are independent, so many near-copies of one item make it look
+narrower than it should be.
+
 To persist the result for `build` to fold into the site's eval-results page,
 write the report at the course root:
 

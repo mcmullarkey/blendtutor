@@ -193,6 +193,18 @@ A big gap is a warning sign about the generator. Its items may be easier than
 real mistakes, or share the grader's blind spots. The `blendtutor-course`
 skill documents a generate-then-`audit` workflow for growing a suite.
 
+When a lesson has checks, `eval` also measures **solution leakage**: for each
+incorrect case whose code fails a check, it appends each fenced code block from
+the grader's feedback to the submission and reruns the checks. If they all pass,
+the feedback handed over a working fix:
+
+```text
+Solution leakage: 13/14 assessable incorrect cases leaked a working fix (69%–99%); 11 of 25 incorrect cases not assessable
+```
+
+Cases whose code already passes the checks can't be assessed, because there is
+nothing for the feedback to fix. Stronger checks make more cases assessable.
+
 To persist the result for `build` to fold into the site's eval-results page,
 write the report at the course root:
 

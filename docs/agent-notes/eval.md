@@ -230,3 +230,13 @@ ADR-0007 for the verdict-representation decision.
   comparison. A regex proxy found a working `6 - x` solution in 24/25
   incorrect-case feedback messages (solution leakage), which is the
   construct with the most headroom.
+- 2026-11-08 (eval-measurement slice 8): **Deterministic solution leakage**
+  (ADR-0028). `eval::leakage`: `code_blocks` (``` fences, any tag, unclosed
+  ignored), `assessable(expected, checks)` = Incorrect && some `Fail` && no
+  `NotRun`, `decide(attempts)` = Leaked iff some attempt is non-empty and
+  all-Pass, and `measure` runs `submission + "\n" + block` through
+  `run_checks` per block. Wired in `run_eval`'s loop via
+  `CaseResult::with_leakage`. The wire carries per-case `leakage` and
+  report-level `leakage {leaked, assessable, incorrect, interval}` only when
+  assessable. The negative control (force assessable) failed both tests,
+  including the no-checks absence guard.

@@ -1,0 +1,31 @@
+# Eval suite for add_two.yaml. Each submission carries a `zz_*` token the mock
+# provider keys its scripted verdict on, so every case lands in exactly one
+# grader-vs-checks consistency category. Instructor-only.
+cases:
+  # passes both checks; mock grades correct -> consistent
+  - submission: |-
+      # zz_agree_correct
+      add_two <- function(x, y) x + y
+    expected: correct
+  # MISLABELED ITEM: the author marked a subtracting function correct. The mock
+  # grader agrees, so `matched` is true -- only the failed checks expose it.
+  # -> violated (correct despite failed check)
+  - submission: |-
+      # zz_failed_check
+      add_two <- function(x, y) x - y
+    expected: correct
+  # crashes before any check can run; mock grades correct -> violated (correct despite not run)
+  - submission: |-
+      # zz_crashes
+      stop("boom")
+    expected: incorrect
+  # passes both checks; mock grades incorrect -> discordant (incorrect despite passing checks)
+  - submission: |-
+      # zz_style_nit
+      add_two <- function(x, y) y + x
+    expected: correct
+  # fails both checks; mock grades incorrect -> consistent
+  - submission: |-
+      # zz_agree_incorrect
+      add_two <- function(x, y) x * y
+    expected: incorrect

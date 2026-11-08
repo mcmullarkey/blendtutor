@@ -63,14 +63,9 @@ exercise:
     - <a pitfall learners hit>
   success_criteria: |
     - <what a correct answer does, including what checks cannot see>
-  llm_evaluation_prompt: |
-    You are grading a beginner exercise on <skill>.
-
-    The student submitted this code:
-    {student_code}
-
-    <What makes it correct, and what makes it incorrect even if it runs.>
-    Call respond_with_feedback with two or three encouraging sentences.
+  feedback_guidance: |                  # how the grader should write feedback (not what the code must do)
+    <e.g. Two or three encouraging sentences that point at what to change,
+    without giving a working solution.>
 
 checks:                                 # top level, not inside exercise
   - "assert <expression about the learner's objects>"   # R: "stopifnot(<expression>)"
@@ -237,8 +232,11 @@ blendtutor eval lessons/<id>.yaml                  # grader accuracy against exp
 blendtutor eval lessons/<id>.yaml --write-report   # also saves eval-report.json for the site
 ```
 
-If the grader misjudges a case, tighten `success_criteria` and the
-`llm_evaluation_prompt`, then re-run `eval`.
+If the grader misjudges a case, tighten `success_criteria` (what correct code
+does). If the feedback itself is the problem (it hands over the answer, or is
+too vague), change `feedback_guidance`. Then re-run `eval`, or compare the two
+versions with `blendtutor eval-compare old.yaml new.yaml --margin <m>`. Don't
+write `llm_evaluation_prompt`: it is deprecated and never sent to the grader.
 
 ## 6. Publish
 

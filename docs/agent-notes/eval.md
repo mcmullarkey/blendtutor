@@ -257,3 +257,18 @@ ADR-0007 for the verdict-representation decision.
   31/31 vs 31/31 (±11), leakage 11/14 → 0/14 (−79, CI −92 to −45), ship.
   Candidate = one success_criteria bullet ("Feedback guides the learner to
   the fix without giving a working solution").
+- 2026-11-08 (eval-measurement slice 10): **`feedback_guidance`, and
+  deprecating `llm_evaluation_prompt`** (ADR-0030). An optional
+  `exercise.feedback_guidance` goes into every prompt builder (Rust
+  `build_prompt`, `crates/core/assets/shared/feedback.js`, and the extension's
+  `exercise-feedback.js`, with the vendored demo-book copy synced) as a
+  neutralized `Feedback guidance:` section after the criteria and before the
+  code. The site contract has 11 keys, the Lua filter reads
+  `::: {.feedback-guidance}`, and `export-quarto` writes it. Parity is pinned
+  by `crates/core/tests/llm.rs`, the Node arm of `test_quarto_feedback.py`,
+  `verify_filter_output.py`, and a static pin on the built `feedback.js` in
+  `build.rs` (which ADR-0020 never had for success criteria).
+  `llm_evaluation_prompt: Option<String>` is validated for `{student_code}`
+  only when present. Tests that used it as their "missing required field"
+  example now use `exercise.prompt`. The eval footer no longer names
+  `llm_evaluation_prompt` or `solution`, since neither reaches the grader.

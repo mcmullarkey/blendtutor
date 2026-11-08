@@ -85,7 +85,7 @@ case 2: expected correct, got incorrect [mismatch]
 
 mismatched cases: 2
 inspect one: blendtutor eval <lesson> --case N
-grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`
+grading is shaped by the lesson's task text, `success_criteria`, `feedback_guidance`, and `checks`
 ```
 
 ### Consistency with the lesson's checks
@@ -230,9 +230,10 @@ below zero. Anything else holds (exit 3) and says why. Pick the margin before
 you run. Equal scores on a small suite are not evidence of non-inferiority: with
 6 items at 6/6 on both sides the accuracy interval is about ±39 points, and
 even 31/31 only supports about ±11. The candidate must have the same checks as
-the baseline. The grading inputs that differ between two lessons are the task
-text and the success criteria (`llm_evaluation_prompt` is not sent to the
-grader).
+the baseline. The grading inputs that can differ between two lessons are the task text,
+`success_criteria` (what correct code does), and `feedback_guidance` (how the
+grader should write feedback). `llm_evaluation_prompt` is deprecated and never
+sent to the grader.
 
 To persist the result for `build` to fold into the site's eval-results page,
 write the report at the course root:

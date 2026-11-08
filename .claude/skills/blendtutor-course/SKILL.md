@@ -63,14 +63,9 @@ exercise:
     - <a pitfall learners hit>
   success_criteria: |
     - <what a correct answer does, including what checks cannot see>
-  llm_evaluation_prompt: |
-    You are grading a beginner exercise on <skill>.
-
-    The student submitted this code:
-    {student_code}
-
-    <What makes it correct, and what makes it incorrect even if it runs.>
-    Call respond_with_feedback with two or three encouraging sentences.
+  feedback_guidance: |                  # how the grader should write feedback (not what the code must do)
+    <e.g. Two or three encouraging sentences that point at what to change,
+    without giving a working solution.>
 
 checks:                                 # top level, not inside exercise
   - "assert <expression about the learner's objects>"   # R: "stopifnot(<expression>)"
@@ -100,6 +95,11 @@ Rules that keep lessons working in the browser:
 
 ```yaml
 # Eval suite for <id>.yaml: 2 correct, 2 incorrect.
+# The blueprint names the mistakes the incorrect cases sample (one each).
+blueprint:
+  misconceptions:
+    M1: "<the near-miss mistake, e.g. hard-codes the expected output>"
+    M2: "<the realistic mistake, e.g. sorts in the wrong direction>"
 cases:
   # Correct: the canonical solution
   - submission: |-
@@ -113,20 +113,66 @@ cases:
   - submission: |-
       <runs cleanly, right output, violates a success criterion>
     expected: incorrect
+    misconception: M1
   # Incorrect: a realistic mistake the checks catch
   - submission: |-
       <wrong result, e.g. reversed sort or missing step>
     expected: incorrect
+    misconception: M2
 ```
 
 The near-miss case is what measures the grading prompt; do not skip it. For
 lessons without checks, make both incorrect cases content mistakes (a missing
 step, the wrong operation).
 
+Tag only `incorrect` cases; a tag on a `correct` case, or one the blueprint
+doesn't list, fails to parse. `blendtutor audit` then reports which
+misconceptions the checks catch. An uncovered one (often the near-miss) is
+fine, as long as you know only the grader can catch it.
+
+### Generate more items (when the user wants trustworthy numbers)
+
+Four hand-written cases are enough to start, but `eval` prints a 95% interval
+per misconception, and with 1–2 items per misconception those intervals span
+most of 0–100%. When the user wants numbers they can compare across prompt
+versions, grow the suite by generating items. The user writes the blueprint,
+you write the items, and the deterministic gates decide what stays.
+
+0. **Widen the blueprint first.** Run `blendtutor suggest-misconceptions
+   lessons/<id>.yaml` and show the user the suggestions, especially the
+   ones marked "not caught by the checks". Add the ones they agree with.
+1. **Keep the hand-written cases.** They are the anchor set. Never relabel or
+   delete them to make generated items fit.
+2. **Generate per misconception × surface facet.** For each blueprint entry,
+   write 4–8 `incorrect` items that each show *only that* mistake. Vary the
+   surface: variable and function names, idioms (`for` vs vectorized, `print`
+   vs `cat`), formatting, comments. Also add a few `correct` items that use
+   unusual but valid idioms, so the grader isn't rewarded for treating anything
+   unfamiliar as wrong.
+3. **Mark every one `source: generated`**, and tag the incorrect ones with
+   their `misconception:`.
+4. **Gate with `audit`, then fix or drop:**
+   - a violation (a generated `correct` item that fails a check) → drop it;
+   - a tagged item that crashes (`audit` warns "tagged … but the submission
+     never ran") → drop it unless crashing *is* the misconception;
+   - near-duplicates of another item (same code after renaming) → drop them.
+5. **Ask the user to review a sample**, prioritizing items for misconceptions
+   `audit` reports as *uncovered*. No check can confirm those items really show
+   the mistake. Report how many items you generated, dropped, and want reviewed.
+6. **Use a different model family than the grader** when you can, and tell the
+   user if you can't. A generator that shares the grader's blind spots writes
+   items the grader always gets right, which hides real improvements.
+
+After a paid `eval`, look at `Grader accuracy by item source`. If generated
+items score much higher than hand ones, compare within a misconception before
+trusting them. The gap may mean the generated items are too easy or share the
+grader's blind spots.
+
 ## 5. Verify locally (no paid calls)
 
 ```bash
 blendtutor validate lessons/<id>.yaml
+blendtutor audit lessons/<id>.yaml      # labels vs checks + misconception coverage; exit 1 = mislabeled case
 blendtutor list .
 ```
 
@@ -184,12 +230,17 @@ grader can reject it); the checks-catch case fails. Fix the lesson if not.
 Only then, **after confirming with the user** (paid calls):
 
 ```bash
+blendtutor audit lessons/<id>.yaml                 # free label check vs the lesson's checks; exits 1 on a mislabeled case
 blendtutor eval lessons/<id>.yaml                  # grader accuracy against expected verdicts
+blendtutor eval lessons/<id>.yaml --repeat 3       # run-to-run stability before trusting one run
 blendtutor eval lessons/<id>.yaml --write-report   # also saves eval-report.json for the site
 ```
 
-If the grader misjudges a case, tighten `success_criteria` and the
-`llm_evaluation_prompt`, then re-run `eval`.
+If the grader misjudges a case, tighten `success_criteria` (what correct code
+does). If the feedback itself is the problem (it hands over the answer, or is
+too vague), change `feedback_guidance`. Then re-run `eval`, or compare the two
+versions with `blendtutor eval-compare old.yaml new.yaml --margin <m>`. Don't
+write `llm_evaluation_prompt`: it is deprecated and never sent to the grader.
 
 ## 6. Publish
 

@@ -3,6 +3,7 @@ source: crates/cli/src/output.rs
 expression: render_eval(&report)
 ---
 Accuracy: 2/3 (66.7%)
+Consistency: not assessable (lesson has no checks)
 
 case 1: expected correct, got correct [match]
 case 2: expected incorrect, got incorrect [match]
@@ -11,4 +12,4 @@ case 3: expected correct, got incorrect [mismatch]
 
 mismatched cases: 3
 inspect one: blendtutor eval <lesson> --case N
-grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`
+grading is shaped by the lesson's task text, `success_criteria`, `feedback_guidance`, and `checks`

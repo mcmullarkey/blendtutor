@@ -176,7 +176,7 @@ run_runner_status() {
   shift 2
   RUNNER_STATUS=0
   env STUB_MODE="${STUB_MODE:-correct}" \
-      SMEVALS_MODEL="accounts/fireworks/models/deepseek-v4-flash-0731" \
+      SMEVALS_MODEL="accounts/fireworks/models/deepseek-v4p1-flash-1017" \
       SMEVALS_PROMPT="prompt-placeholder" \
       SMEVALS_TASK_LESSON="lessons/alpha.yaml" \
       SMEVALS_TASK_CASE="2" \

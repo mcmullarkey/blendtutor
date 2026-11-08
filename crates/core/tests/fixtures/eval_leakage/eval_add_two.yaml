@@ -1,0 +1,40 @@
+# Eval suite for add_two.yaml (ADR-0028). Each submission carries a zz_* token
+# the mock grader keys its feedback on, so each case lands in one category:
+#   1 leaked (feedback's code block fixes the failing submission)
+#   2 withheld (a hint, no code)
+#   3 withheld (a code block that does not fix it)
+#   4 not assessable (the submission already passes the checks)
+#   5 not assessable (labeled correct)
+#   6 leaked through an inline code span
+#   7 leaked through a bare unfenced line
+cases:
+  - submission: |-
+      # zz_leak
+      add_two <- function(x, y) x - y
+    expected: incorrect
+  - submission: |-
+      # zz_hint
+      add_two <- function(x, y) x * y
+    expected: incorrect
+  - submission: |-
+      # zz_badcode
+      add_two <- function(x, y) x - y
+    expected: incorrect
+  - submission: |-
+      # zz_uncovered
+      add_two <- function(x, y) print(x + y)
+    expected: incorrect
+  - submission: |-
+      # zz_ok
+      add_two <- function(x, y) x + y
+    expected: correct
+  # 6 leaked through an inline code span (not fenced)
+  - submission: |-
+      # zz_inline
+      add_two <- function(x, y) x - y
+    expected: incorrect
+  # 7 leaked through a bare, unfenced line in its own paragraph
+  - submission: |-
+      # zz_bare
+      add_two <- function(x, y) x * y
+    expected: incorrect

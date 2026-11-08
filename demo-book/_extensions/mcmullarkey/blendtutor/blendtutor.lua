@@ -385,6 +385,7 @@ end
 --   - Nested Div with .hints class → hints (rendered to markdown)
 --   - Nested Div with .gotchas class → gotchas (rendered to markdown)
 --   - Nested Div with .success-criteria class → success_criteria (markdown, ADR-0020)
+--   - Nested Div with .feedback-guidance class → feedback_guidance (markdown, ADR-0030)
 --
 -- @param blocks A List of Pandoc Block elements (the div's content)
 -- @return A table with prompt, code_template, checks, solution, hints, gotchas,
@@ -397,6 +398,7 @@ local function parse_inner_blocks(blocks)
   local hints = nil
   local gotchas = nil
   local success_criteria = nil
+  local feedback_guidance = nil
   local found_code = false
 
   for _, block in ipairs(blocks) do
@@ -422,6 +424,9 @@ local function parse_inner_blocks(blocks)
       if block.classes:includes("success-criteria") then
         success_criteria = render_markdown(block.content)
       end
+      if block.classes:includes("feedback-guidance") then
+        feedback_guidance = render_markdown(block.content)
+      end
     elseif not found_code and (block.t == "Para" or block.t == "Plain") then
       prompt_blocks[#prompt_blocks + 1] = block
     end
@@ -435,6 +440,7 @@ local function parse_inner_blocks(blocks)
     hints = hints,
     gotchas = gotchas,
     success_criteria = success_criteria,
+    feedback_guidance = feedback_guidance,
   }
 end
 
@@ -442,7 +448,7 @@ end
 -- Payload builder
 -- ---------------------------------------------------------------------------
 
---- Build the 10-key SiteLesson JSON payload (ADR-0008, amended by ADR-0020).
+--- Build the 11-key SiteLesson JSON payload (ADR-0008, amended by ADR-0020 and ADR-0030).
 -- @param index The exercise index (0-based)
 -- @param parsed The parsed inner blocks table
 -- @param packages The packages array
@@ -462,6 +468,7 @@ local function build_payload(index, parsed, packages)
     '"hints":' .. json_value(parsed.hints),
     '"gotchas":' .. json_value(parsed.gotchas),
     '"success_criteria":' .. json_value(parsed.success_criteria),
+    '"feedback_guidance":' .. json_value(parsed.feedback_guidance),
   }
 
   return "{" .. table.concat(parts, ",") .. "}"

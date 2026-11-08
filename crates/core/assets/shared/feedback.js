@@ -104,13 +104,18 @@ function neutralize(text) {
 // task, a single fenced copy of the submission, captured output, and the lesson's
 // checks — every interpolated value neutralized so the fences and labels appear
 // exactly once even when the submission forges them.
-function buildPrompt({ task, successCriteria, code, output, checks }) {
+function buildPrompt({ task, successCriteria, feedbackGuidance, code, output, checks }) {
   const renderedChecks = (checks ?? []).map((check) => neutralize(check)).join("\n");
   // ADR-0020: optional rubric between the task and the fence, skipped when blank
   // (mirrors the Rust build_prompt).
   const criteria = String(successCriteria ?? "").trim() === ""
     ? []
     : ["Success criteria:", neutralize(successCriteria).replace(/\s+$/, ""), ""];
+  // ADR-0030: optional author guidance on how to write the feedback, after the
+  // criteria and before the fence, skipped when blank (mirrors the Rust build_prompt).
+  const guidance = String(feedbackGuidance ?? "").trim() === ""
+    ? []
+    : ["Feedback guidance:", neutralize(feedbackGuidance).replace(/\s+$/, ""), ""];
   return [
     "You are evaluating student code for a programming exercise.",
     "",
@@ -118,6 +123,7 @@ function buildPrompt({ task, successCriteria, code, output, checks }) {
     neutralize(task).replace(/\s+$/, ""),
     "",
     ...criteria,
+    ...guidance,
     OPEN_CODE,
     neutralize(code).replace(/\n+$/, ""),
     CLOSE_CODE,
@@ -404,6 +410,7 @@ function currentSubmission() {
   return {
     task: lesson ? lesson.prompt : "",
     successCriteria: lesson ? lesson.success_criteria : null,
+    feedbackGuidance: lesson ? lesson.feedback_guidance : null,
     code: bt && bt.getSubmission ? bt.getSubmission() : "",
     output: outputEl ? outputEl.textContent : "",
     checks: lesson && lesson.checks ? lesson.checks : [],

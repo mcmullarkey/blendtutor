@@ -128,20 +128,25 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Assertion 7 — idempotency: sync produces no git diff
+# Assertion 7 — idempotency: running sync changes nothing in DEST_DIR
 # ---------------------------------------------------------------------------
 
-echo "== Assertion 7: idempotency (sync produces no git diff) =="
+echo "== Assertion 7: idempotency (sync changes nothing) =="
 
 if [ -f "$SYNC_SCRIPT" ]; then
+  # Compare against a snapshot of the directory taken just before syncing, not
+  # against git HEAD: an uncommitted edit elsewhere in DEST_DIR is not drift, and
+  # restoring from git would silently destroy it. Restore from the snapshot.
+  SNAPSHOT="$(mktemp -d)"
+  cp -Rp "$DEST_DIR/." "$SNAPSHOT/"
   bash "$SYNC_SCRIPT" 2>/dev/null
-  if git diff --exit-code -- "$DEST_DIR/" 2>/dev/null; then
-    ok "idempotency: sync produces no git diff"
+  if diff -r "$SNAPSHOT" "$DEST_DIR" >/dev/null 2>&1; then
+    ok "idempotency: sync changes nothing"
   else
-    ko "idempotency: sync produces no git diff — drift detected"
-    # Restore from git to clean up any unexpected changes.
-    git checkout -- "$DEST_DIR/" 2>/dev/null || true
+    ko "idempotency: sync changes nothing — drift detected"
+    cp -Rp "$SNAPSHOT/." "$DEST_DIR/"
   fi
+  rm -rf "$SNAPSHOT"
 else
   ko "idempotency: sync produces no git diff — script missing"
 fi

@@ -33,6 +33,10 @@ Use the `<-` operator to assign the function body.
 ::: {.success-criteria}
 - Returns the sum of `a` and `b`
 :::
+
+::: {.feedback-guidance}
+Guide toward the fix; never paste a working solution.
+:::
 :::
 
 ### Minimal Python exercise

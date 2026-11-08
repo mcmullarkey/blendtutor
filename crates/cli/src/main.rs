@@ -8,7 +8,9 @@ use std::process::ExitCode;
 
 use clap::{ArgGroup, Parser, Subcommand};
 
+use blendtutor_core::eval::Margin;
 use blendtutor_core::lesson::Language;
+use blendtutor_core::llm::ModelId;
 use blendtutor_core::quarto_export::ExportShape;
 use blendtutor_core::site::BuildTarget;
 
@@ -68,6 +70,9 @@ enum Commands {
         /// Output format: `human` (default) or `json`.
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
+        /// Grade with this provider model id instead of the default.
+        #[arg(long)]
+        model: Option<ModelId>,
     },
     /// Run feedback-quality evals for a lesson.
     Eval {
@@ -85,6 +90,54 @@ enum Commands {
         /// artifact `build` folds into the site's eval-results page.
         #[arg(long)]
         write_report: bool,
+        /// Grade with this provider model id instead of the default.
+        #[arg(long)]
+        model: Option<ModelId>,
+        /// Grade the suite N times (N >= 2) and report run-to-run stability
+        /// instead of a single run.
+        #[arg(long, value_parser = clap::value_parser!(u32).range(2..), conflicts_with_all = ["case", "write_report"])]
+        repeat: Option<u32>,
+    },
+    /// Check each eval case's expected label against the lesson's checks
+    /// (no LLM call, no API key). Exits 1 if any label contradicts them.
+    Audit {
+        /// Path to the lesson YAML file; its sibling `eval_<lesson>.yaml`
+        /// supplies the labels to audit.
+        lesson: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
+    /// Compare two lessons' grading prompts on the baseline's eval suite (paired)
+    /// and decide: ship (exit 0) only if accuracy is non-inferior and solution
+    /// leakage improved; otherwise hold (exit 3).
+    EvalCompare {
+        /// The current lesson; its sibling `eval_<lesson>.yaml` supplies the cases.
+        baseline: PathBuf,
+        /// The same lesson with the grading prompt to evaluate.
+        candidate: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+        /// Non-inferiority margin for accuracy, as a proportion (pre-register it).
+        #[arg(long, default_value = "0.05")]
+        margin: Margin,
+        /// Grade both arms with this provider model id instead of the default.
+        #[arg(long)]
+        model: Option<ModelId>,
+    },
+    /// Suggest misconceptions the lesson's eval blueprint does not cover yet, each
+    /// with an example submission checked against the lesson's checks.
+    SuggestMisconceptions {
+        /// Path to the lesson YAML file; its sibling eval suite's blueprint (if any)
+        /// lists the misconceptions already covered.
+        lesson: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+        /// Ask this provider model id instead of the default.
+        #[arg(long)]
+        model: Option<ModelId>,
     },
     /// Generate a static smevals eval report for a lesson.
     EvalReport {
@@ -171,14 +224,30 @@ fn main() -> anyhow::Result<ExitCode> {
             lesson,
             code,
             format,
-        } => commands::run::run(&lesson, code.as_deref(), format),
+            model,
+        } => commands::run::run(&lesson, code.as_deref(), format, model),
         Commands::Eval {
             lesson,
             format,
             case,
             write_report,
-        } => commands::eval::run(&lesson, format, case, write_report),
+            model,
+            repeat,
+        } => commands::eval::run(&lesson, format, case, write_report, model, repeat),
         Commands::EvalReport { lesson } => commands::eval_report::run(&lesson),
+        Commands::SuggestMisconceptions {
+            lesson,
+            format,
+            model,
+        } => commands::suggest::run(&lesson, format, model),
+        Commands::EvalCompare {
+            baseline,
+            candidate,
+            format,
+            margin,
+            model,
+        } => commands::eval_compare::run(&baseline, &candidate, format, margin, model),
+        Commands::Audit { lesson, format } => commands::audit::run(&lesson, format),
         Commands::New { target } => match target {
             NewTarget::Lesson { lang, id } => commands::new::run(lang, &id),
         },

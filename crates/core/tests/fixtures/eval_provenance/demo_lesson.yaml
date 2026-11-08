@@ -1,0 +1,28 @@
+lesson_name: "Eval Command Demo"
+language: R
+description: "A tiny LLM-graded lesson used to exercise the eval command end to end"
+textbook_reference: "Just Enough Software Engineering - Appendix: Evals"
+
+exercise:
+  type: "function_writing"
+  code_template: |
+    # Print a single lowercase word to standard output
+    cat("word\n")
+  prompt: |
+    Print a single lowercase word to standard output with cat().
+  example_usage: |
+    cat("alpha\n")  # prints alpha
+  success_criteria: |
+    - Prints exactly one lowercase word
+    - Uses cat()
+  llm_evaluation_prompt: |
+    You are evaluating student code for a software engineering course.
+
+    Exercise: print a single lowercase word to standard output.
+
+    Student submitted this code:
+    {student_code}
+
+    Evaluate the code and call the respond_with_feedback function with your assessment.
+    Set is_correct to true if the code meets all requirements, false otherwise.
+    Provide brief, encouraging feedback (2-3 sentences) in feedback_message.

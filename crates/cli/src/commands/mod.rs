@@ -6,20 +6,37 @@
 
 use std::path::{Path, PathBuf};
 
+pub mod audit;
 pub mod build;
 pub mod eval;
+pub mod eval_compare;
 pub mod eval_report;
 pub mod export_quarto;
 pub mod init;
 pub mod list;
 pub mod new;
 pub mod run;
+pub mod suggest;
 pub mod validate;
 
 /// The environment variable that overrides the provider's base URL — the test
 /// seam pointing the rig client at a stub (ADR-0006). Shared by every command
 /// that drives the provider pipeline (`run`, `eval`); unset in production.
 pub(crate) const PROVIDER_URL_VAR: &str = "BLENDTUTOR_PROVIDER_URL";
+
+/// The grader for a graded command: the default provider, asking `model` when
+/// `--model` was given and the provider's default model otherwise (ADR-0027).
+/// Shared by `run` and `eval` so both resolve the flag the same way.
+pub(crate) fn grader_for(
+    model: Option<blendtutor_core::llm::ModelId>,
+) -> blendtutor_core::llm::Grader {
+    let grader =
+        blendtutor_core::llm::Grader::default_for(blendtutor_core::llm::ProviderChoice::default());
+    match model {
+        Some(model) => grader.with_model(model),
+        None => grader,
+    }
+}
 
 /// The eval suite that sits beside `lesson_path`: the lesson's file name prefixed
 /// with `eval_`, so `lessons/foo.yaml` pairs with `lessons/eval_foo.yaml`. This is

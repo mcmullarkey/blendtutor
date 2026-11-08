@@ -266,7 +266,7 @@ def base_env(stub_url: str, **overrides) -> dict:
         "FIREWORKS_API_KEY": "test-key-123",
         "FIREWORKS_BASE_URL": stub_url,
         "SMEVALS_TASK_EXPECTED": "correct",
-        "SMEVALS_CHECK_MODEL": "accounts/fireworks/models/deepseek-v4-flash-0731",
+        "SMEVALS_CHECK_MODEL": "accounts/fireworks/models/deepseek-v4p1-flash-1017",
     }
     for name, value in overrides.items():
         if value is None:
@@ -739,7 +739,7 @@ def test_p14_generator_wiring_golden() -> None:
     )
     check("required: true" in text,
           "polarity check is required: true")
-    check("model: accounts/fireworks/models/deepseek-v4-flash-0731" in text,
+    check("model: accounts/fireworks/models/deepseek-v4p1-flash-1017" in text,
           "judge check carries the provider-default model scalar (SMEVALS_CHECK_MODEL)")
     check("pass_threshold: 0.8" in text,
           "scoring.pass_threshold == 0.8")

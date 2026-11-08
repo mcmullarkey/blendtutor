@@ -30,6 +30,9 @@ pub const CHECKS_LABEL: &str = "<<<CHECK_RESULTS>>>";
 /// can never forge a fence or a verdict section.
 const SUCCESS_CRITERIA_LABEL: &str = "Success criteria:";
 
+/// The label for the author's feedback guidance (ADR-0030).
+const FEEDBACK_GUIDANCE_LABEL: &str = "Feedback guidance:";
+
 /// What replaces any structural token found inside untrusted interpolated text,
 /// so an injected fence or label can never count as a real one.
 const NEUTRALIZED: &str = "[neutralized-delimiter]";
@@ -156,6 +159,12 @@ pub fn build_prompt(lesson: &Lesson, submission: &Submission, results: &ExecResu
         .as_deref()
         .filter(|text| !text.trim().is_empty())
         .map(neutralize);
+    let guidance = lesson
+        .exercise
+        .feedback_guidance
+        .as_deref()
+        .filter(|text| !text.trim().is_empty())
+        .map(neutralize);
     let code = neutralize(&submission.code);
     let output = neutralize(&results.output.stdout);
     let checks = render_checks(lesson, &results.outcomes);
@@ -169,6 +178,9 @@ pub fn build_prompt(lesson: &Lesson, submission: &Submission, results: &ExecResu
     ];
     if let Some(criteria) = &criteria {
         lines.extend([SUCCESS_CRITERIA_LABEL, criteria.trim_end(), ""]);
+    }
+    if let Some(guidance) = &guidance {
+        lines.extend([FEEDBACK_GUIDANCE_LABEL, guidance.trim_end(), ""]);
     }
     lines.extend([
         OPEN_CODE,

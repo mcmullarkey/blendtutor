@@ -47,6 +47,9 @@ exercise:
   success_criteria: |
     - reverse_score(c(1, 2, 3, 4, 5)) returns c(5, 4, 3, 2, 1)
     - reverse_score(survey_data$stress_6) returns c(5, 4, 3, 2, 1)
+    - reverse_score returns the result rather than printing it (no print() or cat() inside the function)
+  feedback_guidance: |
+    Guide the learner to the fix without giving a working solution.
   llm_evaluation_prompt: |
     You are evaluating student code for a software engineering course.
 

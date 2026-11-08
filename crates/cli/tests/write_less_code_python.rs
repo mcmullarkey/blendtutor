@@ -140,8 +140,9 @@ fn each_lesson_is_valid_python_with_student_code_and_textbook() {
             lesson
                 .exercise
                 .llm_evaluation_prompt
-                .contains("{student_code}"),
-            "lesson {idx} ({filename}) should contain the {{student_code}} placeholder"
+                .as_deref()
+                .is_none_or(|template| template.contains("{student_code}")),
+            "lesson {idx} ({filename}) should keep the {{student_code}} placeholder when the deprecated field is present"
         );
         assert!(
             lesson
@@ -318,12 +319,12 @@ fn eval_suites_have_correct_case_distribution() {
         let correct_count = suite
             .cases
             .iter()
-            .filter(|c| c.expected == ExpectedVerdict::Correct)
+            .filter(|c| c.expected() == ExpectedVerdict::Correct)
             .count();
         let incorrect_count = suite
             .cases
             .iter()
-            .filter(|c| c.expected == ExpectedVerdict::Incorrect)
+            .filter(|c| c.expected() == ExpectedVerdict::Incorrect)
             .count();
         assert!(
             correct_count >= 2,
@@ -348,7 +349,7 @@ fn eval_suites_have_near_miss_that_runs_cleanly() {
         let has_near_miss = suite
             .cases
             .iter()
-            .filter(|c| c.expected == ExpectedVerdict::Incorrect)
+            .filter(|c| c.expected() == ExpectedVerdict::Incorrect)
             .any(|c| submission_runs_cleanly(&c.submission));
         assert!(
             has_near_miss,

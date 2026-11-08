@@ -281,3 +281,44 @@ fn new_lesson_scaffolds_commented_optional_fields_for_both_languages() {
             .success();
     }
 }
+
+/// When I scaffold a lesson (or a course's starter lesson), I see the grading
+/// lever that actually reaches the grader, `feedback_guidance`, and not the
+/// deprecated `llm_evaluation_prompt`, which is never sent (ADR-0030).
+#[test]
+fn scaffolded_lessons_use_feedback_guidance_not_the_dead_template() {
+    let course = fresh_init_course();
+    for lang in ["r", "python"] {
+        let id = format!("guided_{lang}");
+        Command::cargo_bin("blendtutor")
+            .unwrap()
+            .current_dir(course.path())
+            .args(["new", "lesson", "--lang", lang, &id])
+            .assert()
+            .success();
+        let yaml =
+            std::fs::read_to_string(course.path().join("lessons").join(format!("{id}.yaml")))
+                .unwrap();
+        assert!(
+            yaml.contains("feedback_guidance:"),
+            "{lang} template: {yaml}"
+        );
+        assert!(
+            !yaml.contains("llm_evaluation_prompt"),
+            "{lang} template: {yaml}"
+        );
+    }
+    let starter =
+        std::fs::read_to_string(course.path().join("lesson_hello.yaml")).unwrap_or_default();
+    let starter = if starter.is_empty() {
+        std::fs::read_to_string(course.path().join("lessons").join("lesson_hello.yaml"))
+            .expect("init writes a starter lesson")
+    } else {
+        starter
+    };
+    assert!(starter.contains("feedback_guidance:"), "starter: {starter}");
+    assert!(
+        !starter.contains("llm_evaluation_prompt"),
+        "starter: {starter}"
+    );
+}

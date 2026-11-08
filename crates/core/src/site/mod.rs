@@ -129,6 +129,10 @@ pub struct SiteLesson {
     /// between the task and the submission (ADR-0020). Always serialized (null
     /// when absent) like `solution`, `hints`, and `gotchas`.
     pub success_criteria: Option<String>,
+    /// Optional author guidance on how feedback should be written, added to the
+    /// in-browser prompt after the success criteria (ADR-0030). Always
+    /// serialized (null when absent).
+    pub feedback_guidance: Option<String>,
 }
 
 impl SiteLesson {
@@ -149,6 +153,7 @@ impl SiteLesson {
             hints: lesson.exercise.hints.clone(),
             gotchas: lesson.exercise.gotchas.clone(),
             success_criteria: lesson.exercise.success_criteria.clone(),
+            feedback_guidance: lesson.exercise.feedback_guidance.clone(),
         }
     }
 }
@@ -796,6 +801,10 @@ mod tests {
             site_lesson.success_criteria, lesson.exercise.success_criteria,
             "success_criteria ride the contract verbatim (ADR-0020)"
         );
+        assert_eq!(
+            site_lesson.feedback_guidance, lesson.exercise.feedback_guidance,
+            "feedback_guidance rides the contract verbatim (ADR-0030)"
+        );
     }
 
     #[test]
@@ -991,6 +1000,10 @@ exercise:
         assert!(
             lesson.get("success_criteria").is_some(),
             "success_criteria is always serialized, never dropped: {lesson}"
+        );
+        assert!(
+            lesson.get("feedback_guidance").is_some(),
+            "feedback_guidance is always serialized, never dropped: {lesson}"
         );
     }
 

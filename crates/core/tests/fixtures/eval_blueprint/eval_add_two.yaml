@@ -1,0 +1,42 @@
+# Eval suite for add_two.yaml with a misconception blueprint. Coverage is
+# whether at least one lesson check fails on each tagged item:
+#   M1 caught by both checks, M2 slips past them (R's print() returns its
+#   argument), M3 caught by the add_two(-1, 1) check, M4 has no items.
+# Each submission carries a zz_* comment token so eval's mock grader can key a
+# verdict on it; comments do not change check outcomes.
+blueprint:
+  misconceptions:
+    M1: "returns x instead of x + y"
+    M2: "prints the sum instead of returning it"
+    M3: "hard-codes the example's answer"
+    M4: "uses integer division"
+cases:
+  - submission: |-
+      # zz_ok
+      add_two <- function(x, y) x + y
+    expected: correct
+  - submission: |-
+      # zz_m1a
+      add_two <- function(x, y) x
+    expected: incorrect
+    misconception: M1
+  - submission: |-
+      # zz_m1b
+      add_two <- function(x, y) { x }
+    expected: incorrect
+    misconception: M1
+  - submission: |-
+      # zz_m2a
+      add_two <- function(x, y) print(x + y)
+    expected: incorrect
+    misconception: M2
+  - submission: |-
+      # zz_m2b
+      add_two <- function(x, y) { print(x + y) }
+    expected: incorrect
+    misconception: M2
+  - submission: |-
+      # zz_m3
+      add_two <- function(x, y) 5
+    expected: incorrect
+    misconception: M3

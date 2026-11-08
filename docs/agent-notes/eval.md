@@ -148,3 +148,141 @@ ADR-0007 for the verdict-representation decision.
   missing `uvx` is a clean stage-named error with an install hint, never a
   panic. The committed `docs/evals/01_seed_data/` report doubles as the
   real-key smoke evidence.
+- 2026-11-08 (eval-measurement slice 1): **Grader–check consistency** (ADR-0022).
+  `eval::consistency::classify(&actual_polarity, &[CheckOutcome])` is pure and
+  total. It first collapses the checks into a private `CheckEvidence`
+  (`NoChecks | AllPassed | NotRun | Failed`) so an empty slice can't fall into
+  "all passed" by vacuous truth, then matches exhaustively. It classifies the
+  **actual** verdict, never `expected`. `CaseResult::score` takes the checks
+  (`&[]` for LLM-only lessons) and derives `consistency` the same way as
+  `matched`. Wire: additive `{"status", "kind"?}`; `build` reads only
+  `accuracy`, so `eval-report.json` consumers are unaffected. Fixture
+  `eval_consistency/` has one case per category, and case 2 is a deliberately
+  mislabeled item (`matched` true, violated).
+- 2026-11-08 (eval-measurement slice 2): **Label audit** (ADR-0023).
+  `blendtutor audit <lesson>` → `core::eval::audit_labels`, which runs
+  `run_checks` per case, builds no provider, and needs no key. It reuses
+  `classify(&expected, &checks)`: the same truth table, applied to a
+  different instrument. Exit 1 iff `LabelAuditReport::has_violation()`.
+  CLI wording goes through a shared `Claimant { Grader, Label }`, so eval
+  says "graded" and audit says "labeled"; the integration test asserts audit
+  output never contains "graded". The integration test runs with the API key
+  env removed and asserts the mock provider saw zero requests.
+- 2026-11-08 (eval-measurement slice 3): **Misconception blueprint + check
+  coverage** (ADR-0024). `EvalCase` now holds a private `CaseLabel { Correct,
+  Incorrect { misconception: Option<MisconceptionId> } }`. Read it with
+  `expected()` (polarity) and `misconception()`, and build it with
+  `EvalCase::new(s, ExpectedVerdict::X.into())` / `EvalSuite::new(cases)`.
+  `ExpectedVerdict` is now `Copy`. The tag lives outside `ExpectedVerdict` on
+  purpose: putting it in `Incorrect` breaks `score_case`'s `==` against the
+  untagged grader polarity. `blueprint.misconceptions` is deserialized by a
+  custom `MapAccess` visitor that keeps document order (a BTreeMap would put
+  M10 before M2) and refuses duplicate ids. "Caught" = at least one check
+  `Fail`; `NotRun` counts toward items but never toward caught (the negative
+  control flipped exactly `a_crashing_item_is_counted_but_not_caught`).
+  Fixture `eval_blueprint/`: M2 (print instead of return) is a real R gap,
+  because `print()` returns its argument, so the checks pass.
+- 2026-11-08 (eval-measurement slice 4): **Grader detection per misconception**
+  (ADR-0025). `CaseResult::score` takes a `CaseLabel` (callers pass
+  `ExpectedVerdict::X.into()`), and `EvalReport::new(blueprint, cases)` derives
+  `by_misconception: Vec<DetectionRow>`, where "caught" = actual polarity is
+  Incorrect. `eval::wilson(successes, n)` is a 95% Wilson score interval
+  (`None` at n = 0), chosen over Wald, which is zero-width at 0/n and n/n.
+  `by_misconception` is `skip_serializing_if = "Vec::is_empty"` so untagged
+  reports stay byte-identical (the `eval_json_shape_is_byte_stable` pin still
+  holds), and `interval` is omitted when items = 0. The fixture
+  `eval_blueprint/` gained `# zz_*` comment tokens for mock keying, which
+  doesn't change check outcomes.
+- 2026-11-08 (eval-measurement slice 5): **Item provenance** (ADR-0026).
+  `ItemSource { Hand (default), Generated }`. `EvalCase::with_source` /
+  `CaseResult::with_source` are builders (source is independent of every
+  derived field, so `score` didn't widen again). The wire omits `source` for
+  `hand`, and `by_source` is emitted only when some case is generated, which
+  the `hand_only_suites_get_no_split` / `eval_omits_the_source_split…` guard
+  tests pin. Negative-control gotcha: a perl sabotage of `split` silently
+  missed because rustfmt had reflowed the guard; the Edit-tool redo failed
+  exactly those 2 guards. Generation itself lives in the `blendtutor-course`
+  skill ("Generate more items"): per misconception × surface facet,
+  `source: generated`, audit gate, human review of uncovered-misconception
+  items, and a different model family than the grader.
+- 2026-11-08 (eval-measurement slice 6): **Audit crash warning** (ADR-0026
+  amendment). `LabelAudit::warning()` is `Some(TaggedItemNeverRan)` iff the case
+  is tagged and any check outcome is `NotRun`. Untagged crashes, tagged items
+  with no checks, and tagged items that ran don't warn. Warnings never change
+  the exit code. The human report interleaves warnings with disagreements per
+  case, in case order. Fixture `eval_crash/`.
+- 2026-11-08 (eval-measurement slice 7): **`--model` / `Grader`** (ADR-0027).
+  `Grader { provider, model: ModelId }` replaces the bare `ProviderChoice` on
+  `request_feedback` / `run_lesson` / `run_eval`. `ModelId: FromStr` refuses
+  blank ids, so clap exits 2. `commands::grader_for(Option<ModelId>)` is the
+  single CLI resolver. The default was then bumped to
+  `deepseek-v4p1-flash-1017`, because Fireworks retired 0731 (ADR-0016
+  amendment); both the Rust and JS pins moved, and `check-model-alignment.sh`
+  enforces they match. Hazard: `scripts/tests/test_sync_assets.sh` runs
+  `git checkout -- _extensions/blendtutor/assets/` and silently reverted the
+  uncommitted JS bump once.
+- 2026-11-08 (dogfood, write-a-function, 31 items, deepseek-v4p1-flash-1017):
+  accuracy 29/31; the two misses are both M6 `print()` items, where the
+  grader *noticed* the print but followed success_criteria, which never forbid
+  it (an underspecified rubric, not grader error). Verdicts were 31/31
+  identical across two runs. Hand 4/4 vs generated 25/27. 6 of 8
+  misconceptions were at ceiling, so accuracy has little headroom for prompt
+  comparison. A regex proxy found a working `6 - x` solution in 24/25
+  incorrect-case feedback messages (solution leakage), which is the
+  construct with the most headroom.
+- 2026-11-08 (eval-measurement slice 8): **Deterministic solution leakage**
+  (ADR-0028). `eval::leakage`: `code_blocks` (``` fences, any tag, unclosed
+  ignored), `assessable(expected, checks)` = Incorrect && some `Fail` && no
+  `NotRun`, `decide(attempts)` = Leaked iff some attempt is non-empty and
+  all-Pass, and `measure` runs `submission + "\n" + block` through
+  `run_checks` per block. Wired in `run_eval`'s loop via
+  `CaseResult::with_leakage`. The wire carries per-case `leakage` and
+  report-level `leakage {leaked, assessable, incorrect, interval}` only when
+  assessable. The negative control (force assessable) failed both tests,
+  including the no-checks absence guard.
+- 2026-11-08 (eval-measurement slice 9): **`eval-compare`** (ADR-0029).
+  `eval::newcombe_paired(both, only_first, only_second, neither)` implements
+  Newcombe method 10 for `p_second − p_first` (phi = 0 when a margin is
+  empty). Unit tests pin hand-computed values plus containment over all
+  2×2 tables with n ≤ 12. `eval::compare` holds a pure `CompareReport` (pairs
+  by index; accuracy from `matched`, leakage over cases assessable in both
+  arms) and `decide()`: ship iff accuracy is `non_inferior` (lo > −margin)
+  and leakage is absent or `improved` (hi < 0). Exit 0 ship / 3 hold. 3 was
+  chosen because clap uses 2: the first red test "passed" its exit-2 check
+  on an unrecognized subcommand. The negative control (force non-inferior)
+  failed exactly the point-estimate-trap test. **Discovery:** `build_prompt`
+  never reads `llm_evaluation_prompt`; only the task + success_criteria vary
+  per lesson, so the fixture puts its variant marker in success_criteria.
+  **Real run (lesson 03, 31 items, margin 0.15 pre-registered):** accuracy
+  31/31 vs 31/31 (±11), leakage 11/14 → 0/14 (−79, CI −92 to −45), ship.
+  Candidate = one success_criteria bullet ("Feedback guides the learner to
+  the fix without giving a working solution").
+- 2026-11-08 (eval-measurement slice 10): **`feedback_guidance`, and
+  deprecating `llm_evaluation_prompt`** (ADR-0030). An optional
+  `exercise.feedback_guidance` goes into every prompt builder (Rust
+  `build_prompt`, `crates/core/assets/shared/feedback.js`, and the extension's
+  `exercise-feedback.js`, with the vendored demo-book copy synced) as a
+  neutralized `Feedback guidance:` section after the criteria and before the
+  code. The site contract has 11 keys, the Lua filter reads
+  `::: {.feedback-guidance}`, and `export-quarto` writes it. Parity is pinned
+  by `crates/core/tests/llm.rs`, the Node arm of `test_quarto_feedback.py`,
+  `verify_filter_output.py`, and a static pin on the built `feedback.js` in
+  `build.rs` (which ADR-0020 never had for success criteria).
+  `llm_evaluation_prompt: Option<String>` is validated for `{student_code}`
+  only when present. Tests that used it as their "missing required field"
+  example now use `exercise.prompt`. The eval footer no longer names
+  `llm_evaluation_prompt` or `solution`, since neither reaches the grader.
+- 2026-11-08 (eval-measurement slices 11–12): **`eval --repeat N`**
+  (ADR-0031): a pure `StabilityReport::of(&[EvalReport])`, where stable means
+  the same `actual` on every run. clap enforces N ≥ 2 and conflicts with
+  `--case`/`--write-report`. Real lesson 03 ×3: 30/31 stable (84–99%), case 22
+  (M5) flipped, accuracy 97/100/100, leakage 0/0/0. A first attempt died on a
+  transient Fireworks 500, because `eval` fails the whole run on any provider
+  error (no retry yet). **`suggest-misconceptions`** (ADR-0032):
+  `llm::suggest` builds a pure prompt from the task, criteria, checks, and
+  covered labels (strings, so `llm` doesn't depend on `eval`), going through a
+  generic `feedback::extract::<T>` that `request_feedback` now shares.
+  `eval::suggestion::SuggestionCheck` classifies each example's checks.
+  Leave-one-out on lesson 03: recall 5/8 (31–86%); all check-invisible
+  misconceptions recovered; mechanical ones missed (the prompt says "prefer
+  conceptual"). The harness lives in the session scratchpad, not the repo.

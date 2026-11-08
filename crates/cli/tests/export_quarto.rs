@@ -277,9 +277,10 @@ fn clause_14_exit_code_zero_on_valid_nonzero_on_invalid() {
         .assert()
         .success();
 
-    // Invalid lesson (missing llm_evaluation_prompt) → nonzero.
+    // Invalid lesson (missing the required exercise.prompt) → nonzero. The
+    // deprecated llm_evaluation_prompt is optional since ADR-0030.
     let mut file = tempfile::NamedTempFile::new().unwrap();
-    file.write_all(b"lesson_name: \"Bad\"\nlanguage: R\nexercise:\n  prompt: \"Write add\"\n")
+    file.write_all(b"lesson_name: \"Bad\"\nlanguage: R\nexercise:\n  success_criteria: \"adds\"\n")
         .unwrap();
     Command::cargo_bin("blendtutor")
         .unwrap()

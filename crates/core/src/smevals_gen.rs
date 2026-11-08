@@ -228,7 +228,7 @@ fn emit_task_yaml(lesson_path: &Path, case_index: usize, case: &EvalCase) -> Str
         "name: case-{case_index}\nlesson: {}\ncase: {case_index}\nprompt: {}\nexpected: {}\n",
         emit_inline_scalar(&lesson_path.to_string_lossy()),
         escape_yaml_double_quoted(&case.submission),
-        emit_inline_scalar(case.expected.token()),
+        emit_inline_scalar(case.expected().token()),
     )
 }
 
@@ -584,12 +584,10 @@ mod tests {
              llm_evaluation_prompt: grade {student_code}\n",
         )
         .unwrap();
-        let suite = EvalSuite {
-            cases: vec![EvalCase {
-                submission: "cat(\"hi\\n\")\n".to_string(),
-                expected: ExpectedVerdict::Correct,
-            }],
-        };
+        let suite = EvalSuite::new(vec![EvalCase::new(
+            "cat(\"hi\\n\")\n".to_string(),
+            ExpectedVerdict::Correct.into(),
+        )]);
         let err = write_eval_dir(
             dir.path(),
             &lesson,
@@ -648,12 +646,10 @@ mod tests {
              llm_evaluation_prompt: grade {student_code}\n",
         )
         .unwrap();
-        let suite = EvalSuite {
-            cases: vec![EvalCase {
-                submission: "cat(\"hi\\n\")\n".to_string(),
-                expected: ExpectedVerdict::Correct,
-            }],
-        };
+        let suite = EvalSuite::new(vec![EvalCase::new(
+            "cat(\"hi\\n\")\n".to_string(),
+            ExpectedVerdict::Correct.into(),
+        )]);
         write_eval_dir(
             &course,
             &lesson,
@@ -845,12 +841,10 @@ mod tests {
              llm_evaluation_prompt: grade {student_code}\n",
         )
         .unwrap();
-        let suite = EvalSuite {
-            cases: vec![EvalCase {
-                submission: "cat(\"hi\\n\")\n".to_string(),
-                expected: ExpectedVerdict::Correct,
-            }],
-        };
+        let suite = EvalSuite::new(vec![EvalCase::new(
+            "cat(\"hi\\n\")\n".to_string(),
+            ExpectedVerdict::Correct.into(),
+        )]);
         let files = generate_eval_dir_with(
             &lesson,
             &suite,
@@ -890,7 +884,7 @@ mod tests {
         .unwrap();
         let err = generate_eval_dir(
             &lesson,
-            &EvalSuite { cases: vec![] },
+            &EvalSuite::new(vec![]),
             "x",
             Path::new("lessons/x.yaml"),
         )
@@ -910,8 +904,8 @@ mod tests {
         // Safe-by-construction values stay plain for readable goldens.
         assert_eq!(emit_inline_scalar("case-1"), "case-1");
         assert_eq!(
-            emit_inline_scalar("accounts/fireworks/models/deepseek-v4-flash-0731"),
-            "accounts/fireworks/models/deepseek-v4-flash-0731"
+            emit_inline_scalar("accounts/fireworks/models/deepseek-v4p1-flash-1017"),
+            "accounts/fireworks/models/deepseek-v4p1-flash-1017"
         );
         assert_eq!(emit_inline_scalar("correct"), "correct");
         // Structural values must be quoted, never plain.

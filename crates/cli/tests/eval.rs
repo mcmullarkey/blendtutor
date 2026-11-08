@@ -387,8 +387,8 @@ async fn eval_human_shows_grader_feedback_and_next_steps_footer() {
         "the footer must point at re-running a single case, got: {stdout:?}"
     );
     assert!(
-        stdout.contains("llm_evaluation_prompt"),
-        "the footer must name the grading knobs, got: {stdout:?}"
+        stdout.contains("feedback_guidance") && !stdout.contains("llm_evaluation_prompt"),
+        "the footer must name the grading inputs that reach the grader (ADR-0030), got: {stdout:?}"
     );
 }
 

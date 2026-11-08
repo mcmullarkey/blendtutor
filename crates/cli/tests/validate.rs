@@ -99,10 +99,11 @@ fn validate_json_emits_documented_object_with_exit_code_parity() {
 
 #[test]
 fn validate_invalid_lesson_exits_nonzero_naming_problem() {
-    // A lesson missing the required `exercise.llm_evaluation_prompt`.
+    // A lesson missing the required `exercise.prompt` (ADR-0030 made the
+    // deprecated `llm_evaluation_prompt` optional, so it is no longer the example).
     let mut file = tempfile::NamedTempFile::new().unwrap();
     file.write_all(
-        b"lesson_name: \"Adder\"\nlanguage: R\nexercise:\n  prompt: \"Write add_two\"\n",
+        b"lesson_name: \"Adder\"\nlanguage: R\nexercise:\n  success_criteria: \"returns x + y\"\n",
     )
     .unwrap();
 
@@ -112,7 +113,7 @@ fn validate_invalid_lesson_exits_nonzero_naming_problem() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr(predicates::str::contains("llm_evaluation_prompt"));
+        .stderr(predicates::str::contains("prompt"));
 }
 
 #[test]
@@ -133,4 +134,22 @@ fn validate_lesson_without_student_code_placeholder_exits_nonzero_naming_the_rul
         .failure()
         .stderr(predicates::str::contains("llm_evaluation_prompt"))
         .stderr(predicates::str::contains("{student_code}"));
+}
+
+/// When I validate a lesson that omits `llm_evaluation_prompt`, I see it
+/// accepted: the field is never sent to the grader (ADR-0030), so requiring it
+/// only made authors maintain dead text.
+#[test]
+fn a_lesson_without_llm_evaluation_prompt_is_valid() {
+    let lesson = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../core/tests/fixtures/lessons/no_llm_evaluation_prompt.yaml"
+    );
+    let output = run_validate(lesson, "human");
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }

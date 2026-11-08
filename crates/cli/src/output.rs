@@ -13,7 +13,11 @@ use clap::ValueEnum;
 use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
-use blendtutor_core::eval::{CaseResult, EvalReport};
+use blendtutor_core::eval::{
+    AuditWarning, CaseResult, CompareReport, Conclusion, Consistency, CoverageRow, Decision,
+    DetectionRow, Discordance, EvalReport, LabelAudit, LabelAuditReport, LeakageSummary,
+    MisconceptionCoverage, PairedChange, SourceRow, StabilityReport, SuggestionCheck, Violation,
+};
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
 use blendtutor_core::run::RunReport;
@@ -386,6 +390,7 @@ fn render_eval(report: &EvalReport) -> String {
             "Accuracy: {matched}/{total} ({percent:.1}%)",
             percent = report.accuracy() * 100.0
         ),
+        consistency_headline(report),
         String::new(),
     ];
     for (position, case) in report.cases().iter().enumerate() {
@@ -400,15 +405,112 @@ fn render_eval(report: &EvalReport) -> String {
             expected = case.expected().token(),
             actual = case.actual().token(),
         ));
+        if let Some(callout) = consistency_line(case) {
+            lines.push(callout);
+        }
         if let Some(feedback) = feedback_line(case) {
             lines.push(feedback);
         }
+    }
+    if !report.by_misconception().is_empty() {
+        lines.push(String::new());
+        lines.push("Grader detection by misconception (95% interval):".to_string());
+        lines.extend(report.by_misconception().iter().map(detection_line));
+    }
+    if !report.by_source().is_empty() {
+        lines.push(String::new());
+        lines.push("Grader accuracy by item source (95% interval):".to_string());
+        lines.extend(report.by_source().iter().map(source_line));
+    }
+    if let Some(summary) = report.leakage() {
+        lines.push(String::new());
+        lines.push(leakage_line(summary));
     }
     if let Some(footer) = next_steps_footer(report) {
         lines.push(String::new());
         lines.push(footer);
     }
     lines.join("\n")
+}
+
+/// Whose polarity claim is being compared with the lesson's checks: the
+/// grader's verdict (`eval`, ADR-0022) or the eval author's label (`audit`,
+/// ADR-0023). A closed enum so the call-out wording cannot name some other
+/// instrument by accident.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Claimant {
+    Grader,
+    Label,
+}
+
+impl Claimant {
+    const fn verb(self) -> &'static str {
+        match self {
+            Claimant::Grader => "graded",
+            Claimant::Label => "labeled",
+        }
+    }
+}
+
+/// A consistency headline titled `title`: violation and discordance counts over
+/// the cases that had checks, or an explicit "not assessable" when none did, so
+/// a lesson with no checks never reads as agreeing with checks it does not have.
+fn consistency_summary(title: &str, items: &[Consistency]) -> String {
+    let checked = items
+        .iter()
+        .filter(|c| **c != Consistency::Unchecked)
+        .count();
+    if checked == 0 {
+        return format!("{title}: not assessable (lesson has no checks)");
+    }
+    let violations = items
+        .iter()
+        .filter(|c| matches!(c, Consistency::Violated(_)))
+        .count();
+    let discordant = items
+        .iter()
+        .filter(|c| matches!(c, Consistency::Discordant(_)))
+        .count();
+    let noun = if violations == 1 {
+        "violation"
+    } else {
+        "violations"
+    };
+    format!(
+        "{title}: {violations} {noun}, {discordant} discordant ({checked}/{total} cases checked)",
+        total = items.len()
+    )
+}
+
+/// The description of a claim that disagrees with its checks, worded for
+/// `claimant`, or `None` when it agrees or the lesson has no checks.
+fn disagreement(consistency: Consistency, claimant: Claimant) -> Option<String> {
+    let verb = claimant.verb();
+    let text = match consistency {
+        Consistency::Unchecked | Consistency::Consistent => return None,
+        Consistency::Violated(Violation::CorrectDespiteFailedCheck) => {
+            format!("violation — {verb} correct but a check failed")
+        }
+        Consistency::Violated(Violation::CorrectDespiteNotRun) => {
+            format!("violation — {verb} correct but the submission never ran")
+        }
+        Consistency::Discordant(Discordance::IncorrectDespitePassingChecks) => {
+            format!("discordant — {verb} incorrect but every check passed")
+        }
+    };
+    Some(text)
+}
+
+/// The eval report's `Consistency:` headline (ADR-0022).
+fn consistency_headline(report: &EvalReport) -> String {
+    let items: Vec<Consistency> = report.cases().iter().map(CaseResult::consistency).collect();
+    consistency_summary("Consistency", &items)
+}
+
+/// The indented call-out under an eval case whose verdict disagrees with its
+/// checks.
+fn consistency_line(case: &CaseResult) -> Option<String> {
+    disagreement(case.consistency(), Claimant::Grader).map(|text| format!("  consistency: {text}"))
 }
 
 /// The indented `grader:` line carrying one case's verbatim feedback — present
@@ -441,7 +543,8 @@ fn feedback_line(case: &CaseResult) -> Option<String> {
 ///
 /// It names the 1-based numbers of the mismatched cases, points at re-running a
 /// single case with `--case N`, and names the knobs that shape grading — the
-/// lesson's `llm_evaluation_prompt` and each exercise's reference `solution`.
+/// lesson's task text, `success_criteria`, `feedback_guidance`, and `checks`, the
+/// inputs that actually reach the grader (ADR-0030).
 /// It speaks in plain words ("mismatched"), never the bracketed `[mismatch]`
 /// token, which the integration tests count exactly.
 fn next_steps_footer(report: &EvalReport) -> Option<String> {
@@ -463,7 +566,7 @@ fn next_steps_footer(report: &EvalReport) -> Option<String> {
     Some(format!(
         "mismatched cases: {numbers}\n\
          inspect one: blendtutor eval <lesson> --case N\n\
-         grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`"
+         grading is shaped by the lesson's task text, `success_criteria`, `feedback_guidance`, and `checks`"
     ))
 }
 
@@ -481,6 +584,281 @@ pub fn emit_eval(report: &EvalReport, format: OutputFormat) -> io::Result<()> {
             serde_json::to_string(report).expect("an EvalReport serializes to JSON infallibly")
         }
         OutputFormat::Human => render_eval(report),
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// The human rendering of a [`LabelAuditReport`] (ADR-0023): a `Label audit:`
+/// headline, then one row per label that disagrees with its checks, worded about
+/// the label and never about a grader. Pure (§2.1).
+fn render_audit(report: &LabelAuditReport) -> String {
+    let items: Vec<Consistency> = report.cases().iter().map(LabelAudit::consistency).collect();
+    let mut lines = vec![consistency_summary("Label audit", &items)];
+    let flagged: Vec<String> = report
+        .cases()
+        .iter()
+        .enumerate()
+        .flat_map(|(position, case)| {
+            let number = position + 1;
+            let disagrees = disagreement(case.consistency(), Claimant::Label)
+                .map(|text| format!("case {number}: {text}"));
+            let warns = case
+                .warning()
+                .map(|warning| format!("case {number}: {}", warning_text(warning, case)));
+            disagrees.into_iter().chain(warns)
+        })
+        .collect();
+    if !flagged.is_empty() {
+        lines.push(String::new());
+        lines.extend(flagged);
+    }
+    if !report.coverage().is_empty() {
+        lines.push(String::new());
+        lines.push("Misconception coverage by checks:".to_string());
+        lines.extend(report.coverage().iter().map(coverage_line));
+    }
+    lines.join("\n")
+}
+
+/// The human text for an audit warning on `case` (ADR-0026 amendment).
+fn warning_text(warning: AuditWarning, case: &LabelAudit) -> String {
+    match warning {
+        AuditWarning::TaggedItemNeverRan => format!(
+            "warning — tagged {id} but the submission never ran, so it can't show the misconception",
+            id = case
+                .misconception()
+                .map(|id| id.as_str())
+                .unwrap_or("a misconception"),
+        ),
+    }
+}
+
+/// The solution-leakage line (ADR-0028): the leak rate over assessable incorrect
+/// cases with its interval, plus how many incorrect cases were left out, so a
+/// rate over a small, selected subset is never shown bare.
+fn leakage_line(summary: &LeakageSummary) -> String {
+    let (leaked, assessable) = (summary.leaked(), summary.assessable());
+    let range = summary
+        .interval()
+        .map(|(lo, hi)| format!(" ({:.0}%–{:.0}%)", lo * 100.0, hi * 100.0))
+        .unwrap_or_default();
+    let left_out = summary.incorrect() - assessable;
+    let tail = if left_out == 0 {
+        String::new()
+    } else {
+        format!(
+            "; {left_out} of {incorrect} incorrect cases not assessable",
+            incorrect = summary.incorrect()
+        )
+    };
+    format!(
+        "Solution leakage: {leaked}/{assessable} assessable incorrect cases leaked a working fix{range}{tail}"
+    )
+}
+
+/// One item source's grader-accuracy row (ADR-0026), or "no items" when the
+/// suite has none from that source.
+fn source_line(row: &SourceRow) -> String {
+    let head = format!("  {}", row.source().token());
+    match row.interval() {
+        None => format!("{head}: no items"),
+        Some((lo, hi)) => format!(
+            "{head}: {matched}/{items} matched ({lo:.0}%–{hi:.0}%)",
+            matched = row.matched(),
+            items = row.items(),
+            lo = lo * 100.0,
+            hi = hi * 100.0,
+        ),
+    }
+}
+
+/// One misconception's grader-detection row (ADR-0025): caught/items with the
+/// Wilson interval as whole percents, or "no items" for a gap in the bank.
+fn detection_line(row: &DetectionRow) -> String {
+    let head = format!("  {id} {label}", id = row.id(), label = row.label());
+    match row.interval() {
+        None => format!("{head}: no items"),
+        Some((lo, hi)) => format!(
+            "{head}: {caught}/{items} caught ({lo:.0}%–{hi:.0}%)",
+            caught = row.caught(),
+            items = row.items(),
+            lo = lo * 100.0,
+            hi = hi * 100.0,
+        ),
+    }
+}
+
+/// One misconception's coverage row (ADR-0024): what the checks caught, and
+/// for a gap, what it means for the author.
+fn coverage_line(row: &CoverageRow) -> String {
+    let head = format!("  {id} {label}", id = row.id(), label = row.label());
+    let (caught, items) = (row.caught(), row.items());
+    match row.status() {
+        MisconceptionCoverage::NoItems => format!("{head}: no items — add some to the eval suite"),
+        MisconceptionCoverage::Covered => format!("{head}: {caught}/{items} caught"),
+        MisconceptionCoverage::Partial => {
+            format!("{head}: {caught}/{items} caught — partial, some items slip past the checks")
+        }
+        MisconceptionCoverage::Uncovered => {
+            format!("{head}: {caught}/{items} caught — uncovered, only the grader can catch it")
+        }
+    }
+}
+
+/// Render a label audit in `format` and write it to stdout: the single place an
+/// audit reaches the terminal (§2.4).
+pub fn emit_audit(report: &LabelAuditReport, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("a LabelAuditReport serializes to JSON infallibly")
+        }
+        OutputFormat::Human => render_audit(report),
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// The human rendering of a [`StabilityReport`] (ADR-0031): the share of cases
+/// with the same verdict on every run, with its interval and the flipped cases,
+/// then accuracy (and leakage, when assessable) per run. Pure (§2.1).
+fn render_stability(report: &StabilityReport) -> String {
+    let range = report
+        .interval()
+        .map(|(lo, hi)| format!(" ({:.0}%–{:.0}%)", lo * 100.0, hi * 100.0))
+        .unwrap_or_default();
+    let flipped = if report.flipped_cases().is_empty() {
+        "none".to_string()
+    } else {
+        report
+            .flipped_cases()
+            .iter()
+            .map(|n| format!("case {n}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let percents = |rates: &[f64]| {
+        rates
+            .iter()
+            .map(|r| format!("{:.0}%", r * 100.0))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let mut lines = vec![
+        format!(
+            "Stability over {runs} runs: same verdict on {stable}/{cases} cases{range}; flipped: {flipped}",
+            runs = report.runs(),
+            stable = report.stable(),
+            cases = report.cases(),
+        ),
+        format!("Accuracy per run: {}", percents(report.accuracy_per_run())),
+    ];
+    if !report.leakage_per_run().is_empty() {
+        lines.push(format!(
+            "Solution leakage per run: {}",
+            percents(report.leakage_per_run())
+        ));
+    }
+    lines.join("\n")
+}
+
+/// The human rendering of misconception suggestions (ADR-0032): one numbered
+/// line per suggestion saying what the lesson's checks make of its example,
+/// followed by the example, indented. Pure (§2.1).
+fn render_suggestions(suggestions: &[crate::commands::suggest::CheckedSuggestion]) -> String {
+    if suggestions.is_empty() {
+        return "No new misconceptions suggested.".to_string();
+    }
+    let mut lines = vec!["Suggested misconceptions not yet in the blueprint:".to_string()];
+    for (position, s) in suggestions.iter().enumerate() {
+        let verdict = match s.checks {
+            SuggestionCheck::Caught => "caught by the checks",
+            SuggestionCheck::NotCaught => "not caught by the checks (only the grader can catch it)",
+            SuggestionCheck::DoesNotRun => "example does not run (fix or drop it)",
+            SuggestionCheck::Unchecked => "lesson has no checks",
+        };
+        lines.push(String::new());
+        lines.push(format!("{}. {}: {verdict}", position + 1, s.label));
+        lines.extend(s.example_submission.lines().map(|l| format!("     {l}")));
+    }
+    lines.join("\n")
+}
+
+/// Render misconception suggestions in `format` and write them to stdout.
+pub fn emit_suggestions(
+    suggestions: &[crate::commands::suggest::CheckedSuggestion],
+    format: OutputFormat,
+) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => serde_json::json!({ "suggestions": suggestions }).to_string(),
+        OutputFormat::Human => render_suggestions(suggestions),
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// Render a stability report in `format` and write it to stdout (§2.4).
+pub fn emit_stability(report: &StabilityReport, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("a StabilityReport serializes to JSON infallibly")
+        }
+        OutputFormat::Human => render_stability(report),
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// The human rendering of a [`CompareReport`] (ADR-0029): the paired setup and
+/// margin, one line per construct with counts, change, and interval in points,
+/// and the decision with its reasons. Pure (§2.1).
+fn render_compare(report: &CompareReport) -> String {
+    let margin = report.margin().value() * 100.0;
+    let mut lines = vec![
+        format!(
+            "Paired comparison on {n} cases (margin {margin:.0} points)",
+            n = report.paired_cases()
+        ),
+        String::new(),
+        change_line("Accuracy", report.accuracy()),
+    ];
+    if let Some(leakage) = report.leakage() {
+        lines.push(change_line("Solution leakage", leakage));
+    }
+    lines.push(String::new());
+    lines.push(match report.decision() {
+        Decision::Ship => "Decision: ship".to_string(),
+        Decision::Hold => format!("Decision: hold ({})", report.reasons().join("; ")),
+    });
+    lines.join("\n")
+}
+
+/// One construct's paired change: per-arm counts, the change and its 95%
+/// interval in whole points, and the conclusion in words.
+fn change_line(name: &str, change: &PairedChange) -> String {
+    let (lo, hi) = change.interval();
+    let conclusion = match change.conclusion() {
+        Conclusion::NonInferior => "non-inferior",
+        Conclusion::NotShownNonInferior => "not shown non-inferior",
+        Conclusion::Improved => "improved",
+        Conclusion::Worse => "worse",
+        Conclusion::NotShownImproved => "not shown improved",
+    };
+    format!(
+        "{name}: baseline {b}/{n}, candidate {c}/{n}, change {delta:+.0} points \
+         (95% CI {lo:+.0} to {hi:+.0}): {conclusion}",
+        b = change.baseline(),
+        c = change.candidate(),
+        n = change.n(),
+        delta = change.change() * 100.0,
+        lo = lo * 100.0,
+        hi = hi * 100.0,
+    )
+}
+
+/// Render a comparison in `format` and write it to stdout (§2.4).
+pub fn emit_compare(report: &CompareReport, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("a CompareReport serializes to JSON infallibly")
+        }
+        OutputFormat::Human => render_compare(report),
     };
     writeln!(io::stdout(), "{text}")
 }
@@ -621,11 +999,14 @@ mod tests {
         let flipped = Verdict::Incorrect {
             message: "gamma polarity flipped".to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+                CaseResult::score(ExpectedVerdict::Correct.into(), &flipped, &[]),
+            ],
+        );
 
         insta::assert_snapshot!(render_eval(&report));
     }
@@ -648,11 +1029,14 @@ mod tests {
         let flipped = Verdict::Incorrect {
             message: "gamma polarity flipped".to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+                CaseResult::score(ExpectedVerdict::Correct.into(), &flipped, &[]),
+            ],
+        );
 
         let rendered = render_eval(&report);
 
@@ -683,8 +1067,9 @@ mod tests {
 
     /// F2 — a run with at least one mismatch ends with a next-steps footer that
     /// names the 1-based mismatched case numbers, points at
-    /// `blendtutor eval <lesson> --case N`, and names `llm_evaluation_prompt`
-    /// and the reference `solution` as the grading knobs. The footer must not
+    /// `blendtutor eval <lesson> --case N`, and names the inputs that reach the
+    /// grader (`success_criteria`, `feedback_guidance`), never the unused
+    /// `llm_evaluation_prompt` or `solution` (ADR-0030). The footer must not
     /// contain the bracketed `[mismatch]` token — `tests/eval.rs` counts
     /// `[mismatch]` occurrences exactly, and the footer speaks in plain words.
     #[test]
@@ -700,11 +1085,14 @@ mod tests {
         let flipped = Verdict::Incorrect {
             message: "gamma polarity flipped".to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+                CaseResult::score(ExpectedVerdict::Correct.into(), &flipped, &[]),
+            ],
+        );
 
         let rendered = render_eval(&report);
 
@@ -717,12 +1105,12 @@ mod tests {
             "the footer must point at re-running a single case, got: {rendered:?}"
         );
         assert!(
-            rendered.contains("llm_evaluation_prompt"),
-            "the footer must name the prompt knob, got: {rendered:?}"
+            rendered.contains("success_criteria") && rendered.contains("feedback_guidance"),
+            "the footer must name the inputs that reach the grader, got: {rendered:?}"
         );
         assert!(
-            rendered.contains("solution"),
-            "the footer must name the reference solution knob, got: {rendered:?}"
+            !rendered.contains("llm_evaluation_prompt") && !rendered.contains("solution"),
+            "the footer must not name inputs the grader never sees, got: {rendered:?}"
         );
         assert!(
             !rendered.contains("[mismatch] --") && rendered.matches("[mismatch]").count() == 1,
@@ -730,7 +1118,7 @@ mod tests {
         );
         // The footer is the tail: the render ends with the footer's last line.
         assert!(
-            rendered.ends_with("reference `solution`"),
+            rendered.ends_with("`feedback_guidance`, and `checks`"),
             "the footer must be the end of the output, got: {rendered:?}"
         );
     }
@@ -753,14 +1141,17 @@ mod tests {
         let wrong_gamma = Verdict::Incorrect {
             message: "gamma is off".to_string(),
         };
-        let report = EvalReport::new(vec![
-            // Case 1: expected correct, got incorrect → mismatch.
-            CaseResult::score(ExpectedVerdict::Correct, &wrong_alpha),
-            // Case 2: expected incorrect, got incorrect → match.
-            CaseResult::score(ExpectedVerdict::Incorrect, &wrong_beta),
-            // Case 3: expected correct, got incorrect → mismatch.
-            CaseResult::score(ExpectedVerdict::Correct, &wrong_gamma),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                // Case 1: expected correct, got incorrect → mismatch.
+                CaseResult::score(ExpectedVerdict::Correct.into(), &wrong_alpha, &[]),
+                // Case 2: expected incorrect, got incorrect → match.
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &wrong_beta, &[]),
+                // Case 3: expected correct, got incorrect → mismatch.
+                CaseResult::score(ExpectedVerdict::Correct.into(), &wrong_gamma, &[]),
+            ],
+        );
 
         let rendered = render_eval(&report);
 
@@ -782,10 +1173,13 @@ mod tests {
         let incorrect = Verdict::Incorrect {
             message: "beta is wrong".to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+            ],
+        );
 
         let rendered = render_eval(&report);
 
@@ -798,7 +1192,7 @@ mod tests {
             "a full match emits no guidance lines, got: {rendered:?}"
         );
         assert!(
-            !rendered.contains("llm_evaluation_prompt"),
+            !rendered.contains("feedback_guidance"),
             "a full match emits no guidance lines, got: {rendered:?}"
         );
         assert!(
@@ -828,11 +1222,14 @@ mod tests {
             message: "gamma polarity flipped\nthe prompt admits both polarities\ncheck the reference solution"
                 .to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-            CaseResult::score(ExpectedVerdict::Correct, &multiline),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+                CaseResult::score(ExpectedVerdict::Correct.into(), &multiline, &[]),
+            ],
+        );
 
         let rendered = render_eval(&report);
 
@@ -865,18 +1262,21 @@ mod tests {
         let flipped = Verdict::Incorrect {
             message: "gamma polarity flipped".to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+                CaseResult::score(ExpectedVerdict::Correct.into(), &flipped, &[]),
+            ],
+        );
 
         let json = serde_json::to_string(&report).expect("an EvalReport serializes infallibly");
 
         let expected = concat!(
-            r#"{"cases":[{"expected":"correct","actual":"correct","matched":true,"feedback_message":"alpha checks out"},"#,
-            r#"{"expected":"incorrect","actual":"incorrect","matched":true,"feedback_message":"beta is wrong"},"#,
-            r#"{"expected":"correct","actual":"incorrect","matched":false,"feedback_message":"gamma polarity flipped"}],"#,
+            r#"{"cases":[{"expected":"correct","actual":"correct","matched":true,"feedback_message":"alpha checks out","consistency":{"status":"unchecked"}},"#,
+            r#"{"expected":"incorrect","actual":"incorrect","matched":true,"feedback_message":"beta is wrong","consistency":{"status":"unchecked"}},"#,
+            r#"{"expected":"correct","actual":"incorrect","matched":false,"feedback_message":"gamma polarity flipped","consistency":{"status":"unchecked"}}],"#,
             r#""accuracy":0.6666666666666666}"#,
         );
         assert_eq!(json, expected, "the JSON wire shape must not drift");

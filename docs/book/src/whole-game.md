@@ -72,6 +72,9 @@ The starter lesson ships its `eval_lesson_hello.yaml` sibling with two cases —
 a correct submission and an incorrect one. Every lesson added with `new lesson`
 gets the same treatment: an `eval_<name>.yaml` sibling scaffolded alongside it.
 Use `--case N` for a single case, `--format json` for JSON output.
+`--model <id>` grades with a different provider model than the default (also
+accepted by `run`), which helps when a pinned model is retired or when you want
+to compare models.
 
 A mismatched case prints the grader's verbatim feedback on an indented
 `grader:` line under its row, and any mismatched run ends with next steps:
@@ -82,8 +85,193 @@ case 2: expected correct, got incorrect [mismatch]
 
 mismatched cases: 2
 inspect one: blendtutor eval <lesson> --case N
-grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`
+grading is shaped by the lesson's task text, `success_criteria`, `feedback_guidance`, and `checks`
 ```
+
+### Consistency with the lesson's checks
+
+When a lesson has `checks`, `eval` also compares each verdict with the check
+results for the same submission. This needs no expected labels, so it can catch
+a broken grader *or* a mislabeled eval case:
+
+```text
+Accuracy: 2/5 (40.0%)
+Consistency: 2 violations, 1 discordant (5/5 cases checked)
+
+case 2: expected correct, got correct [match]
+  consistency: violation — graded correct but a check failed
+```
+
+- **violation**: graded correct although a check failed or the submission never
+  ran. Something is wrong: the grader, the check, or the case's `expected`.
+- **discordant**: graded incorrect although every check passed. This is often
+  fine, because success criteria that checks don't encode (style, required
+  functions) can still fail. It's worth a look.
+- A lesson with no checks reports `Consistency: not assessable`, never 100%.
+
+In `--format json`, each case carries
+`"consistency": {"status": "violated", "kind": "correct_despite_failed_check"}`
+(`kind` appears only for `discordant` and `violated`).
+
+### Audit the labels first (free)
+
+`audit` runs each eval case through the lesson's checks and compares the
+case's `expected` label with them. It makes no LLM call and needs no API key, so
+run it before every paid `eval`:
+
+```bash
+blendtutor audit lesson_hello.yaml
+```
+
+```text
+Label audit: 1 violation, 0 discordant (5/5 cases checked)
+
+case 2: violation — labeled correct but a check failed
+```
+
+A violation (a case labeled `correct` whose code fails a check or never runs)
+exits 1, so the audit can gate CI. Discordant labels and lessons with no checks
+exit 0. `--format json` emits `{"cases": [{"expected", "consistency"}], "coverage": [...]}`.
+
+#### Misconception coverage
+
+An eval suite can name the mistakes its incorrect cases are built to show, then
+tag each case with one:
+
+```yaml
+blueprint:
+  misconceptions:
+    M1: "returns x instead of x + y"
+    M2: "prints the sum instead of returning it"
+cases:
+  - submission: |-
+      add_two <- function(x, y) print(x + y)
+    expected: incorrect
+    misconception: M2
+```
+
+`audit` then reports, for each misconception, how many of its items fail at least
+one check:
+
+```text
+Misconception coverage by checks:
+  M1 returns x instead of x + y: 2/2 caught
+  M2 prints the sum instead of returning it: 0/2 caught — uncovered, only the grader can catch it
+```
+
+An uncovered misconception isn't an error, and the audit still exits 0. It tells
+you which mistakes depend entirely on the LLM grader, which is where its eval
+cases matter most. A tag on a `correct` case, or one the blueprint doesn't
+list, fails to parse.
+
+With a blueprint, `eval` also reports how often the **grader** catches each
+misconception, with a 95% interval, so a small item count reads as uncertain
+instead of perfect:
+
+```text
+Grader detection by misconception (95% interval):
+  M1 returns x instead of x + y: 2/2 caught (34%–100%)
+  M2 prints the sum instead of returning it: 1/2 caught (9%–91%)
+  M4 uses integer division: no items
+```
+
+A wide interval means add items for that misconception. The interval assumes
+the items are independent, so many near-copies of one item make it look
+narrower than it should be.
+
+Cases can say where they came from with `source: generated` (the default is
+`hand`). When a suite has any generated items, `eval` also splits grader
+accuracy by source:
+
+```text
+Grader accuracy by item source (95% interval):
+  hand: 1/2 matched (9%–91%)
+  generated: 3/3 matched (44%–100%)
+```
+
+A big gap is a warning sign about the generator. Its items may be easier than
+real mistakes, or share the grader's blind spots. The `blendtutor-course`
+skill documents a generate-then-`audit` workflow for growing a suite.
+
+When a lesson has checks, `eval` also measures **solution leakage**: for each
+incorrect case whose code fails a check, it appends each fenced code block from
+the grader's feedback to the submission and reruns the checks. If they all pass,
+the feedback handed over a working fix:
+
+```text
+Solution leakage: 11/14 assessable incorrect cases leaked a working fix (52%–92%); 11 of 25 incorrect cases not assessable
+```
+
+Cases whose code already passes the checks can't be assessed, because there is
+nothing for the feedback to fix. Stronger checks make more cases assessable.
+
+### Check that a run is repeatable
+
+The grader is an LLM, so one `eval` run is one sample. `--repeat N` grades the
+suite N times and reports how stable the verdicts are:
+
+```text
+Stability over 3 runs: same verdict on 30/31 cases (84%–99%); flipped: case 22
+Accuracy per run: 97%, 100%, 100%
+Solution leakage per run: 0%, 0%, 0%
+```
+
+A case that flips is worth rewriting, and a rate that moves a lot between runs
+shouldn't be read from a single run.
+
+### Find misconceptions the blueprint is missing
+
+`suggest-misconceptions` asks the model for mistakes your blueprint doesn't
+cover yet, each with a small example, and runs every example through the
+lesson's checks:
+
+```bash
+blendtutor suggest-misconceptions lessons/03.yaml
+```
+
+```text
+1. infers the scale maximum from the data (length(x) + 1) instead of the fixed 1-5 scale: not caught by the checks (only the grader can catch it)
+     survey_data <- data.frame(stress_6 = c(1, 2, 3, 4, 5))
+     reverse_score <- function(x) {
+       length(x) + 1 - x   # happens to work only because the input has 5 elements
+     }
+```
+
+Nothing is written. Add the suggestions you agree with to the blueprint, with
+items. In a leave-one-out check on a real lesson it recovered 5 of 8 hidden
+misconceptions, including all three the checks couldn't see. It tends to miss
+mechanical mistakes such as a misnamed function, so keep writing those
+yourself.
+
+### Compare two versions of a lesson's grading
+
+`eval-compare` grades the baseline lesson's eval suite with both lessons and
+pairs the results case by case:
+
+```bash
+blendtutor eval-compare lessons/03.yaml lessons/03_candidate.yaml --margin 0.15
+```
+
+```text
+Paired comparison on 31 cases (margin 15 points)
+
+Accuracy: baseline 31/31, candidate 31/31, change +0 points (95% CI -11 to +11): non-inferior
+Solution leakage: baseline 11/14, candidate 0/14, change -79 points (95% CI -92 to -45): improved
+
+Decision: ship
+```
+
+The rule is fixed in advance. It ships (exit 0) only if accuracy is
+**non-inferior**, meaning the lower end of its interval stays above `-margin`,
+and leakage, when it can be measured, **improved**, meaning the upper end stays
+below zero. Anything else holds (exit 3) and says why. Pick the margin before
+you run. Equal scores on a small suite are not evidence of non-inferiority: with
+6 items at 6/6 on both sides the accuracy interval is about ±39 points, and
+even 31/31 only supports about ±11. The candidate must have the same checks as
+the baseline. The grading inputs that can differ between two lessons are the task text,
+`success_criteria` (what correct code does), and `feedback_guidance` (how the
+grader should write feedback). `llm_evaluation_prompt` is deprecated and never
+sent to the grader.
 
 To persist the result for `build` to fold into the site's eval-results page,
 write the report at the course root:
@@ -271,7 +459,7 @@ starts. Clicking Get feedback without a stored key shows the key form inline,
 and a `--key-page` page manages the key too. The key is shared via
 `localStorage`, readable by any JavaScript on the page's origin, so never reuse
 a critical key; it is sent only to `api.fireworks.ai`. BYOK is Fireworks-only
-(pinned model `accounts/fireworks/models/deepseek-v4-flash-0731`); the CLI
+(pinned model `accounts/fireworks/models/deepseek-v4p1-flash-1017`); the CLI
 supports other providers (see the [README](https://github.com/mcmullarkey/blendtutor#api-key)).
 Serve over HTTP: `file://` breaks `localStorage` sharing and blocks ES modules,
 so feedback never mounts. Self-hosted CSP: add

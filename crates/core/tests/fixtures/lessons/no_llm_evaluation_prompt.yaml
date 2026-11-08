@@ -1,0 +1,12 @@
+# A lesson that omits the deprecated llm_evaluation_prompt (ADR-0030): it is
+# never sent to the grader, so it must not be required.
+lesson_name: "Guided Without Template"
+language: R
+exercise:
+  prompt: "Write add_two(x, y) returning their sum."
+  success_criteria: |
+    - returns the sum of x and y
+  feedback_guidance: |
+    Guide the learner to the fix without giving a working solution.
+checks:
+  - "stopifnot(add_two(2, 3) == 5)"

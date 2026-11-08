@@ -60,6 +60,54 @@ pub fn code_blocks(message: &str) -> Vec<String> {
     blocks
 }
 
+/// Every snippet of `message` that might be runnable code, in order and without
+/// duplicates: fenced blocks, inline code spans, and blank-line-separated
+/// paragraphs outside fences. Graders do not always fence their code. Dogfooding
+/// found full solutions in inline spans and bare lines, which a fences-only
+/// reading missed (ADR-0028 amendment). Prose candidates are harmless: they
+/// fail to parse, so their attempt never passes a check.
+pub fn candidates(message: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    let mut push = |snippet: &str| {
+        let snippet = snippet.trim();
+        if !snippet.is_empty() && !found.iter().any(|seen| seen == snippet) {
+            found.push(snippet.to_string());
+        }
+    };
+    for block in code_blocks(message) {
+        push(&block);
+    }
+    let mut in_fence = false;
+    let mut paragraph: Vec<&str> = Vec::new();
+    let mut prose = String::new();
+    for line in message.lines() {
+        if line.trim_start().starts_with("```") {
+            in_fence = !in_fence;
+            push(&paragraph.join("\n"));
+            paragraph.clear();
+            continue;
+        }
+        if in_fence {
+            continue;
+        }
+        prose.push_str(line);
+        prose.push('\n');
+        if line.trim().is_empty() {
+            push(&paragraph.join("\n"));
+            paragraph.clear();
+        } else {
+            paragraph.push(line);
+        }
+    }
+    push(&paragraph.join("\n"));
+    for (index, span) in prose.split('`').enumerate() {
+        if index % 2 == 1 {
+            push(span);
+        }
+    }
+    found
+}
+
 /// Whether leakage can be measured for a case: it is labeled incorrect, the
 /// lesson has checks, and the submission alone fails at least one of them
 /// (a crash, `NotRun`, leaves nothing for appended code to fix).
@@ -89,7 +137,7 @@ pub fn decide(attempts: &[Vec<CheckOutcome>]) -> Leakage {
 /// lesson's checks and decide whether the feedback leaked a fix.
 pub async fn measure(lesson: &Lesson, submission: &str, message: &str) -> Leakage {
     let mut attempts = Vec::new();
-    for block in code_blocks(message) {
+    for block in candidates(message) {
         let runner = select_runner(&lesson.language, &lesson.packages);
         let program = format!("{submission}\n{block}");
         attempts.push(run_checks(runner, &program, &lesson.checks).await);
@@ -177,6 +225,33 @@ mod tests {
         assert!(code_blocks("Look again at the operator.").is_empty());
         assert!(code_blocks("```r\nnever closed").is_empty());
         assert!(code_blocks("inline `x + 1` is not a block").is_empty());
+    }
+
+    #[test]
+    fn candidates_include_inline_spans_and_bare_paragraphs_once_each() {
+        let message = "Use `f <- function(x) x + 1` here.\n\ng(1)\n\n```r\nh(2)\n```\nAlso `f <- function(x) x + 1`.";
+        let found = candidates(message);
+        assert!(found.contains(&"h(2)".to_string()), "fenced: {found:?}");
+        assert!(
+            found.contains(&"f <- function(x) x + 1".to_string()),
+            "inline: {found:?}"
+        );
+        assert!(
+            found.contains(&"g(1)".to_string()),
+            "bare paragraph: {found:?}"
+        );
+        assert_eq!(
+            found
+                .iter()
+                .filter(|c| *c == "f <- function(x) x + 1")
+                .count(),
+            1,
+            "deduplicated: {found:?}"
+        );
+        assert!(
+            !found.iter().any(|c| c.contains("```")),
+            "fence markers are never a candidate: {found:?}"
+        );
     }
 
     #[test]

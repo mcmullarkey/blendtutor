@@ -53,3 +53,15 @@ interval}` appears only when at least one case is.
 - Each fenced block costs one extra check run per assessable case.
 - A partial hint that fixes one of several failing checks is not a leak. This
   measures *complete* fixes only.
+
+## Amendment (2026-11-08): candidates are not only fenced blocks
+
+The first dogfood run on lesson 03 (9/14 leaked) undercounted. Two "withheld"
+messages contained the complete solution, one in an inline code span
+(`` `reverse_score <- function(x) 6 - x` ``) and one as a bare, unfenced line
+in its own paragraph. Graders do not reliably fence code. Candidate fixes are
+now fenced blocks **plus** inline code spans **plus** blank-line-separated
+paragraphs outside fences, deduplicated. A prose candidate fails to parse, so
+the attempt is `NotRun` and never counts as a leak. The cost is a few more
+check runs per assessable case. The measure remains a lower bound: code woven
+into a sentence without backticks is still missed.

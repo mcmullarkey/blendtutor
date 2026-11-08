@@ -43,6 +43,20 @@ async fn mount_provider(server: &MockServer) {
     .await;
     mount_feedback_for(server, "zz_uncovered", false, FIX).await;
     mount_feedback_for(server, "zz_ok", true, FIX).await;
+    mount_feedback_for(
+        server,
+        "zz_inline",
+        false,
+        "Use `add_two <- function(x, y) x + y` instead of subtracting.",
+    )
+    .await;
+    mount_feedback_for(
+        server,
+        "zz_bare",
+        false,
+        "Rename nothing; change the operator:\n\nadd_two <- function(x, y) x + y\n\nThat is all.",
+    )
+    .await;
 }
 
 async fn eval(server: &MockServer, lesson: &str, extra: &[&str]) -> std::process::Output {
@@ -96,27 +110,29 @@ async fn eval_measures_solution_leakage_by_running_the_feedbacks_code() {
             Some("withheld"),
             Some("withheld"),
             None,
-            None
+            None,
+            Some("leaked"),
+            Some("leaked"),
         ]
     );
     let summary = &doc["leakage"];
-    assert_eq!(summary["leaked"].as_u64(), Some(1), "{summary}");
-    assert_eq!(summary["assessable"].as_u64(), Some(3), "{summary}");
-    assert_eq!(summary["incorrect"].as_u64(), Some(4), "{summary}");
+    assert_eq!(summary["leaked"].as_u64(), Some(3), "{summary}");
+    assert_eq!(summary["assessable"].as_u64(), Some(5), "{summary}");
+    assert_eq!(summary["incorrect"].as_u64(), Some(6), "{summary}");
     let interval = summary["interval"]
         .as_array()
         .expect("interval is [lo, hi]");
     let (lo, hi) = (interval[0].as_f64().unwrap(), interval[1].as_f64().unwrap());
     assert!(
-        (lo - 0.062).abs() < 1e-3 && (hi - 0.792).abs() < 1e-3,
-        "expected ~[0.062, 0.792], got [{lo}, {hi}]"
+        (lo - 0.231).abs() < 1e-3 && (hi - 0.882).abs() < 1e-3,
+        "expected ~[0.231, 0.882], got [{lo}, {hi}]"
     );
 
     let human = eval(&server, LEAKAGE_LESSON, &[]).await;
     let stdout = String::from_utf8_lossy(&human.stdout).into_owned();
     assert!(
         stdout.contains(
-            "Solution leakage: 1/3 assessable incorrect cases leaked a working fix (6%–79%); 1 of 4 incorrect cases not assessable"
+            "Solution leakage: 3/5 assessable incorrect cases leaked a working fix (23%–88%); 1 of 6 incorrect cases not assessable"
         ),
         "got: {stdout}"
     );

@@ -1,7 +1,22 @@
-# Eval suite for 03_write_a_function — 4 cases: 2 correct, 2 incorrect (1 near-miss).
-# The near-miss uses 5 - x (wrong max_value) instead of 6 - x.
+# Eval suite for 03_write_a_function.
+#
+# Hand-written anchor set (cases 1-4) plus items generated with the
+# blendtutor-course skill's "Generate more items" workflow (source: generated):
+# one blueprint misconception per incorrect item, varied in names, idioms, and
+# formatting, plus correct items that use unusual but valid idioms. Generated
+# by Claude; the grader under test is DeepSeek on Fireworks (different family).
+blueprint:
+  misconceptions:
+    M1: "uses the wrong scale maximum (e.g. 5 - x or 7 - x)"
+    M2: "returns the input unchanged"
+    M3: "function body has no final expression, so it returns NULL"
+    M4: "hard-codes the expected output instead of computing it"
+    M5: "ignores the argument and reads a survey_data column instead"
+    M6: "prints or cats the result instead of returning it"
+    M7: "reverses the order of the vector instead of reverse-scoring it"
+    M8: "names the function something other than reverse_score"
 cases:
-  # 1 — correct: standard reverse_score with survey_data
+  # 1 - hand, correct: standard reverse_score
   - submission: |-
       survey_data <- data.frame(
         respondent_id = 1:5,
@@ -14,7 +29,7 @@ cases:
       )
       reverse_score <- function(x) 6 - x
     expected: correct
-  # 2 — correct: with explicit return
+  # 2 - hand, correct: explicit return
   - submission: |-
       survey_data <- data.frame(
         respondent_id = 1:5,
@@ -29,7 +44,7 @@ cases:
         return(6 - x)
       }
     expected: correct
-  # 3 — incorrect (near-miss): wrong max_value — 5 - x instead of 6 - x
+  # 3 - hand, incorrect: wrong max_value
   - submission: |-
       survey_data <- data.frame(
         respondent_id = 1:5,
@@ -42,7 +57,8 @@ cases:
       )
       reverse_score <- function(x) 5 - x
     expected: incorrect
-  # 4 — incorrect: returns x unchanged
+    misconception: M1
+  # 4 - hand, incorrect: returns x unchanged
   - submission: |-
       survey_data <- data.frame(
         respondent_id = 1:5,
@@ -55,3 +71,427 @@ cases:
       )
       reverse_score <- function(x) x
     expected: incorrect
+    misconception: M2
+  # generated correct: arithmetic spelled out
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) (5 + 1) - x
+    expected: correct
+    source: generated
+  # generated correct: scale maximum as a default argument
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x, max_value = 5) max_value + 1 - x
+    expected: correct
+    source: generated
+  # generated correct: different argument name, braces
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(scores) {
+        6 - scores
+      }
+    expected: correct
+    source: generated
+  # generated correct: element-wise with vapply
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) vapply(x, function(v) 6 - v, numeric(1))
+    expected: correct
+    source: generated
+  # generated M1
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) 7 - x
+    expected: incorrect
+    misconception: M1
+    source: generated
+  # generated M1
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x, max_value = 5) max_value - x
+    expected: incorrect
+    misconception: M1
+    source: generated
+  # generated M1
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(score) {
+        5 - score
+      }
+    expected: incorrect
+    misconception: M1
+    source: generated
+  # generated M2
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) {
+        x
+      }
+    expected: incorrect
+    misconception: M2
+    source: generated
+  # generated M2
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(score) return(score)
+    expected: incorrect
+    misconception: M2
+    source: generated
+  # generated M2
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) {
+        reversed <- x
+        reversed
+      }
+    expected: incorrect
+    misconception: M2
+    source: generated
+  # generated M3
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) {
+      }
+    expected: incorrect
+    misconception: M3
+    source: generated
+  # generated M3
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) {
+        # reverse the score
+      }
+    expected: incorrect
+    misconception: M3
+    source: generated
+  # generated M3
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) {
+        for (i in seq_along(x)) x[i] <- 6 - x[i]
+      }
+    expected: incorrect
+    misconception: M3
+    source: generated
+  # generated M4
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) c(5, 4, 3, 2, 1)
+    expected: incorrect
+    misconception: M4
+    source: generated
+  # generated M4
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) {
+        c(5, 4, 3, 2, 1)
+      }
+    expected: incorrect
+    misconception: M4
+    source: generated
+  # generated M4
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) as.numeric(5:1)
+    expected: incorrect
+    misconception: M4
+    source: generated
+  # generated M5
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) 6 - survey_data$stress_6
+    expected: incorrect
+    misconception: M5
+    source: generated
+  # generated M5
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) {
+        6 - survey_data[["stress_6"]]
+      }
+    expected: incorrect
+    misconception: M5
+    source: generated
+  # generated M5
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(column) 6 - survey_data$stress_3
+    expected: incorrect
+    misconception: M5
+    source: generated
+  # generated M6
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) print(6 - x)
+    expected: incorrect
+    misconception: M6
+    source: generated
+  # generated M6
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) {
+        print(6 - x)
+      }
+    expected: incorrect
+    misconception: M6
+    source: generated
+  # generated M6
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) {
+        cat(6 - x, "\n")
+      }
+    expected: incorrect
+    misconception: M6
+    source: generated
+  # generated M7
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) rev(x)
+    expected: incorrect
+    misconception: M7
+    source: generated
+  # generated M7
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) x[length(x):1]
+    expected: incorrect
+    misconception: M7
+    source: generated
+  # generated M7
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse_score <- function(x) sort(x, decreasing = TRUE)
+    expected: incorrect
+    misconception: M7
+    source: generated
+  # generated M8
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverseScore <- function(x) 6 - x
+    expected: incorrect
+    misconception: M8
+    source: generated
+  # generated M8
+  - submission: |-
+      survey_data <- data.frame(
+        respondent_id = 1:5,
+        stress_1 = c(3, 4, 5, 2, 1),
+        stress_2 = c(2, 3, 4, 5, 1),
+        stress_3 = c(1, 2, 3, 4, 5),
+        stress_4 = c(5, 4, 3, 2, 1),
+        stress_5 = c(4, 3, 2, 1, 5),
+        stress_6 = c(1, 2, 3, 4, 5)
+      )
+      reverse.score <- function(x) 6 - x
+    expected: incorrect
+    misconception: M8
+    source: generated

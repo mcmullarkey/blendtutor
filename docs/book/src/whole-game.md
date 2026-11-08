@@ -72,6 +72,9 @@ The starter lesson ships its `eval_lesson_hello.yaml` sibling with two cases —
 a correct submission and an incorrect one. Every lesson added with `new lesson`
 gets the same treatment: an `eval_<name>.yaml` sibling scaffolded alongside it.
 Use `--case N` for a single case, `--format json` for JSON output.
+`--model <id>` grades with a different provider model than the default (also
+accepted by `run`), which helps when a pinned model is retired or when you want
+to compare models.
 
 A mismatched case prints the grader's verbatim feedback on an indented
 `grader:` line under its row, and any mismatched run ends with next steps:

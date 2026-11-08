@@ -211,3 +211,22 @@ ADR-0007 for the verdict-representation decision.
   with no checks, and tagged items that ran don't warn. Warnings never change
   the exit code. The human report interleaves warnings with disagreements per
   case, in case order. Fixture `eval_crash/`.
+- 2026-11-08 (eval-measurement slice 7): **`--model` / `Grader`** (ADR-0027).
+  `Grader { provider, model: ModelId }` replaces the bare `ProviderChoice` on
+  `request_feedback` / `run_lesson` / `run_eval`. `ModelId: FromStr` refuses
+  blank ids, so clap exits 2. `commands::grader_for(Option<ModelId>)` is the
+  single CLI resolver. The default was then bumped to
+  `deepseek-v4p1-flash-1017`, because Fireworks retired 0731 (ADR-0016
+  amendment); both the Rust and JS pins moved, and `check-model-alignment.sh`
+  enforces they match. Hazard: `scripts/tests/test_sync_assets.sh` runs
+  `git checkout -- _extensions/blendtutor/assets/` and silently reverted the
+  uncommitted JS bump once.
+- 2026-11-08 (dogfood, write-a-function, 31 items, deepseek-v4p1-flash-1017):
+  accuracy 29/31; the two misses are both M6 `print()` items, where the
+  grader *noticed* the print but followed success_criteria, which never forbid
+  it (an underspecified rubric, not grader error). Verdicts were 31/31
+  identical across two runs. Hand 4/4 vs generated 25/27. 6 of 8
+  misconceptions were at ceiling, so accuracy has little headroom for prompt
+  comparison. A regex proxy found a working `6 - x` solution in 24/25
+  incorrect-case feedback messages (solution leakage), which is the
+  construct with the most headroom.

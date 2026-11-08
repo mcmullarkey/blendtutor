@@ -1,0 +1,19 @@
+# Eval suite for add_two.yaml: one tagged item crashes before any check runs,
+# so it cannot show its misconception (audit warns). The untagged crashing item
+# is a legitimate syntax-error case (no warning).
+blueprint:
+  misconceptions:
+    M1: "returns x instead of x + y"
+cases:
+  - submission: |-
+      stop("boom")
+    expected: incorrect
+    misconception: M1
+    source: generated
+  - submission: |-
+      add_two <- function(x, y) x
+    expected: incorrect
+    misconception: M1
+  - submission: |-
+      add_two <- function(x, y {
+    expected: incorrect

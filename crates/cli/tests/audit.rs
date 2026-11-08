@@ -241,3 +241,56 @@ async fn audit_reports_check_coverage_for_each_blueprint_misconception() {
     }
     assert_no_provider_calls(&server).await;
 }
+
+/// A suite whose case 1 is a tagged item that crashes, and whose case 3 is an
+/// untagged syntax-error item.
+const CRASH_LESSON: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../core/tests/fixtures/eval_crash/add_two.yaml"
+);
+
+/// When I run `audit` on a suite where a misconception-tagged item never runs, I
+/// see a warning naming that case, and the audit still exits 0. An untagged
+/// incorrect item that crashes is a legitimate syntax-error case and gets none.
+#[tokio::test]
+async fn audit_warns_when_a_tagged_item_never_runs() {
+    if rscript_absent() {
+        return;
+    }
+    let server = MockServer::start().await;
+
+    let output = audit(&server, CRASH_LESSON, &["--format", "json"]).await;
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "a crash is a warning, not a violation; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let doc: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be exactly one JSON document");
+    let warnings: Vec<Option<&str>> = doc["cases"]
+        .as_array()
+        .expect("cases array")
+        .iter()
+        .map(|case| {
+            case.get("warning")
+                .map(|w| w.as_str().expect("warning is a string"))
+        })
+        .collect();
+    assert_eq!(warnings, vec![Some("tagged_item_never_ran"), None, None]);
+
+    let human = audit(&server, CRASH_LESSON, &[]).await;
+    let stdout = String::from_utf8_lossy(&human.stdout).into_owned();
+    assert!(
+        stdout.contains(
+            "case 1: warning — tagged M1 but the submission never ran, so it can't show the misconception"
+        ),
+        "got: {stdout}"
+    );
+    assert_eq!(
+        stdout.matches("warning —").count(),
+        1,
+        "only the tagged crash warns: {stdout}"
+    );
+    assert_no_provider_calls(&server).await;
+}

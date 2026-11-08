@@ -15,12 +15,6 @@ exercise:
   success_criteria: |
     - Prints exactly the word "hello"
     - Uses cat()
-  llm_evaluation_prompt: |
-    You are grading a beginner R exercise: print the word "hello" with cat().
-
-    The student submitted this code:
-    {student_code}
-
-    Decide whether it prints "hello" and call respond_with_feedback with your
-    assessment. Set is_correct true when the requirement is met, and give two or
-    three sentences of encouraging feedback.
+  feedback_guidance: |
+    In two or three encouraging sentences, point the learner at what to change
+    without giving them a working solution.

@@ -59,19 +59,22 @@ pub enum ExerciseKind {
 
 /// The exercise a lesson poses.
 ///
-/// The two required prompts carry the learner-facing task and the grading
-/// template; the optional fields are authoring aids. `llm_evaluation_prompt`
-/// must contain the `{student_code}` placeholder — enforced by [`Lesson::parse`],
-/// not by this type alone. Unknown keys are rejected (§1.3.1) so an author's
+/// `prompt` (the learner-facing task) is the one required field; the rest are
+/// authoring aids. The deprecated `llm_evaluation_prompt` is optional and, when
+/// present, must contain the `{student_code}` placeholder, enforced by
+/// [`Lesson::parse`] (ADR-0030). Unknown keys are rejected (§1.3.1) so an author's
 /// typo in an optional field surfaces rather than silently dropping to `None`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Exercise {
     /// What the learner is asked to do. Required.
     pub prompt: String,
-    /// The prompt sent to the LLM to grade a submission. Required; must contain
-    /// the `{student_code}` placeholder.
-    pub llm_evaluation_prompt: String,
+    /// **Deprecated and unused** (ADR-0030): the grading prompt is built from the
+    /// task, `success_criteria`, and `feedback_guidance`, and this text is never
+    /// sent to the grader. Optional and accepted for compatibility; when present
+    /// it must still contain the `{student_code}` placeholder, so existing error
+    /// behavior is unchanged.
+    pub llm_evaluation_prompt: Option<String>,
     /// The kind of exercise, from the YAML `type` key. Optional.
     #[serde(rename = "type")]
     pub kind: Option<ExerciseKind>,
@@ -254,16 +257,17 @@ impl Lesson {
 
     /// Enforce the semantic rules that structure alone cannot.
     ///
-    /// Currently four rules: the evaluation prompt must contain the
-    /// `{student_code}` placeholder, `exercise.gotchas` and `exercise.hints`
+    /// Currently four rules: the deprecated evaluation prompt, when present, must
+    /// contain the `{student_code}` placeholder, `exercise.gotchas` and `exercise.hints`
     /// (if present) must be bullet-formatted, and every `packages` entry must
     /// be a single list-safe name. Split from the structural deserialize so each name
     /// covers its body (§5.1).
     fn validate_semantics(&self) -> Result<(), ValidationError> {
-        if !self
+        if self
             .exercise
             .llm_evaluation_prompt
-            .contains(STUDENT_CODE_PLACEHOLDER)
+            .as_deref()
+            .is_some_and(|template| !template.contains(STUDENT_CODE_PLACEHOLDER))
         {
             return Err(ValidationError::MissingStudentCodePlaceholder);
         }
@@ -336,7 +340,14 @@ exercise:
   llm_evaluation_prompt: "Grade this submission:\n{student_code}\nReply with feedback."
 "#;
 
-    const MISSING_EVAL_PROMPT_YAML: &str = r#"
+    const MISSING_PROMPT_YAML: &str = r#"
+lesson_name: "Adder"
+language: R
+exercise:
+  success_criteria: "returns x + y"
+"#;
+
+    const NO_EVAL_PROMPT_YAML: &str = r#"
 lesson_name: "Adder"
 language: R
 exercise:
@@ -717,13 +728,20 @@ exercise:
 
     #[test]
     fn parse_rejects_missing_required_field_naming_it() {
-        let err = Lesson::parse(MISSING_EVAL_PROMPT_YAML)
-            .expect_err("a lesson without llm_evaluation_prompt is invalid");
+        let err = Lesson::parse(MISSING_PROMPT_YAML)
+            .expect_err("a lesson without exercise.prompt is invalid");
         let msg = err.to_string();
         assert!(
-            msg.contains("llm_evaluation_prompt"),
+            msg.contains("prompt"),
             "error should name the missing field, got: {msg}"
         );
+    }
+
+    #[test]
+    fn parse_accepts_a_lesson_without_the_deprecated_evaluation_prompt() {
+        // ADR-0030: the field is never sent to the grader, so it is optional.
+        let lesson = Lesson::parse(NO_EVAL_PROMPT_YAML).expect("valid without it");
+        assert_eq!(lesson.exercise.llm_evaluation_prompt, None);
     }
 
     #[test]

@@ -215,12 +215,14 @@ fn assert_hints_and_gotchas_invariants(
         "{course_name} lesson {idx} ({filename}) hints and gotchas must not be identical"
     );
 
-    // Invariant: {student_code} placeholder retained in llm_evaluation_prompt.
+    // Invariant: the deprecated llm_evaluation_prompt (ADR-0030), when present,
+    // retains its {student_code} placeholder.
     assert!(
         lesson
             .exercise
             .llm_evaluation_prompt
-            .contains("{student_code}"),
+            .as_deref()
+            .is_none_or(|template| template.contains("{student_code}")),
         "{course_name} lesson {idx} ({filename}) should retain the {{student_code}} placeholder"
     );
 }

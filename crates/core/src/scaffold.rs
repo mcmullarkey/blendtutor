@@ -175,8 +175,8 @@ fn is_empty_target(dir: &Path) -> Result<bool, ScaffoldError> {
 /// under here so a growing course keeps its lesson files in one place.
 const LESSONS_DIR: &str = "lessons";
 
-/// The exercise body of an R starter lesson: a valid `exercise` block whose
-/// `llm_evaluation_prompt` carries the required `{student_code}` placeholder,
+/// The exercise body of an R starter lesson: a valid `exercise` block with
+/// `feedback_guidance` (the grading lever that reaches the grader, ADR-0030),
 /// followed by commented-out optional fields (solution, hints, gotchas, checks,
 /// packages) so authors discover them without the lesson changing meaning.
 const R_EXERCISE: &str = r#"exercise:
@@ -198,15 +198,9 @@ const R_EXERCISE: &str = r#"exercise:
   #   - cat() prints its arguments without quotes or an index.
   # gotchas: |
   #   - print("hello") adds [1] and quotes; use cat() here.
-  llm_evaluation_prompt: |
-    You are grading a beginner R exercise: print the word "hello" with cat().
-
-    The student submitted this code:
-    {student_code}
-
-    Decide whether it prints "hello" and call respond_with_feedback with your
-    assessment. Set is_correct true when the requirement is met, and give two or
-    three sentences of encouraging feedback.
+  feedback_guidance: |
+    In two or three encouraging sentences, point the learner at what to change
+    without giving them a working solution.
 # Optional lesson-level fields — uncomment to use.
 # checks:
 #   - "stopifnot(is.function(cat))"
@@ -215,7 +209,7 @@ const R_EXERCISE: &str = r#"exercise:
 "#;
 
 /// The exercise body of a Python starter lesson: the `print()` twin of
-/// [`R_EXERCISE`], likewise carrying the `{student_code}` placeholder.
+/// [`R_EXERCISE`], likewise carrying `feedback_guidance`.
 const PYTHON_EXERCISE: &str = r#"exercise:
   type: "function_writing"
   prompt: |
@@ -235,15 +229,9 @@ const PYTHON_EXERCISE: &str = r#"exercise:
   #   - print() adds a trailing newline for you.
   # gotchas: |
   #   - Quote the word: print(hello) looks up a variable named hello.
-  llm_evaluation_prompt: |
-    You are grading a beginner Python exercise: print the word "hello" with print().
-
-    The student submitted this code:
-    {student_code}
-
-    Decide whether it prints "hello" and call respond_with_feedback with your
-    assessment. Set is_correct true when the requirement is met, and give two or
-    three sentences of encouraging feedback.
+  feedback_guidance: |
+    In two or three encouraging sentences, point the learner at what to change
+    without giving them a working solution.
 # Optional lesson-level fields — uncomment to use.
 # checks:
 #   - "assert callable(print)"

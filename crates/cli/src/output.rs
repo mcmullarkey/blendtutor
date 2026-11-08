@@ -543,7 +543,8 @@ fn feedback_line(case: &CaseResult) -> Option<String> {
 ///
 /// It names the 1-based numbers of the mismatched cases, points at re-running a
 /// single case with `--case N`, and names the knobs that shape grading — the
-/// lesson's `llm_evaluation_prompt` and each exercise's reference `solution`.
+/// lesson's task text, `success_criteria`, `feedback_guidance`, and `checks`, the
+/// inputs that actually reach the grader (ADR-0030).
 /// It speaks in plain words ("mismatched"), never the bracketed `[mismatch]`
 /// token, which the integration tests count exactly.
 fn next_steps_footer(report: &EvalReport) -> Option<String> {
@@ -565,7 +566,7 @@ fn next_steps_footer(report: &EvalReport) -> Option<String> {
     Some(format!(
         "mismatched cases: {numbers}\n\
          inspect one: blendtutor eval <lesson> --case N\n\
-         grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`"
+         grading is shaped by the lesson's task text, `success_criteria`, `feedback_guidance`, and `checks`"
     ))
 }
 
@@ -978,8 +979,9 @@ mod tests {
 
     /// F2 — a run with at least one mismatch ends with a next-steps footer that
     /// names the 1-based mismatched case numbers, points at
-    /// `blendtutor eval <lesson> --case N`, and names `llm_evaluation_prompt`
-    /// and the reference `solution` as the grading knobs. The footer must not
+    /// `blendtutor eval <lesson> --case N`, and names the inputs that reach the
+    /// grader (`success_criteria`, `feedback_guidance`), never the unused
+    /// `llm_evaluation_prompt` or `solution` (ADR-0030). The footer must not
     /// contain the bracketed `[mismatch]` token — `tests/eval.rs` counts
     /// `[mismatch]` occurrences exactly, and the footer speaks in plain words.
     #[test]
@@ -1015,12 +1017,12 @@ mod tests {
             "the footer must point at re-running a single case, got: {rendered:?}"
         );
         assert!(
-            rendered.contains("llm_evaluation_prompt"),
-            "the footer must name the prompt knob, got: {rendered:?}"
+            rendered.contains("success_criteria") && rendered.contains("feedback_guidance"),
+            "the footer must name the inputs that reach the grader, got: {rendered:?}"
         );
         assert!(
-            rendered.contains("solution"),
-            "the footer must name the reference solution knob, got: {rendered:?}"
+            !rendered.contains("llm_evaluation_prompt") && !rendered.contains("solution"),
+            "the footer must not name inputs the grader never sees, got: {rendered:?}"
         );
         assert!(
             !rendered.contains("[mismatch] --") && rendered.matches("[mismatch]").count() == 1,
@@ -1028,7 +1030,7 @@ mod tests {
         );
         // The footer is the tail: the render ends with the footer's last line.
         assert!(
-            rendered.ends_with("reference `solution`"),
+            rendered.ends_with("`feedback_guidance`, and `checks`"),
             "the footer must be the end of the output, got: {rendered:?}"
         );
     }
@@ -1102,7 +1104,7 @@ mod tests {
             "a full match emits no guidance lines, got: {rendered:?}"
         );
         assert!(
-            !rendered.contains("llm_evaluation_prompt"),
+            !rendered.contains("feedback_guidance"),
             "a full match emits no guidance lines, got: {rendered:?}"
         );
         assert!(

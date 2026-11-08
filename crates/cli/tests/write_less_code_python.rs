@@ -140,8 +140,9 @@ fn each_lesson_is_valid_python_with_student_code_and_textbook() {
             lesson
                 .exercise
                 .llm_evaluation_prompt
-                .contains("{student_code}"),
-            "lesson {idx} ({filename}) should contain the {{student_code}} placeholder"
+                .as_deref()
+                .is_none_or(|template| template.contains("{student_code}")),
+            "lesson {idx} ({filename}) should keep the {{student_code}} placeholder when the deprecated field is present"
         );
         assert!(
             lesson

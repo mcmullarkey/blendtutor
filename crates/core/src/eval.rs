@@ -34,10 +34,14 @@ use crate::run::{RunError, run_lesson};
 mod audit;
 mod blueprint;
 mod consistency;
+mod detection;
+mod interval;
 
 pub use audit::{CoverageRow, LabelAudit, LabelAuditReport, MisconceptionCoverage, audit_labels};
 pub use blueprint::{CaseLabel, Misconception, MisconceptionId};
 pub use consistency::{Consistency, Discordance, Violation, classify};
+pub use detection::DetectionRow;
+pub use interval::wilson;
 
 /// The verdict an eval case expects the grader to return: a polarity, with no
 /// learner-facing message.
@@ -367,6 +371,8 @@ pub struct CaseResult {
     matched: bool,
     feedback_message: String,
     consistency: Consistency,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    misconception: Option<MisconceptionId>,
 }
 
 impl CaseResult {
@@ -376,7 +382,8 @@ impl CaseResult {
     /// outcomes for the same submission (empty when the lesson has none). The
     /// only constructor, so a `matched` flag
     /// inconsistent with the polarities is unrepresentable.
-    pub fn score(expected: ExpectedVerdict, actual: &Verdict, checks: &[CheckOutcome]) -> Self {
+    pub fn score(label: CaseLabel, actual: &Verdict, checks: &[CheckOutcome]) -> Self {
+        let expected = label.polarity();
         let feedback_message = match actual {
             Verdict::Correct { message } | Verdict::Incorrect { message } => message.clone(),
         };
@@ -389,6 +396,7 @@ impl CaseResult {
             matched,
             feedback_message,
             consistency,
+            misconception: label.misconception().cloned(),
         }
     }
 
@@ -416,6 +424,11 @@ impl CaseResult {
     pub fn consistency(&self) -> Consistency {
         self.consistency
     }
+
+    /// The blueprint misconception the case is tagged with, if any (ADR-0024).
+    pub fn misconception(&self) -> Option<&MisconceptionId> {
+        self.misconception.as_ref()
+    }
 }
 
 /// The result of scoring an eval suite: every [`CaseResult`] in suite order plus
@@ -428,14 +441,26 @@ impl CaseResult {
 pub struct EvalReport {
     cases: Vec<CaseResult>,
     accuracy: f64,
+    /// Omitted on the wire when the suite has no blueprint, so reports for
+    /// untagged suites keep their exact prior shape.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    by_misconception: Vec<DetectionRow>,
 }
 
 impl EvalReport {
     /// Assemble a report from scored `cases`, deriving the aggregate accuracy so
     /// it cannot disagree with the per-case results.
-    pub fn new(cases: Vec<CaseResult>) -> Self {
+    pub fn new(blueprint: &[Misconception], cases: Vec<CaseResult>) -> Self {
         let accuracy = aggregate(&cases);
-        Self { cases, accuracy }
+        let by_misconception = blueprint
+            .iter()
+            .map(|m| DetectionRow::of(m, &cases))
+            .collect();
+        Self {
+            cases,
+            accuracy,
+            by_misconception,
+        }
     }
 
     /// The scored cases, in suite order.
@@ -446,6 +471,12 @@ impl EvalReport {
     /// The fraction of cases whose verdict polarity matched the expected one.
     pub fn accuracy(&self) -> f64 {
         self.accuracy
+    }
+
+    /// Grader detection per blueprint misconception, in blueprint order; empty
+    /// without a blueprint (ADR-0025).
+    pub fn by_misconception(&self) -> &[DetectionRow] {
+        &self.by_misconception
     }
 }
 
@@ -550,12 +581,12 @@ pub async fn run_eval(
             .await
             .map_err(|source| EvalRunError::Run { index, source })?;
         cases.push(CaseResult::score(
-            suite_case.expected(),
+            suite_case.label().clone(),
             report.verdict(),
             report.checks(),
         ));
     }
-    Ok(EvalReport::new(cases))
+    Ok(EvalReport::new(suite.blueprint(), cases))
 }
 
 /// Resolve a 1-based `--case N` request against the suite size to the zero-based
@@ -693,7 +724,7 @@ mod tests {
         // `matched` is computed at construction from the scored polarities, never
         // set independently (§1.1): an expected-correct case graded incorrect is a
         // mismatch, and `matched` equals `score_case` of the stored polarities.
-        let result = CaseResult::score(ExpectedVerdict::Correct, &incorrect(), &[]);
+        let result = CaseResult::score(ExpectedVerdict::Correct.into(), &incorrect(), &[]);
         assert_eq!(result.expected(), &ExpectedVerdict::Correct);
         assert_eq!(result.actual(), &ExpectedVerdict::Incorrect);
         assert!(!result.matched());
@@ -709,7 +740,7 @@ mod tests {
         // the author expected: graded incorrect with every check passing is
         // discordant, even though the author expected correct.
         let result = CaseResult::score(
-            ExpectedVerdict::Correct,
+            ExpectedVerdict::Correct.into(),
             &incorrect(),
             &[crate::grade::CheckOutcome::Pass],
         );
@@ -722,9 +753,9 @@ mod tests {
     #[test]
     fn aggregate_is_matched_over_total_and_zero_for_an_empty_suite() {
         let cases = vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct(), &[]),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect(), &[]),
-            CaseResult::score(ExpectedVerdict::Correct, &incorrect(), &[]),
+            CaseResult::score(ExpectedVerdict::Correct.into(), &correct(), &[]),
+            CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect(), &[]),
+            CaseResult::score(ExpectedVerdict::Correct.into(), &incorrect(), &[]),
         ];
         assert_eq!(aggregate(&cases), 2.0 / 3.0);
         // No cases means no NaN (0/0) — an empty suite is a real, serializable 0.0.
@@ -736,11 +767,14 @@ mod tests {
         // The AC1 probe: two matches and one mismatch give exactly 2/3, the
         // per-case `matched` flags are [true, true, false], and each is the
         // derived `score_case` of its stored polarities.
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct(), &[]),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect(), &[]),
-            CaseResult::score(ExpectedVerdict::Correct, &incorrect(), &[]),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct(), &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect(), &[]),
+                CaseResult::score(ExpectedVerdict::Correct.into(), &incorrect(), &[]),
+            ],
+        );
 
         assert_eq!(report.accuracy(), 2.0 / 3.0);
         let matched: Vec<bool> = report.cases().iter().map(CaseResult::matched).collect();
@@ -799,9 +833,9 @@ mod tests {
         // captured for BOTH polarities — a message captured only for Incorrect
         // verdicts (negative h) or a constant across cases (negative a) cannot
         // pass.
-        let correct = CaseResult::score(ExpectedVerdict::Correct, &correct(), &[]);
+        let correct = CaseResult::score(ExpectedVerdict::Correct.into(), &correct(), &[]);
         assert_eq!(correct.feedback_message(), "well done");
-        let incorrect = CaseResult::score(ExpectedVerdict::Incorrect, &incorrect(), &[]);
+        let incorrect = CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect(), &[]);
         assert_eq!(incorrect.feedback_message(), "try again");
     }
 
@@ -810,10 +844,13 @@ mod tests {
         // The JSON artifact must carry a String `feedback_message` on every case
         // — never null, never omitted, verbatim. An `Option<String>` field or a
         // `skip_serializing_if` would break this contract.
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct(), &[]),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect(), &[]),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct(), &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect(), &[]),
+            ],
+        );
         let json = serde_json::to_value(&report).expect("an EvalReport serializes infallibly");
         let cases = json["cases"].as_array().expect("cases is an array");
         assert_eq!(cases.len(), 2);
@@ -833,7 +870,7 @@ mod tests {
         // `skip_serializing_if` would drop it and break the never-omitted
         // contract (predicate 2).
         let result = CaseResult::score(
-            ExpectedVerdict::Correct,
+            ExpectedVerdict::Correct.into(),
             &Verdict::Correct {
                 message: String::new(),
             },

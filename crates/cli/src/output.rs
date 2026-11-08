@@ -14,8 +14,8 @@ use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
-    CaseResult, Consistency, CoverageRow, Discordance, EvalReport, LabelAudit, LabelAuditReport,
-    MisconceptionCoverage, Violation,
+    CaseResult, Consistency, CoverageRow, DetectionRow, Discordance, EvalReport, LabelAudit,
+    LabelAuditReport, MisconceptionCoverage, Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -411,6 +411,11 @@ fn render_eval(report: &EvalReport) -> String {
             lines.push(feedback);
         }
     }
+    if !report.by_misconception().is_empty() {
+        lines.push(String::new());
+        lines.push("Grader detection by misconception (95% interval):".to_string());
+        lines.extend(report.by_misconception().iter().map(detection_line));
+    }
     if let Some(footer) = next_steps_footer(report) {
         lines.push(String::new());
         lines.push(footer);
@@ -598,6 +603,22 @@ fn render_audit(report: &LabelAuditReport) -> String {
     lines.join("\n")
 }
 
+/// One misconception's grader-detection row (ADR-0025): caught/items with the
+/// Wilson interval as whole percents, or "no items" for a gap in the bank.
+fn detection_line(row: &DetectionRow) -> String {
+    let head = format!("  {id} {label}", id = row.id(), label = row.label());
+    match row.interval() {
+        None => format!("{head}: no items"),
+        Some((lo, hi)) => format!(
+            "{head}: {caught}/{items} caught ({lo:.0}%–{hi:.0}%)",
+            caught = row.caught(),
+            items = row.items(),
+            lo = lo * 100.0,
+            hi = hi * 100.0,
+        ),
+    }
+}
+
 /// One misconception's coverage row (ADR-0024): what the checks caught, and
 /// for a gap, what it means for the author.
 fn coverage_line(row: &CoverageRow) -> String {
@@ -763,11 +784,14 @@ mod tests {
         let flipped = Verdict::Incorrect {
             message: "gamma polarity flipped".to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped, &[]),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+                CaseResult::score(ExpectedVerdict::Correct.into(), &flipped, &[]),
+            ],
+        );
 
         insta::assert_snapshot!(render_eval(&report));
     }
@@ -790,11 +814,14 @@ mod tests {
         let flipped = Verdict::Incorrect {
             message: "gamma polarity flipped".to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped, &[]),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+                CaseResult::score(ExpectedVerdict::Correct.into(), &flipped, &[]),
+            ],
+        );
 
         let rendered = render_eval(&report);
 
@@ -842,11 +869,14 @@ mod tests {
         let flipped = Verdict::Incorrect {
             message: "gamma polarity flipped".to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped, &[]),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+                CaseResult::score(ExpectedVerdict::Correct.into(), &flipped, &[]),
+            ],
+        );
 
         let rendered = render_eval(&report);
 
@@ -895,14 +925,17 @@ mod tests {
         let wrong_gamma = Verdict::Incorrect {
             message: "gamma is off".to_string(),
         };
-        let report = EvalReport::new(vec![
-            // Case 1: expected correct, got incorrect → mismatch.
-            CaseResult::score(ExpectedVerdict::Correct, &wrong_alpha, &[]),
-            // Case 2: expected incorrect, got incorrect → match.
-            CaseResult::score(ExpectedVerdict::Incorrect, &wrong_beta, &[]),
-            // Case 3: expected correct, got incorrect → mismatch.
-            CaseResult::score(ExpectedVerdict::Correct, &wrong_gamma, &[]),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                // Case 1: expected correct, got incorrect → mismatch.
+                CaseResult::score(ExpectedVerdict::Correct.into(), &wrong_alpha, &[]),
+                // Case 2: expected incorrect, got incorrect → match.
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &wrong_beta, &[]),
+                // Case 3: expected correct, got incorrect → mismatch.
+                CaseResult::score(ExpectedVerdict::Correct.into(), &wrong_gamma, &[]),
+            ],
+        );
 
         let rendered = render_eval(&report);
 
@@ -924,10 +957,13 @@ mod tests {
         let incorrect = Verdict::Incorrect {
             message: "beta is wrong".to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+            ],
+        );
 
         let rendered = render_eval(&report);
 
@@ -970,11 +1006,14 @@ mod tests {
             message: "gamma polarity flipped\nthe prompt admits both polarities\ncheck the reference solution"
                 .to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
-            CaseResult::score(ExpectedVerdict::Correct, &multiline, &[]),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+                CaseResult::score(ExpectedVerdict::Correct.into(), &multiline, &[]),
+            ],
+        );
 
         let rendered = render_eval(&report);
 
@@ -1007,11 +1046,14 @@ mod tests {
         let flipped = Verdict::Incorrect {
             message: "gamma polarity flipped".to_string(),
         };
-        let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped, &[]),
-        ]);
+        let report = EvalReport::new(
+            &[],
+            vec![
+                CaseResult::score(ExpectedVerdict::Correct.into(), &correct, &[]),
+                CaseResult::score(ExpectedVerdict::Incorrect.into(), &incorrect, &[]),
+                CaseResult::score(ExpectedVerdict::Correct.into(), &flipped, &[]),
+            ],
+        );
 
         let json = serde_json::to_string(&report).expect("an EvalReport serializes infallibly");
 

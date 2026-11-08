@@ -20,6 +20,10 @@ const BLUEPRINT_LESSON: &str = concat!(
 
 /// Script the grader so the misconceptions land at different detection rates:
 /// M1 caught 2/2, M2 caught 1/2, M3 missed 0/1, M4 has no items.
+/// One expected detection row: id, caught, items, and the ~interval (absent
+/// when there are no items).
+type ExpectedRow = (&'static str, u64, u64, Option<(f64, f64)>);
+
 async fn mount_provider(server: &MockServer) {
     mount_feedback_for(server, "zz_ok", true, "adds correctly").await;
     mount_feedback_for(server, "zz_m1a", false, "returns only x").await;
@@ -66,7 +70,7 @@ async fn eval_reports_grader_detection_per_misconception_with_wilson_intervals()
         .as_array()
         .expect("by_misconception should be an array");
 
-    let expected: [(&str, u64, u64, Option<(f64, f64)>); 4] = [
+    let expected: [ExpectedRow; 4] = [
         ("M1", 2, 2, Some((0.342, 1.0))),
         ("M2", 1, 2, Some((0.095, 0.905))),
         ("M3", 0, 1, Some((0.0, 0.793))),

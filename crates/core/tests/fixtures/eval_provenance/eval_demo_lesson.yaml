@@ -1,0 +1,22 @@
+# Eval suite mixing hand-written and generated items (ADR-0026). Untagged cases
+# count as hand. With the mock grader: hand 1/2 matched, generated 3/3 matched.
+cases:
+  - submission: |-
+      cat("handa\n")
+    expected: correct
+  - submission: |-
+      cat("handb\n")
+    expected: incorrect
+    source: hand
+  - submission: |-
+      cat("gena\n")
+    expected: correct
+    source: generated
+  - submission: |-
+      cat("genb\n")
+    expected: incorrect
+    source: generated
+  - submission: |-
+      cat("genc\n")
+    expected: incorrect
+    source: generated

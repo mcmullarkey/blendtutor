@@ -230,8 +230,11 @@ blendtutor suggest-misconceptions lessons/03.yaml
 ```
 
 ```text
-1. infers the scale maximum from the data instead of the fixed 1-5 scale: not caught by the checks (only the grader can catch it)
-     reverse_score <- function(x) (max(x) + 1) - x
+1. infers the scale maximum from the data (length(x) + 1) instead of the fixed 1-5 scale: not caught by the checks (only the grader can catch it)
+     survey_data <- data.frame(stress_6 = c(1, 2, 3, 4, 5))
+     reverse_score <- function(x) {
+       length(x) + 1 - x   # happens to work only because the input has 5 elements
+     }
 ```
 
 Nothing is written. Add the suggestions you agree with to the blueprint, with

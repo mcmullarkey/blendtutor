@@ -36,6 +36,7 @@ mod blueprint;
 mod consistency;
 mod detection;
 mod interval;
+mod leakage;
 mod provenance;
 
 pub use audit::{
@@ -45,6 +46,7 @@ pub use blueprint::{CaseLabel, Misconception, MisconceptionId};
 pub use consistency::{Consistency, Discordance, Violation, classify};
 pub use detection::DetectionRow;
 pub use interval::wilson;
+pub use leakage::{Leakage, LeakageSummary, assessable, code_blocks};
 pub use provenance::{ItemSource, SourceRow};
 
 /// The verdict an eval case expects the grader to return: a polarity, with no
@@ -414,6 +416,9 @@ pub struct CaseResult {
     misconception: Option<MisconceptionId>,
     #[serde(skip_serializing_if = "ItemSource::is_hand")]
     source: ItemSource,
+    /// Present only for cases leakage could be measured on (ADR-0028).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    leakage: Option<Leakage>,
 }
 
 impl CaseResult {
@@ -439,6 +444,7 @@ impl CaseResult {
             consistency,
             misconception: label.misconception().cloned(),
             source: ItemSource::Hand,
+            leakage: None,
         }
     }
 
@@ -447,6 +453,14 @@ impl CaseResult {
     /// invariant.
     pub fn with_source(mut self, source: ItemSource) -> Self {
         self.source = source;
+        self
+    }
+
+    /// Record the measured solution leakage (ADR-0028). It comes from running the
+    /// feedback's code, outside the pure scorer, and no derived field depends
+    /// on it.
+    pub fn with_leakage(mut self, leakage: Option<Leakage>) -> Self {
+        self.leakage = leakage;
         self
     }
 
@@ -484,6 +498,11 @@ impl CaseResult {
     pub fn source(&self) -> ItemSource {
         self.source
     }
+
+    /// Measured solution leakage, or `None` when not assessable.
+    pub fn leakage(&self) -> Option<Leakage> {
+        self.leakage
+    }
 }
 
 /// The result of scoring an eval suite: every [`CaseResult`] in suite order plus
@@ -503,6 +522,9 @@ pub struct EvalReport {
     /// Present only when the suite has generated items (ADR-0026).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     by_source: Vec<SourceRow>,
+    /// Present only when some case was assessable for leakage (ADR-0028).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    leakage: Option<LeakageSummary>,
 }
 
 impl EvalReport {
@@ -515,11 +537,18 @@ impl EvalReport {
             .map(|m| DetectionRow::of(m, &cases))
             .collect();
         let by_source = SourceRow::split(&cases);
+        let leakage = LeakageSummary::of(
+            &cases
+                .iter()
+                .map(|case| (case.expected, case.leakage))
+                .collect::<Vec<_>>(),
+        );
         Self {
             cases,
             accuracy,
             by_misconception,
             by_source,
+            leakage,
         }
     }
 
@@ -542,6 +571,11 @@ impl EvalReport {
     /// Grader accuracy per item source; empty unless some case is generated.
     pub fn by_source(&self) -> &[SourceRow] {
         &self.by_source
+    }
+
+    /// Solution leakage over assessable incorrect cases, if any were assessable.
+    pub fn leakage(&self) -> Option<&LeakageSummary> {
+        self.leakage.as_ref()
     }
 }
 
@@ -645,14 +679,20 @@ pub async fn run_eval(
         let report = run_lesson(lesson, &submission, grader, base_url_override)
             .await
             .map_err(|source| EvalRunError::Run { index, source })?;
-        cases.push(
-            CaseResult::score(
-                suite_case.label().clone(),
-                report.verdict(),
-                report.checks(),
-            )
-            .with_source(suite_case.source()),
-        );
+        let result = CaseResult::score(
+            suite_case.label().clone(),
+            report.verdict(),
+            report.checks(),
+        )
+        .with_source(suite_case.source());
+        // Leakage runs the feedback's code, so it lives here in the effectful
+        // shell; only assessable cases pay for the extra check runs (ADR-0028).
+        let leakage = if leakage::assessable(suite_case.expected(), report.checks()) {
+            Some(leakage::measure(lesson, &suite_case.submission, result.feedback_message()).await)
+        } else {
+            None
+        };
+        cases.push(result.with_leakage(leakage));
     }
     Ok(EvalReport::new(suite.blueprint(), cases))
 }

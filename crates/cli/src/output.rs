@@ -15,7 +15,7 @@ use serde::Serialize;
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
     AuditWarning, CaseResult, Consistency, CoverageRow, DetectionRow, Discordance, EvalReport,
-    LabelAudit, LabelAuditReport, MisconceptionCoverage, SourceRow, Violation,
+    LabelAudit, LabelAuditReport, LeakageSummary, MisconceptionCoverage, SourceRow, Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -421,6 +421,10 @@ fn render_eval(report: &EvalReport) -> String {
         lines.push("Grader accuracy by item source (95% interval):".to_string());
         lines.extend(report.by_source().iter().map(source_line));
     }
+    if let Some(summary) = report.leakage() {
+        lines.push(String::new());
+        lines.push(leakage_line(summary));
+    }
     if let Some(footer) = next_steps_footer(report) {
         lines.push(String::new());
         lines.push(footer);
@@ -625,6 +629,29 @@ fn warning_text(warning: AuditWarning, case: &LabelAudit) -> String {
                 .unwrap_or("a misconception"),
         ),
     }
+}
+
+/// The solution-leakage line (ADR-0028): the leak rate over assessable incorrect
+/// cases with its interval, plus how many incorrect cases were left out, so a
+/// rate over a small, selected subset is never shown bare.
+fn leakage_line(summary: &LeakageSummary) -> String {
+    let (leaked, assessable) = (summary.leaked(), summary.assessable());
+    let range = summary
+        .interval()
+        .map(|(lo, hi)| format!(" ({:.0}%–{:.0}%)", lo * 100.0, hi * 100.0))
+        .unwrap_or_default();
+    let left_out = summary.incorrect() - assessable;
+    let tail = if left_out == 0 {
+        String::new()
+    } else {
+        format!(
+            "; {left_out} of {incorrect} incorrect cases not assessable",
+            incorrect = summary.incorrect()
+        )
+    };
+    format!(
+        "Solution leakage: {leaked}/{assessable} assessable incorrect cases leaked a working fix{range}{tail}"
+    )
 }
 
 /// One item source's grader-accuracy row (ADR-0026), or "no items" when the

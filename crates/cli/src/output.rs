@@ -14,8 +14,8 @@ use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
-    CaseResult, Consistency, CoverageRow, DetectionRow, Discordance, EvalReport, LabelAudit,
-    LabelAuditReport, MisconceptionCoverage, SourceRow, Violation,
+    AuditWarning, CaseResult, Consistency, CoverageRow, DetectionRow, Discordance, EvalReport,
+    LabelAudit, LabelAuditReport, MisconceptionCoverage, SourceRow, Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -588,12 +588,18 @@ pub fn emit_eval(report: &EvalReport, format: OutputFormat) -> io::Result<()> {
 fn render_audit(report: &LabelAuditReport) -> String {
     let items: Vec<Consistency> = report.cases().iter().map(LabelAudit::consistency).collect();
     let mut lines = vec![consistency_summary("Label audit", &items)];
-    let flagged: Vec<String> = items
+    let flagged: Vec<String> = report
+        .cases()
         .iter()
         .enumerate()
-        .filter_map(|(position, consistency)| {
-            disagreement(*consistency, Claimant::Label)
-                .map(|text| format!("case {number}: {text}", number = position + 1))
+        .flat_map(|(position, case)| {
+            let number = position + 1;
+            let disagrees = disagreement(case.consistency(), Claimant::Label)
+                .map(|text| format!("case {number}: {text}"));
+            let warns = case
+                .warning()
+                .map(|warning| format!("case {number}: {}", warning_text(warning, case)));
+            disagrees.into_iter().chain(warns)
         })
         .collect();
     if !flagged.is_empty() {
@@ -606,6 +612,19 @@ fn render_audit(report: &LabelAuditReport) -> String {
         lines.extend(report.coverage().iter().map(coverage_line));
     }
     lines.join("\n")
+}
+
+/// The human text for an audit warning on `case` (ADR-0026 amendment).
+fn warning_text(warning: AuditWarning, case: &LabelAudit) -> String {
+    match warning {
+        AuditWarning::TaggedItemNeverRan => format!(
+            "warning — tagged {id} but the submission never ran, so it can't show the misconception",
+            id = case
+                .misconception()
+                .map(|id| id.as_str())
+                .unwrap_or("a misconception"),
+        ),
+    }
 }
 
 /// One item source's grader-accuracy row (ADR-0026), or "no items" when the

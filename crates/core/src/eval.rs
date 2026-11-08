@@ -38,7 +38,9 @@ mod detection;
 mod interval;
 mod provenance;
 
-pub use audit::{CoverageRow, LabelAudit, LabelAuditReport, MisconceptionCoverage, audit_labels};
+pub use audit::{
+    AuditWarning, CoverageRow, LabelAudit, LabelAuditReport, MisconceptionCoverage, audit_labels,
+};
 pub use blueprint::{CaseLabel, Misconception, MisconceptionId};
 pub use consistency::{Consistency, Discordance, Violation, classify};
 pub use detection::DetectionRow;

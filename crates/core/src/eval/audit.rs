@@ -34,6 +34,32 @@ pub struct LabelAudit {
     /// item's misconception (ADR-0024).
     #[serde(skip)]
     caught: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    warning: Option<AuditWarning>,
+}
+
+/// Something about a case that is not a contradiction but makes it weak
+/// evidence (ADR-0026 amendment). Warnings never fail the audit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuditWarning {
+    /// A misconception-tagged item crashed before any check ran, so it cannot
+    /// show the misconception it was written for.
+    TaggedItemNeverRan,
+}
+
+impl AuditWarning {
+    /// The wire token.
+    pub const fn token(self) -> &'static str {
+        match self {
+            AuditWarning::TaggedItemNeverRan => "tagged_item_never_ran",
+        }
+    }
+}
+
+impl Serialize for AuditWarning {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.token())
+    }
 }
 
 impl LabelAudit {
@@ -42,6 +68,11 @@ impl LabelAudit {
     /// label and the outcomes (§1.1).
     pub fn of(label: &CaseLabel, checks: &[CheckOutcome]) -> Self {
         let expected = label.polarity();
+        let never_ran = checks
+            .iter()
+            .any(|c| matches!(c, CheckOutcome::NotRun { .. }));
+        let warning = (label.misconception().is_some() && never_ran)
+            .then_some(AuditWarning::TaggedItemNeverRan);
         Self {
             expected,
             misconception: label.misconception().cloned(),
@@ -49,7 +80,13 @@ impl LabelAudit {
             caught: checks
                 .iter()
                 .any(|c| matches!(c, CheckOutcome::Fail { .. })),
+            warning,
         }
+    }
+
+    /// A warning that makes this case weak evidence, if any.
+    pub fn warning(&self) -> Option<AuditWarning> {
+        self.warning
     }
 
     /// The author's label polarity for this case.
@@ -323,6 +360,24 @@ mod tests {
                 ("M4", MisconceptionCoverage::NoItems, 0, 0),
             ]
         );
+    }
+
+    #[test]
+    fn only_a_tagged_item_that_never_ran_is_warned() {
+        assert_eq!(
+            LabelAudit::of(&tagged("M1"), &[not_run()]).warning(),
+            Some(AuditWarning::TaggedItemNeverRan)
+        );
+        // Untagged crashing items are legitimate syntax-error cases.
+        assert_eq!(LabelAudit::of(&incorrect(), &[not_run()]).warning(), None);
+        // A tagged item that ran is fine whether or not checks caught it.
+        assert_eq!(LabelAudit::of(&tagged("M1"), &[fail()]).warning(), None);
+        assert_eq!(
+            LabelAudit::of(&tagged("M1"), &[CheckOutcome::Pass]).warning(),
+            None
+        );
+        // No checks means nothing ran at all: no evidence of a crash either.
+        assert_eq!(LabelAudit::of(&tagged("M1"), &[]).warning(), None);
     }
 
     #[test]

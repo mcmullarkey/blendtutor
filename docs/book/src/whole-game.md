@@ -176,6 +176,20 @@ A wide interval means add items for that misconception. The interval assumes
 the items are independent, so many near-copies of one item make it look
 narrower than it should be.
 
+Cases can say where they came from with `source: generated` (the default is
+`hand`). When a suite has any generated items, `eval` also splits grader
+accuracy by source:
+
+```text
+Grader accuracy by item source (95% interval):
+  hand: 1/2 matched (9%–91%)
+  generated: 3/3 matched (44%–100%)
+```
+
+A big gap is a warning sign about the generator. Its items may be easier than
+real mistakes, or share the grader's blind spots. The `blendtutor-course`
+skill documents a generate-then-`audit` workflow for growing a suite.
+
 To persist the result for `build` to fold into the site's eval-results page,
 write the report at the course root:
 

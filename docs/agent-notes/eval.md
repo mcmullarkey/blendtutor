@@ -193,3 +193,15 @@ ADR-0007 for the verdict-representation decision.
   holds), and `interval` is omitted when items = 0. The fixture
   `eval_blueprint/` gained `# zz_*` comment tokens for mock keying, which
   doesn't change check outcomes.
+- 2026-11-08 (eval-measurement slice 5): **Item provenance** (ADR-0026).
+  `ItemSource { Hand (default), Generated }`. `EvalCase::with_source` /
+  `CaseResult::with_source` are builders (source is independent of every
+  derived field, so `score` didn't widen again). The wire omits `source` for
+  `hand`, and `by_source` is emitted only when some case is generated, which
+  the `hand_only_suites_get_no_split` / `eval_omits_the_source_split…` guard
+  tests pin. Negative-control gotcha: a perl sabotage of `split` silently
+  missed because rustfmt had reflowed the guard; the Edit-tool redo failed
+  exactly those 2 guards. Generation itself lives in the `blendtutor-course`
+  skill ("Generate more items"): per misconception × surface facet,
+  `source: generated`, audit gate, human review of uncovered-misconception
+  items, and a different model family than the grader.

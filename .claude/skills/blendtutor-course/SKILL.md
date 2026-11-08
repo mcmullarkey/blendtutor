@@ -135,6 +135,41 @@ doesn't list, fails to parse. `blendtutor audit` then reports which
 misconceptions the checks catch. An uncovered one (often the near-miss) is
 fine, as long as you know only the grader can catch it.
 
+### Generate more items (when the user wants trustworthy numbers)
+
+Four hand-written cases are enough to start, but `eval` prints a 95% interval
+per misconception, and with 1–2 items per misconception those intervals span
+most of 0–100%. When the user wants numbers they can compare across prompt
+versions, grow the suite by generating items. The user writes the blueprint,
+you write the items, and the deterministic gates decide what stays.
+
+1. **Keep the hand-written cases.** They are the anchor set. Never relabel or
+   delete them to make generated items fit.
+2. **Generate per misconception × surface facet.** For each blueprint entry,
+   write 4–8 `incorrect` items that each show *only that* mistake. Vary the
+   surface: variable and function names, idioms (`for` vs vectorized, `print`
+   vs `cat`), formatting, comments. Also add a few `correct` items that use
+   unusual but valid idioms, so the grader isn't rewarded for treating anything
+   unfamiliar as wrong.
+3. **Mark every one `source: generated`**, and tag the incorrect ones with
+   their `misconception:`.
+4. **Gate with `audit`, then fix or drop:**
+   - a violation (a generated `correct` item that fails a check) → drop it;
+   - a tagged item that crashes, when crashing isn't the misconception → drop
+     it (run it once with the lesson's interpreter to see);
+   - near-duplicates of another item (same code after renaming) → drop them.
+5. **Ask the user to review a sample**, prioritizing items for misconceptions
+   `audit` reports as *uncovered*. No check can confirm those items really show
+   the mistake. Report how many items you generated, dropped, and want reviewed.
+6. **Use a different model family than the grader** when you can, and tell the
+   user if you can't. A generator that shares the grader's blind spots writes
+   items the grader always gets right, which hides real improvements.
+
+After a paid `eval`, look at `Grader accuracy by item source`. If generated
+items score much higher than hand ones, compare within a misconception before
+trusting them. The gap may mean the generated items are too easy or share the
+grader's blind spots.
+
 ## 5. Verify locally (no paid calls)
 
 ```bash

@@ -6,6 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
+pub mod audit;
 pub mod build;
 pub mod eval;
 pub mod eval_report;

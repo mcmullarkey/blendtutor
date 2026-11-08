@@ -86,6 +86,16 @@ enum Commands {
         #[arg(long)]
         write_report: bool,
     },
+    /// Check each eval case's expected label against the lesson's checks
+    /// (no LLM call, no API key). Exits 1 if any label contradicts them.
+    Audit {
+        /// Path to the lesson YAML file; its sibling `eval_<lesson>.yaml`
+        /// supplies the labels to audit.
+        lesson: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
     /// Generate a static smevals eval report for a lesson.
     EvalReport {
         /// Path to the lesson YAML file; its sibling `eval_<lesson>.yaml`
@@ -179,6 +189,7 @@ fn main() -> anyhow::Result<ExitCode> {
             write_report,
         } => commands::eval::run(&lesson, format, case, write_report),
         Commands::EvalReport { lesson } => commands::eval_report::run(&lesson),
+        Commands::Audit { lesson, format } => commands::audit::run(&lesson, format),
         Commands::New { target } => match target {
             NewTarget::Lesson { lang, id } => commands::new::run(lang, &id),
         },

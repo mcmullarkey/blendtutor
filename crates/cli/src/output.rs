@@ -13,7 +13,9 @@ use clap::ValueEnum;
 use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
-use blendtutor_core::eval::{CaseResult, Consistency, Discordance, EvalReport, Violation};
+use blendtutor_core::eval::{
+    CaseResult, Consistency, Discordance, EvalReport, LabelAudit, LabelAuditReport, Violation,
+};
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
 use blendtutor_core::run::RunReport;
@@ -415,25 +417,43 @@ fn render_eval(report: &EvalReport) -> String {
     lines.join("\n")
 }
 
-/// The `Consistency:` headline (ADR-0022): violation and discordance counts over
+/// Whose polarity claim is being compared with the lesson's checks: the
+/// grader's verdict (`eval`, ADR-0022) or the eval author's label (`audit`,
+/// ADR-0023). A closed enum so the call-out wording cannot name some other
+/// instrument by accident.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Claimant {
+    Grader,
+    Label,
+}
+
+impl Claimant {
+    const fn verb(self) -> &'static str {
+        match self {
+            Claimant::Grader => "graded",
+            Claimant::Label => "labeled",
+        }
+    }
+}
+
+/// A consistency headline titled `title`: violation and discordance counts over
 /// the cases that had checks, or an explicit "not assessable" when none did, so
-/// an LLM-only lesson never reads as agreeing with checks it does not have.
-fn consistency_headline(report: &EvalReport) -> String {
-    let cases = report.cases();
-    let checked = cases
+/// a lesson with no checks never reads as agreeing with checks it does not have.
+fn consistency_summary(title: &str, items: &[Consistency]) -> String {
+    let checked = items
         .iter()
-        .filter(|case| case.consistency() != Consistency::Unchecked)
+        .filter(|c| **c != Consistency::Unchecked)
         .count();
     if checked == 0 {
-        return "Consistency: not assessable (lesson has no checks)".to_string();
+        return format!("{title}: not assessable (lesson has no checks)");
     }
-    let violations = cases
+    let violations = items
         .iter()
-        .filter(|case| matches!(case.consistency(), Consistency::Violated(_)))
+        .filter(|c| matches!(c, Consistency::Violated(_)))
         .count();
-    let discordant = cases
+    let discordant = items
         .iter()
-        .filter(|case| matches!(case.consistency(), Consistency::Discordant(_)))
+        .filter(|c| matches!(c, Consistency::Discordant(_)))
         .count();
     let noun = if violations == 1 {
         "violation"
@@ -441,27 +461,40 @@ fn consistency_headline(report: &EvalReport) -> String {
         "violations"
     };
     format!(
-        "Consistency: {violations} {noun}, {discordant} discordant ({checked}/{total} cases checked)",
-        total = cases.len()
+        "{title}: {violations} {noun}, {discordant} discordant ({checked}/{total} cases checked)",
+        total = items.len()
     )
 }
 
-/// The indented call-out under a case whose verdict disagrees with its checks,
-/// or `None` when it agrees or the lesson has no checks.
-fn consistency_line(case: &CaseResult) -> Option<String> {
-    let text = match case.consistency() {
+/// The description of a claim that disagrees with its checks, worded for
+/// `claimant`, or `None` when it agrees or the lesson has no checks.
+fn disagreement(consistency: Consistency, claimant: Claimant) -> Option<String> {
+    let verb = claimant.verb();
+    let text = match consistency {
         Consistency::Unchecked | Consistency::Consistent => return None,
         Consistency::Violated(Violation::CorrectDespiteFailedCheck) => {
-            "violation — graded correct but a check failed"
+            format!("violation — {verb} correct but a check failed")
         }
         Consistency::Violated(Violation::CorrectDespiteNotRun) => {
-            "violation — graded correct but the submission never ran"
+            format!("violation — {verb} correct but the submission never ran")
         }
         Consistency::Discordant(Discordance::IncorrectDespitePassingChecks) => {
-            "discordant — graded incorrect but every check passed"
+            format!("discordant — {verb} incorrect but every check passed")
         }
     };
-    Some(format!("  consistency: {text}"))
+    Some(text)
+}
+
+/// The eval report's `Consistency:` headline (ADR-0022).
+fn consistency_headline(report: &EvalReport) -> String {
+    let items: Vec<Consistency> = report.cases().iter().map(CaseResult::consistency).collect();
+    consistency_summary("Consistency", &items)
+}
+
+/// The indented call-out under an eval case whose verdict disagrees with its
+/// checks.
+fn consistency_line(case: &CaseResult) -> Option<String> {
+    disagreement(case.consistency(), Claimant::Grader).map(|text| format!("  consistency: {text}"))
 }
 
 /// The indented `grader:` line carrying one case's verbatim feedback — present
@@ -534,6 +567,39 @@ pub fn emit_eval(report: &EvalReport, format: OutputFormat) -> io::Result<()> {
             serde_json::to_string(report).expect("an EvalReport serializes to JSON infallibly")
         }
         OutputFormat::Human => render_eval(report),
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// The human rendering of a [`LabelAuditReport`] (ADR-0023): a `Label audit:`
+/// headline, then one row per label that disagrees with its checks, worded about
+/// the label and never about a grader. Pure (§2.1).
+fn render_audit(report: &LabelAuditReport) -> String {
+    let items: Vec<Consistency> = report.cases().iter().map(LabelAudit::consistency).collect();
+    let mut lines = vec![consistency_summary("Label audit", &items)];
+    let flagged: Vec<String> = items
+        .iter()
+        .enumerate()
+        .filter_map(|(position, consistency)| {
+            disagreement(*consistency, Claimant::Label)
+                .map(|text| format!("case {number}: {text}", number = position + 1))
+        })
+        .collect();
+    if !flagged.is_empty() {
+        lines.push(String::new());
+        lines.extend(flagged);
+    }
+    lines.join("\n")
+}
+
+/// Render a label audit in `format` and write it to stdout: the single place an
+/// audit reaches the terminal (§2.4).
+pub fn emit_audit(report: &LabelAuditReport, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("a LabelAuditReport serializes to JSON infallibly")
+        }
+        OutputFormat::Human => render_audit(report),
     };
     writeln!(io::stdout(), "{text}")
 }

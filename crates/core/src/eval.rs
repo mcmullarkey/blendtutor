@@ -31,8 +31,10 @@ use crate::lesson::Lesson;
 use crate::llm::{ProviderChoice, Submission, Verdict};
 use crate::run::{RunError, run_lesson};
 
+mod audit;
 mod consistency;
 
+pub use audit::{LabelAudit, LabelAuditReport, audit_labels};
 pub use consistency::{Consistency, Discordance, Violation, classify};
 
 /// The verdict an eval case expects the grader to return: a polarity, with no

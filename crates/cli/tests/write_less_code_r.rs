@@ -231,12 +231,12 @@ fn layer5_eval_suites_have_minimum_cases() {
         let correct = suite
             .cases
             .iter()
-            .filter(|c| c.expected == ExpectedVerdict::Correct)
+            .filter(|c| c.expected() == ExpectedVerdict::Correct)
             .count();
         let incorrect = suite
             .cases
             .iter()
-            .filter(|c| c.expected == ExpectedVerdict::Incorrect)
+            .filter(|c| c.expected() == ExpectedVerdict::Incorrect)
             .count();
         assert!(
             correct >= 2,
@@ -265,7 +265,7 @@ fn layer6_each_lesson_has_genuine_near_miss() {
             continue;
         }
         let has_near_miss = suite.cases.iter().any(|case| {
-            case.expected == ExpectedVerdict::Incorrect && rscript_exits_zero(&case.submission)
+            case.expected() == ExpectedVerdict::Incorrect && rscript_exits_zero(&case.submission)
         });
         assert!(
             has_near_miss,
@@ -431,7 +431,8 @@ fn near_miss_submissions_fail_at_least_one_check() {
             .cases
             .iter()
             .find(|case| {
-                case.expected == ExpectedVerdict::Incorrect && rscript_exits_zero(&case.submission)
+                case.expected() == ExpectedVerdict::Incorrect
+                    && rscript_exits_zero(&case.submission)
             })
             .unwrap_or_else(|| {
                 panic!("lesson {i} should have a near-miss case (incorrect + runs cleanly)")

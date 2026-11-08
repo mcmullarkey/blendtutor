@@ -32,9 +32,9 @@ fn parses_ten_fireworks_vitals_cases_into_typed_suite() {
     // Per-index polarity pins both variants — so a constant or all-default impl
     // cannot pass — and the document order: idx 9 is the prompt-injection case,
     // which must stay last.
-    assert_eq!(suite.cases[0].expected, ExpectedVerdict::Correct);
-    assert_eq!(suite.cases[1].expected, ExpectedVerdict::Incorrect);
-    assert_eq!(suite.cases[9].expected, ExpectedVerdict::Incorrect);
+    assert_eq!(suite.cases[0].expected(), ExpectedVerdict::Correct);
+    assert_eq!(suite.cases[1].expected(), ExpectedVerdict::Incorrect);
+    assert_eq!(suite.cases[9].expected(), ExpectedVerdict::Incorrect);
 
     // Submission↔verdict are bound positionally: case 0 carries its own
     // commented pseudocode, not case 1's uncommented text.

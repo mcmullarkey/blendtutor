@@ -32,9 +32,11 @@ use crate::llm::{ProviderChoice, Submission, Verdict};
 use crate::run::{RunError, run_lesson};
 
 mod audit;
+mod blueprint;
 mod consistency;
 
-pub use audit::{LabelAudit, LabelAuditReport, audit_labels};
+pub use audit::{CoverageRow, LabelAudit, LabelAuditReport, MisconceptionCoverage, audit_labels};
+pub use blueprint::{CaseLabel, Misconception, MisconceptionId};
 pub use consistency::{Consistency, Discordance, Violation, classify};
 
 /// The verdict an eval case expects the grader to return: a polarity, with no
@@ -44,7 +46,7 @@ pub use consistency::{Consistency, Discordance, Violation, classify};
 /// rejected at the parse boundary instead of carried downstream as data (§1.2).
 /// Distinct from the runtime `llm::Verdict`, which also carries the feedback
 /// message; an author's *expected* outcome is pure polarity (ADR-0007).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExpectedVerdict {
     /// The submission is expected to be graded correct.
     Correct,
@@ -102,27 +104,68 @@ impl From<&Verdict> for ExpectedVerdict {
     }
 }
 
-/// A single eval case: a synthetic submission and the polarity it should grade
-/// to.
+/// A single eval case: a synthetic submission and its author-written label.
 ///
-/// The two fields are positional partners — `submission` and its `expected`
-/// verdict travel together in document order.
+/// The label is private and reached through [`EvalCase::expected`] (its
+/// polarity) and [`EvalCase::misconception`], so "tagged but correct" cannot be
+/// built (ADR-0024).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvalCase {
     /// The synthetic learner submission to grade.
     pub submission: String,
-    /// The polarity this submission is expected to grade to.
-    pub expected: ExpectedVerdict,
+    label: CaseLabel,
 }
 
-/// A lesson's eval suite: its cases in authored order.
+impl EvalCase {
+    /// A case pairing `submission` with `label`.
+    pub fn new(submission: impl Into<String>, label: CaseLabel) -> Self {
+        Self {
+            submission: submission.into(),
+            label,
+        }
+    }
+
+    /// The polarity this submission is expected to grade to.
+    pub fn expected(&self) -> ExpectedVerdict {
+        self.label.polarity()
+    }
+
+    /// The blueprint misconception this item was built to exhibit, if tagged.
+    pub fn misconception(&self) -> Option<&MisconceptionId> {
+        self.label.misconception()
+    }
+
+    /// The full author-written label.
+    pub fn label(&self) -> &CaseLabel {
+        &self.label
+    }
+}
+
+/// A lesson's eval suite: its cases in authored order, plus the optional
+/// misconception blueprint those cases sample (ADR-0024).
 ///
-/// Construct one only through [`parse_eval_suite`]; document order is preserved
-/// so a case's index is stable for reporting (Slice 13 scoring).
+/// Document order is preserved so a case's index is stable for reporting.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvalSuite {
     /// The eval cases, in the order authored.
     pub cases: Vec<EvalCase>,
+    blueprint: Vec<Misconception>,
+}
+
+impl EvalSuite {
+    /// A suite of `cases` with no misconception blueprint.
+    pub fn new(cases: Vec<EvalCase>) -> Self {
+        Self {
+            cases,
+            blueprint: Vec::new(),
+        }
+    }
+
+    /// The blueprint's misconceptions in document order; empty when the suite
+    /// declares none.
+    pub fn blueprint(&self) -> &[Misconception] {
+        &self.blueprint
+    }
 }
 
 /// The boundary DTO for a suite: structural only, before verdict tokens are
@@ -131,7 +174,17 @@ pub struct EvalSuite {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawSuite {
+    #[serde(default)]
+    blueprint: Option<RawBlueprint>,
     cases: Vec<RawCase>,
+}
+
+/// The boundary DTO for a blueprint: `id: label` pairs in document order.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawBlueprint {
+    #[serde(deserialize_with = "blueprint::ordered_entries")]
+    misconceptions: Vec<(String, String)>,
 }
 
 /// The boundary DTO for one case: `expected` is still a raw token here. Unknown
@@ -142,6 +195,8 @@ struct RawSuite {
 struct RawCase {
     submission: String,
     expected: String,
+    #[serde(default)]
+    misconception: Option<String>,
 }
 
 /// Why a YAML document is not a valid eval suite.
@@ -160,6 +215,21 @@ pub enum EvalParseError {
         /// The unrecognized token, quoted back to the author.
         token: String,
     },
+    /// A case is tagged with a misconception id the blueprint does not list.
+    UnknownMisconception {
+        /// The zero-based index of the offending case in document order.
+        index: usize,
+        /// The unlisted id, quoted back to the author.
+        id: String,
+    },
+    /// A case labeled `correct` is tagged with a misconception. A
+    /// misconception-bearing item cannot be correct (ADR-0024).
+    MisconceptionOnCorrect {
+        /// The zero-based index of the offending case in document order.
+        index: usize,
+        /// The tag on the correct case.
+        id: String,
+    },
 }
 
 impl fmt::Display for EvalParseError {
@@ -173,6 +243,16 @@ impl fmt::Display for EvalParseError {
                 correct = ExpectedVerdict::CORRECT_TOKEN,
                 incorrect = ExpectedVerdict::INCORRECT_TOKEN,
             ),
+            EvalParseError::UnknownMisconception { index, id } => write!(
+                f,
+                "invalid eval suite: eval case {index} is tagged with misconception {id:?}, \
+                 which the blueprint does not list"
+            ),
+            EvalParseError::MisconceptionOnCorrect { index, id } => write!(
+                f,
+                "invalid eval suite: eval case {index} is labeled correct but tagged with \
+                 misconception {id:?}; a misconception-bearing case must be incorrect"
+            ),
         }
     }
 }
@@ -185,33 +265,67 @@ impl Error for EvalParseError {}
 /// private `RawSuite` DTO — a missing field, wrong type, or unknown key yields
 /// [`EvalParseError::Structural`] — then validate each case's `expected` token
 /// into an [`ExpectedVerdict`], yielding [`EvalParseError::UnknownVerdict`]
-/// naming the offending case index on a miss. Document order is preserved. File
-/// reading is the caller's concern, so this runs over an in-memory string.
+/// naming the offending case index on a miss. An optional `misconception` tag must
+/// name a blueprint entry ([`EvalParseError::UnknownMisconception`]) and sit on an
+/// `incorrect` case ([`EvalParseError::MisconceptionOnCorrect`]), so a tagged
+/// correct case never exists past this boundary (ADR-0024). Document order is
+/// preserved for cases and blueprint alike. File reading is the caller's
+/// concern, so this runs over an in-memory string.
 pub fn parse_eval_suite(yaml: &str) -> Result<EvalSuite, EvalParseError> {
     let raw: RawSuite =
         serde_saphyr::from_str(yaml).map_err(|e| EvalParseError::Structural(e.to_string()))?;
+    let blueprint: Vec<Misconception> = raw
+        .blueprint
+        .map(|b| b.misconceptions)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(id, label)| Misconception {
+            id: MisconceptionId::new(id),
+            label,
+        })
+        .collect();
     let cases = raw
         .cases
         .into_iter()
         .enumerate()
-        .map(|(index, case)| {
-            let RawCase {
-                submission,
-                expected,
-            } = case;
-            match ExpectedVerdict::from_token(&expected) {
-                Some(verdict) => Ok(EvalCase {
-                    submission,
-                    expected: verdict,
-                }),
-                None => Err(EvalParseError::UnknownVerdict {
-                    index,
-                    token: expected,
-                }),
-            }
-        })
+        .map(|(index, case)| parse_case(index, case, &blueprint))
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(EvalSuite { cases })
+    Ok(EvalSuite { cases, blueprint })
+}
+
+/// Validate one raw case into an [`EvalCase`]: its verdict token first, then
+/// its tag, checked against `blueprint` and against the label's polarity.
+fn parse_case(
+    index: usize,
+    case: RawCase,
+    blueprint: &[Misconception],
+) -> Result<EvalCase, EvalParseError> {
+    let RawCase {
+        submission,
+        expected,
+        misconception,
+    } = case;
+    let Some(polarity) = ExpectedVerdict::from_token(&expected) else {
+        return Err(EvalParseError::UnknownVerdict {
+            index,
+            token: expected,
+        });
+    };
+    let Some(id) = misconception else {
+        return Ok(EvalCase::new(submission, polarity.into()));
+    };
+    if !blueprint.iter().any(|m| m.id.as_str() == id) {
+        return Err(EvalParseError::UnknownMisconception { index, id });
+    }
+    match polarity {
+        ExpectedVerdict::Correct => Err(EvalParseError::MisconceptionOnCorrect { index, id }),
+        ExpectedVerdict::Incorrect => Ok(EvalCase::new(
+            submission,
+            CaseLabel::Incorrect {
+                misconception: Some(MisconceptionId::new(id)),
+            },
+        )),
+    }
 }
 
 /// Score one case: whether the grader's `actual` polarity matched the `expected`
@@ -436,7 +550,7 @@ pub async fn run_eval(
             .await
             .map_err(|source| EvalRunError::Run { index, source })?;
         cases.push(CaseResult::score(
-            suite_case.expected.clone(),
+            suite_case.expected(),
             report.verdict(),
             report.checks(),
         ));
@@ -780,5 +894,79 @@ mod tests {
             std::error::Error::source(&err).is_none(),
             "a range error has no underlying pipeline failure to chain"
         );
+    }
+}
+
+#[cfg(test)]
+mod blueprint_parse_tests {
+    use super::*;
+
+    const BLUEPRINT: &str = "blueprint:\n  misconceptions:\n    M2: \"prints instead of returns\"\n    M10: \"off by one\"\n";
+
+    #[test]
+    fn a_tagged_incorrect_case_carries_its_misconception() {
+        let yaml = format!(
+            "{BLUEPRINT}cases:\n  - submission: x\n    expected: incorrect\n    misconception: M10\n"
+        );
+        let suite = parse_eval_suite(&yaml).expect("a tag in the blueprint parses");
+        let case = &suite.cases[0];
+        assert_eq!(case.expected(), ExpectedVerdict::Incorrect);
+        assert_eq!(
+            case.misconception().map(MisconceptionId::as_str),
+            Some("M10")
+        );
+    }
+
+    #[test]
+    fn the_blueprint_keeps_document_order() {
+        // M10 sorts before M2 as a string; document order must win.
+        let yaml = format!("{BLUEPRINT}cases: []\n");
+        let suite = parse_eval_suite(&yaml).expect("parses");
+        let ids: Vec<&str> = suite.blueprint().iter().map(|m| m.id.as_str()).collect();
+        assert_eq!(ids, vec!["M2", "M10"]);
+        assert_eq!(suite.blueprint()[0].label, "prints instead of returns");
+    }
+
+    #[test]
+    fn a_suite_without_a_blueprint_parses_unchanged() {
+        let suite =
+            parse_eval_suite("cases:\n  - submission: x\n    expected: correct\n").expect("parses");
+        assert!(suite.blueprint().is_empty());
+        assert_eq!(suite.cases[0].misconception(), None);
+    }
+
+    #[test]
+    fn a_tag_missing_from_the_blueprint_is_refused_naming_the_case() {
+        let yaml = format!(
+            "{BLUEPRINT}cases:\n  - submission: x\n    expected: incorrect\n    misconception: M9\n"
+        );
+        match parse_eval_suite(&yaml) {
+            Err(EvalParseError::UnknownMisconception { index, id }) => {
+                assert_eq!(index, 0);
+                assert_eq!(id, "M9");
+            }
+            other => panic!("expected UnknownMisconception, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_tag_on_a_correct_case_is_refused_naming_the_case() {
+        let yaml = format!(
+            "{BLUEPRINT}cases:\n  - submission: ok\n    expected: correct\n  - submission: x\n    expected: correct\n    misconception: M2\n"
+        );
+        match parse_eval_suite(&yaml) {
+            Err(EvalParseError::MisconceptionOnCorrect { index, id }) => {
+                assert_eq!(index, 1);
+                assert_eq!(id, "M2");
+            }
+            other => panic!("expected MisconceptionOnCorrect, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_duplicate_blueprint_id_is_refused() {
+        let yaml = "blueprint:\n  misconceptions:\n    M1: a\n    M1: b\ncases: []\n";
+        let err = parse_eval_suite(yaml).expect_err("duplicate ids must be refused");
+        assert!(err.to_string().contains("M1"), "names the duplicate: {err}");
     }
 }

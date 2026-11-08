@@ -876,7 +876,7 @@ mod tests {
             "the starter suite is minimal: one case"
         );
         assert_eq!(
-            suite.cases[0].expected,
+            suite.cases[0].expected(),
             crate::eval::ExpectedVerdict::Correct,
             "the starter case expects a correct verdict"
         );

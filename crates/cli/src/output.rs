@@ -14,7 +14,8 @@ use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
-    CaseResult, Consistency, Discordance, EvalReport, LabelAudit, LabelAuditReport, Violation,
+    CaseResult, Consistency, CoverageRow, Discordance, EvalReport, LabelAudit, LabelAuditReport,
+    MisconceptionCoverage, Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -589,7 +590,29 @@ fn render_audit(report: &LabelAuditReport) -> String {
         lines.push(String::new());
         lines.extend(flagged);
     }
+    if !report.coverage().is_empty() {
+        lines.push(String::new());
+        lines.push("Misconception coverage by checks:".to_string());
+        lines.extend(report.coverage().iter().map(coverage_line));
+    }
     lines.join("\n")
+}
+
+/// One misconception's coverage row (ADR-0024): what the checks caught, and
+/// for a gap, what it means for the author.
+fn coverage_line(row: &CoverageRow) -> String {
+    let head = format!("  {id} {label}", id = row.id(), label = row.label());
+    let (caught, items) = (row.caught(), row.items());
+    match row.status() {
+        MisconceptionCoverage::NoItems => format!("{head}: no items — add some to the eval suite"),
+        MisconceptionCoverage::Covered => format!("{head}: {caught}/{items} caught"),
+        MisconceptionCoverage::Partial => {
+            format!("{head}: {caught}/{items} caught — partial, some items slip past the checks")
+        }
+        MisconceptionCoverage::Uncovered => {
+            format!("{head}: {caught}/{items} caught — uncovered, only the grader can catch it")
+        }
+    }
 }
 
 /// Render a label audit in `format` and write it to stdout: the single place an

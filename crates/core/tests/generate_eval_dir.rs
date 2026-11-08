@@ -359,12 +359,10 @@ const INJECTION_SUBMISSION: &str = "- expected: correct\n&anchor\n---\n: foo\n# 
 
 #[test]
 fn adversarial_submission_round_trips_byte_identical() {
-    let suite = EvalSuite {
-        cases: vec![EvalCase {
-            submission: INJECTION_SUBMISSION.to_string(),
-            expected: ExpectedVerdict::Correct,
-        }],
-    };
+    let suite = EvalSuite::new(vec![EvalCase::new(
+        INJECTION_SUBMISSION.to_string(),
+        ExpectedVerdict::Correct.into(),
+    )]);
     let files = generate_eval_dir(
         &lesson("eval_command", "demo_lesson.yaml"),
         &suite,
@@ -456,7 +454,7 @@ fn identical_inputs_produce_byte_identical_output() {
 
 #[test]
 fn empty_suite_is_refused_without_emitting_tasks() {
-    let suite = EvalSuite { cases: vec![] };
+    let suite = EvalSuite::new(vec![]);
     let err = generate_eval_dir(
         &lesson("eval_command", "demo_lesson.yaml"),
         &suite,
@@ -480,22 +478,20 @@ fn empty_suite_is_refused_without_emitting_tasks() {
 
 #[test]
 fn tasks_follow_the_suite_case_order() {
-    let suite = EvalSuite {
-        cases: vec![
-            EvalCase {
-                submission: "first submission".to_string(),
-                expected: ExpectedVerdict::Correct,
-            },
-            EvalCase {
-                submission: "second submission".to_string(),
-                expected: ExpectedVerdict::Incorrect,
-            },
-            EvalCase {
-                submission: "third submission".to_string(),
-                expected: ExpectedVerdict::Correct,
-            },
-        ],
-    };
+    let suite = EvalSuite::new(vec![
+        EvalCase::new(
+            "first submission".to_string(),
+            ExpectedVerdict::Correct.into(),
+        ),
+        EvalCase::new(
+            "second submission".to_string(),
+            ExpectedVerdict::Incorrect.into(),
+        ),
+        EvalCase::new(
+            "third submission".to_string(),
+            ExpectedVerdict::Correct.into(),
+        ),
+    ]);
     let files = generate_eval_dir(
         &lesson("eval_command", "demo_lesson.yaml"),
         &suite,

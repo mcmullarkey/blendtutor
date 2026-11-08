@@ -208,7 +208,8 @@ async fn audit_reports_check_coverage_for_each_blueprint_misconception() {
             )
         })
         .collect();
-    let r = |id: &str, status: &str, caught, items| (id.to_string(), status.to_string(), caught, items);
+    let r =
+        |id: &str, status: &str, caught, items| (id.to_string(), status.to_string(), caught, items);
     assert_eq!(
         rows,
         vec![

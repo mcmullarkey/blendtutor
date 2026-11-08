@@ -14,8 +14,9 @@ use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
-    AuditWarning, CaseResult, Consistency, CoverageRow, DetectionRow, Discordance, EvalReport,
-    LabelAudit, LabelAuditReport, LeakageSummary, MisconceptionCoverage, SourceRow, Violation,
+    AuditWarning, CaseResult, CompareReport, Conclusion, Consistency, CoverageRow, Decision,
+    DetectionRow, Discordance, EvalReport, LabelAudit, LabelAuditReport, LeakageSummary,
+    MisconceptionCoverage, PairedChange, SourceRow, Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -711,6 +712,64 @@ pub fn emit_audit(report: &LabelAuditReport, format: OutputFormat) -> io::Result
             serde_json::to_string(report).expect("a LabelAuditReport serializes to JSON infallibly")
         }
         OutputFormat::Human => render_audit(report),
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// The human rendering of a [`CompareReport`] (ADR-0029): the paired setup and
+/// margin, one line per construct with counts, change, and interval in points,
+/// and the decision with its reasons. Pure (§2.1).
+fn render_compare(report: &CompareReport) -> String {
+    let margin = report.margin().value() * 100.0;
+    let mut lines = vec![
+        format!(
+            "Paired comparison on {n} cases (margin {margin:.0} points)",
+            n = report.paired_cases()
+        ),
+        String::new(),
+        change_line("Accuracy", report.accuracy()),
+    ];
+    if let Some(leakage) = report.leakage() {
+        lines.push(change_line("Solution leakage", leakage));
+    }
+    lines.push(String::new());
+    lines.push(match report.decision() {
+        Decision::Ship => "Decision: ship".to_string(),
+        Decision::Hold => format!("Decision: hold ({})", report.reasons().join("; ")),
+    });
+    lines.join("\n")
+}
+
+/// One construct's paired change: per-arm counts, the change and its 95%
+/// interval in whole points, and the conclusion in words.
+fn change_line(name: &str, change: &PairedChange) -> String {
+    let (lo, hi) = change.interval();
+    let conclusion = match change.conclusion() {
+        Conclusion::NonInferior => "non-inferior",
+        Conclusion::NotShownNonInferior => "not shown non-inferior",
+        Conclusion::Improved => "improved",
+        Conclusion::Worse => "worse",
+        Conclusion::NotShownImproved => "not shown improved",
+    };
+    format!(
+        "{name}: baseline {b}/{n}, candidate {c}/{n}, change {delta:+.0} points \
+         (95% CI {lo:+.0} to {hi:+.0}): {conclusion}",
+        b = change.baseline(),
+        c = change.candidate(),
+        n = change.n(),
+        delta = change.change() * 100.0,
+        lo = lo * 100.0,
+        hi = hi * 100.0,
+    )
+}
+
+/// Render a comparison in `format` and write it to stdout (§2.4).
+pub fn emit_compare(report: &CompareReport, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("a CompareReport serializes to JSON infallibly")
+        }
+        OutputFormat::Human => render_compare(report),
     };
     writeln!(io::stdout(), "{text}")
 }

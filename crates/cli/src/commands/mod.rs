@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 pub mod audit;
 pub mod build;
 pub mod eval;
+pub mod eval_compare;
 pub mod eval_report;
 pub mod export_quarto;
 pub mod init;

@@ -33,6 +33,7 @@ use crate::run::{RunError, run_lesson};
 
 mod audit;
 mod blueprint;
+mod compare;
 mod consistency;
 mod detection;
 mod interval;
@@ -43,9 +44,12 @@ pub use audit::{
     AuditWarning, CoverageRow, LabelAudit, LabelAuditReport, MisconceptionCoverage, audit_labels,
 };
 pub use blueprint::{CaseLabel, Misconception, MisconceptionId};
+pub use compare::{
+    CompareReport, Conclusion, Decision, InvalidMargin, Margin, PairedChange, UnpairedReports,
+};
 pub use consistency::{Consistency, Discordance, Violation, classify};
 pub use detection::DetectionRow;
-pub use interval::wilson;
+pub use interval::{newcombe_paired, wilson};
 pub use leakage::{Leakage, LeakageSummary, assessable, code_blocks};
 pub use provenance::{ItemSource, SourceRow};
 

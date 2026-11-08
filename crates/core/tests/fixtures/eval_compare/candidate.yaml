@@ -15,8 +15,11 @@ exercise:
     add_two <- function(x, y) {
       x + y
     }
+  success_criteria: |
+    - PROMPT_V2: returns the sum of x and y
+    - Feedback should guide the learner without giving a working solution
   llm_evaluation_prompt: |
-    PROMPT_V2. Never include working code. Evaluate the student's submission:
+    Evaluate the student's submission:
     {student_code}
     Reply with feedback.
 

@@ -1,5 +1,6 @@
 # Shared eval suite for eval-compare (ADR-0029): both prompt variants grade
-# these six items. The mock grader is right on every item for both arms; the
+# these six items. The variant marker lives in success_criteria, which reaches
+# the grading prompt (llm_evaluation_prompt does not). The mock grader is right on every item for both arms; the
 # baseline (PROMPT_V1) hands a working fix to the four incorrect items, while
 # the candidate (PROMPT_V2) gives hints only.
 cases:

@@ -25,6 +25,52 @@ pub fn wilson(successes: usize, n: usize) -> Option<(f64, f64)> {
     Some(((center - half).max(0.0), (center + half).min(1.0)))
 }
 
+/// The 95% Newcombe score interval (1998, method 10) for the change
+/// `p_second − p_first` between two **paired** proportions, or `None` with no
+/// pairs (ADR-0029).
+///
+/// The arguments are the 2×2 counts of paired outcomes: `both` succeeded,
+/// `only_first`, `only_second`, `neither`. It combines each arm's Wilson
+/// interval with the phi correlation between arms, so it stays inside [−1, 1]
+/// and is not degenerate when an arm is at 0% or 100%.
+pub fn newcombe_paired(
+    both: usize,
+    only_first: usize,
+    only_second: usize,
+    neither: usize,
+) -> Option<(f64, f64)> {
+    let n = both + only_first + only_second + neither;
+    let (lo_1, hi_1) = wilson(both + only_first, n)?;
+    let (lo_2, hi_2) = wilson(both + only_second, n)?;
+    let n_f = n as f64;
+    let p_1 = (both + only_first) as f64 / n_f;
+    let p_2 = (both + only_second) as f64 / n_f;
+    let (a, b, c, d) = (
+        both as f64,
+        only_first as f64,
+        only_second as f64,
+        neither as f64,
+    );
+    // phi is undefined when any margin is empty; the interval then treats the
+    // arms as uncorrelated, which Newcombe recommends.
+    let margins = (a + b) * (c + d) * (a + c) * (b + d);
+    let phi = if margins == 0.0 {
+        0.0
+    } else {
+        (a * d - b * c) / margins.sqrt()
+    };
+    let change = p_2 - p_1;
+    let below = ((p_2 - lo_2).powi(2) - 2.0 * phi * (p_2 - lo_2) * (hi_1 - p_1)
+        + (hi_1 - p_1).powi(2))
+    .max(0.0)
+    .sqrt();
+    let above = ((hi_2 - p_2).powi(2) - 2.0 * phi * (hi_2 - p_2) * (p_1 - lo_1)
+        + (p_1 - lo_1).powi(2))
+    .max(0.0)
+    .sqrt();
+    Some(((change - below).max(-1.0), (change + above).min(1.0)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -70,5 +116,47 @@ mod tests {
     #[test]
     fn no_items_has_no_interval() {
         assert_eq!(wilson(0, 0), None);
+    }
+
+    #[test]
+    fn newcombe_matches_a_hand_computed_case() {
+        // first 5/10, second 10/10, no item where only the first succeeded:
+        // change +0.5, worked by hand from the method-10 formula.
+        assert!(close(newcombe_paired(5, 0, 5, 0).unwrap(), (0.117, 0.763)));
+    }
+
+    #[test]
+    fn perfect_agreement_on_few_items_stays_wide() {
+        // Both arms 6/6: the change is 0, but six pairs cannot rule out ±39 points.
+        assert!(close(newcombe_paired(6, 0, 0, 0).unwrap(), (-0.390, 0.390)));
+    }
+
+    #[test]
+    fn a_complete_reversal_is_bounded_away_from_zero() {
+        // First arm 4/4, second 0/4: the change is −1 and the interval excludes 0.
+        assert!(close(newcombe_paired(0, 4, 0, 0).unwrap(), (-1.0, -0.307)));
+    }
+
+    #[test]
+    fn newcombe_bounds_contain_the_estimate_and_stay_in_range() {
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        let Some((lo, hi)) = newcombe_paired(a, b, c, d) else {
+                            assert_eq!(a + b + c + d, 0);
+                            continue;
+                        };
+                        let n = (a + b + c + d) as f64;
+                        let change = (c as f64 - b as f64) / n;
+                        assert!((-1.0..=1.0).contains(&lo) && (-1.0..=1.0).contains(&hi));
+                        assert!(
+                            lo <= change + 1e-12 && change <= hi + 1e-12,
+                            "{a} {b} {c} {d}"
+                        );
+                    }
+                }
+            }
+        }
     }
 }

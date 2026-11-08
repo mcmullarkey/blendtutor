@@ -205,6 +205,41 @@ Solution leakage: 11/14 assessable incorrect cases leaked a working fix (52%–9
 Cases whose code already passes the checks can't be assessed, because there is
 nothing for the feedback to fix. Stronger checks make more cases assessable.
 
+### Check that a run is repeatable
+
+The grader is an LLM, so one `eval` run is one sample. `--repeat N` grades the
+suite N times and reports how stable the verdicts are:
+
+```text
+Stability over 3 runs: same verdict on 30/31 cases (84%–99%); flipped: case 22
+Accuracy per run: 97%, 100%, 100%
+Solution leakage per run: 0%, 0%, 0%
+```
+
+A case that flips is worth rewriting, and a rate that moves a lot between runs
+shouldn't be read from a single run.
+
+### Find misconceptions the blueprint is missing
+
+`suggest-misconceptions` asks the model for mistakes your blueprint doesn't
+cover yet, each with a small example, and runs every example through the
+lesson's checks:
+
+```bash
+blendtutor suggest-misconceptions lessons/03.yaml
+```
+
+```text
+1. infers the scale maximum from the data instead of the fixed 1-5 scale: not caught by the checks (only the grader can catch it)
+     reverse_score <- function(x) (max(x) + 1) - x
+```
+
+Nothing is written. Add the suggestions you agree with to the blueprint, with
+items. In a leave-one-out check on a real lesson it recovered 5 of 8 hidden
+misconceptions, including all three the checks couldn't see. It tends to miss
+mechanical mistakes such as a misnamed function, so keep writing those
+yourself.
+
 ### Compare two versions of a lesson's grading
 
 `eval-compare` grades the baseline lesson's eval suite with both lessons and

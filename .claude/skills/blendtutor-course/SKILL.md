@@ -138,6 +138,9 @@ most of 0–100%. When the user wants numbers they can compare across prompt
 versions, grow the suite by generating items. The user writes the blueprint,
 you write the items, and the deterministic gates decide what stays.
 
+0. **Widen the blueprint first.** Run `blendtutor suggest-misconceptions
+   lessons/<id>.yaml` and show the user the suggestions, especially the
+   ones marked "not caught by the checks". Add the ones they agree with.
 1. **Keep the hand-written cases.** They are the anchor set. Never relabel or
    delete them to make generated items fit.
 2. **Generate per misconception × surface facet.** For each blueprint entry,
@@ -229,6 +232,7 @@ Only then, **after confirming with the user** (paid calls):
 ```bash
 blendtutor audit lessons/<id>.yaml                 # free label check vs the lesson's checks; exits 1 on a mislabeled case
 blendtutor eval lessons/<id>.yaml                  # grader accuracy against expected verdicts
+blendtutor eval lessons/<id>.yaml --repeat 3       # run-to-run stability before trusting one run
 blendtutor eval lessons/<id>.yaml --write-report   # also saves eval-report.json for the site
 ```
 

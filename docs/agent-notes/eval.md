@@ -272,3 +272,17 @@ ADR-0007 for the verdict-representation decision.
   only when present. Tests that used it as their "missing required field"
   example now use `exercise.prompt`. The eval footer no longer names
   `llm_evaluation_prompt` or `solution`, since neither reaches the grader.
+- 2026-11-08 (eval-measurement slices 11–12): **`eval --repeat N`**
+  (ADR-0031): a pure `StabilityReport::of(&[EvalReport])`, where stable means
+  the same `actual` on every run. clap enforces N ≥ 2 and conflicts with
+  `--case`/`--write-report`. Real lesson 03 ×3: 30/31 stable (84–99%), case 22
+  (M5) flipped, accuracy 97/100/100, leakage 0/0/0. A first attempt died on a
+  transient Fireworks 500, because `eval` fails the whole run on any provider
+  error (no retry yet). **`suggest-misconceptions`** (ADR-0032):
+  `llm::suggest` builds a pure prompt from the task, criteria, checks, and
+  covered labels (strings, so `llm` doesn't depend on `eval`), going through a
+  generic `feedback::extract::<T>` that `request_feedback` now shares.
+  `eval::suggestion::SuggestionCheck` classifies each example's checks.
+  Leave-one-out on lesson 03: recall 5/8 (31–86%); all check-invisible
+  misconceptions recovered; mechanical ones missed (the prompt says "prefer
+  conceptual"). The harness lives in the session scratchpad, not the repo.

@@ -15,7 +15,7 @@ use serde::Serialize;
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
     CaseResult, Consistency, CoverageRow, DetectionRow, Discordance, EvalReport, LabelAudit,
-    LabelAuditReport, MisconceptionCoverage, Violation,
+    LabelAuditReport, MisconceptionCoverage, SourceRow, Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -416,6 +416,11 @@ fn render_eval(report: &EvalReport) -> String {
         lines.push("Grader detection by misconception (95% interval):".to_string());
         lines.extend(report.by_misconception().iter().map(detection_line));
     }
+    if !report.by_source().is_empty() {
+        lines.push(String::new());
+        lines.push("Grader accuracy by item source (95% interval):".to_string());
+        lines.extend(report.by_source().iter().map(source_line));
+    }
     if let Some(footer) = next_steps_footer(report) {
         lines.push(String::new());
         lines.push(footer);
@@ -601,6 +606,22 @@ fn render_audit(report: &LabelAuditReport) -> String {
         lines.extend(report.coverage().iter().map(coverage_line));
     }
     lines.join("\n")
+}
+
+/// One item source's grader-accuracy row (ADR-0026), or "no items" when the
+/// suite has none from that source.
+fn source_line(row: &SourceRow) -> String {
+    let head = format!("  {}", row.source().token());
+    match row.interval() {
+        None => format!("{head}: no items"),
+        Some((lo, hi)) => format!(
+            "{head}: {matched}/{items} matched ({lo:.0}%–{hi:.0}%)",
+            matched = row.matched(),
+            items = row.items(),
+            lo = lo * 100.0,
+            hi = hi * 100.0,
+        ),
+    }
 }
 
 /// One misconception's grader-detection row (ADR-0025): caught/items with the

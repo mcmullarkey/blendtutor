@@ -36,12 +36,14 @@ mod blueprint;
 mod consistency;
 mod detection;
 mod interval;
+mod provenance;
 
 pub use audit::{CoverageRow, LabelAudit, LabelAuditReport, MisconceptionCoverage, audit_labels};
 pub use blueprint::{CaseLabel, Misconception, MisconceptionId};
 pub use consistency::{Consistency, Discordance, Violation, classify};
 pub use detection::DetectionRow;
 pub use interval::wilson;
+pub use provenance::{ItemSource, SourceRow};
 
 /// The verdict an eval case expects the grader to return: a polarity, with no
 /// learner-facing message.
@@ -118,6 +120,7 @@ pub struct EvalCase {
     /// The synthetic learner submission to grade.
     pub submission: String,
     label: CaseLabel,
+    source: ItemSource,
 }
 
 impl EvalCase {
@@ -126,7 +129,19 @@ impl EvalCase {
         Self {
             submission: submission.into(),
             label,
+            source: ItemSource::Hand,
         }
+    }
+
+    /// The same case, recorded as coming from `source` (ADR-0026).
+    pub fn with_source(mut self, source: ItemSource) -> Self {
+        self.source = source;
+        self
+    }
+
+    /// Where the case came from; `Hand` unless the suite says otherwise.
+    pub fn source(&self) -> ItemSource {
+        self.source
     }
 
     /// The polarity this submission is expected to grade to.
@@ -201,6 +216,8 @@ struct RawCase {
     expected: String,
     #[serde(default)]
     misconception: Option<String>,
+    #[serde(default)]
+    source: Option<String>,
 }
 
 /// Why a YAML document is not a valid eval suite.
@@ -225,6 +242,13 @@ pub enum EvalParseError {
         index: usize,
         /// The unlisted id, quoted back to the author.
         id: String,
+    },
+    /// A case's `source` is not a known item source.
+    UnknownSource {
+        /// The zero-based index of the offending case in document order.
+        index: usize,
+        /// The unrecognized token, quoted back to the author.
+        token: String,
     },
     /// A case labeled `correct` is tagged with a misconception. A
     /// misconception-bearing item cannot be correct (ADR-0024).
@@ -251,6 +275,11 @@ impl fmt::Display for EvalParseError {
                 f,
                 "invalid eval suite: eval case {index} is tagged with misconception {id:?}, \
                  which the blueprint does not list"
+            ),
+            EvalParseError::UnknownSource { index, token } => write!(
+                f,
+                "invalid eval suite: eval case {index} has unknown source {token:?} \
+                 (expected \"hand\" or \"generated\")"
             ),
             EvalParseError::MisconceptionOnCorrect { index, id } => write!(
                 f,
@@ -308,7 +337,14 @@ fn parse_case(
         submission,
         expected,
         misconception,
+        source,
     } = case;
+    let source = match source {
+        None => ItemSource::Hand,
+        Some(token) => {
+            ItemSource::from_token(&token).ok_or(EvalParseError::UnknownSource { index, token })?
+        }
+    };
     let Some(polarity) = ExpectedVerdict::from_token(&expected) else {
         return Err(EvalParseError::UnknownVerdict {
             index,
@@ -316,7 +352,7 @@ fn parse_case(
         });
     };
     let Some(id) = misconception else {
-        return Ok(EvalCase::new(submission, polarity.into()));
+        return Ok(EvalCase::new(submission, polarity.into()).with_source(source));
     };
     if !blueprint.iter().any(|m| m.id.as_str() == id) {
         return Err(EvalParseError::UnknownMisconception { index, id });
@@ -328,7 +364,8 @@ fn parse_case(
             CaseLabel::Incorrect {
                 misconception: Some(MisconceptionId::new(id)),
             },
-        )),
+        )
+        .with_source(source)),
     }
 }
 
@@ -373,6 +410,8 @@ pub struct CaseResult {
     consistency: Consistency,
     #[serde(skip_serializing_if = "Option::is_none")]
     misconception: Option<MisconceptionId>,
+    #[serde(skip_serializing_if = "ItemSource::is_hand")]
+    source: ItemSource,
 }
 
 impl CaseResult {
@@ -397,7 +436,16 @@ impl CaseResult {
             feedback_message,
             consistency,
             misconception: label.misconception().cloned(),
+            source: ItemSource::Hand,
         }
+    }
+
+    /// Record where the case came from (ADR-0026). Source is independent of
+    /// every derived field, so setting it after scoring cannot break an
+    /// invariant.
+    pub fn with_source(mut self, source: ItemSource) -> Self {
+        self.source = source;
+        self
     }
 
     /// The polarity the case's author expected the grader to return.
@@ -429,6 +477,11 @@ impl CaseResult {
     pub fn misconception(&self) -> Option<&MisconceptionId> {
         self.misconception.as_ref()
     }
+
+    /// Where the case came from.
+    pub fn source(&self) -> ItemSource {
+        self.source
+    }
 }
 
 /// The result of scoring an eval suite: every [`CaseResult`] in suite order plus
@@ -445,6 +498,9 @@ pub struct EvalReport {
     /// untagged suites keep their exact prior shape.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     by_misconception: Vec<DetectionRow>,
+    /// Present only when the suite has generated items (ADR-0026).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    by_source: Vec<SourceRow>,
 }
 
 impl EvalReport {
@@ -456,10 +512,12 @@ impl EvalReport {
             .iter()
             .map(|m| DetectionRow::of(m, &cases))
             .collect();
+        let by_source = SourceRow::split(&cases);
         Self {
             cases,
             accuracy,
             by_misconception,
+            by_source,
         }
     }
 
@@ -477,6 +535,11 @@ impl EvalReport {
     /// without a blueprint (ADR-0025).
     pub fn by_misconception(&self) -> &[DetectionRow] {
         &self.by_misconception
+    }
+
+    /// Grader accuracy per item source; empty unless some case is generated.
+    pub fn by_source(&self) -> &[SourceRow] {
+        &self.by_source
     }
 }
 
@@ -580,11 +643,14 @@ pub async fn run_eval(
         let report = run_lesson(lesson, &submission, provider, base_url_override)
             .await
             .map_err(|source| EvalRunError::Run { index, source })?;
-        cases.push(CaseResult::score(
-            suite_case.label().clone(),
-            report.verdict(),
-            report.checks(),
-        ));
+        cases.push(
+            CaseResult::score(
+                suite_case.label().clone(),
+                report.verdict(),
+                report.checks(),
+            )
+            .with_source(suite_case.source()),
+        );
     }
     Ok(EvalReport::new(suite.blueprint(), cases))
 }
@@ -1005,5 +1071,31 @@ mod blueprint_parse_tests {
         let yaml = "blueprint:\n  misconceptions:\n    M1: a\n    M1: b\ncases: []\n";
         let err = parse_eval_suite(yaml).expect_err("duplicate ids must be refused");
         assert!(err.to_string().contains("M1"), "names the duplicate: {err}");
+    }
+}
+
+#[cfg(test)]
+mod source_parse_tests {
+    use super::*;
+
+    #[test]
+    fn source_defaults_to_hand_and_parses_generated() {
+        let suite = parse_eval_suite(
+            "cases:\n  - submission: a\n    expected: correct\n  - submission: b\n    expected: incorrect\n    source: generated\n",
+        )
+        .expect("parses");
+        assert_eq!(suite.cases[0].source(), ItemSource::Hand);
+        assert_eq!(suite.cases[1].source(), ItemSource::Generated);
+    }
+
+    #[test]
+    fn an_unknown_source_is_refused_naming_the_case() {
+        let yaml = "cases:\n  - submission: a\n    expected: correct\n    source: synthetic\n";
+        match parse_eval_suite(yaml) {
+            Err(EvalParseError::UnknownSource { index, token }) => {
+                assert_eq!((index, token.as_str()), (0, "synthetic"));
+            }
+            other => panic!("expected UnknownSource, got {other:?}"),
+        }
     }
 }

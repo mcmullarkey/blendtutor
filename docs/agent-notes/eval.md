@@ -240,3 +240,20 @@ ADR-0007 for the verdict-representation decision.
   report-level `leakage {leaked, assessable, incorrect, interval}` only when
   assessable. The negative control (force assessable) failed both tests,
   including the no-checks absence guard.
+- 2026-11-08 (eval-measurement slice 9): **`eval-compare`** (ADR-0029).
+  `eval::newcombe_paired(both, only_first, only_second, neither)` implements
+  Newcombe method 10 for `p_second − p_first` (phi = 0 when a margin is
+  empty). Unit tests pin hand-computed values plus containment over all
+  2×2 tables with n ≤ 12. `eval::compare` holds a pure `CompareReport` (pairs
+  by index; accuracy from `matched`, leakage over cases assessable in both
+  arms) and `decide()`: ship iff accuracy is `non_inferior` (lo > −margin)
+  and leakage is absent or `improved` (hi < 0). Exit 0 ship / 3 hold. 3 was
+  chosen because clap uses 2: the first red test "passed" its exit-2 check
+  on an unrecognized subcommand. The negative control (force non-inferior)
+  failed exactly the point-estimate-trap test. **Discovery:** `build_prompt`
+  never reads `llm_evaluation_prompt`; only the task + success_criteria vary
+  per lesson, so the fixture puts its variant marker in success_criteria.
+  **Real run (lesson 03, 31 items, margin 0.15 pre-registered):** accuracy
+  31/31 vs 31/31 (±11), leakage 11/14 → 0/14 (−79, CI −92 to −45), ship.
+  Candidate = one success_criteria bullet ("Feedback guides the learner to
+  the fix without giving a working solution").

@@ -199,11 +199,40 @@ the grader's feedback to the submission and reruns the checks. If they all pass,
 the feedback handed over a working fix:
 
 ```text
-Solution leakage: 13/14 assessable incorrect cases leaked a working fix (69%–99%); 11 of 25 incorrect cases not assessable
+Solution leakage: 11/14 assessable incorrect cases leaked a working fix (52%–92%); 11 of 25 incorrect cases not assessable
 ```
 
 Cases whose code already passes the checks can't be assessed, because there is
 nothing for the feedback to fix. Stronger checks make more cases assessable.
+
+### Compare two versions of a lesson's grading
+
+`eval-compare` grades the baseline lesson's eval suite with both lessons and
+pairs the results case by case:
+
+```bash
+blendtutor eval-compare lessons/03.yaml lessons/03_candidate.yaml --margin 0.15
+```
+
+```text
+Paired comparison on 31 cases (margin 15 points)
+
+Accuracy: baseline 31/31, candidate 31/31, change +0 points (95% CI -11 to +11): non-inferior
+Solution leakage: baseline 11/14, candidate 0/14, change -79 points (95% CI -92 to -45): improved
+
+Decision: ship
+```
+
+The rule is fixed in advance. It ships (exit 0) only if accuracy is
+**non-inferior**, meaning the lower end of its interval stays above `-margin`,
+and leakage, when it can be measured, **improved**, meaning the upper end stays
+below zero. Anything else holds (exit 3) and says why. Pick the margin before
+you run. Equal scores on a small suite are not evidence of non-inferiority: with
+6 items at 6/6 on both sides the accuracy interval is about ±39 points, and
+even 31/31 only supports about ±11. The candidate must have the same checks as
+the baseline. The grading inputs that differ between two lessons are the task
+text and the success criteria (`llm_evaluation_prompt` is not sent to the
+grader).
 
 To persist the result for `build` to fold into the site's eval-results page,
 write the report at the course root:

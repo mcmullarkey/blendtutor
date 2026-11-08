@@ -93,6 +93,10 @@ enum Commands {
         /// Grade with this provider model id instead of the default.
         #[arg(long)]
         model: Option<ModelId>,
+        /// Grade the suite N times (N >= 2) and report run-to-run stability
+        /// instead of a single run.
+        #[arg(long, value_parser = clap::value_parser!(u32).range(2..), conflicts_with_all = ["case", "write_report"])]
+        repeat: Option<u32>,
     },
     /// Check each eval case's expected label against the lesson's checks
     /// (no LLM call, no API key). Exits 1 if any label contradicts them.
@@ -215,7 +219,8 @@ fn main() -> anyhow::Result<ExitCode> {
             case,
             write_report,
             model,
-        } => commands::eval::run(&lesson, format, case, write_report, model),
+            repeat,
+        } => commands::eval::run(&lesson, format, case, write_report, model, repeat),
         Commands::EvalReport { lesson } => commands::eval_report::run(&lesson),
         Commands::EvalCompare {
             baseline,

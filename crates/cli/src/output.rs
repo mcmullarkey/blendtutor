@@ -16,7 +16,7 @@ use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
     AuditWarning, CaseResult, CompareReport, Conclusion, Consistency, CoverageRow, Decision,
     DetectionRow, Discordance, EvalReport, LabelAudit, LabelAuditReport, LeakageSummary,
-    MisconceptionCoverage, PairedChange, SourceRow, Violation,
+    MisconceptionCoverage, PairedChange, SourceRow, StabilityReport, Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -713,6 +713,60 @@ pub fn emit_audit(report: &LabelAuditReport, format: OutputFormat) -> io::Result
             serde_json::to_string(report).expect("a LabelAuditReport serializes to JSON infallibly")
         }
         OutputFormat::Human => render_audit(report),
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// The human rendering of a [`StabilityReport`] (ADR-0031): the share of cases
+/// with the same verdict on every run, with its interval and the flipped cases,
+/// then accuracy (and leakage, when assessable) per run. Pure (§2.1).
+fn render_stability(report: &StabilityReport) -> String {
+    let range = report
+        .interval()
+        .map(|(lo, hi)| format!(" ({:.0}%–{:.0}%)", lo * 100.0, hi * 100.0))
+        .unwrap_or_default();
+    let flipped = if report.flipped_cases().is_empty() {
+        "none".to_string()
+    } else {
+        report
+            .flipped_cases()
+            .iter()
+            .map(|n| format!("case {n}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let percents = |rates: &[f64]| {
+        rates
+            .iter()
+            .map(|r| format!("{:.0}%", r * 100.0))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let mut lines = vec![
+        format!(
+            "Stability over {runs} runs: same verdict on {stable}/{cases} cases{range}; flipped: {flipped}",
+            runs = report.runs(),
+            stable = report.stable(),
+            cases = report.cases(),
+        ),
+        format!("Accuracy per run: {}", percents(report.accuracy_per_run())),
+    ];
+    if !report.leakage_per_run().is_empty() {
+        lines.push(format!(
+            "Solution leakage per run: {}",
+            percents(report.leakage_per_run())
+        ));
+    }
+    lines.join("\n")
+}
+
+/// Render a stability report in `format` and write it to stdout (§2.4).
+pub fn emit_stability(report: &StabilityReport, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("a StabilityReport serializes to JSON infallibly")
+        }
+        OutputFormat::Human => render_stability(report),
     };
     writeln!(io::stdout(), "{text}")
 }

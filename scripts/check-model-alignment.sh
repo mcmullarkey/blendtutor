@@ -15,7 +15,7 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-model="accounts/fireworks/models/deepseek-v4-flash-0731"
+model="accounts/fireworks/models/deepseek-v4p1-flash-1017"
 rust_src="crates/core/src/llm/provider.rs"
 js_src="_extensions/blendtutor/assets/exercise-feedback.js"
 retired="qwen3-vl-30b-a3b-instruct"

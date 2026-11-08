@@ -376,7 +376,7 @@ starts. Clicking Get feedback without a stored key shows the key form inline,
 and a `--key-page` page manages the key too. The key is shared via
 `localStorage`, readable by any JavaScript on the page's origin, so never reuse
 a critical key; it is sent only to `api.fireworks.ai`. BYOK is Fireworks-only
-(pinned model `accounts/fireworks/models/deepseek-v4-flash-0731`); the CLI
+(pinned model `accounts/fireworks/models/deepseek-v4p1-flash-1017`); the CLI
 supports other providers (see the [README](https://github.com/mcmullarkey/blendtutor#api-key)).
 Serve over HTTP: `file://` breaks `localStorage` sharing and blocks ES modules,
 so feedback never mounts. Self-hosted CSP: add

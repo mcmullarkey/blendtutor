@@ -37,7 +37,7 @@ wiring (AC-5 arms 1-13), and the issue #186 inline key form (no-key state):
       requests.
    9. UI visibility — feedback button + container mounted per-exercise.
    AC-5 (issue #166): check output wired into the LLM prompt. (a) static:
-      FIREWORKS_MODEL pinned to deepseek-v4-flash-0731 at BOTH uses; zero
+      FIREWORKS_MODEL pinned to deepseek-v4p1-flash-1017 at BOTH uses; zero
       innerHTML; renderModelPicker/modelPickerPresent/selectedModel removed;
       exercise-runtime.js has zero exercise-feedback references; rateLimitReached
       evaluated before getFeedback. (b) Node: buildPrompt emits
@@ -458,10 +458,10 @@ def check_ac5_model_pin(src: str) -> None:
     stale unpinned literal (`deepseek-v4-flash"` without the -0731 suffix)
     fails, so a partial pin (one use updated, one left) is caught.
     """
-    pinned = "accounts/fireworks/models/deepseek-v4-flash-0731"
+    pinned = "accounts/fireworks/models/deepseek-v4p1-flash-1017"
     count = src.count(pinned)
     if count == 2:
-        ok("AC-5 arm 3 (source): FIREWORKS_MODEL pinned to deepseek-v4-flash-0731 at both uses (fallbackModel + const)")
+        ok("AC-5 arm 3 (source): FIREWORKS_MODEL pinned to deepseek-v4p1-flash-1017 at both uses (fallbackModel + const)")
     else:
         ko(f"AC-5 arm 3 (source): expected pinned model literal x2, found {count}")
     if src.count('deepseek-v4-flash"') == 0:
@@ -927,14 +927,14 @@ const criteriaAt = criteriaPrompt.indexOf("Success criteria:");
 assert(criteriaAt > criteriaPrompt.indexOf("Add two numbers") && criteriaAt < criteriaPrompt.indexOf("<<<STUDENT_CODE_BEGIN>>>"), "ADR-0020 (Node): Success criteria section sits between the task and the code fence");
 assert(criteriaPrompt.includes("- Returns CRITERIA-BETA"), "ADR-0020 (Node): buildPrompt includes the success criteria text");
 assert(!ac5Prompt.includes("Success criteria:"), "ADR-0020 (Node): no Success criteria section when criteria are absent");
-assert(mod.PROVIDERS.fireworks.fallbackModel === "accounts/fireworks/models/deepseek-v4-flash-0731", "AC-5 arm 3 (Node): PROVIDERS.fireworks.fallbackModel pinned to -0731");
+assert(mod.PROVIDERS.fireworks.fallbackModel === "accounts/fireworks/models/deepseek-v4p1-flash-1017", "AC-5 arm 3 (Node): PROVIDERS.fireworks.fallbackModel pinned to -0731");
 
 // --- AC-5 DOM→prompt wiring (fetch-spy behavioral suite) -------------------
 // The negative says a pure buildPrompt call passes while the DOM→prompt
 // wiring is broken — so arms 2,4,5,7,8,9,10,11,12,13 are asserted by driving
 // the REAL handleSubmitForExercise through mountFeedback clicks against a
 // recording fetch spy (no stub server; AC-8 owns the production stub).
-const PINNED_MODEL = "accounts/fireworks/models/deepseek-v4-flash-0731";
+const PINNED_MODEL = "accounts/fireworks/models/deepseek-v4p1-flash-1017";
 const verdictOk = {
   choices: [{ message: { tool_calls: [{ function: {
     name: "respond_with_feedback",

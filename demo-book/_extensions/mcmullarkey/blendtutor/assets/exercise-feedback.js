@@ -69,7 +69,7 @@ export const PROVIDERS = {
     label: "Fireworks",
     keySlot: "fireworks_api_key",
     baseUrl: "https://api.fireworks.ai/inference/v1",
-    fallbackModel: "accounts/fireworks/models/deepseek-v4-flash-0731",
+    fallbackModel: "accounts/fireworks/models/deepseek-v4p1-flash-1017",
     factory: byokFireworks,
   },
   anthropic: {
@@ -100,7 +100,7 @@ const MODEL = "claude-opus-4-8";
 // Pinned learner-facing model (AC-5): the model picker is collapsed, so the
 // Fireworks request body always carries this exact id. Static-asserted at
 // both uses (this const + PROVIDERS.fireworks.fallbackModel).
-const FIREWORKS_MODEL = "accounts/fireworks/models/deepseek-v4-flash-0731";
+const FIREWORKS_MODEL = "accounts/fireworks/models/deepseek-v4p1-flash-1017";
 
 // --- prompt assembly (pure, ported from feedback.js) -----------------------------
 

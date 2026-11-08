@@ -80,3 +80,15 @@ ADRs are not rewritten — only their status lines are annotated.
   `.opencode/plans/filter-runtime-bootstrap.md` is deferred to a follow-up
   commit — that file is an untracked historical plan artifact, not part of
   this PR.
+
+## Amendment (2026-11-08): default model bumped to `deepseek-v4p1-flash-1017`
+
+Fireworks retired `accounts/fireworks/models/deepseek-v4-flash-0731`, and
+requests for it return `404 Model not found`. The pinned default for both
+consumers (Rust `ProviderChoice::Fireworks.default_model()` and the browser
+`FIREWORKS_MODEL` / `fallbackModel`) is now
+`accounts/fireworks/models/deepseek-v4p1-flash-1017`, a dated checkpoint rather
+than the floating `deepseek-v4p1-flash`, so grading stays reproducible.
+`scripts/check-model-alignment.sh` still enforces that the two match. Recorded
+eval runs under `docs/evals/` keep the model they actually used. From the CLI,
+`--model` (ADR-0027) is the escape hatch the next time a pin is retired.

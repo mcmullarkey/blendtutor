@@ -542,7 +542,7 @@ fn configs_model_is_single_sourced_from_the_provider_default() {
     );
     assert_eq!(
         ProviderChoice::Fireworks.default_model(),
-        "accounts/fireworks/models/deepseek-v4-flash-0731"
+        "accounts/fireworks/models/deepseek-v4p1-flash-1017"
     );
 }
 

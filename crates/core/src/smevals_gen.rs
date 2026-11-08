@@ -904,8 +904,8 @@ mod tests {
         // Safe-by-construction values stay plain for readable goldens.
         assert_eq!(emit_inline_scalar("case-1"), "case-1");
         assert_eq!(
-            emit_inline_scalar("accounts/fireworks/models/deepseek-v4-flash-0731"),
-            "accounts/fireworks/models/deepseek-v4-flash-0731"
+            emit_inline_scalar("accounts/fireworks/models/deepseek-v4p1-flash-1017"),
+            "accounts/fireworks/models/deepseek-v4p1-flash-1017"
         );
         assert_eq!(emit_inline_scalar("correct"), "correct");
         // Structural values must be quoted, never plain.

@@ -1,0 +1,29 @@
+# Shared eval suite for eval-compare (ADR-0029): both prompt variants grade
+# these six items. The mock grader is right on every item for both arms; the
+# baseline (PROMPT_V1) hands a working fix to the four incorrect items, while
+# the candidate (PROMPT_V2) gives hints only.
+cases:
+  - submission: |-
+      # zz_a
+      add_two <- function(x, y) x + y
+    expected: correct
+  - submission: |-
+      # zz_b
+      add_two <- function(x, y) x - y
+    expected: incorrect
+  - submission: |-
+      # zz_c
+      add_two <- function(x, y) x * y
+    expected: incorrect
+  - submission: |-
+      # zz_d
+      add_two <- function(x, y) y - x
+    expected: incorrect
+  - submission: |-
+      # zz_e
+      add_two <- function(x, y) x / y
+    expected: incorrect
+  - submission: |-
+      # zz_f
+      add_two <- function(x, y) y + x
+    expected: correct

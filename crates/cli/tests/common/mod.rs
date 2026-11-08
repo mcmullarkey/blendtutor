@@ -70,6 +70,24 @@ pub async fn mount_feedback_for(
         .await;
 }
 
+/// Like [`mount_feedback_for`], but only answers requests whose body contains
+/// **both** needles. `eval-compare` grades every submission twice, once per
+/// prompt variant, so a test keys on the variant marker and the submission
+/// token together.
+pub async fn mount_feedback_for_both(
+    server: &MockServer,
+    needles: (&str, &str),
+    is_correct: bool,
+    feedback: &str,
+) {
+    Mock::given(method("POST"))
+        .and(body_string_contains(needles.0))
+        .and(body_string_contains(needles.1))
+        .respond_with(ResponseTemplate::new(200).set_body_json(feedback_body(is_correct, feedback)))
+        .mount(server)
+        .await;
+}
+
 /// Build the OpenAI chat-completions envelope whose single `submit` tool call
 /// carries the feedback (`is_correct` + `feedback_message`) as a JSON-**encoded
 /// string** — the wire shape rig's openai client parses. Arguments are built via

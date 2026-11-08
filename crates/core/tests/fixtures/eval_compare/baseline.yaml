@@ -1,0 +1,25 @@
+lesson_name: "Eval Compare Baseline"
+language: R
+description: "Baseline grading prompt for eval-compare"
+
+exercise:
+  type: "function_writing"
+  prompt: |
+    Write a function called 'add_two' that takes two numeric arguments
+    (x and y) and returns their sum.
+  code_template: |
+    add_two <- function(x, y) {
+
+    }
+  solution: |
+    add_two <- function(x, y) {
+      x + y
+    }
+  llm_evaluation_prompt: |
+    PROMPT_V1. Evaluate the student's submission:
+    {student_code}
+    Reply with feedback.
+
+checks:
+  - "stopifnot(add_two(2, 3) == 5)"
+  - "stopifnot(add_two(-1, 1) == 0)"

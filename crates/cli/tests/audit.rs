@@ -162,3 +162,81 @@ async fn audit_reports_not_assessable_and_passes_when_lesson_has_no_checks() {
     );
     assert_no_provider_calls(&server).await;
 }
+
+/// A checked lesson whose suite tags items with blueprint misconceptions.
+const BLUEPRINT_LESSON: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../core/tests/fixtures/eval_blueprint/add_two.yaml"
+);
+
+/// When I run `audit` on a suite with a misconception blueprint, I see, for each
+/// misconception, how many of its tagged items the lesson's checks catch: a
+/// misconception the checks never catch is reported as uncovered, and one with
+/// no items is reported as missing from the item bank. Coverage gaps are not
+/// label violations, so the audit still exits 0.
+///
+/// The fixture's M2 is a real gap: R's `print()` returns its argument, so a
+/// print-instead-of-return `add_two` passes `add_two(2, 3) == 5`. Pinning every
+/// row (caught/items and status) catches an implementation that counts
+/// `NotRun` as caught, counts untagged items, or drops the empty M4.
+#[tokio::test]
+async fn audit_reports_check_coverage_for_each_blueprint_misconception() {
+    if rscript_absent() {
+        return;
+    }
+    let server = MockServer::start().await;
+
+    let output = audit(&server, BLUEPRINT_LESSON, &["--format", "json"]).await;
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "coverage gaps are not label violations; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let doc: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be exactly one JSON document");
+    let rows: Vec<(String, String, u64, u64)> = doc["coverage"]
+        .as_array()
+        .expect("coverage should be an array")
+        .iter()
+        .map(|row| {
+            (
+                row["id"].as_str().expect("id").to_string(),
+                row["status"].as_str().expect("status").to_string(),
+                row["caught"].as_u64().expect("caught"),
+                row["items"].as_u64().expect("items"),
+            )
+        })
+        .collect();
+    let r = |id: &str, status: &str, caught, items| (id.to_string(), status.to_string(), caught, items);
+    assert_eq!(
+        rows,
+        vec![
+            r("M1", "covered", 2, 2),
+            r("M2", "uncovered", 0, 2),
+            r("M3", "covered", 1, 1),
+            r("M4", "no_items", 0, 0),
+        ]
+    );
+    assert_eq!(
+        doc["cases"][1]["misconception"], "M1",
+        "each audited case carries its tag"
+    );
+    assert!(
+        doc["cases"][0].get("misconception").is_none(),
+        "an untagged case has no misconception key"
+    );
+
+    let human = audit(&server, BLUEPRINT_LESSON, &[]).await;
+    let stdout = String::from_utf8_lossy(&human.stdout).into_owned();
+    for line in [
+        "Misconception coverage by checks:",
+        "  M1 returns x instead of x + y: 2/2 caught",
+        "  M2 prints the sum instead of returning it: 0/2 caught — uncovered, only the grader can catch it",
+        "  M3 hard-codes the example's answer: 1/1 caught",
+        "  M4 uses integer division: no items — add some to the eval suite",
+    ] {
+        assert!(stdout.contains(line), "missing {line:?} in: {stdout}");
+    }
+    assert_no_provider_calls(&server).await;
+}

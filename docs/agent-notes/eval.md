@@ -168,3 +168,17 @@ ADR-0007 for the verdict-representation decision.
   says "graded" and audit says "labeled"; the integration test asserts audit
   output never contains "graded". The integration test runs with the API key
   env removed and asserts the mock provider saw zero requests.
+- 2026-11-08 (eval-measurement slice 3): **Misconception blueprint + check
+  coverage** (ADR-0024). `EvalCase` now holds a private `CaseLabel { Correct,
+  Incorrect { misconception: Option<MisconceptionId> } }`. Read it with
+  `expected()` (polarity) and `misconception()`, and build it with
+  `EvalCase::new(s, ExpectedVerdict::X.into())` / `EvalSuite::new(cases)`.
+  `ExpectedVerdict` is now `Copy`. The tag lives outside `ExpectedVerdict` on
+  purpose: putting it in `Incorrect` breaks `score_case`'s `==` against the
+  untagged grader polarity. `blueprint.misconceptions` is deserialized by a
+  custom `MapAccess` visitor that keeps document order (a BTreeMap would put
+  M10 before M2) and refuses duplicate ids. "Caught" = at least one check
+  `Fail`; `NotRun` counts toward items but never toward caught (the negative
+  control flipped exactly `a_crashing_item_is_counted_but_not_caught`).
+  Fixture `eval_blueprint/`: M2 (print instead of return) is a real R gap,
+  because `print()` returns its argument, so the checks pass.

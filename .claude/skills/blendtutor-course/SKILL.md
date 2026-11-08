@@ -100,6 +100,11 @@ Rules that keep lessons working in the browser:
 
 ```yaml
 # Eval suite for <id>.yaml: 2 correct, 2 incorrect.
+# The blueprint names the mistakes the incorrect cases sample (one each).
+blueprint:
+  misconceptions:
+    M1: "<the near-miss mistake, e.g. hard-codes the expected output>"
+    M2: "<the realistic mistake, e.g. sorts in the wrong direction>"
 cases:
   # Correct: the canonical solution
   - submission: |-
@@ -113,20 +118,28 @@ cases:
   - submission: |-
       <runs cleanly, right output, violates a success criterion>
     expected: incorrect
+    misconception: M1
   # Incorrect: a realistic mistake the checks catch
   - submission: |-
       <wrong result, e.g. reversed sort or missing step>
     expected: incorrect
+    misconception: M2
 ```
 
 The near-miss case is what measures the grading prompt; do not skip it. For
 lessons without checks, make both incorrect cases content mistakes (a missing
 step, the wrong operation).
 
+Tag only `incorrect` cases; a tag on a `correct` case, or one the blueprint
+doesn't list, fails to parse. `blendtutor audit` then reports which
+misconceptions the checks catch. An uncovered one (often the near-miss) is
+fine, as long as you know only the grader can catch it.
+
 ## 5. Verify locally (no paid calls)
 
 ```bash
 blendtutor validate lessons/<id>.yaml
+blendtutor audit lessons/<id>.yaml      # labels vs checks + misconception coverage; exit 1 = mislabeled case
 blendtutor list .
 ```
 

@@ -128,7 +128,38 @@ case 2: violation — labeled correct but a check failed
 
 A violation (a case labeled `correct` whose code fails a check or never runs)
 exits 1, so the audit can gate CI. Discordant labels and lessons with no checks
-exit 0. `--format json` emits `{"cases": [{"expected", "consistency"}]}`.
+exit 0. `--format json` emits `{"cases": [{"expected", "consistency"}], "coverage": [...]}`.
+
+#### Misconception coverage
+
+An eval suite can name the mistakes its incorrect cases are built to show, then
+tag each case with one:
+
+```yaml
+blueprint:
+  misconceptions:
+    M1: "returns x instead of x + y"
+    M2: "prints the sum instead of returning it"
+cases:
+  - submission: |-
+      add_two <- function(x, y) print(x + y)
+    expected: incorrect
+    misconception: M2
+```
+
+`audit` then reports, for each misconception, how many of its items fail at least
+one check:
+
+```text
+Misconception coverage by checks:
+  M1 returns x instead of x + y: 2/2 caught
+  M2 prints the sum instead of returning it: 0/2 caught — uncovered, only the grader can catch it
+```
+
+An uncovered misconception isn't an error, and the audit still exits 0. It tells
+you which mistakes depend entirely on the LLM grader, which is where its eval
+cases matter most. A tag on a `correct` case, or one the blueprint doesn't
+list, fails to parse.
 
 To persist the result for `build` to fold into the site's eval-results page,
 write the report at the course root:

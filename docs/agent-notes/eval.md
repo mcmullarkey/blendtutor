@@ -159,3 +159,12 @@ ADR-0007 for the verdict-representation decision.
   `accuracy`, so `eval-report.json` consumers are unaffected. Fixture
   `eval_consistency/` has one case per category, and case 2 is a deliberately
   mislabeled item (`matched` true, violated).
+- 2026-11-08 (eval-measurement slice 2): **Label audit** (ADR-0023).
+  `blendtutor audit <lesson>` → `core::eval::audit_labels`, which runs
+  `run_checks` per case, builds no provider, and needs no key. It reuses
+  `classify(&expected, &checks)`: the same truth table, applied to a
+  different instrument. Exit 1 iff `LabelAuditReport::has_violation()`.
+  CLI wording goes through a shared `Claimant { Grader, Label }`, so eval
+  says "graded" and audit says "labeled"; the integration test asserts audit
+  output never contains "graded". The integration test runs with the API key
+  env removed and asserts the mock provider saw zero requests.

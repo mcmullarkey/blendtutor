@@ -40,6 +40,7 @@ blendtutor init my-course                         # scaffold course + starter le
 blendtutor new lesson --lang r greet              # add lessons/greet.yaml + eval_<name>.yaml sibling
 blendtutor validate lessons/greet.yaml            # check a lesson (nonzero exit drops into CI)
 blendtutor run lessons/greet.yaml --code sub.R    # execute the submission, get an LLM verdict
+blendtutor audit lessons/greet.yaml               # free: check eval labels against the lesson's checks (no LLM)
 blendtutor eval lessons/greet.yaml                # score grading-prompt accuracy on the eval cases
 blendtutor eval lessons/greet.yaml --write-report # persist eval-report.json at the course root for build
 blendtutor eval-report lessons/greet.yaml         # LLM-judged report → docs/evals/<lesson>/

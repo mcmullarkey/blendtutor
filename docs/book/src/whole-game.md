@@ -110,6 +110,26 @@ In `--format json`, each case carries
 `"consistency": {"status": "violated", "kind": "correct_despite_failed_check"}`
 (`kind` appears only for `discordant` and `violated`).
 
+### Audit the labels first (free)
+
+`audit` runs each eval case through the lesson's checks and compares the
+case's `expected` label with them. It makes no LLM call and needs no API key, so
+run it before every paid `eval`:
+
+```bash
+blendtutor audit lesson_hello.yaml
+```
+
+```text
+Label audit: 1 violation, 0 discordant (5/5 cases checked)
+
+case 2: violation — labeled correct but a check failed
+```
+
+A violation (a case labeled `correct` whose code fails a check or never runs)
+exits 1, so the audit can gate CI. Discordant labels and lessons with no checks
+exit 0. `--format json` emits `{"cases": [{"expected", "consistency"}]}`.
+
 To persist the result for `build` to fold into the site's eval-results page,
 write the report at the course root:
 

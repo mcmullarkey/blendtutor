@@ -184,6 +184,7 @@ grader can reject it); the checks-catch case fails. Fix the lesson if not.
 Only then, **after confirming with the user** (paid calls):
 
 ```bash
+blendtutor audit lessons/<id>.yaml                 # free label check vs the lesson's checks; exits 1 on a mislabeled case
 blendtutor eval lessons/<id>.yaml                  # grader accuracy against expected verdicts
 blendtutor eval lessons/<id>.yaml --write-report   # also saves eval-report.json for the site
 ```

@@ -14,10 +14,12 @@
 //! `core::llm::OPEN_CODE`, etc., without depending on the internal split.
 
 mod feedback;
+mod grader;
 mod prompt;
 mod provider;
 
 pub use feedback::{FeedbackError, Verdict, request_feedback};
+pub use grader::{EmptyModelId, Grader, ModelId};
 pub use prompt::{
     CHECKS_LABEL, CLOSE_CODE, ExecResults, OPEN_CODE, OUTPUT_LABEL, Prompt, Submission,
     build_prompt,

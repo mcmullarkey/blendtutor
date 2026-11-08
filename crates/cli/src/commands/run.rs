@@ -10,10 +10,10 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use blendtutor_core::lesson::read_lesson_file;
-use blendtutor_core::llm::{ProviderChoice, Submission, Verdict};
+use blendtutor_core::llm::{ModelId, Submission, Verdict};
 use blendtutor_core::run::{RunReport, run_lesson};
 
-use crate::commands::PROVIDER_URL_VAR;
+use crate::commands::{PROVIDER_URL_VAR, grader_for};
 use crate::output::{self, OutputFormat};
 
 /// The exit code reserved for a submission that ran and was graded "not yet
@@ -33,10 +33,12 @@ pub fn run(
     lesson_path: &Path,
     code_path: Option<&Path>,
     format: OutputFormat,
+    model: Option<ModelId>,
 ) -> anyhow::Result<ExitCode> {
     let lesson = read_lesson_file(lesson_path)?;
     let submission = Submission::new(read_submission(code_path)?);
     let base_url = std::env::var(PROVIDER_URL_VAR).ok();
+    let grader = grader_for(model);
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -44,7 +46,7 @@ pub fn run(
     let report = runtime.block_on(run_lesson(
         &lesson,
         &submission,
-        ProviderChoice::default(),
+        &grader,
         base_url.as_deref(),
     ))?;
 

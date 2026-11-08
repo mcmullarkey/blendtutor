@@ -9,6 +9,7 @@ use std::process::ExitCode;
 use clap::{ArgGroup, Parser, Subcommand};
 
 use blendtutor_core::lesson::Language;
+use blendtutor_core::llm::ModelId;
 use blendtutor_core::quarto_export::ExportShape;
 use blendtutor_core::site::BuildTarget;
 
@@ -68,6 +69,9 @@ enum Commands {
         /// Output format: `human` (default) or `json`.
         #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
         format: OutputFormat,
+        /// Grade with this provider model id instead of the default.
+        #[arg(long)]
+        model: Option<ModelId>,
     },
     /// Run feedback-quality evals for a lesson.
     Eval {
@@ -85,6 +89,9 @@ enum Commands {
         /// artifact `build` folds into the site's eval-results page.
         #[arg(long)]
         write_report: bool,
+        /// Grade with this provider model id instead of the default.
+        #[arg(long)]
+        model: Option<ModelId>,
     },
     /// Check each eval case's expected label against the lesson's checks
     /// (no LLM call, no API key). Exits 1 if any label contradicts them.
@@ -181,13 +188,15 @@ fn main() -> anyhow::Result<ExitCode> {
             lesson,
             code,
             format,
-        } => commands::run::run(&lesson, code.as_deref(), format),
+            model,
+        } => commands::run::run(&lesson, code.as_deref(), format, model),
         Commands::Eval {
             lesson,
             format,
             case,
             write_report,
-        } => commands::eval::run(&lesson, format, case, write_report),
+            model,
+        } => commands::eval::run(&lesson, format, case, write_report, model),
         Commands::EvalReport { lesson } => commands::eval_report::run(&lesson),
         Commands::Audit { lesson, format } => commands::audit::run(&lesson, format),
         Commands::New { target } => match target {

@@ -10,7 +10,7 @@
 use blendtutor_core::grade::CheckOutcome;
 use blendtutor_core::lesson::Lesson;
 use blendtutor_core::llm::{
-    CHECKS_LABEL, CLOSE_CODE, ExecResults, OPEN_CODE, OUTPUT_LABEL, Prompt, ProviderChoice,
+    CHECKS_LABEL, CLOSE_CODE, ExecResults, Grader, OPEN_CODE, OUTPUT_LABEL, Prompt, ProviderChoice,
     Submission, Verdict, build_prompt, request_feedback,
 };
 use blendtutor_core::runner::ExecutionResult;
@@ -234,7 +234,7 @@ async fn request_feedback_incorrect_verdict_and_missing_field_errors() {
     )
     .await;
     let verdict = request_feedback(
-        ProviderChoice::Fireworks,
+        &Grader::default_for(ProviderChoice::Fireworks),
         &sample_prompt(),
         Some(&ok_server.uri()),
     )
@@ -263,7 +263,7 @@ async fn request_feedback_incorrect_verdict_and_missing_field_errors() {
     let bad_server = MockServer::start().await;
     mount_tool_call(&bad_server, r#"{"feedback_message":"no verdict"}"#).await;
     let result = request_feedback(
-        ProviderChoice::Fireworks,
+        &Grader::default_for(ProviderChoice::Fireworks),
         &sample_prompt(),
         Some(&bad_server.uri()),
     )
@@ -290,7 +290,7 @@ async fn request_feedback_correct_verdict() {
     )
     .await;
     let verdict = request_feedback(
-        ProviderChoice::Fireworks,
+        &Grader::default_for(ProviderChoice::Fireworks),
         &sample_prompt(),
         Some(&server.uri()),
     )
@@ -328,7 +328,7 @@ async fn fireworks_missing_key_errs_before_request() {
     let server = MockServer::start().await;
 
     let result = request_feedback(
-        ProviderChoice::Fireworks,
+        &Grader::default_for(ProviderChoice::Fireworks),
         &sample_prompt(),
         Some(&server.uri()),
     )
@@ -362,7 +362,7 @@ async fn fireworks_empty_key_errs_before_request() {
     let server = MockServer::start().await;
 
     let result = request_feedback(
-        ProviderChoice::Fireworks,
+        &Grader::default_for(ProviderChoice::Fireworks),
         &sample_prompt(),
         Some(&server.uri()),
     )
@@ -397,7 +397,7 @@ async fn fireworks_present_key_reaches_server() {
     mount_tool_call(&server, r#"{"is_correct":true,"feedback_message":"ok"}"#).await;
 
     let _ = request_feedback(
-        ProviderChoice::Fireworks,
+        &Grader::default_for(ProviderChoice::Fireworks),
         &sample_prompt(),
         Some(&server.uri()),
     )
@@ -419,7 +419,7 @@ async fn anthropic_missing_key_errs_before_request() {
     let server = MockServer::start().await;
 
     let result = request_feedback(
-        ProviderChoice::Anthropic,
+        &Grader::default_for(ProviderChoice::Anthropic),
         &sample_prompt(),
         Some(&server.uri()),
     )

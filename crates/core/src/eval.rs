@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize, Serializer};
 
 use crate::grade::CheckOutcome;
 use crate::lesson::Lesson;
-use crate::llm::{ProviderChoice, Submission, Verdict};
+use crate::llm::{Grader, Submission, Verdict};
 use crate::run::{RunError, run_lesson};
 
 mod audit;
@@ -623,7 +623,7 @@ impl Error for EvalRunError {
 pub async fn run_eval(
     lesson: &Lesson,
     suite: &EvalSuite,
-    provider: ProviderChoice,
+    grader: &Grader,
     base_url_override: Option<&str>,
     case: Option<usize>,
 ) -> Result<EvalReport, EvalRunError> {
@@ -642,7 +642,7 @@ pub async fn run_eval(
             continue;
         }
         let submission = Submission::new(suite_case.submission.clone());
-        let report = run_lesson(lesson, &submission, provider, base_url_override)
+        let report = run_lesson(lesson, &submission, grader, base_url_override)
             .await
             .map_err(|source| EvalRunError::Run { index, source })?;
         cases.push(

@@ -14,6 +14,7 @@ use rig_core::providers::{anthropic, openai};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use super::grader::Grader;
 use super::prompt::Prompt;
 use super::provider::ProviderChoice;
 
@@ -147,15 +148,16 @@ impl From<rig_core::extractor::ExtractionError> for FeedbackError {
 /// (ADR-0006); production passes `None`. Callers depend only on this function and
 /// [`Verdict`], never on rig types.
 pub async fn request_feedback(
-    provider: ProviderChoice,
+    grader: &Grader,
     prompt: &Prompt,
     base_url_override: Option<&str>,
 ) -> Result<Verdict, FeedbackError> {
     // The boundary guard fires first (§1.3.1): a missing key is a clear typed
     // error naming the var, before any rig client is built or any socket opened.
+    let provider = grader.provider();
     let key = require_api_key(provider)?;
     let base_url = base_url_override.unwrap_or(provider.default_base_url());
-    let model = provider.default_model();
+    let model = grader.model().as_str();
 
     let extracted = match provider {
         ProviderChoice::Fireworks => {

@@ -15,10 +15,10 @@ use std::process::ExitCode;
 use anyhow::{Context, anyhow};
 use blendtutor_core::eval::{EvalReport, parse_eval_suite, run_eval};
 use blendtutor_core::lesson::read_lesson_file;
-use blendtutor_core::llm::ProviderChoice;
+use blendtutor_core::llm::ModelId;
 use blendtutor_core::smevals_gen::course_root_for;
 
-use crate::commands::{PROVIDER_URL_VAR, sibling_suite_path};
+use crate::commands::{PROVIDER_URL_VAR, grader_for, sibling_suite_path};
 use crate::output::{self, OutputFormat};
 
 /// The conventional name of the durable eval report `--write-report` writes at
@@ -55,6 +55,7 @@ pub fn run(
     format: OutputFormat,
     case: Option<usize>,
     write_report: bool,
+    model: Option<ModelId>,
 ) -> anyhow::Result<ExitCode> {
     // Canonicalize FIRST (mirrors eval_report.rs): course_root_for climbs the
     // lesson's ancestor chain, and a relative path from a CWD outside the
@@ -89,6 +90,7 @@ pub fn run(
         .with_context(|| format!("reading eval suite {}", suite_path.display()))?;
     let suite = parse_eval_suite(&suite_yaml)?;
     let base_url = std::env::var(PROVIDER_URL_VAR).ok();
+    let grader = grader_for(model);
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -96,7 +98,7 @@ pub fn run(
     let report = runtime.block_on(run_eval(
         &lesson,
         &suite,
-        ProviderChoice::default(),
+        &grader,
         base_url.as_deref(),
         case,
     ))?;

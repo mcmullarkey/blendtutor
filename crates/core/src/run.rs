@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::grade::{CheckOutcome, run_checks, select_runner};
 use crate::lesson::Lesson;
 use crate::llm::{
-    ExecResults, FeedbackError, ProviderChoice, Submission, Verdict, build_prompt, request_feedback,
+    ExecResults, FeedbackError, Grader, Submission, Verdict, build_prompt, request_feedback,
 };
 use crate::runner::Runner;
 
@@ -177,7 +177,7 @@ impl Error for RunError {
 pub async fn run_lesson(
     lesson: &Lesson,
     submission: &Submission,
-    provider: ProviderChoice,
+    grader: &Grader,
     base_url_override: Option<&str>,
 ) -> Result<RunReport, RunError> {
     let runner = select_runner(&lesson.language, &lesson.packages);
@@ -192,7 +192,7 @@ pub async fn run_lesson(
 
     let results = ExecResults { output, outcomes };
     let prompt = build_prompt(lesson, submission, &results);
-    let verdict = request_feedback(provider, &prompt, base_url_override)
+    let verdict = request_feedback(grader, &prompt, base_url_override)
         .await
         .map_err(RunError::Feedback)?;
 

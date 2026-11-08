@@ -155,8 +155,8 @@ you write the items, and the deterministic gates decide what stays.
    their `misconception:`.
 4. **Gate with `audit`, then fix or drop:**
    - a violation (a generated `correct` item that fails a check) → drop it;
-   - a tagged item that crashes, when crashing isn't the misconception → drop
-     it (run it once with the lesson's interpreter to see);
+   - a tagged item that crashes (`audit` warns "tagged … but the submission
+     never ran") → drop it unless crashing *is* the misconception;
    - near-duplicates of another item (same code after renaming) → drop them.
 5. **Ask the user to review a sample**, prioritizing items for misconceptions
    `audit` reports as *uncovered*. No check can confirm those items really show

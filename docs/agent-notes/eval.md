@@ -205,3 +205,9 @@ ADR-0007 for the verdict-representation decision.
   skill ("Generate more items"): per misconception × surface facet,
   `source: generated`, audit gate, human review of uncovered-misconception
   items, and a different model family than the grader.
+- 2026-11-08 (eval-measurement slice 6): **Audit crash warning** (ADR-0026
+  amendment). `LabelAudit::warning()` is `Some(TaggedItemNeverRan)` iff the case
+  is tagged and any check outcome is `NotRun`. Untagged crashes, tagged items
+  with no checks, and tagged items that ran don't warn. Warnings never change
+  the exit code. The human report interleaves warnings with disagreements per
+  case, in case order. Fixture `eval_crash/`.

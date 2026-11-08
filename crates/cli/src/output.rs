@@ -13,7 +13,7 @@ use clap::ValueEnum;
 use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
-use blendtutor_core::eval::{CaseResult, EvalReport};
+use blendtutor_core::eval::{CaseResult, Consistency, Discordance, EvalReport, Violation};
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
 use blendtutor_core::run::RunReport;
@@ -386,6 +386,7 @@ fn render_eval(report: &EvalReport) -> String {
             "Accuracy: {matched}/{total} ({percent:.1}%)",
             percent = report.accuracy() * 100.0
         ),
+        consistency_headline(report),
         String::new(),
     ];
     for (position, case) in report.cases().iter().enumerate() {
@@ -400,6 +401,9 @@ fn render_eval(report: &EvalReport) -> String {
             expected = case.expected().token(),
             actual = case.actual().token(),
         ));
+        if let Some(callout) = consistency_line(case) {
+            lines.push(callout);
+        }
         if let Some(feedback) = feedback_line(case) {
             lines.push(feedback);
         }
@@ -409,6 +413,55 @@ fn render_eval(report: &EvalReport) -> String {
         lines.push(footer);
     }
     lines.join("\n")
+}
+
+/// The `Consistency:` headline (ADR-0022): violation and discordance counts over
+/// the cases that had checks, or an explicit "not assessable" when none did, so
+/// an LLM-only lesson never reads as agreeing with checks it does not have.
+fn consistency_headline(report: &EvalReport) -> String {
+    let cases = report.cases();
+    let checked = cases
+        .iter()
+        .filter(|case| case.consistency() != Consistency::Unchecked)
+        .count();
+    if checked == 0 {
+        return "Consistency: not assessable (lesson has no checks)".to_string();
+    }
+    let violations = cases
+        .iter()
+        .filter(|case| matches!(case.consistency(), Consistency::Violated(_)))
+        .count();
+    let discordant = cases
+        .iter()
+        .filter(|case| matches!(case.consistency(), Consistency::Discordant(_)))
+        .count();
+    let noun = if violations == 1 {
+        "violation"
+    } else {
+        "violations"
+    };
+    format!(
+        "Consistency: {violations} {noun}, {discordant} discordant ({checked}/{total} cases checked)",
+        total = cases.len()
+    )
+}
+
+/// The indented call-out under a case whose verdict disagrees with its checks,
+/// or `None` when it agrees or the lesson has no checks.
+fn consistency_line(case: &CaseResult) -> Option<String> {
+    let text = match case.consistency() {
+        Consistency::Unchecked | Consistency::Consistent => return None,
+        Consistency::Violated(Violation::CorrectDespiteFailedCheck) => {
+            "violation — graded correct but a check failed"
+        }
+        Consistency::Violated(Violation::CorrectDespiteNotRun) => {
+            "violation — graded correct but the submission never ran"
+        }
+        Consistency::Discordant(Discordance::IncorrectDespitePassingChecks) => {
+            "discordant — graded incorrect but every check passed"
+        }
+    };
+    Some(format!("  consistency: {text}"))
 }
 
 /// The indented `grader:` line carrying one case's verbatim feedback — present
@@ -622,9 +675,9 @@ mod tests {
             message: "gamma polarity flipped".to_string(),
         };
         let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped),
+            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
+            CaseResult::score(ExpectedVerdict::Correct, &flipped, &[]),
         ]);
 
         insta::assert_snapshot!(render_eval(&report));
@@ -649,9 +702,9 @@ mod tests {
             message: "gamma polarity flipped".to_string(),
         };
         let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped),
+            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
+            CaseResult::score(ExpectedVerdict::Correct, &flipped, &[]),
         ]);
 
         let rendered = render_eval(&report);
@@ -701,9 +754,9 @@ mod tests {
             message: "gamma polarity flipped".to_string(),
         };
         let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped),
+            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
+            CaseResult::score(ExpectedVerdict::Correct, &flipped, &[]),
         ]);
 
         let rendered = render_eval(&report);
@@ -755,11 +808,11 @@ mod tests {
         };
         let report = EvalReport::new(vec![
             // Case 1: expected correct, got incorrect → mismatch.
-            CaseResult::score(ExpectedVerdict::Correct, &wrong_alpha),
+            CaseResult::score(ExpectedVerdict::Correct, &wrong_alpha, &[]),
             // Case 2: expected incorrect, got incorrect → match.
-            CaseResult::score(ExpectedVerdict::Incorrect, &wrong_beta),
+            CaseResult::score(ExpectedVerdict::Incorrect, &wrong_beta, &[]),
             // Case 3: expected correct, got incorrect → mismatch.
-            CaseResult::score(ExpectedVerdict::Correct, &wrong_gamma),
+            CaseResult::score(ExpectedVerdict::Correct, &wrong_gamma, &[]),
         ]);
 
         let rendered = render_eval(&report);
@@ -783,8 +836,8 @@ mod tests {
             message: "beta is wrong".to_string(),
         };
         let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
+            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
         ]);
 
         let rendered = render_eval(&report);
@@ -829,9 +882,9 @@ mod tests {
                 .to_string(),
         };
         let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-            CaseResult::score(ExpectedVerdict::Correct, &multiline),
+            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
+            CaseResult::score(ExpectedVerdict::Correct, &multiline, &[]),
         ]);
 
         let rendered = render_eval(&report);
@@ -866,17 +919,17 @@ mod tests {
             message: "gamma polarity flipped".to_string(),
         };
         let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect),
-            CaseResult::score(ExpectedVerdict::Correct, &flipped),
+            CaseResult::score(ExpectedVerdict::Correct, &correct, &[]),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect, &[]),
+            CaseResult::score(ExpectedVerdict::Correct, &flipped, &[]),
         ]);
 
         let json = serde_json::to_string(&report).expect("an EvalReport serializes infallibly");
 
         let expected = concat!(
-            r#"{"cases":[{"expected":"correct","actual":"correct","matched":true,"feedback_message":"alpha checks out"},"#,
-            r#"{"expected":"incorrect","actual":"incorrect","matched":true,"feedback_message":"beta is wrong"},"#,
-            r#"{"expected":"correct","actual":"incorrect","matched":false,"feedback_message":"gamma polarity flipped"}],"#,
+            r#"{"cases":[{"expected":"correct","actual":"correct","matched":true,"feedback_message":"alpha checks out","consistency":{"status":"unchecked"}},"#,
+            r#"{"expected":"incorrect","actual":"incorrect","matched":true,"feedback_message":"beta is wrong","consistency":{"status":"unchecked"}},"#,
+            r#"{"expected":"correct","actual":"incorrect","matched":false,"feedback_message":"gamma polarity flipped","consistency":{"status":"unchecked"}}],"#,
             r#""accuracy":0.6666666666666666}"#,
         );
         assert_eq!(json, expected, "the JSON wire shape must not drift");

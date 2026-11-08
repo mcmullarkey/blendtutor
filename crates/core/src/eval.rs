@@ -26,9 +26,14 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize, Serializer};
 
+use crate::grade::CheckOutcome;
 use crate::lesson::Lesson;
 use crate::llm::{ProviderChoice, Submission, Verdict};
 use crate::run::{RunError, run_lesson};
+
+mod consistency;
+
+pub use consistency::{Consistency, Discordance, Violation, classify};
 
 /// The verdict an eval case expects the grader to return: a polarity, with no
 /// learner-facing message.
@@ -230,38 +235,44 @@ pub fn aggregate(cases: &[CaseResult]) -> f64 {
 }
 
 /// One scored eval case: the expected polarity, the polarity the grader actually
-/// returned, whether they matched, and the grader's verbatim feedback message.
+/// returned, whether they matched, the grader's verbatim feedback message, and how
+/// that verdict relates to the lesson's checks ([`Consistency`], ADR-0022).
 ///
-/// `matched` is derived at construction from the two polarities ([`score_case`]),
-/// never set independently (§1.1): a result cannot claim a match its polarities
-/// contradict. The serialized shape — `expected`, `actual`, `matched`,
-/// `feedback_message` — is the per-case artifact a built site embeds without
-/// re-scoring; `feedback_message` is a plain `String` (never `Option`), so the
-/// key is always present on the wire (§1.1).
+/// `matched` and `consistency` are derived at construction ([`score_case`],
+/// [`classify`]), never set independently (§1.1): a result cannot claim a match
+/// its polarities contradict. The serialized shape — `expected`, `actual`,
+/// `matched`, `feedback_message`, `consistency` — is the per-case artifact a
+/// built site embeds without re-scoring; `feedback_message` is a plain `String`
+/// (never `Option`), so the key is always present on the wire (§1.1).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CaseResult {
     expected: ExpectedVerdict,
     actual: ExpectedVerdict,
     matched: bool,
     feedback_message: String,
+    consistency: Consistency,
 }
 
 impl CaseResult {
     /// Score a case: reduce the runtime `actual` verdict to its polarity, derive
     /// `matched` from it and `expected`, and capture the verdict's verbatim
-    /// learner-facing message. The only constructor, so a `matched` flag
+    /// learner-facing message. Classify it against `checks`, the per-check
+    /// outcomes for the same submission (empty when the lesson has none). The
+    /// only constructor, so a `matched` flag
     /// inconsistent with the polarities is unrepresentable.
-    pub fn score(expected: ExpectedVerdict, actual: &Verdict) -> Self {
+    pub fn score(expected: ExpectedVerdict, actual: &Verdict, checks: &[CheckOutcome]) -> Self {
         let feedback_message = match actual {
             Verdict::Correct { message } | Verdict::Incorrect { message } => message.clone(),
         };
         let actual = ExpectedVerdict::from(actual);
         let matched = score_case(&expected, &actual);
+        let consistency = classify(&actual, checks);
         Self {
             expected,
             actual,
             matched,
             feedback_message,
+            consistency,
         }
     }
 
@@ -283,6 +294,11 @@ impl CaseResult {
     /// The learner-facing feedback the grader produced for this case, verbatim.
     pub fn feedback_message(&self) -> &str {
         &self.feedback_message
+    }
+
+    /// How the grader's verdict relates to the lesson's check outcomes (ADR-0022).
+    pub fn consistency(&self) -> Consistency {
+        self.consistency
     }
 }
 
@@ -420,6 +436,7 @@ pub async fn run_eval(
         cases.push(CaseResult::score(
             suite_case.expected.clone(),
             report.verdict(),
+            report.checks(),
         ));
     }
     Ok(EvalReport::new(cases))
@@ -560,7 +577,7 @@ mod tests {
         // `matched` is computed at construction from the scored polarities, never
         // set independently (§1.1): an expected-correct case graded incorrect is a
         // mismatch, and `matched` equals `score_case` of the stored polarities.
-        let result = CaseResult::score(ExpectedVerdict::Correct, &incorrect());
+        let result = CaseResult::score(ExpectedVerdict::Correct, &incorrect(), &[]);
         assert_eq!(result.expected(), &ExpectedVerdict::Correct);
         assert_eq!(result.actual(), &ExpectedVerdict::Incorrect);
         assert!(!result.matched());
@@ -571,11 +588,27 @@ mod tests {
     }
 
     #[test]
+    fn case_result_classifies_consistency_from_the_actual_verdict() {
+        // Consistency compares what the grader *said* with the checks, not what
+        // the author expected: graded incorrect with every check passing is
+        // discordant, even though the author expected correct.
+        let result = CaseResult::score(
+            ExpectedVerdict::Correct,
+            &incorrect(),
+            &[crate::grade::CheckOutcome::Pass],
+        );
+        assert_eq!(
+            result.consistency(),
+            Consistency::Discordant(Discordance::IncorrectDespitePassingChecks)
+        );
+    }
+
+    #[test]
     fn aggregate_is_matched_over_total_and_zero_for_an_empty_suite() {
         let cases = vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct()),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect()),
-            CaseResult::score(ExpectedVerdict::Correct, &incorrect()),
+            CaseResult::score(ExpectedVerdict::Correct, &correct(), &[]),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect(), &[]),
+            CaseResult::score(ExpectedVerdict::Correct, &incorrect(), &[]),
         ];
         assert_eq!(aggregate(&cases), 2.0 / 3.0);
         // No cases means no NaN (0/0) — an empty suite is a real, serializable 0.0.
@@ -588,9 +621,9 @@ mod tests {
         // per-case `matched` flags are [true, true, false], and each is the
         // derived `score_case` of its stored polarities.
         let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct()),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect()),
-            CaseResult::score(ExpectedVerdict::Correct, &incorrect()),
+            CaseResult::score(ExpectedVerdict::Correct, &correct(), &[]),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect(), &[]),
+            CaseResult::score(ExpectedVerdict::Correct, &incorrect(), &[]),
         ]);
 
         assert_eq!(report.accuracy(), 2.0 / 3.0);
@@ -650,9 +683,9 @@ mod tests {
         // captured for BOTH polarities — a message captured only for Incorrect
         // verdicts (negative h) or a constant across cases (negative a) cannot
         // pass.
-        let correct = CaseResult::score(ExpectedVerdict::Correct, &correct());
+        let correct = CaseResult::score(ExpectedVerdict::Correct, &correct(), &[]);
         assert_eq!(correct.feedback_message(), "well done");
-        let incorrect = CaseResult::score(ExpectedVerdict::Incorrect, &incorrect());
+        let incorrect = CaseResult::score(ExpectedVerdict::Incorrect, &incorrect(), &[]);
         assert_eq!(incorrect.feedback_message(), "try again");
     }
 
@@ -662,8 +695,8 @@ mod tests {
         // — never null, never omitted, verbatim. An `Option<String>` field or a
         // `skip_serializing_if` would break this contract.
         let report = EvalReport::new(vec![
-            CaseResult::score(ExpectedVerdict::Correct, &correct()),
-            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect()),
+            CaseResult::score(ExpectedVerdict::Correct, &correct(), &[]),
+            CaseResult::score(ExpectedVerdict::Incorrect, &incorrect(), &[]),
         ]);
         let json = serde_json::to_value(&report).expect("an EvalReport serializes infallibly");
         let cases = json["cases"].as_array().expect("cases is an array");
@@ -688,6 +721,7 @@ mod tests {
             &Verdict::Correct {
                 message: String::new(),
             },
+            &[],
         );
         let json = serde_json::to_string(&result).expect("a CaseResult serializes infallibly");
         assert!(

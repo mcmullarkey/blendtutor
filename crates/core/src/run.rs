@@ -50,6 +50,12 @@ impl RunReport {
     pub fn verdict(&self) -> &Verdict {
         &self.verdict
     }
+
+    /// The per-check outcomes, in the lesson's check order. Eval compares them
+    /// with the verdict to flag contradictions (ADR-0022).
+    pub fn checks(&self) -> &[CheckOutcome] {
+        &self.checks
+    }
 }
 
 /// The stable JSON shape of a [`RunReport`]: a flat document with a string

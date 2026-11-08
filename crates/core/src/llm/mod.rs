@@ -17,6 +17,7 @@ mod feedback;
 mod grader;
 mod prompt;
 mod provider;
+mod suggest;
 
 pub use feedback::{FeedbackError, Verdict, request_feedback};
 pub use grader::{EmptyModelId, Grader, ModelId};
@@ -25,3 +26,4 @@ pub use prompt::{
     build_prompt,
 };
 pub use provider::ProviderChoice;
+pub use suggest::{SuggestedMisconception, build_suggestion_prompt, request_suggestions};

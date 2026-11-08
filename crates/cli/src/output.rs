@@ -16,7 +16,7 @@ use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
     AuditWarning, CaseResult, CompareReport, Conclusion, Consistency, CoverageRow, Decision,
     DetectionRow, Discordance, EvalReport, LabelAudit, LabelAuditReport, LeakageSummary,
-    MisconceptionCoverage, PairedChange, SourceRow, StabilityReport, Violation,
+    MisconceptionCoverage, PairedChange, SourceRow, StabilityReport, SuggestionCheck, Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -758,6 +758,40 @@ fn render_stability(report: &StabilityReport) -> String {
         ));
     }
     lines.join("\n")
+}
+
+/// The human rendering of misconception suggestions (ADR-0032): one numbered
+/// line per suggestion saying what the lesson's checks make of its example,
+/// followed by the example, indented. Pure (§2.1).
+fn render_suggestions(suggestions: &[crate::commands::suggest::CheckedSuggestion]) -> String {
+    if suggestions.is_empty() {
+        return "No new misconceptions suggested.".to_string();
+    }
+    let mut lines = vec!["Suggested misconceptions not yet in the blueprint:".to_string()];
+    for (position, s) in suggestions.iter().enumerate() {
+        let verdict = match s.checks {
+            SuggestionCheck::Caught => "caught by the checks",
+            SuggestionCheck::NotCaught => "not caught by the checks (only the grader can catch it)",
+            SuggestionCheck::DoesNotRun => "example does not run (fix or drop it)",
+            SuggestionCheck::Unchecked => "lesson has no checks",
+        };
+        lines.push(String::new());
+        lines.push(format!("{}. {}: {verdict}", position + 1, s.label));
+        lines.extend(s.example_submission.lines().map(|l| format!("     {l}")));
+    }
+    lines.join("\n")
+}
+
+/// Render misconception suggestions in `format` and write them to stdout.
+pub fn emit_suggestions(
+    suggestions: &[crate::commands::suggest::CheckedSuggestion],
+    format: OutputFormat,
+) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => serde_json::json!({ "suggestions": suggestions }).to_string(),
+        OutputFormat::Human => render_suggestions(suggestions),
+    };
+    writeln!(io::stdout(), "{text}")
 }
 
 /// Render a stability report in `format` and write it to stdout (§2.4).

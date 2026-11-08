@@ -40,6 +40,7 @@ mod interval;
 mod leakage;
 mod provenance;
 mod stability;
+mod suggestion;
 
 pub use audit::{
     AuditWarning, CoverageRow, LabelAudit, LabelAuditReport, MisconceptionCoverage, audit_labels,
@@ -54,6 +55,7 @@ pub use interval::{newcombe_paired, wilson};
 pub use leakage::{Leakage, LeakageSummary, assessable, code_blocks};
 pub use provenance::{ItemSource, SourceRow};
 pub use stability::{StabilityError, StabilityReport};
+pub use suggestion::{SuggestionCheck, check_example};
 
 /// The verdict an eval case expects the grader to return: a polarity, with no
 /// learner-facing message.

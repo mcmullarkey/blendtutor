@@ -126,6 +126,19 @@ enum Commands {
         #[arg(long)]
         model: Option<ModelId>,
     },
+    /// Suggest misconceptions the lesson's eval blueprint does not cover yet, each
+    /// with an example submission checked against the lesson's checks.
+    SuggestMisconceptions {
+        /// Path to the lesson YAML file; its sibling eval suite's blueprint (if any)
+        /// lists the misconceptions already covered.
+        lesson: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+        /// Ask this provider model id instead of the default.
+        #[arg(long)]
+        model: Option<ModelId>,
+    },
     /// Generate a static smevals eval report for a lesson.
     EvalReport {
         /// Path to the lesson YAML file; its sibling `eval_<lesson>.yaml`
@@ -222,6 +235,11 @@ fn main() -> anyhow::Result<ExitCode> {
             repeat,
         } => commands::eval::run(&lesson, format, case, write_report, model, repeat),
         Commands::EvalReport { lesson } => commands::eval_report::run(&lesson),
+        Commands::SuggestMisconceptions {
+            lesson,
+            format,
+            model,
+        } => commands::suggest::run(&lesson, format, model),
         Commands::EvalCompare {
             baseline,
             candidate,

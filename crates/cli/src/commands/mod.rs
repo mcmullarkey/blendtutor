@@ -16,6 +16,7 @@ pub mod init;
 pub mod list;
 pub mod new;
 pub mod run;
+pub mod suggest;
 pub mod validate;
 
 /// The environment variable that overrides the provider's base URL — the test

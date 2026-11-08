@@ -17,6 +17,8 @@
 //! | `lesson.language`    | `language="<r|python>"` attribute         |
 //! | `exercise.gotchas`   | `::: {.gotchas}` div (if `Some`)         |
 //! | `exercise.success_criteria` | `::: {.success-criteria}` div (if `Some`, ADR-0020) |
+//! | `exercise.feedback_guidance` | `::: {.feedback-guidance}` div (if `Some`, ADR-0030) |
+//! | `exercise.feedback_guidance` | `::: {.feedback-guidance}` div (if `Some`, ADR-0030) |
 //! | `lesson.packages`    | `packages="a,b"` attribute (if non-empty) |
 //! | `exercise.llm_evaluation_prompt` | EXCLUDED (author-only, ADR-0006) |
 
@@ -188,6 +190,16 @@ pub fn export_lesson_to_qmd(lesson: &Lesson, shape: ExportShape) -> String {
         out.push('\n');
         out.push_str("::: {.success-criteria}\n");
         out.push_str(criteria.trim_end());
+        out.push('\n');
+        out.push_str(":::\n");
+    }
+
+    // Feedback guidance as a fenced div (if present), after the criteria; the
+    // filter carries it into the feedback prompt (ADR-0030).
+    if let Some(ref guidance) = lesson.exercise.feedback_guidance {
+        out.push('\n');
+        out.push_str("::: {.feedback-guidance}\n");
+        out.push_str(guidance.trim_end());
         out.push('\n');
         out.push_str(":::\n");
     }
@@ -571,5 +583,29 @@ exercise:
         );
         let bare = Lesson::parse(VALID_YAML).unwrap();
         assert!(!export_lesson_to_qmd(&bare, ExportShape::Snippet).contains("success-criteria"));
+    }
+
+    #[test]
+    fn export_renders_feedback_guidance_as_div_after_the_criteria() {
+        let yaml = r#"
+lesson_name: "Guided"
+language: R
+exercise:
+  prompt: "Write pseudocode."
+  success_criteria: |
+    - Uses only comments
+  feedback_guidance: |
+    Hint; never give a working solution.
+  llm_evaluation_prompt: "Grade this: {student_code}"
+"#;
+        let lesson = Lesson::parse(yaml).unwrap();
+        let qmd = export_lesson_to_qmd(&lesson, ExportShape::Snippet);
+        let div = "::: {.feedback-guidance}\nHint; never give a working solution.\n:::\n";
+        let at = qmd
+            .find(div)
+            .unwrap_or_else(|| panic!("guidance div missing:\n{qmd}"));
+        assert!(qmd.find("::: {.success-criteria}").unwrap() < at, "{qmd}");
+        let bare = Lesson::parse(VALID_YAML).unwrap();
+        assert!(!export_lesson_to_qmd(&bare, ExportShape::Snippet).contains("feedback-guidance"));
     }
 }

@@ -20,8 +20,8 @@ import sys
 from typing import Any
 
 
-# The 10 SiteLesson keys that MUST be present in every widget JSON
-# (ADR-0020 added success_criteria).
+# The 11 SiteLesson keys that MUST be present in every widget JSON
+# (ADR-0020 added success_criteria, ADR-0030 feedback_guidance).
 REQUIRED_KEYS: set[str] = {
     "id",
     "title",
@@ -33,6 +33,7 @@ REQUIRED_KEYS: set[str] = {
     "hints",
     "gotchas",
     "success_criteria",
+    "feedback_guidance",
 }
 
 # Keys that MUST NOT appear — llm_evaluation_prompt is server/CLI only
@@ -144,6 +145,13 @@ def assert_full_exercise(data: dict[str, Any], errors: list[str]) -> None:
     if criteria is None or "sum of" not in criteria:
         errors.append(
             f"Full exercise: success_criteria missing 'sum of' — got: {criteria!r}"
+        )
+
+    # feedback_guidance from the nested .feedback-guidance div (ADR-0030)
+    guidance = data["feedback_guidance"]
+    if guidance is None or "never paste" not in guidance:
+        errors.append(
+            f"Full exercise: feedback_guidance missing 'never paste' — got: {guidance!r}"
         )
 
 

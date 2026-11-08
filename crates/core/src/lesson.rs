@@ -102,6 +102,11 @@ pub struct Exercise {
     pub example_usage: Option<String>,
     /// Optional human-readable success criteria.
     pub success_criteria: Option<String>,
+    /// Optional guidance on how feedback should be written (e.g. "guide the
+    /// learner to the fix without giving a working solution"). Sent to the
+    /// grader after the success criteria (ADR-0030). It describes the
+    /// feedback, not the code, so it stays separate from `success_criteria`.
+    pub feedback_guidance: Option<String>,
 }
 
 /// A single lesson: its identity, language, and exercise, with optional prose.

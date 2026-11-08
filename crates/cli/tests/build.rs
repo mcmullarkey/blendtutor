@@ -488,6 +488,14 @@ fn build_webr_ships_the_byok_anthropic_feedback_seam() {
         "index.html must carry the submit control the BYOK flow drives; index={index}"
     );
 
+    // ADR-0030: the shipped prompt builder carries the author's feedback guidance
+    // from the lesson contract into the prompt, as the Rust builder does, so the
+    // feedback learners get is the feedback `eval` measured.
+    assert!(
+        feedback.contains("Feedback guidance:") && feedback.contains("lesson.feedback_guidance"),
+        "feedback.js must read feedback_guidance and emit its section"
+    );
+
     // AC1: submitting with no key prompts for one with a *dual* disclosure — both
     // phrases live in the impl that renders the prompt (the UI matches them
     // case-insensitively; asserted lowercased against the source).

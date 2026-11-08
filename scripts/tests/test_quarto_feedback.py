@@ -927,7 +927,20 @@ const criteriaAt = criteriaPrompt.indexOf("Success criteria:");
 assert(criteriaAt > criteriaPrompt.indexOf("Add two numbers") && criteriaAt < criteriaPrompt.indexOf("<<<STUDENT_CODE_BEGIN>>>"), "ADR-0020 (Node): Success criteria section sits between the task and the code fence");
 assert(criteriaPrompt.includes("- Returns CRITERIA-BETA"), "ADR-0020 (Node): buildPrompt includes the success criteria text");
 assert(!ac5Prompt.includes("Success criteria:"), "ADR-0020 (Node): no Success criteria section when criteria are absent");
-assert(mod.PROVIDERS.fireworks.fallbackModel === "accounts/fireworks/models/deepseek-v4p1-flash-1017", "AC-5 arm 3 (Node): PROVIDERS.fireworks.fallbackModel pinned to -0731");
+// ADR-0030: feedback guidance rides the prompt after the criteria, before the code.
+const guidancePrompt = mod.buildPrompt({
+  task: "Add two numbers",
+  successCriteria: "- Returns CRITERIA-BETA",
+  feedbackGuidance: "Hint; never give GUIDANCE-GAMMA a working solution.",
+  code: "add <- function(a, b) a + b",
+  output: "",
+  checks: [],
+});
+const guidanceAt = guidancePrompt.indexOf("Feedback guidance:");
+assert(guidanceAt > guidancePrompt.indexOf("Success criteria:") && guidanceAt < guidancePrompt.indexOf("<<<STUDENT_CODE_BEGIN>>>"), "ADR-0030 (Node): Feedback guidance section sits after the criteria and before the code fence");
+assert(guidancePrompt.includes("GUIDANCE-GAMMA"), "ADR-0030 (Node): buildPrompt includes the guidance text");
+assert(!criteriaPrompt.includes("Feedback guidance:"), "ADR-0030 (Node): no Feedback guidance section when guidance is absent");
+assert(mod.PROVIDERS.fireworks.fallbackModel === "accounts/fireworks/models/deepseek-v4p1-flash-1017", "AC-5 arm 3 (Node): PROVIDERS.fireworks.fallbackModel pinned to -1017");
 
 // --- AC-5 DOM→prompt wiring (fetch-spy behavioral suite) -------------------
 // The negative says a pure buildPrompt call passes while the DOM→prompt

@@ -148,3 +148,14 @@ ADR-0007 for the verdict-representation decision.
   missing `uvx` is a clean stage-named error with an install hint, never a
   panic. The committed `docs/evals/01_seed_data/` report doubles as the
   real-key smoke evidence.
+- 2026-11-08 (eval-measurement slice 1): **Grader–check consistency** (ADR-0022).
+  `eval::consistency::classify(&actual_polarity, &[CheckOutcome])` is pure and
+  total. It first collapses the checks into a private `CheckEvidence`
+  (`NoChecks | AllPassed | NotRun | Failed`) so an empty slice can't fall into
+  "all passed" by vacuous truth, then matches exhaustively. It classifies the
+  **actual** verdict, never `expected`. `CaseResult::score` takes the checks
+  (`&[]` for LLM-only lessons) and derives `consistency` the same way as
+  `matched`. Wire: additive `{"status", "kind"?}`; `build` reads only
+  `accuracy`, so `eval-report.json` consumers are unaffected. Fixture
+  `eval_consistency/` has one case per category, and case 2 is a deliberately
+  mislabeled item (`matched` true, violated).

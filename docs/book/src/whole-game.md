@@ -85,6 +85,31 @@ inspect one: blendtutor eval <lesson> --case N
 grading is shaped by the lesson's `llm_evaluation_prompt` and each exercise's reference `solution`
 ```
 
+### Consistency with the lesson's checks
+
+When a lesson has `checks`, `eval` also compares each verdict with the check
+results for the same submission. This needs no expected labels, so it can catch
+a broken grader *or* a mislabeled eval case:
+
+```text
+Accuracy: 2/5 (40.0%)
+Consistency: 2 violations, 1 discordant (5/5 cases checked)
+
+case 2: expected correct, got correct [match]
+  consistency: violation — graded correct but a check failed
+```
+
+- **violation**: graded correct although a check failed or the submission never
+  ran. Something is wrong: the grader, the check, or the case's `expected`.
+- **discordant**: graded incorrect although every check passed. This is often
+  fine, because success criteria that checks don't encode (style, required
+  functions) can still fail. It's worth a look.
+- A lesson with no checks reports `Consistency: not assessable`, never 100%.
+
+In `--format json`, each case carries
+`"consistency": {"status": "violated", "kind": "correct_despite_failed_check"}`
+(`kind` appears only for `discordant` and `violated`).
+
 To persist the result for `build` to fold into the site's eval-results page,
 write the report at the course root:
 

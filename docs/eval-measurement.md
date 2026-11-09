@@ -21,23 +21,23 @@ My first steps in shifting the blendtutor eval approach prioritize content valid
 
 I wanted to give people some kind of grounding while creating their lesson evals, rather than having them stare at a blank YAML file. I decided to focus on potential misconceptions learners could have about each lesson. This approach fits with expert instructors who can anticipate where learners’ gaps in understanding might emerge.
 
-Each eval item now ties back to a misconception learners could potentially harbor about the material. I’ve also included tooling to help instructors improve content validity by suggesting potential misconceptions not yet covered by any eval examples.
+Each eval item now [ties back to a misconception](https://mcmullarkey.github.io/blendtutor/whole-game.html#misconception-coverage) learners could potentially harbor about the material. I’ve also included [tooling](https://mcmullarkey.github.io/blendtutor/whole-game.html#find-misconceptions-the-blueprint-is-missing) to help instructors improve content validity by suggesting potential misconceptions not yet covered by any eval examples.
 
 ## Retest reliability
 
 There’s lots of work to do to improve blendtutor’s LLM judge setup. And none of that work will matter if we can’t get (mostly) consistent evals from run-to-run. If the scores on evals can differ drastically with *nothing* about the prompt or setup changing, then we can’t reliably track improvements or regressions.
 
-I’ve added tooling that allows us to track retest reliability for a lesson’s eval. Establishing this baseline allows future work on LLM judges to proceed with more confidence. For example, in a test lesson the verdicts matched across three runs on 30 of 31 items (95% CI 84%-99%).
+I’ve added [tooling](https://mcmullarkey.github.io/blendtutor/whole-game.html#check-that-a-run-is-repeatable) that allows us to track retest reliability for a lesson’s eval. Establishing this baseline allows future work on LLM judges to proceed with more confidence. For example, in a test lesson the verdicts matched across three runs on 30 of 31 items (95% CI 84%-99%).
 
 ## Meta-evaluation
 
 A fair question to have during the content validity section: “How do you know you’re giving good suggestions about misconception coverage?” Let’s tackle this deceptively thorny question from two angles.
 
-First, we can take some example lessons with misconception coverage we believe is good. Right now that’s based on one human’s judgment, which is a validity issue itself, but I think it’s better to make assumptions explicit vs. hiding them. Then, we can see how well our “check for misconception” tooling recovers misconceptions if we explicitly leave one out of the lesson.
+First, we can take some example lessons with misconception coverage we believe is good. Right now that’s based on one human’s judgment, which is a validity issue itself, but I think it’s better to make assumptions explicit vs. hiding them. Then, we can see how well our `suggest-misconceptions` tooling recovers misconceptions if we [explicitly leave one out of the lesson](adr/0032-suggest-misconceptions-content-validity.md#validation-lesson-03-deepseek-v4p1-flash-1017-2026-11-08).
 
 Second, we can decide what kinds of misconceptions we want the tooling to catch. For example, I think the most important misconceptions are going to be conceptual vs. mechanical. Modern agentic LLMs can help with mechanical coding mistakes quite well at baseline, whereas they might struggle a bit more to completely cover all potential misconceptions learners could hold.
 
-With this combination, we can tune the misconception coverage toward finding conceptual gaps (and confirm it succeeds on the held out misconceptions) while being less bothered if it misses on more mechanical misconceptions we can catch with more deterministic tooling.
+With this combination, we can tune the misconception coverage toward finding conceptual gaps (and confirm it succeeds on the held out misconceptions) while being less bothered if it misses on more mechanical misconceptions we can catch with [more deterministic tooling](https://mcmullarkey.github.io/blendtutor/whole-game.html#audit-the-labels-first-free).
 
 ## What’s next?
 

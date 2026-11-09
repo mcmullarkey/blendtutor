@@ -47,6 +47,9 @@ blendtutor eval-report lessons/greet.yaml         # LLM-judged report → docs/e
 blendtutor build my-course --target webr -o site  # static browser site (--target webr|pyodide)
 ```
 
+For why the evals are built around misconceptions, retest reliability, and
+meta-evaluation, see [Taking eval measurement seriously](docs/eval-measurement.md).
+
 ## Deploy to GitHub Pages
 
 The built `site/` is fully static — deploy to **GitHub Pages** as-is. webR

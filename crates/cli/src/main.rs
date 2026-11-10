@@ -136,6 +136,22 @@ enum Commands {
         #[arg(long)]
         model: Option<ModelId>,
     },
+    /// Judge feedback that already exists, from a JSON array of items (id, task,
+    /// submission, feedback, and optionally misconception and control), without
+    /// grading or running code (ADR-0034).
+    JudgeFeedback {
+        /// The JSON items file.
+        items: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+        /// Samples per judge verdict; the majority wins.
+        #[arg(long, default_value_t = 3, value_parser = clap::value_parser!(u32).range(1..))]
+        samples: u32,
+        /// Judge with this provider model id instead of the provider default.
+        #[arg(long)]
+        judge_model: Option<ModelId>,
+    },
     /// Suggest misconceptions the lesson's eval blueprint does not cover yet, each
     /// with an example submission checked against the lesson's checks.
     SuggestMisconceptions {
@@ -271,6 +287,12 @@ fn main() -> anyhow::Result<ExitCode> {
             margin,
             model,
         } => commands::eval_compare::run(&baseline, &candidate, format, margin, model),
+        Commands::JudgeFeedback {
+            items,
+            format,
+            samples,
+            judge_model,
+        } => commands::judge_feedback::run(&items, format, samples, judge_model),
         Commands::Audit { lesson, format } => commands::audit::run(&lesson, format),
         Commands::New { target } => match target {
             NewTarget::Lesson { lang, id } => commands::new::run(lang, &id),

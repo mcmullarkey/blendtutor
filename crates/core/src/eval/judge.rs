@@ -132,7 +132,15 @@ pub struct JudgeSummary {
 impl JudgeSummary {
     /// Summarize the judged cases, or `None` when no case was judged.
     pub(super) fn of(cases: &[CaseResult]) -> Option<Self> {
-        let judged: Vec<&CaseJudgment> = cases.iter().filter_map(|c| c.judge.as_ref()).collect();
+        Self::of_judgments(cases.iter().filter_map(|c| c.judge.as_ref()))
+    }
+
+    /// Summarize judgments however they were gathered (an eval run or an items
+    /// file), or `None` when there are none.
+    pub(super) fn of_judgments<'a>(
+        judgments: impl Iterator<Item = &'a CaseJudgment>,
+    ) -> Option<Self> {
+        let judged: Vec<&CaseJudgment> = judgments.collect();
         let first = judged.first()?;
         let all: Vec<&Consensus> = judged
             .iter()

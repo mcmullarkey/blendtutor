@@ -36,6 +36,7 @@ mod blueprint;
 mod compare;
 mod consistency;
 mod detection;
+mod feedback_items;
 mod interval;
 mod judge;
 mod leakage;
@@ -52,6 +53,7 @@ pub use compare::{
 };
 pub use consistency::{Consistency, Discordance, Violation, classify};
 pub use detection::DetectionRow;
+pub use feedback_items::{FeedbackItem, ItemJudgeError, ItemJudgment, ItemsReport, judge_items};
 pub use interval::{newcombe_paired, wilson};
 pub use judge::{
     CaseJudgment, Consensus, CriterionRate, JudgeConfig, JudgeSummary, control_label, judge_case,

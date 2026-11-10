@@ -15,9 +15,9 @@ use serde::Serialize;
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
     AuditWarning, CaseResult, CompareReport, Conclusion, Consistency, CoverageRow, CriterionRate,
-    Decision, DetectionRow, Discordance, EvalReport, JudgeSummary, LabelAudit, LabelAuditReport,
-    LeakageSummary, MisconceptionCoverage, PairedChange, SourceRow, StabilityReport,
-    SuggestionCheck, Violation,
+    Decision, DetectionRow, Discordance, EvalReport, ItemsReport, JudgeSummary, LabelAudit,
+    LabelAuditReport, LeakageSummary, MisconceptionCoverage, PairedChange, SourceRow,
+    StabilityReport, SuggestionCheck, Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -429,7 +429,7 @@ fn render_eval(report: &EvalReport) -> String {
     }
     if let Some(judge) = report.judge() {
         lines.push(String::new());
-        lines.extend(judge_lines(judge));
+        lines.extend(judge_lines(judge, "cases graded incorrect"));
     }
     if let Some(footer) = next_steps_footer(report) {
         lines.push(String::new());
@@ -640,8 +640,9 @@ fn warning_text(warning: AuditWarning, case: &LabelAudit) -> String {
 
 /// The feedback judge section (ADR-0033): each criterion's pass rate with its
 /// interval, the mismatched-label control right under diagnosis so the two are
-/// read together, and how often the k samples agreed.
-fn judge_lines(judge: &JudgeSummary) -> Vec<String> {
+/// read together, and how often the k samples agreed. `scope` names what was
+/// judged, e.g. "cases graded incorrect".
+fn judge_lines(judge: &JudgeSummary, scope: &str) -> Vec<String> {
     let rate = |r: &CriterionRate| {
         let range = r
             .interval()
@@ -651,7 +652,7 @@ fn judge_lines(judge: &JudgeSummary) -> Vec<String> {
     };
     vec![
         format!(
-            "Feedback judge (majority of {} samples, on cases graded incorrect):",
+            "Feedback judge (majority of {} samples, on {scope}):",
             judge.samples()
         ),
         format!(
@@ -900,6 +901,21 @@ pub fn emit_compare(report: &CompareReport, format: OutputFormat) -> io::Result<
             serde_json::to_string(report).expect("a CompareReport serializes to JSON infallibly")
         }
         OutputFormat::Human => render_compare(report),
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// Emit a `judge-feedback` report (ADR-0034): JSON is the full report with
+/// every item's judgment by id; human output is the judge summary alone.
+pub fn emit_items(report: &ItemsReport, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("an ItemsReport serializes to JSON infallibly")
+        }
+        OutputFormat::Human => match report.judge() {
+            Some(judge) => judge_lines(judge, &format!("{} items", report.len())).join("\n"),
+            None => "No items to judge.".to_string(),
+        },
     };
     writeln!(io::stdout(), "{text}")
 }

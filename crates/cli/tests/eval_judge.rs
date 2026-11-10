@@ -2,7 +2,7 @@
 //! quality (ADR-0033).
 //!
 //! For each case the grader called incorrect, separate judge calls score two
-//! binary criteria, each with its rationale written before its verdict:
+//! binary criteria, each with its explanation written before its verdict:
 //! **diagnosis** (does the feedback name this item's misconception?) and
 //! **actionability** (does it give a concrete next step?). Each judgment is the
 //! majority of k samples. Every run also includes a **control**: the same
@@ -45,7 +45,7 @@ async fn judge_rule(server: &MockServer, needles: &[&str], pass: bool, priority:
         mock = mock.and(body_string_contains(*needle));
     }
     mock.respond_with(tool_reply(
-        serde_json::json!({ "rationale": "scripted", "pass": pass }),
+        serde_json::json!({ "explanation": "scripted", "pass": pass }),
     ))
     .with_priority(priority)
     .mount(server)
@@ -154,10 +154,10 @@ async fn judge_scores_diagnosis_and_actionability_with_a_control() {
         "3 cases x (diagnosis, control, actionability), all unanimous: {judge}"
     );
 
-    let rationale = &doc["cases"][1]["judge"]["diagnosis"]["rationales"][0];
+    let rationale = &doc["cases"][1]["judge"]["diagnosis"]["explanations"][0];
     assert_eq!(
         rationale, "scripted",
-        "per-case rationales are kept for review: {doc}"
+        "per-case explanations are kept for review: {doc}"
     );
 
     let requests = server.received_requests().await.expect("recording");

@@ -40,9 +40,12 @@ Option 3, as `blendtutor eval <lesson> --judge`.
 - **Binary verdicts** with an explicit construct definition in each prompt,
   anchored to a yes/no question, which raters (human or model) agree on more
   readily than on a scale.
-- **Rationale before verdict.** The tool schema orders `rationale` before
+- **Explanation before verdict.** The tool schema lists `explanation` before
   `pass` and the prompt asks for reasoning first, so the verdict is conditioned
-  on the reasoning rather than justified afterwards.
+  on the reasoning rather than justified afterwards. Schema properties reach the
+  model in alphabetical order (schemars over a sorted map), not declaration
+  order, so the field is named to sort first, and a unit test pins it. A field
+  named `rationale` would have silently asked for the verdict first.
 - **Reference-guided diagnosis.** The judge sees the item's misconception label
   and answers "does the feedback name *this*?". The construct is defined by the
   blueprint, not inferred by the judge.

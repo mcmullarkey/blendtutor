@@ -10,8 +10,8 @@
 use blendtutor_core::grade::CheckOutcome;
 use blendtutor_core::lesson::Lesson;
 use blendtutor_core::llm::{
-    CHECKS_LABEL, CLOSE_CODE, ExecResults, Grader, OPEN_CODE, OUTPUT_LABEL, Prompt, ProviderChoice,
-    Submission, Verdict, build_prompt, request_feedback,
+    CHECKS_LABEL, CLOSE_CODE, ExecResults, FeedbackError, Grader, OPEN_CODE, OUTPUT_LABEL, Prompt,
+    ProviderChoice, Submission, Verdict, build_prompt, request_feedback,
 };
 use blendtutor_core::runner::ExecutionResult;
 use serde_json::json;
@@ -528,4 +528,90 @@ fn build_prompt_places_feedback_guidance_after_criteria_and_before_code() {
             bare.as_str()
         );
     }
+}
+
+// ── Transient provider errors are retried (ADR-0033 amendment) ──
+//
+// A judged eval makes hundreds of provider calls; one 5xx used to abort the
+// whole run. Each arm pins the request count so a retry-forever or
+// never-retry implementation fails.
+
+async fn mount_status_then_tool_call(server: &MockServer, status: u16, failures: u64) {
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(status).set_body_string("{\"error\":\"transient\"}"))
+        .up_to_n_times(failures)
+        .with_priority(1)
+        .mount(server)
+        .await;
+    mount_tool_call(server, r#"{"is_correct":true,"feedback_message":"ok"}"#).await;
+}
+
+#[tokio::test]
+#[serial]
+async fn a_transient_server_error_is_retried_until_it_succeeds() {
+    set_key("FIREWORKS_API_KEY", "test-key");
+    let server = MockServer::start().await;
+    mount_status_then_tool_call(&server, 500, 2).await;
+    let verdict = request_feedback(
+        &Grader::default_for(ProviderChoice::Fireworks),
+        &sample_prompt(),
+        Some(&server.uri()),
+    )
+    .await
+    .expect("two 500s then a success yields the verdict");
+    assert!(matches!(verdict, Verdict::Correct { .. }));
+    assert_eq!(server.received_requests().await.unwrap().len(), 3);
+}
+
+#[tokio::test]
+#[serial]
+async fn a_rate_limit_is_retried_too() {
+    set_key("FIREWORKS_API_KEY", "test-key");
+    let server = MockServer::start().await;
+    mount_status_then_tool_call(&server, 429, 1).await;
+    request_feedback(
+        &Grader::default_for(ProviderChoice::Fireworks),
+        &sample_prompt(),
+        Some(&server.uri()),
+    )
+    .await
+    .expect("a 429 then a success yields the verdict");
+    assert_eq!(server.received_requests().await.unwrap().len(), 2);
+}
+
+#[tokio::test]
+#[serial]
+async fn retries_stop_after_a_bounded_number_of_attempts() {
+    set_key("FIREWORKS_API_KEY", "test-key");
+    let server = MockServer::start().await;
+    mount_status_then_tool_call(&server, 503, 100).await;
+    let err = request_feedback(
+        &Grader::default_for(ProviderChoice::Fireworks),
+        &sample_prompt(),
+        Some(&server.uri()),
+    )
+    .await
+    .expect_err("a provider that never recovers is an error");
+    assert!(matches!(err, FeedbackError::Completion(_)), "{err:?}");
+    assert_eq!(
+        server.received_requests().await.unwrap().len(),
+        4,
+        "1 try + 3 retries"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn a_client_error_is_not_retried() {
+    set_key("FIREWORKS_API_KEY", "test-key");
+    let server = MockServer::start().await;
+    mount_status_then_tool_call(&server, 401, 100).await;
+    request_feedback(
+        &Grader::default_for(ProviderChoice::Fireworks),
+        &sample_prompt(),
+        Some(&server.uri()),
+    )
+    .await
+    .expect_err("a bad key is not transient");
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
 }

@@ -15,12 +15,14 @@
 
 mod feedback;
 mod grader;
+mod judge;
 mod prompt;
 mod provider;
 mod suggest;
 
 pub use feedback::{FeedbackError, Verdict, request_feedback};
 pub use grader::{EmptyModelId, Grader, ModelId};
+pub use judge::{Criterion, JudgeVerdict, build_judge_prompt, request_judgment};
 pub use prompt::{
     CHECKS_LABEL, CLOSE_CODE, ExecResults, OPEN_CODE, OUTPUT_LABEL, Prompt, Submission,
     build_prompt,

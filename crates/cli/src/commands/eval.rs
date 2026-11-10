@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use anyhow::{Context, anyhow};
-use blendtutor_core::eval::{EvalReport, StabilityReport, parse_eval_suite, run_eval};
+use blendtutor_core::eval::{EvalReport, JudgeConfig, StabilityReport, parse_eval_suite, run_eval};
 use blendtutor_core::lesson::read_lesson_file;
 use blendtutor_core::llm::ModelId;
 use blendtutor_core::smevals_gen::course_root_for;
@@ -28,6 +28,16 @@ use crate::output::{self, OutputFormat};
 /// extraction would touch the frozen build/core boundary — and the build
 /// round-trip test fails on drift.
 const EVAL_REPORT_FILE: &str = "eval-report.json";
+
+/// The `--judge` options: samples per judgment and an optional judge model
+/// (ADR-0033).
+#[derive(Debug, Clone)]
+pub struct JudgeArgs {
+    /// Samples per judgment; the verdict is their majority.
+    pub samples: u32,
+    /// The judge model, when it should differ from the grader's.
+    pub model: Option<ModelId>,
+}
 
 /// Load the lesson and its sibling eval suite, score every case — or, with
 /// `case`, only the one 1-based case — through the run pipeline, and render the
@@ -57,6 +67,7 @@ pub fn run(
     write_report: bool,
     model: Option<ModelId>,
     repeat: Option<u32>,
+    judge: Option<JudgeArgs>,
 ) -> anyhow::Result<ExitCode> {
     // Canonicalize FIRST (mirrors eval_report.rs): course_root_for climbs the
     // lesson's ancestor chain, and a relative path from a CWD outside the
@@ -92,6 +103,15 @@ pub fn run(
     let suite = parse_eval_suite(&suite_yaml)?;
     let base_url = std::env::var(PROVIDER_URL_VAR).ok();
     let grader = grader_for(model);
+    // ADR-0033: the judge defaults to the grader's model; --judge-model sets
+    // a different one (mitigating self-preference).
+    let judge = judge.map(|args| JudgeConfig {
+        judge: match args.model {
+            Some(model) => grader_for(Some(model)),
+            None => grader.clone(),
+        },
+        samples: args.samples as usize,
+    });
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -108,6 +128,7 @@ pub fn run(
                 &grader,
                 base_url.as_deref(),
                 None,
+                judge.as_ref(),
             ))?);
         }
         output::emit_stability(&StabilityReport::of(&reports)?, format)?;
@@ -119,6 +140,7 @@ pub fn run(
         &grader,
         base_url.as_deref(),
         case,
+        judge.as_ref(),
     ))?;
 
     output::emit_eval(&report, format)?;

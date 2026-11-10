@@ -37,6 +37,7 @@ mod compare;
 mod consistency;
 mod detection;
 mod interval;
+mod judge;
 mod leakage;
 mod provenance;
 mod stability;
@@ -52,6 +53,9 @@ pub use compare::{
 pub use consistency::{Consistency, Discordance, Violation, classify};
 pub use detection::DetectionRow;
 pub use interval::{newcombe_paired, wilson};
+pub use judge::{
+    CaseJudgment, Consensus, CriterionRate, JudgeConfig, JudgeSummary, control_label, judge_case,
+};
 pub use leakage::{Leakage, LeakageSummary, assessable, code_blocks};
 pub use provenance::{ItemSource, SourceRow};
 pub use stability::{StabilityError, StabilityReport};
@@ -427,6 +431,10 @@ pub struct CaseResult {
     /// Present only for cases leakage could be measured on (ADR-0028).
     #[serde(skip_serializing_if = "Option::is_none")]
     leakage: Option<Leakage>,
+    /// The feedback judge's verdicts, present only under `eval --judge` on a
+    /// case the grader called incorrect (ADR-0033).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    judge: Option<CaseJudgment>,
 }
 
 impl CaseResult {
@@ -453,6 +461,7 @@ impl CaseResult {
             misconception: label.misconception().cloned(),
             source: ItemSource::Hand,
             leakage: None,
+            judge: None,
         }
     }
 
@@ -469,6 +478,13 @@ impl CaseResult {
     /// on it.
     pub fn with_leakage(mut self, leakage: Option<Leakage>) -> Self {
         self.leakage = leakage;
+        self
+    }
+
+    /// Record the feedback judge's verdicts (ADR-0033). They come from judge
+    /// calls made outside the pure scorer, and no derived field depends on them.
+    pub fn with_judge(mut self, judge: Option<CaseJudgment>) -> Self {
+        self.judge = judge;
         self
     }
 
@@ -533,6 +549,9 @@ pub struct EvalReport {
     /// Present only when some case was assessable for leakage (ADR-0028).
     #[serde(skip_serializing_if = "Option::is_none")]
     leakage: Option<LeakageSummary>,
+    /// Present only under `eval --judge` (ADR-0033).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    judge: Option<JudgeSummary>,
 }
 
 impl EvalReport {
@@ -551,12 +570,14 @@ impl EvalReport {
                 .map(|case| (case.expected, case.leakage))
                 .collect::<Vec<_>>(),
         );
+        let judge = JudgeSummary::of(&cases);
         Self {
             cases,
             accuracy,
             by_misconception,
             by_source,
             leakage,
+            judge,
         }
     }
 
@@ -584,6 +605,11 @@ impl EvalReport {
     /// Solution leakage over assessable incorrect cases, if any were assessable.
     pub fn leakage(&self) -> Option<&LeakageSummary> {
         self.leakage.as_ref()
+    }
+
+    /// The feedback judge's summary, present only under `eval --judge`.
+    pub fn judge(&self) -> Option<&JudgeSummary> {
+        self.judge.as_ref()
     }
 }
 
@@ -668,6 +694,7 @@ pub async fn run_eval(
     grader: &Grader,
     base_url_override: Option<&str>,
     case: Option<usize>,
+    judge: Option<&JudgeConfig>,
 ) -> Result<EvalReport, EvalRunError> {
     let selected = case
         .map(|requested| select_case_index(suite.cases.len(), requested))
@@ -700,7 +727,33 @@ pub async fn run_eval(
         } else {
             None
         };
-        cases.push(result.with_leakage(leakage));
+        // The feedback judge (ADR-0033) scores only feedback on cases the grader
+        // called incorrect: that is where it must diagnose and give a next step.
+        let judgment = match judge {
+            Some(config) if result.actual == ExpectedVerdict::Incorrect => {
+                let labels = suite_case.misconception().and_then(|id| {
+                    let own = suite.blueprint().iter().find(|m| &m.id == id)?;
+                    Some((own.label.as_str(), control_label(suite.blueprint(), id)))
+                });
+                Some(
+                    judge_case(
+                        config,
+                        &lesson.exercise.prompt,
+                        &suite_case.submission,
+                        result.feedback_message(),
+                        labels,
+                        base_url_override,
+                    )
+                    .await
+                    .map_err(|source| EvalRunError::Run {
+                        index,
+                        source: RunError::Feedback(source),
+                    })?,
+                )
+            }
+            _ => None,
+        };
+        cases.push(result.with_leakage(leakage).with_judge(judgment));
     }
     Ok(EvalReport::new(suite.blueprint(), cases))
 }

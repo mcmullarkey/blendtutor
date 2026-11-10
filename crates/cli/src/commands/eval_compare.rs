@@ -59,12 +59,14 @@ pub fn run(
         &grader,
         base_url.as_deref(),
         None,
+        None,
     ))?;
     let cand_report = runtime.block_on(run_eval(
         &candidate,
         &suite,
         &grader,
         base_url.as_deref(),
+        None,
         None,
     ))?;
     let comparison = CompareReport::new(base_report, cand_report, margin)?;

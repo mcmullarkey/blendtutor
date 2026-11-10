@@ -14,9 +14,10 @@ use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
-    AuditWarning, CaseResult, CompareReport, Conclusion, Consistency, CoverageRow, Decision,
-    DetectionRow, Discordance, EvalReport, LabelAudit, LabelAuditReport, LeakageSummary,
-    MisconceptionCoverage, PairedChange, SourceRow, StabilityReport, SuggestionCheck, Violation,
+    AuditWarning, CaseResult, CompareReport, Conclusion, Consistency, CoverageRow, CriterionRate,
+    Decision, DetectionRow, Discordance, EvalReport, JudgeSummary, LabelAudit, LabelAuditReport,
+    LeakageSummary, MisconceptionCoverage, PairedChange, SourceRow, StabilityReport,
+    SuggestionCheck, Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -426,6 +427,10 @@ fn render_eval(report: &EvalReport) -> String {
         lines.push(String::new());
         lines.push(leakage_line(summary));
     }
+    if let Some(judge) = report.judge() {
+        lines.push(String::new());
+        lines.extend(judge_lines(judge));
+    }
     if let Some(footer) = next_steps_footer(report) {
         lines.push(String::new());
         lines.push(footer);
@@ -631,6 +636,42 @@ fn warning_text(warning: AuditWarning, case: &LabelAudit) -> String {
                 .unwrap_or("a misconception"),
         ),
     }
+}
+
+/// The feedback judge section (ADR-0033): each criterion's pass rate with its
+/// interval, the mismatched-label control right under diagnosis so the two are
+/// read together, and how often the k samples agreed.
+fn judge_lines(judge: &JudgeSummary) -> Vec<String> {
+    let rate = |r: &CriterionRate| {
+        let range = r
+            .interval()
+            .map(|(lo, hi)| format!(" ({:.0}%–{:.0}%)", lo * 100.0, hi * 100.0))
+            .unwrap_or_default();
+        format!("{}/{}{range}", r.passed(), r.judged())
+    };
+    vec![
+        format!(
+            "Feedback judge (majority of {} samples, on cases graded incorrect):",
+            judge.samples()
+        ),
+        format!(
+            "  Diagnosis names the item's misconception: {}",
+            rate(judge.diagnosis())
+        ),
+        format!(
+            "    control, against a mismatched misconception: {}",
+            rate(judge.diagnosis_control())
+        ),
+        format!(
+            "  Gives an actionable next step: {}",
+            rate(judge.actionability())
+        ),
+        format!(
+            "  Judge consistency: {}/{} judgments unanimous across samples",
+            judge.unanimous(),
+            judge.judgments()
+        ),
+    ]
 }
 
 /// The solution-leakage line (ADR-0028): the leak rate over assessable incorrect

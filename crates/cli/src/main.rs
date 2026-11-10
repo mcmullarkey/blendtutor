@@ -97,6 +97,16 @@ enum Commands {
         /// instead of a single run.
         #[arg(long, value_parser = clap::value_parser!(u32).range(2..), conflicts_with_all = ["case", "write_report"])]
         repeat: Option<u32>,
+        /// Judge the grader's feedback on cases it called incorrect: diagnosis
+        /// (with a mismatched-label control) and actionability (ADR-0033).
+        #[arg(long)]
+        judge: bool,
+        /// Samples per judge verdict; the majority wins.
+        #[arg(long, default_value_t = 3, value_parser = clap::value_parser!(u32).range(1..))]
+        judge_samples: u32,
+        /// Judge with this provider model id instead of the grader's.
+        #[arg(long, requires = "judge")]
+        judge_model: Option<ModelId>,
     },
     /// Check each eval case's expected label against the lesson's checks
     /// (no LLM call, no API key). Exits 1 if any label contradicts them.
@@ -233,7 +243,21 @@ fn main() -> anyhow::Result<ExitCode> {
             write_report,
             model,
             repeat,
-        } => commands::eval::run(&lesson, format, case, write_report, model, repeat),
+            judge,
+            judge_samples,
+            judge_model,
+        } => commands::eval::run(
+            &lesson,
+            format,
+            case,
+            write_report,
+            model,
+            repeat,
+            judge.then_some(commands::eval::JudgeArgs {
+                samples: judge_samples,
+                model: judge_model,
+            }),
+        ),
         Commands::EvalReport { lesson } => commands::eval_report::run(&lesson),
         Commands::SuggestMisconceptions {
             lesson,

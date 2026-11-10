@@ -68,3 +68,13 @@ Option 3, as `blendtutor eval <lesson> --judge`.
   human labels (an Artifact labeling page) and reports TPR/TNR per criterion.
   The control is evidence of specificity, not of agreement with humans.
 - Actionability can become a guardrail in `eval-compare` once it is validated.
+
+## Amendment (2026-11-10): transient provider errors are retried
+
+The first real `--judge` run on lesson 03 (about 250 provider calls) died on a
+single Fireworks 500, as an earlier `--repeat` run had. A measurement pipeline
+that a single blip can abort cannot produce a judged run at all. The shared
+`extract` path now retries 5xx and 429 responses up to 3 times, with
+exponential backoff from 250 ms. Auth and other 4xx errors still fail
+immediately, and a provider that never recovers is still an error. This covers
+grader and judge calls alike.

@@ -14,9 +14,11 @@ use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
-    AuditWarning, CaseResult, CompareReport, Conclusion, Consistency, CoverageRow, Decision,
-    DetectionRow, Discordance, EvalReport, LabelAudit, LabelAuditReport, LeakageSummary,
-    MisconceptionCoverage, PairedChange, SourceRow, StabilityReport, SuggestionCheck, Violation,
+    AuditWarning, CaseResult, CompareReport, Conclusion, Consistency, CoverageRow,
+    CriterionAgreement, CriterionRate, Decision, DetectionRow, Discordance, EvalReport,
+    ItemsReport, JudgeAgreement, JudgeSummary, LabelAudit, LabelAuditReport, LeakageSummary,
+    MisconceptionCoverage, PairedChange, Rate, SourceRow, StabilityReport, SuggestionCheck,
+    Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -426,6 +428,10 @@ fn render_eval(report: &EvalReport) -> String {
         lines.push(String::new());
         lines.push(leakage_line(summary));
     }
+    if let Some(judge) = report.judge() {
+        lines.push(String::new());
+        lines.extend(judge_lines(judge, "cases graded incorrect"));
+    }
     if let Some(footer) = next_steps_footer(report) {
         lines.push(String::new());
         lines.push(footer);
@@ -631,6 +637,43 @@ fn warning_text(warning: AuditWarning, case: &LabelAudit) -> String {
                 .unwrap_or("a misconception"),
         ),
     }
+}
+
+/// The feedback judge section (ADR-0033): each criterion's pass rate with its
+/// interval, the mismatched-label control right under diagnosis so the two are
+/// read together, and how often the k samples agreed. `scope` names what was
+/// judged, e.g. "cases graded incorrect".
+fn judge_lines(judge: &JudgeSummary, scope: &str) -> Vec<String> {
+    let rate = |r: &CriterionRate| {
+        let range = r
+            .interval()
+            .map(|(lo, hi)| format!(" ({:.0}%–{:.0}%)", lo * 100.0, hi * 100.0))
+            .unwrap_or_default();
+        format!("{}/{}{range}", r.passed(), r.judged())
+    };
+    vec![
+        format!(
+            "Feedback judge (majority of {} samples, on {scope}):",
+            judge.samples()
+        ),
+        format!(
+            "  Diagnosis names the item's misconception: {}",
+            rate(judge.diagnosis())
+        ),
+        format!(
+            "    control, against a mismatched misconception: {}",
+            rate(judge.diagnosis_control())
+        ),
+        format!(
+            "  Gives an actionable next step: {}",
+            rate(judge.actionability())
+        ),
+        format!(
+            "  Judge consistency: {}/{} judgments unanimous across samples",
+            judge.unanimous(),
+            judge.judgments()
+        ),
+    ]
 }
 
 /// The solution-leakage line (ADR-0028): the leak rate over assessable incorrect
@@ -861,6 +904,83 @@ pub fn emit_compare(report: &CompareReport, format: OutputFormat) -> io::Result<
         OutputFormat::Human => render_compare(report),
     };
     writeln!(io::stdout(), "{text}")
+}
+
+/// Emit a `judge-feedback` report (ADR-0034): JSON is the full report with
+/// every item's judgment by id; human output is the judge summary alone.
+pub fn emit_items(report: &ItemsReport, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("an ItemsReport serializes to JSON infallibly")
+        }
+        OutputFormat::Human => match report.judge() {
+            Some(judge) => judge_lines(judge, &format!("{} items", report.len())).join("\n"),
+            None => "No items to judge.".to_string(),
+        },
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// Emit a `judge-agreement` report (ADR-0035).
+pub fn emit_agreement(report: &JudgeAgreement, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("a JudgeAgreement serializes to JSON infallibly")
+        }
+        OutputFormat::Human => render_agreement(report),
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// The human rendering of judge-vs-human agreement: TPR and TNR side by side
+/// per criterion (a yes-sayer reads as TNR 0), the disagreeing items to read,
+/// and any ids the join dropped. Pure (§2.1).
+fn render_agreement(report: &JudgeAgreement) -> String {
+    let rate = |r: &Rate| {
+        let range = r
+            .interval()
+            .map(|(lo, hi)| format!(" ({:.0}%–{:.0}%)", lo * 100.0, hi * 100.0))
+            .unwrap_or_default();
+        format!("{}/{}{range}", r.hits(), r.of())
+    };
+    let line = |name: &str, c: &CriterionAgreement| {
+        format!(
+            "  {name} ({} pairs): TPR {}, TNR {}",
+            c.pairs(),
+            rate(c.tpr()),
+            rate(c.tnr())
+        )
+    };
+    let plural =
+        |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+    let mut lines = vec![
+        "Judge vs human labels:".to_string(),
+        line("Diagnosis", report.diagnosis()),
+        line("Actionability", report.actionability()),
+    ];
+    let disagreements = report.disagreements();
+    if disagreements.is_empty() {
+        lines.push("  Disagreements: none".to_string());
+    } else {
+        let listed: Vec<String> = disagreements
+            .iter()
+            .map(|d| format!("{} {}", d.id(), d.criterion()))
+            .collect();
+        lines.push(format!(
+            "  Disagreements: {} ({})",
+            disagreements.len(),
+            listed.join(", ")
+        ));
+    }
+    let (unlabeled, unjudged) = (report.unlabeled().len(), report.unjudged().len());
+    if unlabeled + unjudged > 0 {
+        lines.push(format!(
+            "  Unpaired: {} without a label, {} without a judgment",
+            plural(unlabeled, "judged item", "judged items"),
+            plural(unjudged, "label", "labels"),
+        ));
+    }
+    lines.join("\n")
 }
 
 #[cfg(test)]

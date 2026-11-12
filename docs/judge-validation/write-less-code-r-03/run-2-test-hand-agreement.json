@@ -1,0 +1,1 @@
+{"diagnosis":{"pairs":0,"tpr":{"hits":0,"of":0},"tnr":{"hits":0,"of":0}},"actionability":{"pairs":20,"tpr":{"hits":7,"of":7,"interval":[0.6456611570247934,1.0]},"tnr":{"hits":13,"of":13,"interval":[0.7718981569447083,1.0]}},"disagreements":[],"unlabeled":[],"unjudged":[]}

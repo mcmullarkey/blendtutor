@@ -13,6 +13,8 @@ pub mod eval_compare;
 pub mod eval_report;
 pub mod export_quarto;
 pub mod init;
+pub mod judge_agreement;
+pub mod judge_feedback;
 pub mod list;
 pub mod new;
 pub mod run;

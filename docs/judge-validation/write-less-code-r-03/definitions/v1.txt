@@ -1,0 +1,1 @@
+Pass only if a learner could act on it right away: it says what to change, look at, or try next in this code. Fail if it only says the answer is wrong, only encourages, or stays so general it would fit any submission. Handing over a complete working solution does not count as a next step.

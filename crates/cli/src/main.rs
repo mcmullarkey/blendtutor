@@ -8,7 +8,7 @@ use std::process::ExitCode;
 
 use clap::{ArgGroup, Parser, Subcommand};
 
-use blendtutor_core::eval::Margin;
+use blendtutor_core::eval::{JudgeScope, Margin};
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::ModelId;
 use blendtutor_core::quarto_export::ExportShape;
@@ -97,6 +97,16 @@ enum Commands {
         /// instead of a single run.
         #[arg(long, value_parser = clap::value_parser!(u32).range(2..), conflicts_with_all = ["case", "write_report"])]
         repeat: Option<u32>,
+        /// Judge the grader's feedback on cases it called incorrect: diagnosis
+        /// (with a mismatched-label control) and actionability (ADR-0033).
+        #[arg(long)]
+        judge: bool,
+        /// Samples per judge verdict; the majority wins.
+        #[arg(long, default_value_t = 3, value_parser = clap::value_parser!(u32).range(1..))]
+        judge_samples: u32,
+        /// Judge with this provider model id instead of the grader's.
+        #[arg(long, requires = "judge")]
+        judge_model: Option<ModelId>,
     },
     /// Check each eval case's expected label against the lesson's checks
     /// (no LLM call, no API key). Exits 1 if any label contradicts them.
@@ -125,6 +135,45 @@ enum Commands {
         /// Grade both arms with this provider model id instead of the default.
         #[arg(long)]
         model: Option<ModelId>,
+    },
+    /// Compare `judge-feedback --format json` output with human pass/fail labels
+    /// on the same item ids: TPR and TNR per criterion (ADR-0035). No LLM call.
+    JudgeAgreement {
+        /// The `judge-feedback --format json` output.
+        judged: PathBuf,
+        /// A JSON array of labels: `id`, plus `diagnosis` and/or `actionability`
+        /// as "pass" or "fail".
+        labels: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
+    /// Judge feedback that already exists, from a JSON array of items (id, task,
+    /// submission, feedback, and optionally misconception and control), without
+    /// grading or running code (ADR-0034).
+    JudgeFeedback {
+        /// The JSON items file.
+        items: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+        /// Samples per judge verdict; the majority wins.
+        #[arg(long, default_value_t = 3, value_parser = clap::value_parser!(u32).range(1..))]
+        samples: u32,
+        /// Judge with this provider model id instead of the provider default.
+        #[arg(long)]
+        judge_model: Option<ModelId>,
+        /// Append each judgment to this JSON-lines file as it is made, and skip
+        /// items already in it, so an interrupted run resumes.
+        #[arg(long)]
+        checkpoint: Option<PathBuf>,
+        /// Judge only this criterion (diagnosis and its control are skipped).
+        #[arg(long, value_enum)]
+        criterion: Option<OnlyCriterion>,
+        /// Judge actionability by the definition in this file instead of the
+        /// built-in one (a prompt-optimization candidate, ADR-0036).
+        #[arg(long)]
+        actionability_definition: Option<PathBuf>,
     },
     /// Suggest misconceptions the lesson's eval blueprint does not cover yet, each
     /// with an example submission checked against the lesson's checks.
@@ -186,6 +235,13 @@ enum Commands {
 /// What `blendtutor new` creates. A nested subcommand rather than a positional
 /// string keeps the set of creatable things a checked sum type (§1.2) and lets it
 /// grow — e.g. a future `new eval` — without reparsing free text.
+/// A single criterion `judge-feedback` can be limited to.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+enum OnlyCriterion {
+    /// Does the feedback give a concrete next step?
+    Actionability,
+}
+
 #[derive(Subcommand)]
 enum NewTarget {
     /// Add a new lesson from a language template.
@@ -233,7 +289,21 @@ fn main() -> anyhow::Result<ExitCode> {
             write_report,
             model,
             repeat,
-        } => commands::eval::run(&lesson, format, case, write_report, model, repeat),
+            judge,
+            judge_samples,
+            judge_model,
+        } => commands::eval::run(
+            &lesson,
+            format,
+            case,
+            write_report,
+            model,
+            repeat,
+            judge.then_some(commands::eval::JudgeArgs {
+                samples: judge_samples,
+                model: judge_model,
+            }),
+        ),
         Commands::EvalReport { lesson } => commands::eval_report::run(&lesson),
         Commands::SuggestMisconceptions {
             lesson,
@@ -247,6 +317,31 @@ fn main() -> anyhow::Result<ExitCode> {
             margin,
             model,
         } => commands::eval_compare::run(&baseline, &candidate, format, margin, model),
+        Commands::JudgeAgreement {
+            judged,
+            labels,
+            format,
+        } => commands::judge_agreement::run(&judged, &labels, format),
+        Commands::JudgeFeedback {
+            items,
+            format,
+            samples,
+            judge_model,
+            checkpoint,
+            criterion,
+            actionability_definition,
+        } => commands::judge_feedback::run(
+            &items,
+            format,
+            samples,
+            judge_model,
+            checkpoint.as_deref(),
+            match criterion {
+                Some(OnlyCriterion::Actionability) => JudgeScope::ActionabilityOnly,
+                None => JudgeScope::All,
+            },
+            actionability_definition.as_deref(),
+        ),
         Commands::Audit { lesson, format } => commands::audit::run(&lesson, format),
         Commands::New { target } => match target {
             NewTarget::Lesson { lang, id } => commands::new::run(lang, &id),

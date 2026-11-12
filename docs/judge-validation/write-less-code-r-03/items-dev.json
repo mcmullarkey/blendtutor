@@ -1,0 +1,242 @@
+[
+ {
+  "id": "cmp-b-04",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) x",
+  "feedback": "Your `reverse_score` function currently just returns its input (`function(x) x`), so it doesn't reverse the scale. The first two checks fail because `reverse_score(c(1,2,3,4,5))` returns `c(1,2,3,4,5)` instead of `c(5,4,3,2,1)`.\n\nTo fix this, the function body should compute `6 - x` and return that value, e.g.:\n\n```r\nreverse_score <- function(x) {\n  6 - x\n}\n```\n\nThis returns the reversed vector (R implicitly returns the last expression), and since there's no `print()` or `cat()`, it also satisfies the \"return rather than print\" criterion. Your `survey_data` reconstruction looks correct, so once the arithmetic is fixed, all three checks should pass.",
+  "misconception": "returns the input unchanged",
+  "control": "function body has no final expression, so it returns NULL"
+ },
+ {
+  "id": "cmp-b-12",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) {\n  x\n}",
+  "feedback": "Your `reverse_score` function currently just returns `x` unchanged, so it never reverses the scale. Both checks fail because `reverse_score(c(1,2,3,4,5))` returns `c(1,2,3,4,5)` instead of `c(5,4,3,2,1)`.\n\nFix the body to actually compute the reversal, e.g.:\n\n```r\nreverse_score <- function(x) {\n  6 - x\n}\n```\n\nNote: the expression `6 - x` is the function's return value because the last evaluated expression in an R function is returned automatically \u2014 you do not need `print()` or `cat()`. (Good news: your function does return a value rather than printing, so once you correct the formula all three criteria should pass.)",
+  "misconception": "returns the input unchanged",
+  "control": "function body has no final expression, so it returns NULL"
+ },
+ {
+  "id": "cmp-b-13",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(score) return(score)",
+  "feedback": "The `reverse_score` function does not actually reverse the score \u2014 it simply returns its input unchanged (`function(score) return(score)`). It needs to compute `6 - x` so that a 1-5 scale flips to 5-1. For example:\n\n```r\nreverse_score <- function(x) {\n  6 - x\n}\n```\n\nWith this change, `reverse_score(c(1, 2, 3, 4, 5))` and `reverse_score(survey_data$stress_6)` will both return `c(5, 4, 3, 2, 1)`. (Your `survey_data` reconstruction is fine, and returning the value directly without `print()`/`cat()` is correct.)",
+  "misconception": "returns the input unchanged",
+  "control": "function body has no final expression, so it returns NULL"
+ },
+ {
+  "id": "cmp-b-14",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) {\n  reversed <- x\n  reversed\n}",
+  "feedback": "Your `reverse_score()` function returns the input unchanged (`reversed <- x; reversed`) instead of computing the reverse score. The 1\u20135 reverse-scoring formula is `6 - x`, so the body should be:\n\n```r\nreverse_score <- function(x) {\n  6 - x\n}\n```\n\nWith this change, `reverse_score(c(1, 2, 3, 4, 5))` yields `c(5, 4, 3, 2, 1)` and `reverse_score(survey_data$stress_6)` yields `c(5, 4, 3, 2, 1)`. (Good news: your function already returns the value rather than printing it, so that criterion is satisfied \u2014 only the computation needs fixing.)",
+  "misconception": "returns the input unchanged",
+  "control": "function body has no final expression, so it returns NULL"
+ },
+ {
+  "id": "cmp-b-18",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) c(5, 4, 3, 2, 1)",
+  "feedback": "While both supplied checks happen to pass, they only pass because both test inputs (c(1,2,3,4,5) and survey_data$stress_6) produce the same expected output. Your function ignores its argument entirely and always returns the hardcoded vector c(5, 4, 3, 2, 1):\n\n  reverse_score <- function(x) c(5, 4, 3, 2, 1)\n\nThe task requires actually computing `6 - x`, so the function must work for any numeric input, e.g. reverse_score(c(2, 3)) should return c(4, 3). Fix it to use the input:\n\n  reverse_score <- function(x) 6 - x\n\nThis returns the value (good \u2014 no print()/cat()), but it must depend on `x`.",
+  "misconception": "hard-codes the expected output instead of computing it",
+  "control": "ignores the argument and reads a survey_data column instead"
+ },
+ {
+  "id": "cmp-b-19",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) {\n  c(5, 4, 3, 2, 1)\n}",
+  "feedback": "Your `reverse_score()` passes both visible checks only by coincidence: both test inputs (c(1,2,3,4,5) and survey_data$stress_6) happen to be exactly the sequence 1,2,3,4,5, so the hardcoded vector c(5,4,3,2,1) matches. The function ignores its argument `x` entirely and always returns a fixed constant, so it does NOT implement \"6 - x\". For example, reverse_score(c(2,2,2,2,2)) should return c(4,4,4,4,4), but your version returns c(5,4,3,2,1) \u2014 wrong. Fix the body to actually compute the reversal, e.g. `6 - x`. (Your survey_data reconstruction is correct, and you correctly return rather than print, so keep those.)",
+  "misconception": "hard-codes the expected output instead of computing it",
+  "control": "ignores the argument and reads a survey_data column instead"
+ },
+ {
+  "id": "cmp-b-20",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) as.numeric(5:1)",
+  "feedback": "The function does not actually reverse-score the input: `reverse_score <- function(x) as.numeric(5:1)` ignores `x` entirely and always returns the constant `c(5, 4, 3, 2, 1)`. It only appears to pass because both test inputs happen to be `c(1, 2, 3, 4, 5)`. For any other input (e.g. `reverse_score(c(2, 3, 4, 5, 1))`, which should give `c(4, 3, 2, 1, 5)`), it returns the wrong answer. The task requires computing `6 - x`. Implement it as `reverse_score <- function(x) 6 - x` so the transformation is derived from the input rather than hardcoded.",
+  "misconception": "hard-codes the expected output instead of computing it",
+  "control": "ignores the argument and reads a survey_data column instead"
+ },
+ {
+  "id": "cmp-b-21",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) 6 - survey_data$stress_6",
+  "feedback": "The function ignores its argument. `reverse_score <- function(x) 6 - survey_data$stress_6` always computes `6 - survey_data$stress_6` regardless of what is passed in `x`. It only appears to pass because the test input `c(1, 2, 3, 4, 5)` happens to be identical to `survey_data$stress_6`. For any other input \u2014 e.g. `reverse_score(c(2, 2, 2, 2, 2))` \u2014 it would wrongly return `c(5, 4, 3, 2, 1)` instead of `c(4, 4, 4, 4, 4)`. The body should use the parameter: `reverse_score <- function(x) 6 - x`.",
+  "misconception": "ignores the argument and reads a survey_data column instead",
+  "control": "prints or cats the result instead of returning it"
+ },
+ {
+  "id": "cmp-b-22",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) {\n  6 - survey_data[[\"stress_6\"]]\n}",
+  "feedback": "The function signature takes an argument `x`, but the body never uses it: `reverse_score <- function(x) { 6 - survey_data[[\"stress_6\"]] }`. Instead of reversing whatever vector is passed in, it always hard-codes `survey_data$stress_6`. The checks only appear to pass because `survey_data$stress_6` happens to equal `c(1, 2, 3, 4, 5)`, so both test cases return the same values by coincidence. Any other input would still return `c(5, 4, 3, 2, 1)`, which is not the required behavior. Fix the body to use the parameter: `reverse_score <- function(x) { 6 - x }`. (The `survey_data` reconstruction and the \"returns rather than prints\" requirement are both fine \u2014 no `print()`/`cat()` inside the function.)",
+  "misconception": "ignores the argument and reads a survey_data column instead",
+  "control": "prints or cats the result instead of returning it"
+ },
+ {
+  "id": "cmp-b-23",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(column) 6 - survey_data$stress_3",
+  "feedback": "The function ignores its argument. `reverse_score <- function(column) 6 - survey_data$stress_3` always subtracts `survey_data$stress_3` regardless of what is passed in. It only appears to pass the checks by coincidence: `survey_data$stress_3` happens to equal `c(1, 2, 3, 4, 5)`, which is the same as both the test vector `c(1, 2, 3, 4, 5)` and `survey_data$stress_6`. If any of these values differed, the function would return the wrong result. The body should use the parameter, e.g. `reverse_score <- function(x) 6 - x` (or `6 - column`).",
+  "misconception": "ignores the argument and reads a survey_data column instead",
+  "control": "prints or cats the result instead of returning it"
+ },
+ {
+  "id": "cmp-b-27",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) rev(x)",
+  "feedback": "The two `stopifnot()` checks happen to pass, but that's a coincidence of the test data, not a correct solution. The spec requires `reverse_score(x)` to return `6 - x`, i.e. an element-wise reflection of the scale. Your implementation is `rev(x)`, which reverses the *order* of the elements and leaves the values untouched.\n\nThese coincide only because both test vectors contain a permutation of 1:5 in ascending order, so reversing them yields 5:1 \u2014 the same thing `6 - x` gives. Try a non-degenerate input to see the difference:\n\n```r\nreverse_score(c(1, 1, 5))\n#> rev() gives:        1 1 5   -> 5 1 1\n#> 6 - x should give:  c(5, 5, 1)\n```\n\n`rev(c(1, 1, 5))` returns `c(5, 1, 1)`, but the correct answer is `c(5, 5, 1)`. Any unsorted or repeated-value column (e.g. `survey_data$stress_1`) would also come out wrong.\n\nFix: use vectorised arithmetic instead of `rev()`:\n\n```r\nreverse_score <- function(x) 6 - x\n```\n\nThe rest of your setup is fine \u2014 `survey_data` is reconstructed correctly, and your function already returns its result rather than printing (no `print()`/`cat()` inside), so that criterion is satisfied.",
+  "misconception": "reverses the order of the vector instead of reverse-scoring it",
+  "control": "names the function something other than reverse_score"
+ },
+ {
+  "id": "cmp-b-28",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) x[length(x):1]",
+  "feedback": "Your function passes the two provided test cases, but only by coincidence \u2014 it does not actually implement the required behavior.\n\nThe task asks for `reverse_score(x)` to return `6 - x`. Your implementation is:\n\n    reverse_score <- function(x) x[length(x):1]\n\nThis reverses the *order* of the vector rather than subtracting each element from 6. It happens to match on `c(1, 2, 3, 4, 5)` (and on `survey_data$stress_6`, which is also `1:5`) only because that input is a symmetric ascending sequence where reversing and `6 - x` give the same result. For any other input the two operations diverge, e.g.:\n\n- `reverse_score(c(2, 5, 1))` returns `c(1, 5, 2)`, but `6 - c(2, 5, 1)` is `c(4, 1, 5)`.\n\nFix: compute the reverse-scored values directly, e.g.:\n\n    reverse_score <- function(x) 6 - x\n\nThis satisfies all three criteria: it produces `c(5, 4, 3, 2, 1)` for both `c(1, 2, 3, 4, 5)` and `survey_data$stress_6`, and it returns the result (no `print()`/`cat()`).",
+  "misconception": "reverses the order of the vector instead of reverse-scoring it",
+  "control": "names the function something other than reverse_score"
+ },
+ {
+  "id": "cmp-b-29",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) sort(x, decreasing = TRUE)",
+  "feedback": "The function does not actually perform reverse scoring. `reverse_score <- function(x) sort(x, decreasing = TRUE)` returns the *sorted* values, not `6 - x`. It only passes the two checks because the test inputs happen to be the sequence 1:5 (in ascending order), where sorting in decreasing order coincidentally equals `6 - x`. For any other input the result is wrong \u2014 e.g. `reverse_score(c(1, 1, 1))` returns `c(1, 1, 1)` instead of `c(5, 5, 5)`, and `reverse_score(c(2, 3, 4, 1, 5))` returns `c(5, 4, 3, 2, 1)` instead of `c(4, 3, 2, 5, 1)`. Implement the intended arithmetic instead: `reverse_score <- function(x) 6 - x`.",
+  "misconception": "reverses the order of the vector instead of reverse-scoring it",
+  "control": "names the function something other than reverse_score"
+ },
+ {
+  "id": "cmp-b-30",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverseScore <- function(x) 6 - x",
+  "feedback": "The reversal logic is correct (`6 - x`), and `survey_data` is reconstructed properly, but the function is named `reverseScore` (camelCase) instead of the required `reverse_score` (snake_case). Because of this, `reverse_score(...)` cannot be found, so the first two checks fail with \"could not find function 'reverse_score'\". Rename the function to `reverse_score <- function(x) 6 - x` and all checks should pass. (The function already returns the result without print()/cat(), so the third criterion is fine.)",
+  "misconception": "names the function something other than reverse_score",
+  "control": "uses the wrong scale maximum (e.g. 5 - x or 7 - x)"
+ },
+ {
+  "id": "cmp-b-31",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse.score <- function(x) 6 - x",
+  "feedback": "Your function is named `reverse.score` (with a dot) but the exercise requires `reverse_score` (with an underscore). R treats `.` and `_` as different characters in names, so `reverse_score(...)` fails with \"could not find function \\\"reverse_score\\\"\".\n\nFix: rename the function to use an underscore:\n\n    reverse_score <- function(x) 6 - x\n\nEverything else is fine \u2014 `survey_data` is constructed correctly, `stress_6` is `c(1, 2, 3, 4, 5)`, and the body `6 - x` returns the result without printing. After the rename, `reverse_score(c(1, 2, 3, 4, 5))` and `reverse_score(survey_data$stress_6)` will both return `c(5, 4, 3, 2, 1)`.",
+  "misconception": "names the function something other than reverse_score",
+  "control": "uses the wrong scale maximum (e.g. 5 - x or 7 - x)"
+ },
+ {
+  "id": "cmp-c-04",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) x",
+  "feedback": "Your `reverse_score` function currently just returns its input unchanged (`function(x) x`), so it hands back the original values instead of reversing them. That's why neither check passes \u2014 `reverse_score(c(1, 2, 3, 4, 5))` still yields `c(1, 2, 3, 4, 5)` rather than `c(5, 4, 3, 2, 1)`.\n\nThink about the reverse-scoring rule stated in the task: on a 1\u20135 scale, each value maps to its mirror opposite. Which simple arithmetic operation converts 1\u21925, 2\u21924, 3\u21923, 4\u21922, and 5\u21921? Rewrite the function body so it applies that operation to the whole vector and returns the result (vectorized arithmetic already handles every element at once, so no loop is needed). Keep the body to a plain expression or a `return(...)` \u2014 avoid `print()`/`cat()`, which would only display the value rather than return it. Your `survey_data` construction looks fine and can stay as is.",
+  "misconception": "returns the input unchanged",
+  "control": "function body has no final expression, so it returns NULL"
+ },
+ {
+  "id": "cmp-c-12",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) {\n  x\n}",
+  "feedback": "Your `survey_data` reconstruction looks good, but `reverse_score()` currently just returns the input unchanged (`x`), so no reversal happens. Think about the actual transformation the task describes: for a 1\u20135 scale, a response needs to be flipped to the opposite end of the scale. What arithmetic operation on `x` would map 1\u21925, 3\u21923, and 5\u21921? Apply that operation to the whole vector inside the function body, and make sure the value is returned (you already have that part right \u2014 just keep the computation as the last expression rather than wrapping it in `print()` or `cat()`).",
+  "misconception": "returns the input unchanged",
+  "control": "function body has no final expression, so it returns NULL"
+ },
+ {
+  "id": "cmp-c-13",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(score) return(score)",
+  "feedback": "Your survey_data reconstruction looks right (respondent_id plus stress_1 through stress_6, with stress_6 holding 1:5), and the function correctly *returns* its result rather than printing it \u2014 good.\n\nThe problem is inside the function body: `reverse_score` currently hands back its input unchanged, so `reverse_score(c(1, 2, 3, 4, 5))` gives `c(1, 2, 3, 4, 5)` instead of `c(5, 4, 3, 2, 1)`. A function must actually transform the value it was given, not just echo it.\n\nThink about the reversal rule described in the task: for a 1\u20135 scale, a score of 1 should become 5, 2 should become 4, 3 stays 3, and so on. Ask yourself what single arithmetic expression on the argument produces that mapping, then put that expression where the bare `score` is now. Keep using `return(...)` (or a bare expression) so the transformed value is what comes back \u2014 no `print()`/`cat()`.\n\nOnce you make that change, both the literal vector check and the `survey_data$stress_6` check should pass and produce the reversed values.",
+  "misconception": "returns the input unchanged",
+  "control": "function body has no final expression, so it returns NULL"
+ },
+ {
+  "id": "cmp-c-14",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) {\n  reversed <- x\n  reversed\n}",
+  "feedback": "Your function correctly sets up a variable to hold the result and returns it (good \u2014 no print()/cat(), and the final expression is the value), but the value it returns is just the input unchanged. The task is to *reverse score* the item: each response on the 1\u20135 scale needs to be transformed into its mirror on the opposite end of the scale.\n\nTake another look at the mapping the exercise describes: a 1 should become a 5, a 2 a 4, a 3 stays 3, and so on. Notice the relationship between each input and its expected output \u2014 is there a simple arithmetic expression involving `x` and the number 6 that produces that mapping for every element at once? R's arithmetic operators work element-wise on vectors, so a single expression applied to `x` will transform the whole vector. Assign that expression to `reversed` (instead of just copying `x`) and you'll satisfy both checks, including the `survey_data$stress_6` one.",
+  "misconception": "returns the input unchanged",
+  "control": "function body has no final expression, so it returns NULL"
+ },
+ {
+  "id": "cmp-c-18",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) c(5, 4, 3, 2, 1)",
+  "feedback": "Your function passes the two specific checks, but only by accident \u2014 it ignores its input `x` entirely and always returns the fixed vector `c(5, 4, 3, 2, 1)`. That happens to match the expected output for exactly these test inputs, but it isn't actually reverse-scoring anything. Try passing a different vector mentally, e.g. `reverse_score(c(2, 4))` \u2014 what should come back, and does your current function produce it? A genuine reverse-scoring function must use the values in `x` and transform each one according to the 1-5 scale reversal, so that its output depends on the input rather than being a constant.",
+  "misconception": "hard-codes the expected output instead of computing it",
+  "control": "ignores the argument and reads a survey_data column instead"
+ },
+ {
+  "id": "cmp-c-19",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) {\n  c(5, 4, 3, 2, 1)\n}",
+  "feedback": "Your function ignores its argument `x` \u2014 it always returns the fixed vector `c(5, 4, 3, 2, 1)` no matter what you pass in. It only \"passes\" right now because both test inputs happen to be exactly `c(1, 2, 3, 4, 5)`, so the hardcoded result matches by coincidence. Try calling it on something like `c(1, 2)` or `c(5, 4, 2)` in your head \u2014 a real reversal would give different answers, but your function always returns the same five values (and even the wrong length for shorter inputs). Rework the body so it actually uses `x` and applies the reversal arithmetic element-by-element instead of pasting in a literal vector. Good instinct keeping it a silent return (no `print`/`cat`) \u2014 keep that part.",
+  "misconception": "hard-codes the expected output instead of computing it",
+  "control": "ignores the argument and reads a survey_data column instead"
+ },
+ {
+  "id": "cmp-c-20",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) as.numeric(5:1)",
+  "feedback": "Your checks pass, but only because both test inputs happen to be the sequence 1:5. Look closely at your function: it ignores its argument `x` entirely and always returns the fixed vector `as.numeric(5:1)`. That means it would give the wrong answer for any other input (e.g., `reverse_score(c(2, 4))` still returns 5,4,3,2,1). The exercise asks you to compute `6 - x` from the input so the result depends on the values passed in. Try rewriting the body so it uses `x` in the calculation rather than returning a constant. (Your `survey_data` reconstruction looks fine.)",
+  "misconception": "hard-codes the expected output instead of computing it",
+  "control": "ignores the argument and reads a survey_data column instead"
+ },
+ {
+  "id": "cmp-c-21",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) 6 - survey_data$stress_6",
+  "feedback": "Your `reverse_score` function ignores its input `x` and instead hardcodes `survey_data$stress_6`. It happens to pass both checks only by coincidence \u2014 because `survey_data$stress_6` happens to be `c(1, 2, 3, 4, 5)`, so reversing it gives the same result the first check expects too. The function wouldn't work for any other input. A function should operate on whatever argument is passed in via the parameter `x`, not on a specific column from a data frame. Update the function body so it reverses the value of `x` itself (the argument), then test it with a different vector like `reverse_score(c(1, 2, 3))` to confirm it responds to its input.",
+  "misconception": "ignores the argument and reads a survey_data column instead",
+  "control": "prints or cats the result instead of returning it"
+ },
+ {
+  "id": "cmp-c-22",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) {\n  6 - survey_data[[\"stress_6\"]]\n}",
+  "feedback": "Your function never actually uses its argument `x`. Inside the body you reference `survey_data[[\"stress_6\"]]` directly, so the function always returns the reversed `stress_6` column regardless of what you pass in. The two checks only pass because both test inputs happen to be identical to `stress_6` (c(1,2,3,4,5)); try `reverse_score(c(1, 1, 5))` and you'll see it doesn't behave like a real reversal. Make the function operate on the vector that is passed in through `x` (i.e., use the parameter in the expression) instead of the hardcoded column.",
+  "misconception": "ignores the argument and reads a survey_data column instead",
+  "control": "prints or cats the result instead of returning it"
+ },
+ {
+  "id": "cmp-c-23",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(column) 6 - survey_data$stress_3",
+  "feedback": "Your function takes an argument called `column`, but the body never uses it \u2014 it always computes `6 - survey_data$stress_3` regardless of what you pass in. The checks happen to pass only because `stress_3` is `c(1, 2, 3, 4, 5)`, which is identical to the vectors you're testing with, so the result looks right by coincidence. Pass any other column or vector and you'll get the wrong answer.\n\nRewrite the function so it operates on the argument it's given, rather than a hard-coded column. That way `reverse_score(x)` will reverse whatever numeric vector `x` you supply. (You're already correctly returning the value without `print()`/`cat()`, so keep that part.)",
+  "misconception": "ignores the argument and reads a survey_data column instead",
+  "control": "prints or cats the result instead of returning it"
+ },
+ {
+  "id": "cmp-c-27",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) rev(x)",
+  "feedback": "Your function passes the two sample checks, but that's a coincidence you can exploit to spot the bug: both test inputs happen to be exactly `c(1, 2, 3, 4, 5)`. `rev()` reverses the *order* of the values, while the task asks you to reverse the *scale* (return `6 - x`). For `c(1, 2, 3, 4, 5)` those two operations give the same output, but think about an input like `c(1, 1, 5, 3)`: `rev()` would give `c(3, 5, 1, 1)`, whereas the scale-reversal (`6 - x`) should give `c(5, 5, 1, 3)`. Rework `reverse_score` so it applies the `6 - x` transformation on each element, and confirm it still returns the result (no `print()`/`cat()`).",
+  "misconception": "reverses the order of the vector instead of reverse-scoring it",
+  "control": "names the function something other than reverse_score"
+ },
+ {
+  "id": "cmp-c-28",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) x[length(x):1]",
+  "feedback": "Your checks pass, but only by coincidence \u2014 be careful! Your function reverses the order of the elements (x[length(x):1]) rather than transforming each value. For a perfect sequence like c(1,2,3,4,5), reversing the order and applying the 6-x transformation happen to give the same result, so the test can't tell them apart.\n\nTo see the difference, try a vector that isn't in ascending order, e.g. reverse_score(c(2, 5, 1)). What does your function return, and what does the task's definition (6 - x) say it should return? Think about which operation is described in the prompt \u2014 \"reverse score\" here means reflecting each value on the 1-5 scale, not reordering the vector. Adjust the function so each element is individually transformed by the scoring rule described in the task.",
+  "misconception": "reverses the order of the vector instead of reverse-scoring it",
+  "control": "names the function something other than reverse_score"
+ },
+ {
+  "id": "cmp-c-29",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse_score <- function(x) sort(x, decreasing = TRUE)",
+  "feedback": "Both checks pass, but your function is only passing by coincidence \u2014 it doesn't actually perform reverse scoring. `sort(x, decreasing = TRUE)` reorders the values rather than transforming them, and it only produces the right-looking output here because both inputs happen to already be in ascending order (1,2,3,4,5). Try, for example, `reverse_score(c(2, 2, 2))` or any non-ascending vector and you'll see the result is wrong. Reverse scoring on a 1-5 scale means mapping each individual value to its mirrored counterpart (i.e., transforming each element rather than rearranging the vector). Think about the arithmetic relationship between a value and its reversed value for this scale, and apply that operation element-wise. Make sure the function still returns the result silently (no print/cat).",
+  "misconception": "reverses the order of the vector instead of reverse-scoring it",
+  "control": "names the function something other than reverse_score"
+ },
+ {
+  "id": "cmp-c-30",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverseScore <- function(x) 6 - x",
+  "feedback": "Your `survey_data` reconstruction looks correct, and your function body (`6 - x`) is the right logic \u2014 it returns a value rather than printing, which is what we want.\n\nThe problem is the function's name. The checks call `reverse_score(...)`, but the function you defined is named `reverseScore`. In R, these are two completely different identifiers (R is case-sensitive and does not treat `_` and camelCase as equivalent). So when the test runs, `reverse_score` doesn't exist, hence the \"could not find function\" errors.\n\nReread the task spec carefully for the exact name it asks you to use, and make sure your definition matches it character-for-character. Once the name lines up with what the tests call, your existing logic should pass.",
+  "misconception": "names the function something other than reverse_score",
+  "control": "uses the wrong scale maximum (e.g. 5 - x or 7 - x)"
+ },
+ {
+  "id": "cmp-c-31",
+  "task": "Write a function `reverse_score(x)` that returns `6 - x` for a numeric\nvector on a 1-5 scale. Reconstruct `survey_data` first \u2014 each check runs\nin a fresh R session.",
+  "submission": "survey_data <- data.frame(\n  respondent_id = 1:5,\n  stress_1 = c(3, 4, 5, 2, 1),\n  stress_2 = c(2, 3, 4, 5, 1),\n  stress_3 = c(1, 2, 3, 4, 5),\n  stress_4 = c(5, 4, 3, 2, 1),\n  stress_5 = c(4, 3, 2, 1, 5),\n  stress_6 = c(1, 2, 3, 4, 5)\n)\nreverse.score <- function(x) 6 - x",
+  "feedback": "Your data reconstruction looks right, and the arithmetic inside your function is correct. The problem is the function's name: the checks look for `reverse_score`, but the function you defined uses a different spelling (`reverse.score` with a dot). In R, a dot and an underscore are not interchangeable, so no function named `reverse_score` exists in the session. Rename your function so it matches the required name exactly, then re-run your checks.",
+  "misconception": "names the function something other than reverse_score",
+  "control": "uses the wrong scale maximum (e.g. 5 - x or 7 - x)"
+ }
+]

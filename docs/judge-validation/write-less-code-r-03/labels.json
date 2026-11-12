@@ -1,0 +1,291 @@
+[
+ {
+  "id": "cmp-b-03",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer rather than walking the learner through what the next step in the process for discovering the answer would be."
+ },
+ {
+  "id": "cmp-b-04",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "This solution just leaks the answer rather than helping someone think through the next step of the learning process."
+ },
+ {
+  "id": "cmp-b-09",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Leaks the answer rather than explaining the thought of process of *why* the current answer doesn't quite get there."
+ },
+ {
+  "id": "cmp-b-10",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer rather than helping the learner find the next step + guide them to the correct *process* of finding the answer."
+ },
+ {
+  "id": "cmp-b-11",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-12",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-13",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-14",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-15",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-16",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer rather than walking the learner through what the next step in the process for discovering the answer would be."
+ },
+ {
+  "id": "cmp-b-17",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer rather than walking the learner through how they could generate the correct answer themselves. Also quite lengthy"
+ },
+ {
+  "id": "cmp-b-18",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-19",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-20",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer rather than walking the learner through what the next step in the process for discovering the answer would be."
+ },
+ {
+  "id": "cmp-b-21",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-22",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-23",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer rather than walking the learner through what the next step in the process for discovering the answer would be."
+ },
+ {
+  "id": "cmp-b-24",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-25",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-26",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-27",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-28",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-29",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-30",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-b-31",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer rather than walking the learner through what the next step in the process for discovering the answer would be. Even though this is mechanical, changing a naming, we could still get closer to giving effective feedback on how to think about naming vs. just giving the answer."
+ },
+ {
+  "id": "cmp-c-03",
+  "diagnosis": "pass",
+  "actionability": "pass"
+ },
+ {
+  "id": "cmp-c-04",
+  "diagnosis": "pass",
+  "actionability": "pass",
+  "note": "This is good, if wordy, feedback on how to think about the next step in the learning process!"
+ },
+ {
+  "id": "cmp-c-09",
+  "diagnosis": "pass",
+  "actionability": "pass"
+ },
+ {
+  "id": "cmp-c-10",
+  "diagnosis": "pass",
+  "actionability": "pass",
+  "note": "This is a good example of how to think through the next step on a close answer without just leaking the answer!"
+ },
+ {
+  "id": "cmp-c-11",
+  "diagnosis": "pass",
+  "actionability": "pass"
+ },
+ {
+  "id": "cmp-c-12",
+  "diagnosis": "pass",
+  "actionability": "pass"
+ },
+ {
+  "id": "cmp-c-13",
+  "diagnosis": "pass",
+  "actionability": "pass"
+ },
+ {
+  "id": "cmp-c-14",
+  "diagnosis": "pass",
+  "actionability": "pass",
+  "note": "Overall this is good BUT it's incredibly wordy + dense. I imagine a learner could potentially look at this feedback and have their eyes glaze over at the length."
+ },
+ {
+  "id": "cmp-c-15",
+  "diagnosis": "pass",
+  "actionability": "pass",
+  "note": "Overall good feedback on next step, but still pretty wordy, ideally would be more succinct."
+ },
+ {
+  "id": "cmp-c-16",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-c-17",
+  "diagnosis": "pass",
+  "actionability": "pass"
+ },
+ {
+  "id": "cmp-c-18",
+  "diagnosis": "pass",
+  "actionability": "pass"
+ },
+ {
+  "id": "cmp-c-19",
+  "diagnosis": "pass",
+  "actionability": "pass"
+ },
+ {
+  "id": "cmp-c-20",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-c-21",
+  "diagnosis": "pass",
+  "actionability": "pass"
+ },
+ {
+  "id": "cmp-c-22",
+  "diagnosis": "pass",
+  "actionability": "pass",
+  "note": "This is a good job of not leaking the answer, and it's also kind of a wall of text. A more succinct next step would be better."
+ },
+ {
+  "id": "cmp-c-23",
+  "diagnosis": "pass",
+  "actionability": "pass",
+  "note": ""
+ },
+ {
+  "id": "cmp-c-24",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-c-25",
+  "diagnosis": "pass",
+  "actionability": "pass",
+  "note": ""
+ },
+ {
+  "id": "cmp-c-26",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-c-27",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ },
+ {
+  "id": "cmp-c-28",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "There's a good attempt at a format of guiding people to the next step, but the reasoning is a bit confused + kind of leaks the 6 - x answer."
+ },
+ {
+  "id": "cmp-c-29",
+  "diagnosis": "pass",
+  "actionability": "pass"
+ },
+ {
+  "id": "cmp-c-30",
+  "diagnosis": "pass",
+  "actionability": "pass"
+ },
+ {
+  "id": "cmp-c-31",
+  "diagnosis": "pass",
+  "actionability": "fail",
+  "note": "Just leaks the answer instead of helping people think through the next step."
+ }
+]

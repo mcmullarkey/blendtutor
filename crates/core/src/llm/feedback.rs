@@ -170,6 +170,51 @@ pub(super) async fn extract<T>(
 where
     T: JsonSchema + for<'de> Deserialize<'de> + Serialize + Send + Sync + 'static,
 {
+    // A judged eval makes hundreds of calls, and one transient provider error
+    // used to abort the whole run. Retry 5xx and 429 a bounded number of times
+    // with exponential backoff; every other error returns at once.
+    let mut attempt = 0;
+    loop {
+        match extract_once::<T>(grader, prompt, base_url_override).await {
+            Err(FeedbackError::Completion(msg)) if is_transient(&msg) && attempt < MAX_RETRIES => {
+                tokio::time::sleep(RETRY_BASE_DELAY * 2u32.pow(attempt)).await;
+                attempt += 1;
+            }
+            result => return result,
+        }
+    }
+}
+
+/// Retries after the first attempt on a transient provider error.
+const MAX_RETRIES: u32 = 3;
+
+/// The first backoff delay; each retry doubles it.
+const RETRY_BASE_DELAY: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// Whether a completion error is a transient provider failure worth retrying: a
+/// 5xx server error, a 429 rate limit, or a request that never got a response
+/// (the HTTP client failed to send it, e.g. a dropped connection). Auth and
+/// other 4xx errors are not.
+fn is_transient(message: &str) -> bool {
+    if message.contains("error sending request") {
+        return true;
+    }
+    let Some(rest) = message.split("status code ").nth(1) else {
+        return false;
+    };
+    let code: String = rest.chars().take_while(char::is_ascii_digit).collect();
+    matches!(code.parse::<u16>(), Ok(429) | Ok(500..=599))
+}
+
+/// One provider call, with no retry.
+async fn extract_once<T>(
+    grader: &Grader,
+    prompt: &str,
+    base_url_override: Option<&str>,
+) -> Result<T, FeedbackError>
+where
+    T: JsonSchema + for<'de> Deserialize<'de> + Serialize + Send + Sync + 'static,
+{
     // The boundary guard fires first (§1.3.1): a missing key is a clear typed
     // error naming the var, before any rig client is built or any socket opened.
     let provider = grader.provider();
@@ -290,5 +335,30 @@ mod tests {
             matches!(mapped, FeedbackError::Completion(_)),
             "a completion failure maps to Completion, got {mapped:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod retry_tests {
+    use super::is_transient;
+
+    #[test]
+    fn server_errors_and_rate_limits_are_transient_and_nothing_else_is() {
+        for transient in [
+            "HttpError: Invalid status code 500 Internal Server Error with message: x",
+            "HttpError: Invalid status code 503 Service Unavailable",
+            "HttpError: Invalid status code 429 Too Many Requests",
+            // A dropped connection mid-run (seen live on a 450-call judge run).
+            "HttpError: Http client error: error sending request for url (https://api.fireworks.ai/inference/v1/chat/completions)",
+        ] {
+            assert!(is_transient(transient), "{transient}");
+        }
+        for permanent in [
+            "HttpError: Invalid status code 401 Unauthorized",
+            "HttpError: Invalid status code 404 Not Found",
+            "connection refused",
+        ] {
+            assert!(!is_transient(permanent), "{permanent}");
+        }
     }
 }

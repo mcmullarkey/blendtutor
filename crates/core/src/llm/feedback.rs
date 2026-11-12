@@ -192,8 +192,13 @@ const MAX_RETRIES: u32 = 3;
 const RETRY_BASE_DELAY: std::time::Duration = std::time::Duration::from_millis(250);
 
 /// Whether a completion error is a transient provider failure worth retrying: a
-/// 5xx server error or a 429 rate limit. Auth and other 4xx errors are not.
+/// 5xx server error, a 429 rate limit, or a request that never got a response
+/// (the HTTP client failed to send it, e.g. a dropped connection). Auth and
+/// other 4xx errors are not.
 fn is_transient(message: &str) -> bool {
+    if message.contains("error sending request") {
+        return true;
+    }
     let Some(rest) = message.split("status code ").nth(1) else {
         return false;
     };
@@ -343,6 +348,8 @@ mod retry_tests {
             "HttpError: Invalid status code 500 Internal Server Error with message: x",
             "HttpError: Invalid status code 503 Service Unavailable",
             "HttpError: Invalid status code 429 Too Many Requests",
+            // A dropped connection mid-run (seen live on a 450-call judge run).
+            "HttpError: Http client error: error sending request for url (https://api.fireworks.ai/inference/v1/chat/completions)",
         ] {
             assert!(is_transient(transient), "{transient}");
         }

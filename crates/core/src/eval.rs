@@ -60,7 +60,8 @@ pub use detection::DetectionRow;
 pub use feedback_items::{FeedbackItem, ItemJudgeError, ItemJudgment, ItemsReport, judge_item};
 pub use interval::{newcombe_paired, wilson};
 pub use judge::{
-    CaseJudgment, Consensus, CriterionRate, JudgeConfig, JudgeSummary, control_label, judge_case,
+    CaseJudgment, Consensus, CriterionRate, JudgeConfig, JudgeScope, JudgeSummary, control_label,
+    judge_case,
 };
 pub use leakage::{Leakage, LeakageSummary, assessable, code_blocks};
 pub use provenance::{ItemSource, SourceRow};

@@ -8,7 +8,7 @@ use std::process::ExitCode;
 
 use clap::{ArgGroup, Parser, Subcommand};
 
-use blendtutor_core::eval::Margin;
+use blendtutor_core::eval::{JudgeScope, Margin};
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::ModelId;
 use blendtutor_core::quarto_export::ExportShape;
@@ -167,6 +167,13 @@ enum Commands {
         /// items already in it, so an interrupted run resumes.
         #[arg(long)]
         checkpoint: Option<PathBuf>,
+        /// Judge only this criterion (diagnosis and its control are skipped).
+        #[arg(long, value_enum)]
+        criterion: Option<OnlyCriterion>,
+        /// Judge actionability by the definition in this file instead of the
+        /// built-in one (a prompt-optimization candidate, ADR-0036).
+        #[arg(long)]
+        actionability_definition: Option<PathBuf>,
     },
     /// Suggest misconceptions the lesson's eval blueprint does not cover yet, each
     /// with an example submission checked against the lesson's checks.
@@ -228,6 +235,13 @@ enum Commands {
 /// What `blendtutor new` creates. A nested subcommand rather than a positional
 /// string keeps the set of creatable things a checked sum type (§1.2) and lets it
 /// grow — e.g. a future `new eval` — without reparsing free text.
+/// A single criterion `judge-feedback` can be limited to.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+enum OnlyCriterion {
+    /// Does the feedback give a concrete next step?
+    Actionability,
+}
+
 #[derive(Subcommand)]
 enum NewTarget {
     /// Add a new lesson from a language template.
@@ -314,12 +328,19 @@ fn main() -> anyhow::Result<ExitCode> {
             samples,
             judge_model,
             checkpoint,
+            criterion,
+            actionability_definition,
         } => commands::judge_feedback::run(
             &items,
             format,
             samples,
             judge_model,
             checkpoint.as_deref(),
+            match criterion {
+                Some(OnlyCriterion::Actionability) => JudgeScope::ActionabilityOnly,
+                None => JudgeScope::All,
+            },
+            actionability_definition.as_deref(),
         ),
         Commands::Audit { lesson, format } => commands::audit::run(&lesson, format),
         Commands::New { target } => match target {

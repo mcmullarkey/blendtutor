@@ -13,7 +13,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use anyhow::{Context, anyhow};
-use blendtutor_core::eval::{EvalReport, JudgeConfig, StabilityReport, parse_eval_suite, run_eval};
+use blendtutor_core::eval::{
+    EvalReport, JudgeConfig, JudgeScope, StabilityReport, parse_eval_suite, run_eval,
+};
 use blendtutor_core::lesson::read_lesson_file;
 use blendtutor_core::llm::ModelId;
 use blendtutor_core::smevals_gen::course_root_for;
@@ -111,6 +113,8 @@ pub fn run(
             None => grader.clone(),
         },
         samples: args.samples as usize,
+        scope: JudgeScope::All,
+        actionability_definition: None,
     });
 
     let runtime = tokio::runtime::Builder::new_current_thread()

@@ -22,6 +22,20 @@ pub struct JudgeConfig {
     pub judge: Grader,
     /// Samples per judgment; the verdict is their majority.
     pub samples: usize,
+    /// Which criteria to judge.
+    pub scope: JudgeScope,
+    /// A candidate actionability definition replacing the built-in one.
+    pub actionability_definition: Option<String>,
+}
+
+/// Which criteria a judge run covers. Actionability is always judged.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum JudgeScope {
+    /// Diagnosis and its control (for tagged items), and actionability.
+    #[default]
+    All,
+    /// Actionability alone: what scoring an actionability candidate needs.
+    ActionabilityOnly,
 }
 
 /// The majority of k sampled verdicts on one criterion, with their explanations.
@@ -217,6 +231,10 @@ pub async fn judge_case(
             Ok::<_, FeedbackError>(Consensus::of(verdicts))
         }
     };
+    let labels = match config.scope {
+        JudgeScope::All => labels,
+        JudgeScope::ActionabilityOnly => None,
+    };
     let (diagnosis, diagnosis_control) = match labels {
         Some((own, control)) => {
             let diagnosis = sample(Criterion::Diagnosis { misconception: own }).await?;
@@ -233,7 +251,10 @@ pub async fn judge_case(
         }
         None => (None, None),
     };
-    let actionability = sample(Criterion::Actionability).await?;
+    let actionability = sample(Criterion::Actionability {
+        definition: config.actionability_definition.as_deref(),
+    })
+    .await?;
     Ok(CaseJudgment {
         diagnosis,
         diagnosis_control,

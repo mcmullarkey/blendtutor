@@ -22,8 +22,19 @@ pub enum Criterion<'a> {
         misconception: &'a str,
     },
     /// Does the feedback give the learner a concrete next step?
-    Actionability,
+    Actionability {
+        /// A candidate definition to judge by instead of
+        /// [`ACTIONABILITY_DEFINITION`] (prompt optimization, ADR-0036).
+        definition: Option<&'a str>,
+    },
 }
+
+/// The built-in actionability construct, shown to the judge and to human
+/// labelers alike.
+pub const ACTIONABILITY_DEFINITION: &str = "Pass only if a learner could act on it right away: it \
+     says what to change, look at, or try next in this code. Fail if it only says the answer \
+     is wrong, only encourages, or stays so general it would fit any submission. Handing over \
+     a complete working solution does not count as a next step.";
 
 /// The judge's answer: its explanation, then its verdict.
 ///
@@ -59,13 +70,12 @@ pub fn build_judge_prompt(
              lists many possible problems without singling this one out."
                 .to_string(),
         ),
-        Criterion::Actionability => (
+        Criterion::Actionability { definition } => (
             "CRITERION: actionability",
             "Does the feedback give the learner a concrete next step?".to_string(),
-            "Pass only if a learner could act on it right away: it says what to change, \
-             look at, or try next in this code. Fail if it only says the answer is wrong, \
-             only encourages, or stays so general it would fit any submission. Handing over \
-             a complete working solution does not count as a next step."
+            definition
+                .map(str::trim)
+                .unwrap_or(ACTIONABILITY_DEFINITION)
                 .to_string(),
         ),
     };
@@ -133,10 +143,24 @@ mod tests {
 
     #[test]
     fn an_actionability_prompt_excludes_solution_dumps_from_next_steps() {
-        let p = build_judge_prompt(Criterion::Actionability, "t", "s", "f");
+        let p = build_judge_prompt(Criterion::Actionability { definition: None }, "t", "s", "f");
         assert!(p.contains("CRITERION: actionability"));
         assert!(p.contains("complete working solution does not count"));
         assert!(!p.contains("CRITERION: diagnosis"));
+    }
+
+    #[test]
+    fn a_candidate_actionability_definition_replaces_the_built_in_one() {
+        let p = build_judge_prompt(
+            Criterion::Actionability {
+                definition: Some("  Guide, do not tell.\n"),
+            },
+            "t",
+            "s",
+            "f",
+        );
+        assert!(p.contains("\nGuide, do not tell.\n"), "{p}");
+        assert!(!p.contains(ACTIONABILITY_DEFINITION));
     }
 
     #[test]

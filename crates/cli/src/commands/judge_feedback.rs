@@ -15,7 +15,9 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use anyhow::Context;
-use blendtutor_core::eval::{FeedbackItem, ItemJudgment, ItemsReport, JudgeConfig, judge_item};
+use blendtutor_core::eval::{
+    FeedbackItem, ItemJudgment, ItemsReport, JudgeConfig, JudgeScope, judge_item,
+};
 use blendtutor_core::llm::ModelId;
 
 use crate::commands::{PROVIDER_URL_VAR, grader_for};
@@ -53,7 +55,9 @@ fn append_checkpoint(path: &Path, judged: &ItemJudgment) -> anyhow::Result<()> {
 }
 
 /// Judge every item in `items_path` with `samples` samples per judgment,
-/// skipping and appending to `checkpoint` when given.
+/// skipping and appending to `checkpoint` when given. `scope` limits the
+/// criteria, and `actionability_definition` replaces the built-in definition
+/// with a candidate read from a file (ADR-0036).
 ///
 /// An unreadable or malformed items or checkpoint file, or a judge failure on
 /// any item, propagates as an error (→ exit 1), naming the item that failed.
@@ -64,6 +68,8 @@ pub fn run(
     samples: u32,
     model: Option<ModelId>,
     checkpoint: Option<&Path>,
+    scope: JudgeScope,
+    actionability_definition: Option<&Path>,
 ) -> anyhow::Result<ExitCode> {
     let raw = std::fs::read_to_string(items_path)
         .with_context(|| format!("reading items {}", items_path.display()))?;
@@ -76,6 +82,13 @@ pub fn run(
     let config = JudgeConfig {
         judge: grader_for(model),
         samples: samples as usize,
+        scope,
+        actionability_definition: actionability_definition
+            .map(|path| {
+                std::fs::read_to_string(path)
+                    .with_context(|| format!("reading definition {}", path.display()))
+            })
+            .transpose()?,
     };
     let base_url = std::env::var(PROVIDER_URL_VAR).ok();
     let runtime = tokio::runtime::Builder::new_current_thread()

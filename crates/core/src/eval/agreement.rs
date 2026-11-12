@@ -289,4 +289,34 @@ mod tests {
             serde_json::from_str(r#"{"id":"a","actionability":"maybe"}"#);
         assert!(parsed.is_err());
     }
+
+    /// End to end over parsed files: "pass" and "fail" labels land on the
+    /// right side of TPR/TNR, and the disagreement records the person's verdict.
+    #[test]
+    fn pass_and_fail_labels_pair_with_judge_verdicts_by_id() {
+        let judged: JudgedFile = serde_json::from_str(
+            r#"{"items":[
+                {"id":"p","judge":{"actionability":{"pass":true}}},
+                {"id":"f","judge":{"actionability":{"pass":true}}}
+            ]}"#,
+        )
+        .expect("judged parses");
+        let labels: Vec<HumanLabel> = serde_json::from_str(
+            r#"[{"id":"p","actionability":"pass"},{"id":"f","actionability":"fail"}]"#,
+        )
+        .expect("labels parse");
+        let report = JudgeAgreement::of(&judged, &labels);
+        let a = report.actionability();
+        assert_eq!((a.tpr().hits(), a.tpr().of()), (1, 1));
+        assert_eq!((a.tnr().hits(), a.tnr().of()), (0, 1));
+        assert_eq!(
+            report.disagreements(),
+            [Disagreement {
+                id: "f".into(),
+                criterion: "actionability",
+                judge: true,
+                human: false,
+            }]
+        );
+    }
 }

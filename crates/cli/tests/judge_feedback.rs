@@ -216,3 +216,68 @@ async fn a_checkpointed_run_resumes_without_rejudging_finished_items() {
         "the new judgment was appended: {lines}"
     );
 }
+
+/// When I pass `--criterion actionability` and a definition file, only
+/// actionability is judged, and the judge sees my definition instead of the
+/// built-in one: what prompt optimization needs to score a candidate cheaply.
+#[tokio::test]
+async fn a_candidate_actionability_definition_replaces_the_built_in_one() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let items = dir.path().join("items.json");
+    std::fs::write(&items, ITEMS).expect("write items");
+    let definition = dir.path().join("actionability.txt");
+    std::fs::write(
+        &definition,
+        "DEF_MARKER Pass only if the learner is guided, not told.\n",
+    )
+    .expect("write definition");
+    let server = MockServer::start().await;
+    mount_judge(&server).await;
+
+    let output = judge_feedback(
+        &server,
+        &items,
+        &[
+            "--criterion",
+            "actionability",
+            "--actionability-definition",
+            &definition.display().to_string(),
+            "--format",
+            "json",
+        ],
+    )
+    .await;
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let requests = server.received_requests().await.expect("recording");
+    assert_eq!(
+        requests.len(),
+        6,
+        "2 items x actionability only x 3 samples"
+    );
+    for request in &requests {
+        let body = String::from_utf8_lossy(&request.body);
+        assert!(body.contains("CRITERION: actionability"), "{body}");
+        assert!(
+            body.contains("DEF_MARKER"),
+            "the candidate definition is sent: {body}"
+        );
+        assert!(
+            !body.contains("complete working solution does not count"),
+            "the built-in definition is replaced, not appended: {body}"
+        );
+    }
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).expect("one JSON document");
+    assert!(
+        doc["items"][0]["judge"].get("diagnosis").is_none(),
+        "diagnosis is skipped even for a tagged item: {doc}"
+    );
+    assert_eq!(
+        doc["items"][0]["judge"]["actionability"]["pass"], true,
+        "{doc}"
+    );
+}

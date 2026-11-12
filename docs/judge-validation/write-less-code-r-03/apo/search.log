@@ -1,0 +1,13 @@
+round 0 630d1196ad TPR 11/11 TNR 8/19 balanced 0.711
+round 1 82dba235c5 TPR 11/11 TNR 5/19 balanced 0.632
+round 1 e8bb137c43 TPR 7/11 TNR 18/19 balanced 0.792
+round 1 beam: [('e8bb137c43', 0.792), ('630d1196ad', 0.711)]
+round 2 f161b0aaa7 TPR 11/11 TNR 18/19 balanced 0.974
+round 2 5684f2fbde TPR 8/11 TNR 18/19 balanced 0.837
+round 2 b3ad4ea42f TPR 11/11 TNR 15/19 balanced 0.895
+round 2 88d04093ca TPR 9/11 TNR 17/19 balanced 0.856
+round 2 beam: [('f161b0aaa7', 0.974), ('b3ad4ea42f', 0.895)]
+round 3 5cee72da56 TPR 7/11 TNR 19/19 balanced 0.818
+round 3 c1387e9d8d TPR 6/11 TNR 19/19 balanced 0.773
+round 3 beam: [('f161b0aaa7', 0.974), ('b3ad4ea42f', 0.895)]
+best f161b0aaa7 balanced 0.974

@@ -31,6 +31,7 @@ use crate::lesson::Lesson;
 use crate::llm::{Grader, Submission, Verdict};
 use crate::run::{RunError, run_lesson};
 
+mod agreement;
 mod audit;
 mod blueprint;
 mod compare;
@@ -44,6 +45,9 @@ mod provenance;
 mod stability;
 mod suggestion;
 
+pub use agreement::{
+    CriterionAgreement, Disagreement, HumanLabel, JudgeAgreement, JudgedFile, LabelVerdict, Rate,
+};
 pub use audit::{
     AuditWarning, CoverageRow, LabelAudit, LabelAuditReport, MisconceptionCoverage, audit_labels,
 };

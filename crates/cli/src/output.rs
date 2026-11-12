@@ -14,10 +14,11 @@ use serde::Serialize;
 
 use blendtutor_core::course::{DiscoveryError, LessonSummary};
 use blendtutor_core::eval::{
-    AuditWarning, CaseResult, CompareReport, Conclusion, Consistency, CoverageRow, CriterionRate,
-    Decision, DetectionRow, Discordance, EvalReport, ItemsReport, JudgeSummary, LabelAudit,
-    LabelAuditReport, LeakageSummary, MisconceptionCoverage, PairedChange, SourceRow,
-    StabilityReport, SuggestionCheck, Violation,
+    AuditWarning, CaseResult, CompareReport, Conclusion, Consistency, CoverageRow,
+    CriterionAgreement, CriterionRate, Decision, DetectionRow, Discordance, EvalReport,
+    ItemsReport, JudgeAgreement, JudgeSummary, LabelAudit, LabelAuditReport, LeakageSummary,
+    MisconceptionCoverage, PairedChange, Rate, SourceRow, StabilityReport, SuggestionCheck,
+    Violation,
 };
 use blendtutor_core::lesson::Language;
 use blendtutor_core::llm::Verdict;
@@ -918,6 +919,68 @@ pub fn emit_items(report: &ItemsReport, format: OutputFormat) -> io::Result<()> 
         },
     };
     writeln!(io::stdout(), "{text}")
+}
+
+/// Emit a `judge-agreement` report (ADR-0035).
+pub fn emit_agreement(report: &JudgeAgreement, format: OutputFormat) -> io::Result<()> {
+    let text = match format {
+        OutputFormat::Json => {
+            serde_json::to_string(report).expect("a JudgeAgreement serializes to JSON infallibly")
+        }
+        OutputFormat::Human => render_agreement(report),
+    };
+    writeln!(io::stdout(), "{text}")
+}
+
+/// The human rendering of judge-vs-human agreement: TPR and TNR side by side
+/// per criterion (a yes-sayer reads as TNR 0), the disagreeing items to read,
+/// and any ids the join dropped. Pure (§2.1).
+fn render_agreement(report: &JudgeAgreement) -> String {
+    let rate = |r: &Rate| {
+        let range = r
+            .interval()
+            .map(|(lo, hi)| format!(" ({:.0}%–{:.0}%)", lo * 100.0, hi * 100.0))
+            .unwrap_or_default();
+        format!("{}/{}{range}", r.hits(), r.of())
+    };
+    let line = |name: &str, c: &CriterionAgreement| {
+        format!(
+            "  {name} ({} pairs): TPR {}, TNR {}",
+            c.pairs(),
+            rate(c.tpr()),
+            rate(c.tnr())
+        )
+    };
+    let plural =
+        |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+    let mut lines = vec![
+        "Judge vs human labels:".to_string(),
+        line("Diagnosis", report.diagnosis()),
+        line("Actionability", report.actionability()),
+    ];
+    let disagreements = report.disagreements();
+    if disagreements.is_empty() {
+        lines.push("  Disagreements: none".to_string());
+    } else {
+        let listed: Vec<String> = disagreements
+            .iter()
+            .map(|d| format!("{} {}", d.id(), d.criterion()))
+            .collect();
+        lines.push(format!(
+            "  Disagreements: {} ({})",
+            disagreements.len(),
+            listed.join(", ")
+        ));
+    }
+    let (unlabeled, unjudged) = (report.unlabeled().len(), report.unjudged().len());
+    if unlabeled + unjudged > 0 {
+        lines.push(format!(
+            "  Unpaired: {} without a label, {} without a judgment",
+            plural(unlabeled, "judged item", "judged items"),
+            plural(unjudged, "label", "labels"),
+        ));
+    }
+    lines.join("\n")
 }
 
 #[cfg(test)]

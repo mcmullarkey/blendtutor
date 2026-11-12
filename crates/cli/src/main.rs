@@ -136,6 +136,18 @@ enum Commands {
         #[arg(long)]
         model: Option<ModelId>,
     },
+    /// Compare `judge-feedback --format json` output with human pass/fail labels
+    /// on the same item ids: TPR and TNR per criterion (ADR-0035). No LLM call.
+    JudgeAgreement {
+        /// The `judge-feedback --format json` output.
+        judged: PathBuf,
+        /// A JSON array of labels: `id`, plus `diagnosis` and/or `actionability`
+        /// as "pass" or "fail".
+        labels: PathBuf,
+        /// Output format: `human` (default) or `json`.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+        format: OutputFormat,
+    },
     /// Judge feedback that already exists, from a JSON array of items (id, task,
     /// submission, feedback, and optionally misconception and control), without
     /// grading or running code (ADR-0034).
@@ -287,6 +299,11 @@ fn main() -> anyhow::Result<ExitCode> {
             margin,
             model,
         } => commands::eval_compare::run(&baseline, &candidate, format, margin, model),
+        Commands::JudgeAgreement {
+            judged,
+            labels,
+            format,
+        } => commands::judge_agreement::run(&judged, &labels, format),
         Commands::JudgeFeedback {
             items,
             format,

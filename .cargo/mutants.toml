@@ -11,3 +11,9 @@
 # service) tests that mutation runs must not depend on.
 examine_globs = ["crates/core/**/*.rs"]
 test_tool = "nextest"
+
+# Copy `.git` into the scratch build directory. Some core tests ask git about the
+# working tree (e.g. `generated_dir_is_gitignored_but_committed_output_is_not`
+# runs `git check-ignore`); without the repository they fail in the unmutated
+# baseline, which aborts the whole mutation run before any mutant is tested.
+copy_vcs = true

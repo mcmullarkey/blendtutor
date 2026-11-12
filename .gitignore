@@ -16,6 +16,8 @@ rv/library/
 # uv project venv (see pyproject.toml — docs-tooling env for the AC-215
 # evidence parse-check; created on first `uv run python` here)
 /.venv/
+# Python bytecode from uv-run scripts and their pytest runs (e.g. scripts/apo).
+__pycache__/
 
 # built site output (blendtutor build -o out); served locally for rodney runs
 /out

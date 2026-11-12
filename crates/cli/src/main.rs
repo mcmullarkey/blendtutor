@@ -163,6 +163,10 @@ enum Commands {
         /// Judge with this provider model id instead of the provider default.
         #[arg(long)]
         judge_model: Option<ModelId>,
+        /// Append each judgment to this JSON-lines file as it is made, and skip
+        /// items already in it, so an interrupted run resumes.
+        #[arg(long)]
+        checkpoint: Option<PathBuf>,
     },
     /// Suggest misconceptions the lesson's eval blueprint does not cover yet, each
     /// with an example submission checked against the lesson's checks.
@@ -309,7 +313,14 @@ fn main() -> anyhow::Result<ExitCode> {
             format,
             samples,
             judge_model,
-        } => commands::judge_feedback::run(&items, format, samples, judge_model),
+            checkpoint,
+        } => commands::judge_feedback::run(
+            &items,
+            format,
+            samples,
+            judge_model,
+            checkpoint.as_deref(),
+        ),
         Commands::Audit { lesson, format } => commands::audit::run(&lesson, format),
         Commands::New { target } => match target {
             NewTarget::Lesson { lang, id } => commands::new::run(lang, &id),

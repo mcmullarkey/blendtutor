@@ -8,7 +8,7 @@
 //! asks the judge model. It judges only feedback on cases the grader called
 //! incorrect; this module does not validate the judge against people.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::{CaseResult, Misconception, MisconceptionId, wilson};
 use crate::llm::{
@@ -25,7 +25,7 @@ pub struct JudgeConfig {
 }
 
 /// The majority of k sampled verdicts on one criterion, with their explanations.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Consensus {
     pass: bool,
     passes: usize,
@@ -59,7 +59,7 @@ impl Consensus {
 
 /// One judged case: diagnosis and its control (when the case is tagged and the
 /// blueprint has another misconception), and actionability.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CaseJudgment {
     #[serde(skip_serializing_if = "Option::is_none")]
     diagnosis: Option<Consensus>,

@@ -55,3 +55,13 @@ step" is the same sentence in the judge prompt and in the labeling desk.
 - Items carry their own task text, so one file can mix lessons.
 - The item schema is a second way into the judge, so it has to stay in step
   with `judge_case`'s inputs.
+
+## Amendment (2026-11-12): checkpoint and resume
+
+Two real runs over the 50 labeled items died partway: once on a dropped
+connection and once when the machine slept. Because the report was written
+only at the end, every paid call before the failure was lost. Now
+`--checkpoint <file.jsonl>` appends each item's judgment as soon as it is made
+(flushed to disk), and a re-run skips items already in the file. Core exposes
+`judge_item` and `ItemsReport::of` so the file handling stays in the CLI shell.
+The report keeps items-file order whether or not the run resumed.

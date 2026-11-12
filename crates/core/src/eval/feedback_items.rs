@@ -2,10 +2,11 @@
 //!
 //! [`FeedbackItem`] is one piece of recorded feedback with what the judge needs
 //! to see: the task, the learner's submission, and optionally the misconception
-//! it should diagnose plus a mismatched control label. [`judge_items`] applies
-//! [`judge_case`] to each item and summarizes the results the same way
-//! `eval --judge` does. Nothing here grades or runs code. This module does not
-//! read the file or compare the results with human labels.
+//! it should diagnose plus a mismatched control label. [`judge_item`] applies
+//! [`judge_case`] to one item, and [`ItemsReport::of`] summarizes finished
+//! judgments the same way `eval --judge` does, so a caller can checkpoint
+//! between items and resume. Nothing here grades or runs code. This module does
+//! not read or write files or compare the results with human labels.
 
 use serde::{Deserialize, Serialize};
 
@@ -79,11 +80,19 @@ impl TryFrom<RawItem> for FeedbackItem {
     }
 }
 
-/// One item's judgment, keyed by the item's id.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// One item's judgment, keyed by the item's id. It round-trips through JSON,
+/// one per line, as a run's checkpoint.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ItemJudgment {
     id: String,
     judge: CaseJudgment,
+}
+
+impl ItemJudgment {
+    /// The judged item's id.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
 }
 
 /// Every item's judgment plus the summary `eval --judge` reports.
@@ -95,7 +104,8 @@ pub struct ItemsReport {
 }
 
 impl ItemsReport {
-    fn new(items: Vec<ItemJudgment>) -> Self {
+    /// Summarize finished judgments, in the order given.
+    pub fn of(items: Vec<ItemJudgment>) -> Self {
         Self {
             judge: JudgeSummary::of_judgments(items.iter().map(|i| &i.judge)),
             items,
@@ -139,37 +149,34 @@ impl std::error::Error for ItemJudgeError {
     }
 }
 
-/// Judge every item in order.
-pub async fn judge_items(
+/// Judge one item: diagnosis and its control when the item is tagged, and
+/// actionability.
+pub async fn judge_item(
     config: &JudgeConfig,
-    items: &[FeedbackItem],
+    item: &FeedbackItem,
     base_url_override: Option<&str>,
-) -> Result<ItemsReport, ItemJudgeError> {
-    let mut judged = Vec::with_capacity(items.len());
-    for item in items {
-        let labels = item
-            .labels
-            .as_ref()
-            .map(|l| (l.misconception.as_str(), l.control.as_deref()));
-        let judge = judge_case(
-            config,
-            &item.task,
-            &item.submission,
-            &item.feedback,
-            labels,
-            base_url_override,
-        )
-        .await
-        .map_err(|source| ItemJudgeError {
-            id: item.id.clone(),
-            source,
-        })?;
-        judged.push(ItemJudgment {
-            id: item.id.clone(),
-            judge,
-        });
-    }
-    Ok(ItemsReport::new(judged))
+) -> Result<ItemJudgment, ItemJudgeError> {
+    let labels = item
+        .labels
+        .as_ref()
+        .map(|l| (l.misconception.as_str(), l.control.as_deref()));
+    let judge = judge_case(
+        config,
+        &item.task,
+        &item.submission,
+        &item.feedback,
+        labels,
+        base_url_override,
+    )
+    .await
+    .map_err(|source| ItemJudgeError {
+        id: item.id.clone(),
+        source,
+    })?;
+    Ok(ItemJudgment {
+        id: item.id.clone(),
+        judge,
+    })
 }
 
 #[cfg(test)]

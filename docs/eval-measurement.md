@@ -29,6 +29,16 @@ There’s lots of work to do to improve blendtutor’s LLM judge setup. And none
 
 I’ve added [tooling](https://mcmullarkey.github.io/blendtutor/whole-game.html#check-that-a-run-is-repeatable) that allows us to track retest reliability for a lesson’s eval. Establishing this baseline allows future work on LLM judges to proceed with more confidence. For example, in a test lesson the verdicts matched across three runs on 30 of 31 items (95% CI 84%-99%).
 
+## Criterion validity
+
+A strong base of content validity + retest reliability doesn't mean much if the feedback learners see doesn't line up with feedback an instructor would want to give. Therefore, we need LLM judges that can help determine if the feedback itself is up to snuff. I labeled an initial set of LLM provided feedback on diagnosis ("did the feedback correctly identify the misconception driving the error?") and concrete-next-step ("did the feedback provide a concrete next step without leaking the answer"). 
+
+First, I created a diverse synthetic learner answer + feedback data set across the full range of misconceptions. The concrete-next-step judge caught only 9 of 32 items I labeled as failures on concrete-next-step. By far the most common failure mode was leaking the solution while trying to explain the next step. 
+
+Revising the judge's prompt via [automated prompt optimization](https://arxiv.org/abs/2305.03495) led to an increase in balanced accuracy score from 0.62 to 0.86 on a held-out test set. The LLM feedback for diagnosis also saturated this item pool. While this is good from a feedback quality perspective, it means we need a v2 item pool with harder to diagnose failure modes to truly test this LLM judge. 
+
+Still, I'm more confident now the concrete-next-step LLM judge can identify which bits of LLM feedback need improvement in ways that highly agree with me on held-out items.
+
 ## Meta-evaluation
 
 A fair question to have during the content validity section: “How do you know you’re giving good suggestions about misconception coverage?” Let’s tackle this deceptively thorny question from two angles.
@@ -41,6 +51,6 @@ With this combination, we can tune the misconception coverage toward finding con
 
 ## What’s next?
 
-blendtutor’s evals system still has plenty of room to improve. The LLM judges are still almost completely untapped as a measurement science puzzle. We could integrate IRT across more continuous measurements of key concepts. We could take a further step back and even better define the grading pipeline + its stages and tackle each stage as a construct validity problem. And if I tried to do that all at once for this project this blog post would still be in drafts and no code would get pushed ever. So, I’m going to see how these improvements go and calibrate from there.
+blendtutor’s evals system still has plenty of room to improve. The LLM judges have plenty of room for improvement, like testing the judges on a greater diversity of lessons. We could integrate IRT across more continuous measurements of key concepts. We could take a further step back and even better define the grading pipeline + its stages and tackle each stage as a construct validity problem. And if I tried to do that all at once for this project this blog post would still be in drafts and no code would get pushed ever. So, I’m going to see how these improvements go and calibrate from there.
 
 If you’re interested in thinking about evals as a measurement science problem I recommend checking out [this paper](https://arxiv.org/abs/2411.10939) + [this practical set of tips](https://hamel.dev/blog/posts/evals-faq/).

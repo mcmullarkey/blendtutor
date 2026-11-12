@@ -140,3 +140,79 @@ async fn judges_existing_feedback_by_item_id() {
         assert!(stdout.contains(line), "missing {line:?} in: {stdout}");
     }
 }
+
+/// When a run with `--checkpoint` is interrupted and I run it again, items
+/// already in the checkpoint are not judged again: only the rest cost calls,
+/// and the report covers every item.
+#[tokio::test]
+async fn a_checkpointed_run_resumes_without_rejudging_finished_items() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let items = dir.path().join("items.json");
+    std::fs::write(&items, ITEMS).expect("write items");
+    let checkpoint = dir.path().join("judged.jsonl");
+    let consensus = r#"{"pass":true,"passes":3,"samples":3,"explanations":["a","b","c"]}"#;
+    std::fs::write(
+        &checkpoint,
+        format!(
+            "{{\"id\":\"hint\",\"judge\":{{\"diagnosis\":{consensus},\
+             \"diagnosis_control\":{consensus},\"actionability\":{consensus}}}}}\n"
+        ),
+    )
+    .expect("write checkpoint");
+    let server = MockServer::start().await;
+    mount_judge(&server).await;
+
+    let output = judge_feedback(
+        &server,
+        &items,
+        &[
+            "--checkpoint",
+            &checkpoint.display().to_string(),
+            "--format",
+            "json",
+        ],
+    )
+    .await;
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let requests = server.received_requests().await.expect("recording");
+    assert_eq!(
+        requests.len(),
+        3,
+        "only `paste` is judged: 1 criterion x 3 samples"
+    );
+    assert!(
+        requests
+            .iter()
+            .all(|r| String::from_utf8_lossy(&r.body).contains("FB_PASTE")),
+        "the checkpointed item is never sent again"
+    );
+
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).expect("one JSON document");
+    let ids: Vec<&str> = doc["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .map(|i| i["id"].as_str().expect("id"))
+        .collect();
+    assert_eq!(
+        ids,
+        ["hint", "paste"],
+        "items-file order, resumed or not: {doc}"
+    );
+    assert_eq!(
+        doc["judge"]["diagnosis_control"]["passed"].as_u64(),
+        Some(1),
+        "the checkpointed verdicts count in the summary: {doc}"
+    );
+    let lines = std::fs::read_to_string(&checkpoint).expect("checkpoint");
+    assert_eq!(
+        lines.lines().count(),
+        2,
+        "the new judgment was appended: {lines}"
+    );
+}

@@ -51,6 +51,8 @@ With this combination, we can tune the misconception coverage toward finding con
 
 ## What’s next?
 
-blendtutor’s evals system still has plenty of room to improve. The LLM judges have plenty of room for improvement, like testing the judges on a greater diversity of lessons. We could integrate IRT across more continuous measurements of key concepts. We could take a further step back and even better define the grading pipeline + its stages and tackle each stage as a construct validity problem. And if I tried to do that all at once for this project this blog post would still be in drafts and no code would get pushed ever. So, I’m going to see how these improvements go and calibrate from there.
+blendtutor’s evals system still has plenty of room to improve. We could evaluate the LLM judges on a greater diversity of lessons. We could integrate IRT across more continuous measurements of key concepts. We could take a further step back and even better define the grading pipeline + its stages and tackle each stage as a construct validity problem. 
+
+And if I tried to do that all at once for this project this blog post would still be in drafts and no code would get pushed ever. So, I’m going to see how these improvements go and calibrate from there.
 
 If you’re interested in thinking about evals as a measurement science problem I recommend checking out [this paper](https://arxiv.org/abs/2411.10939) + [this practical set of tips](https://hamel.dev/blog/posts/evals-faq/).
